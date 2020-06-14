@@ -1,5 +1,9 @@
 # Dodona
 
-## Sybl main web interface
+## Running Project
 
-To run, make sure latest nightly version of Rust is installed. Once this is done, make sure it is being used for the repo and use `cargo run` which will serve the website to http://localhost:8000.
+Use `docker-compose up`
+
+After it spins up go to `localhost:3000` (or {docker ip}:3000 on windows) to see the react front-end.
+
+The api layer can be viewed at `localhost:3000/api` due to the webpack-dev-server proxying setup. (which also means that you can directly use `fetch("/api/{whatever}")` from the React side and not worry about cross-origin request issues.
