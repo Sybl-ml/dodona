@@ -2,6 +2,6 @@ FROM node:8
 
 WORKDIR /usr/src/app
 
-RUN yarn
+RUN yarn run build
 
-EXPOSE 3000
+CMD ["serve", "-p", "3000", "-s", "."]
