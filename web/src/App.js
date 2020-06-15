@@ -7,7 +7,6 @@ class App extends Component {
   state = {
     contacts: [],
     apiMessage: "",
-    isLoaded: false
   }
 
   componentDidMount() {
@@ -16,14 +15,11 @@ class App extends Component {
       .then(
         (result) => {
           this.setState({
-            isLoaded: true,
             apiMessage: result
           });
         },
         (error) => {
-          this.setState({
-            isLoaded: true
-          });
+          console.log("Error");
         }
       )
     fetch("http://localhost:3001/api")
@@ -47,7 +43,7 @@ class App extends Component {
   }
 
   render() {
-    const { isLoaded, apiMessage, contacts } = this.state;
+    const { apiMessage, contacts } = this.state;
     return (
     <div className="App">
       <header className="App-header">
@@ -61,11 +57,11 @@ class App extends Component {
           {apiMessage}
         </p>
         <ul>
-            {/* {contacts.map((contact, index) => (
+            {contacts.map((contact, index) => (
                 <li key={index}>
                     {contact.name} {contact.age}
                 </li>
-            ))} */}
+            ))}
             {console.log(contacts)}
         </ul>
       </header>
