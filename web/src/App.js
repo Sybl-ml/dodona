@@ -46,7 +46,7 @@ class App extends Component {
       )
   }
 
-  public render() {
+  render() {
     const { isLoaded, apiMessage, contacts } = this.state;
     return (
     <div className="App">
