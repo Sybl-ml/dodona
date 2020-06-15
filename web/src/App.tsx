@@ -6,13 +6,14 @@ class App extends Component {
 
   state = {
     contacts: [],
+    apiMessage: ""
   }
 
   componentDidMount() {
-    fetch("http://localhost:3001/api")
-    .then(res => res.json())
+    fetch("http://localhost:3001/api/hello")
+    .then(res => res.text())
     .then((data) => {
-      this.setState({contacts: data})
+      this.setState({apiMessage: data})
     })
     .catch(console.log)
   }
@@ -27,7 +28,7 @@ class App extends Component {
         </h1>
         <h3>Distributed ML with Ensemble Methods</h3>
         <p>
-          
+          {this.state.apiMessage}
         </p>
       </header>
     </div>
