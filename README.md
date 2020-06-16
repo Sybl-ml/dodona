@@ -1,5 +1,21 @@
 # Dodona
 
-## Sybl main web interface
+## Required Technology
 
-To run, make sure latest nightly version of Rust is installed. Once this is done, make sure it is being used for the repo and use `cargo run` which will serve the website to http://localhost:8000.
+- Rust (Use `rustup` so version of Rust compiler can be changed)
+- npm
+- yarn
+- docker
+- docker-compose (if on MacOS, this comes with Docker Desktop)
+
+## Running Project
+
+Use `docker-compose up`
+
+After it spins up go to `localhost:3000` (or {docker ip}:3000 on windows) to see the React front-end.
+
+The API layer can be viewed at `localhost:3001/api`. You can directly use `fetch("localhost:3001/api/{whatever}")` from the React side to get data from the API.
+
+## First Time
+
+The first time this runs, it will need to download and create a number of docker images for the code to run on. This can take some time. On top of this, `react-scripts` will need to be installed so that the frontend can be run. To do this, run `npm install` in the `web` directory. This will build all the `node_modules` so they can be used by the frontend. 
