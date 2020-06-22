@@ -69,7 +69,8 @@ class App extends Component {
   <h2>Heading 2</h2>
   <h3>Heading 3</h3>
 	    <p> Testing sentence of testingly test </p>
-  </div>
+  <code>let u = 0</code>
+	    </div>
    );
   }
 }

@@ -14,7 +14,7 @@ ReactDOM.render(
 
 WebFont.load({
   google: {
-    families: ['Krona One']
+	  families: ['Lato']
   }
 });
 
