@@ -47,11 +47,13 @@ class App extends Component {
     return (
     <div className="App">
       <header className="App-header">
-        <img src="logo.png" className="App-logo" alt="logo" />
+        <img src="img/logo_tall.png" className="App-logo" alt="logo" />
+        <br/>
         <h1>
           Welcome to Sybl
         </h1>
-        <h3>Distributed ML with Ensemble Methods</h3>
+        <h2>Distributed ML with Ensemble Methods</h2>
+        <br/>
         <h3>Data from API</h3>
         <p>
           {apiMessage}
