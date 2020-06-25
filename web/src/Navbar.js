@@ -8,12 +8,10 @@ export class Header extends React.Component {
     			<Navbar.Brand href="#home">
       				<img
         			 alt=""
-        			 src="/logo.png"
+        			 src="img/logo_long.png"
         			 height="30"
-				 width="30"
         			 className="d-inline-block align-top"
 				/>{' '}
-      				<b>Sybl</b>
     			</Navbar.Brand>
 			<Nav className="mr-auto">
       				<Nav.Link href="#home">Home</Nav.Link>
