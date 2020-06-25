@@ -15,7 +15,7 @@ use rocket_contrib::templates::Template;
 use rocket_contrib::serve::StaticFiles;
 use rocket::http::Method;
 use rocket::{get, routes};
-use rocket_contrib::json::{Json, JsonValue};
+use rocket_contrib::json::JsonValue;
 use rocket_cors::{AllowedHeaders, AllowedOrigins, Error, CorsOptions};
 
 #[derive(Serialize)]
@@ -49,7 +49,7 @@ fn not_found(req: &Request) -> Template {
 
 fn main() -> Result<(), Error> {
     let cors = CorsOptions {
-        allowed_origins: AllowedOrigins::some_exact(&["http://localhost:3000"]),
+        allowed_origins: AllowedOrigins::some_exact(&["http://localhost:3000", "http://0.0.0.0:3000"]),
         allowed_methods: vec![Method::Get].into_iter().map(From::from).collect(),
         allowed_headers: AllowedHeaders::some(&["Authorization", "Accept"]),
         allow_credentials: true,
