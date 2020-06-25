@@ -19,11 +19,12 @@ export class Header extends React.Component {
       				<Nav.Link href="#home">Home</Nav.Link>
       				<Nav.Link href="#features">Features</Nav.Link>
       				<Nav.Link href="#pricing">Pricing</Nav.Link>
-    			</Nav>
-    			<Form inline>
-      				<FormControl type="text" placeholder="Search" className="mr-sm-2" />
-      				<Button variant="outline-primary">Search</Button>
-    			</Form>
+    		</Nav>
+    		<Navbar.Collapse className="justify-content-end">
+				<Navbar.Text>
+					Signed in as: <a href="/login.html">John Doe</a>
+				</Navbar.Text>
+			</Navbar.Collapse>
   		</Navbar>
         );
     }
