@@ -19,3 +19,6 @@ The API layer can be viewed at `localhost:3001/api`. You can directly use `fetch
 ## First Time
 
 The first time this runs, it will need to download and create a number of docker images for the code to run on. This can take some time. On top of this, `react-scripts` will need to be installed so that the frontend can be run. To do this, run `npm install` in the `web` directory. This will build all the `node_modules` so they can be used by the frontend. 
+
+## Index Page
+<img width="1920" alt="Sybl_Static" src="https://user-images.githubusercontent.com/37386274/85752077-041cc280-b703-11ea-8add-f29305779dea.png">
