@@ -2,12 +2,15 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
 import App from './App';
+import Header from './Navbar';
 import * as serviceWorker from './serviceWorker';
 import WebFont from 'webfontloader';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 ReactDOM.render(
   <React.StrictMode>
-    <App />
+    	<Header />
+	<App />
   </React.StrictMode>,
   document.getElementById('root')
 );
