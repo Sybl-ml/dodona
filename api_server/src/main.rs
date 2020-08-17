@@ -5,8 +5,8 @@ use mongodb::{options::ClientOptions, Client};
 use http_types::headers::HeaderValue;
 use tide::security::{CorsMiddleware, Origin};
 
-pub mod models;
 mod routes;
+
 
 #[derive(Clone, Debug)]
 pub struct State {
@@ -15,7 +15,7 @@ pub struct State {
 
 #[async_std::main]
 async fn main() -> Result<(), std::io::Error> {
-
+    
     // Configuring DB connection
     let mut client_options = match ClientOptions::parse("mongodb://localhost:27017").await {
         Ok(c) => c,
@@ -29,6 +29,7 @@ async fn main() -> Result<(), std::io::Error> {
         Err(e) => panic!("Client Creation Failed: {}", e)
     };
 
+
     let engine = State {
         client: Arc::new(client)
     };
@@ -39,6 +40,9 @@ async fn main() -> Result<(), std::io::Error> {
     let mut core_api = app.at("/api");
     core_api.at("/").get(routes::index);
     core_api.at("/hello").get(routes::hello);
+
+    let mut user_api = app.at("/api/users");
+    user_api.at("/").get(routes::users::show);
 
     
     // CORS
