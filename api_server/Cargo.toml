@@ -8,12 +8,12 @@ edition = "2018"
 
 [dependencies]
 
-rocket = "0.4.5"
-serde = "1.0"
-serde_derive = "1.0"
+tide = "0.13.0"
+async-std = { version = "1.6.0", features = ["attributes"] }
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-rocket_contrib = {version = "0.4.5", features = ["tera_templates"]}
-rocket_cors = "0.5.1"
-mongodb = "1.1.0-beta"
-r2d2 = "0.8.3"
-r2d2-mongodb = "*"
+dotenv = "0.13.0"
+anyhow = "1.0"
+mongodb = "1.0.0"
+wither = "0.9.0-alpha.1"
+http-types = "2.4.0"
