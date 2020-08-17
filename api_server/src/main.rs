@@ -5,6 +5,7 @@ use mongodb::{options::ClientOptions, Client};
 use http_types::headers::HeaderValue;
 use tide::security::{CorsMiddleware, Origin};
 
+pub mod models;
 mod routes;
 
 #[derive(Clone, Debug)]
