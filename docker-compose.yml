@@ -13,6 +13,8 @@ services:
       - api_server
 
   api_server:
+    env_file:
+      - mongo.env
     build: ./api_server
     ports: 
       - "3001:3001"
