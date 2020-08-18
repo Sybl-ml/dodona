@@ -1,0 +1,10 @@
+#[macro_use] extern crate serde_json;
+use mongodb::Client;
+use async_std::sync::Arc;
+pub mod models;
+pub mod routes;
+
+#[derive(Clone, Debug)]
+pub struct State {
+    pub client: Arc<Client>
+}

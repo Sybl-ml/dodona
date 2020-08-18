@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
-use bson::oid::ObjectId;
+use mongodb::bson::oid::ObjectId;
+use super::*;
 
 // Define a model. Simple as deriving a few traits.
 #[derive(Debug, Serialize, Deserialize)]
@@ -9,4 +10,17 @@ pub struct User {
     pub email: String,
     pub password: String,
     pub token: String,
+}
+
+impl model::Model for User {
+    const COLLECTION_NAME: &'static str = "users";
+
+    fn id(&self) -> Option<ObjectId> {
+        self.id.clone()
+    }
+
+    fn set_id(&mut self, id: ObjectId) {
+        self.id = Some(id);
+    }
+
 }

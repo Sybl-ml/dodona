@@ -1,18 +1,10 @@
-#[macro_use] extern crate serde_json;
-
 use async_std::sync::Arc;
 use mongodb::{options::ClientOptions, Client};
 use http_types::headers::HeaderValue;
 use tide::security::{CorsMiddleware, Origin};
 
-pub mod models;
-mod routes;
-
-
-#[derive(Clone, Debug)]
-pub struct State {
-    client: Arc<Client>
-}
+use dodona::routes;
+use dodona::State;
 
 #[async_std::main]
 async fn main() -> Result<(), std::io::Error> {
