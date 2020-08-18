@@ -6,5 +6,6 @@ pub mod routes;
 
 #[derive(Clone, Debug)]
 pub struct State {
-    pub client: Arc<Client>
+    pub client: Arc<Client>,
+    pub db_name: Arc<String>
 }

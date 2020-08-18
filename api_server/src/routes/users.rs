@@ -8,7 +8,7 @@ use crate::models::model::Model;
 
 pub async fn show(req: Request<State>) -> tide::Result {
     let state = &req.state();
-    let db = &state.client.database("sybl");
+    let db = &state.client.database(&state.db_name);
 
     let mut cursor = User::find(db.clone(), None, None).await.unwrap();
 
