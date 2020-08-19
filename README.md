@@ -20,9 +20,9 @@ The API layer can be viewed at `localhost:3001/api`. You can directly use `fetch
 
 To setup the MongoDB website functionality, either have a hosted or local instance of a MongoDB database.
 
-Once this is done, set the environment variables `MONGO_ADDR`, `MONGO_PORT`, `DB_NAME` as well as the `USR_NAME` and `USR_PWD`
+Once this is done, set the environment variables `MONGO_ADDR`, `MONGO_PORT`, `DB_NAME`, `APP_NAME` as well as the `USR_NAME` and `USR_PWD`. Some will need to change, others won't. This should be obvious.
 
-These should be set in the `mongo.env` file. This should be created using the `.mongo.env` template
+These should be set in the `.env` file. This should be created using the `env` template
 
 ## First Time
 

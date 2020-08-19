@@ -13,35 +13,18 @@ use dodona::State;
 async fn main() -> Result<(), std::io::Error> {
     
     dotenv().ok();
-    let mongo_addr = env::var("MONGO_ADDR").expect("MONGO_ADDR must be set");
-    let mongo_port = env::var("MONGO_PORT").expect("MONGO_PORT must be set");
-    let db_name = env::var("DB_NAME").expect("DB_NAME env var must be set");
-    let usr_name = env::var("USR_NAME").expect("USR_NAME must be set");
-    let usr_pwd = env::var("USR_PWD").expect("USR_PWD must be set");
-    let credential = Credential::builder()
-                        .username(Some(String::from(&usr_name)))
-                        .password(Some(String::from(&usr_pwd))).build();
+    let conn_str = env::var("CONN_STR").expect("CONN_STR must be set");
     let app_name = env::var("APP_NAME").expect("APP_NAME must be set");
 
-    let options = ClientOptions::builder()
-                                .hosts(vec![
-                                    StreamAddress {
-                                        hostname: mongo_addr.into(),
-                                        port: Some(mongo_port.parse::<u16>().unwrap()),
-                                    }
-                                ])
-                                .app_name(Some(String::from(app_name)))
-                                // .credential(Some(credential))
-                                .build();
-    
+    // Configuring DB connection
+    let mut client_options = match ClientOptions::parse(&conn_str).await {
+        Ok(c) => c,
+        Err(e) => panic!("Client Options Failed: {}", e)
+    };
 
-    // // Configuring DB connection
-    // let mut client_options = match ClientOptions::parse("mongodb://localhost:27017").await {
-    //     Ok(c) => c,
-    //     Err(e) => panic!("Client Options Failed: {}", e)
-    // };
+    client_options.app_name = Some(app_name);
 
-    let client = match Client::with_options(options) {
+    let client = match Client::with_options(client_options) {
         Ok(c) => c,
         Err(e) => panic!("Client Creation Failed: {}", e)
     };
@@ -49,7 +32,7 @@ async fn main() -> Result<(), std::io::Error> {
 
     let engine = State {
         client: Arc::new(client),
-        db_name: Arc::new(String::from(db_name))
+        db_name: Arc::new(String::from("sybl"))
     };
 
     let mut app = tide::with_state(engine);
@@ -61,6 +44,7 @@ async fn main() -> Result<(), std::io::Error> {
 
     let mut user_api = app.at("/api/users");
     user_api.at("/").get(routes::users::show);
+    user_api.at("/get/:user_id").get(routes::users::get);
 
     
     // CORS
