@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
-use mongodb::bson::oid::ObjectId;
 use super::*;
+use mongodb::bson::oid::ObjectId;
+use serde::{Deserialize, Serialize};
 
 // Define a model. Simple as deriving a few traits.
 #[derive(Debug, Serialize, Deserialize)]
@@ -22,5 +22,4 @@ impl model::Model for User {
     fn set_id(&mut self, id: ObjectId) {
         self.id = Some(id);
     }
-
 }

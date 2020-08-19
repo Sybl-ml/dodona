@@ -1,54 +1,62 @@
 use super::*;
-use async_std::stream::StreamExt;
-use tide::{Request, Response};
-use tide;
-use crate::models::users::User;
 use crate::models::model::Model;
-use mongodb::bson::{doc, oid::ObjectId};
+use crate::models::users::User;
+use async_std::stream::StreamExt;
+use mongodb::bson::{doc, document::Document, oid::ObjectId};
 use serde_json::value::Map;
+use tide;
+use tide::{Request, Response};
 
-
-pub async fn show(req: Request<State>) -> tide::Result {
+/// This route will take in a user ID in the request and
+/// will return the information for that user
+pub async fn get(req: Request<State>) -> tide::Result {
     let state = &req.state();
-    let db = &state.client.database(&state.db_name);
-
-    let mut cursor = User::find(db.clone(), None, None).await.unwrap();
-    let mut docs: Vec<User> = Vec::new();
-    while let Some(user) = cursor.next().await {
-        docs.push(user?);
-    }
-
+    let db = &state.client.database("sybl");
+    let id = req.param::<String>("user_id")?;
+    let object_id = ObjectId::with_string(&id).unwrap();
+    let filter = doc! { "_id": object_id };
+    let doc = User::find_one(db.clone(), filter, None).await?;
     let response = Response::builder(200)
-                        .body(json!(&docs))
-                        .content_type(mime::JSON)
-                        .build();
+        .body(json!(doc))
+        .content_type(mime::JSON)
+        .build();
 
     Ok(response)
 }
 
-pub async fn get(req: Request<State>) -> tide::Result{
+/// More general version of get. Allows filter to be passed to
+/// the find. This will return a JSON object containing multiple
+/// users
+pub async fn filter(mut req: Request<State>) -> tide::Result {
     let state = &req.state();
-    let db = &state.client.database("test");
-    let id = req.param::<String>("user_id")?;
-    println!("UserID: {}", id);
+    let db = &state.client.database("sybl");
+    let filter: Document = req.body_json().await?;
+    println!("Filter: {:?}", &filter);
+    let mut cursor = User::find(db.clone(), filter, None).await?;
+    let mut docs: Vec<User> = Vec::new();
+    while let Some(user) = cursor.next().await {
+        docs.push(user?);
+    }
+    Ok(Response::builder(200)
+        .body(json!(docs))
+        .content_type(mime::JSON)
+        .build())
+}
 
-    let object_id = ObjectId::with_string(&id).unwrap();
-    println!("ObjectID: {:?}", &object_id);
-    let filter = doc! { "_id": object_id };
-
-    println!("Filter: {}", &filter);
-
-    let filter = doc!{"token": "tkn1"};
-
-    let doc = User::find_one(db.clone(), filter, None).await?;
-    println!("{:?}", doc);
-
-    
-
-    let response = Response::builder(200)
-                        .body(json!(doc))
-                        .content_type(mime::JSON)
-                        .build();
-
-    Ok(response)
+/// A User information is passed as a JSON object and it is either updated
+/// or created in the database.
+/// If a JSON object is passed with an object ID, then it is saved as a user
+/// under that ObjectId, updating the current existing information in the DB.
+/// If the object is passed without the ObjectId, but has all other fields, it
+/// is saved as a new user.
+pub async fn edit(mut req: Request<State>) -> tide::Result {
+    let state = &req.state();
+    let db = &state.client.database("sybl");
+    let mut user: User = req.body_json().await?;
+    user.save(db.clone(), None).await?;
+    println!("User: {:?}", &user);
+    Ok(Response::builder(200)
+        .body(json!(user))
+        .content_type(mime::JSON)
+        .build())
 }
