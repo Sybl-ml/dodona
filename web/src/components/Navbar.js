@@ -3,16 +3,14 @@ import { Navbar, Nav, NavDropdown, Button } from 'react-bootstrap';
 
 import MemoLogo from '../icons/Logo.js';
 
-
-const Header= () => {
-
+const Header = ({theme}) => {
         return (
-		<Navbar fixed="top">
+		<Navbar sticky="top">
 			<Navbar.Brand href="#home">
 			
 				<MemoLogo 
-					height="30"
-					className="d-inline-block align-top"
+					
+					theme={theme} 
 				/> 
 			</Navbar.Brand>
 				

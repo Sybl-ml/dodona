@@ -16,12 +16,12 @@ export const GlobalStyles = createGlobalStyle`
     background: ${({ theme }) => theme.body};
     color: ${({ theme }) => theme.text};
     font-family: kollektif, sans-serif;
-    transition: all 0.25s linear;
+    text-align: center;
   }
 
   .btn-primary {
     background-color: ${({ theme }) => theme.mid};
-    border: none;
+    border: 0.2rem solid ${({ theme }) => theme.mid};;
 
     &:hover {
       background-color: ${({ theme }) => theme.text};
@@ -36,10 +36,17 @@ export const GlobalStyles = createGlobalStyle`
       outline:none;
     }
   }
+
+  .outline{
+    background-color:transparent;
+    color: ${({ theme }) => theme.mid};
+  }
   
   .navbar {
     min-height: 4rem;
-    margin: 1rem;
+    background-color:${({ theme }) => theme.body};
+    opacity:0.9;
+    transition: all 0.25s linear;
   }
 
   .navbar .navbar-nav .nav-link.active{
@@ -52,6 +59,7 @@ export const GlobalStyles = createGlobalStyle`
 
   .navbar .navbar-nav .nav-link{
     color: ${({ theme }) => theme.text};
+    font-size:1.2rem;
     &:hover {
        color:${({ theme }) => theme.mid};
     } 
@@ -87,5 +95,14 @@ export const GlobalStyles = createGlobalStyle`
    }
   }
 
+  .highlight{
+    padding-bottom:2rem;
+    text-align: center;
+    background-color: ${({ theme }) => theme.highlight};
+  }
+
+  .highlight-text{
+    color: ${({ theme }) => theme.dark};
+  }
 
   `

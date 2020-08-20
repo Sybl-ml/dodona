@@ -1,10 +1,12 @@
 import React from "react";
-import {ThemeProvider} from "styled-components";
 
+import {ThemeProvider} from "styled-components";
 import  {useDarkMode} from "./components/useDarkMode"
 import { GlobalStyles } from "./components/Globalstyle";
 import { lightTheme, darkTheme } from "./components/Themes"
 import Toggle from "./components/Toggler"
+import Header from './components/Navbar';
+import Welcome from "./components/Welcome";
 
 const App= () => {
   
@@ -19,22 +21,9 @@ const App= () => {
     <ThemeProvider theme={themeMode}>
       <>
         <GlobalStyles/>
-          <div className="App">
-            <header className="App-header">
-              
-            <br/>
-              <br/>
-              <br/>
-              <br/>
-              <h1>
-                Welcome to Sybl
-              </h1>
-              <h2>Distributed ML with Ensemble Methods</h2>
-              
-            </header>
-
+          <Header theme={theme} />
+          <Welcome />
           <Toggle theme={theme} toggleTheme={themeToggler} />
-        </div>
       </>
     </ThemeProvider>
   );
