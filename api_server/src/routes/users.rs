@@ -55,8 +55,9 @@ pub async fn edit(mut req: Request<State>) -> tide::Result {
     let mut user: User = req.body_json().await?;
     user.save(db.clone(), None).await?;
     println!("User: {:?}", &user);
+    let user_id = user.id().unwrap();
     Ok(Response::builder(200)
-        .body(json!(user))
+        .body(json!(doc!{"user_id": user_id.to_string()}))
         .content_type(mime::JSON)
         .build())
 }
