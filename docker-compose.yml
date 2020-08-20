@@ -12,10 +12,10 @@ services:
     links:
       - api_server
 
-  api_server:
+  api-server:
     environment:
       - ROCKET_ENV=development
-    build: ./api_server
+    build: ./api-server
     ports: 
       - "3001:3001"
     volumes:
