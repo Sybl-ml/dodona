@@ -10,16 +10,14 @@ services:
     stdin_open: true
     command: yarn start
     links:
-      - api_server
+      - api-server
 
   api-server:
-    environment:
-      - ROCKET_ENV=development
     build: ./api-server
     ports: 
       - "3001:3001"
     volumes:
-      - ./api_server:/usr/src/app
+      - ./api-server:/usr/src/app
     working_dir: /usr/src/app
     command: cargo watch -x run
 
