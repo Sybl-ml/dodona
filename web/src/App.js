@@ -1,75 +1,43 @@
-import React, {Component} from 'react';
-import './App.css';
-// import List from './List';
+import React from "react";
+import {ThemeProvider} from "styled-components";
 
-class App extends Component {
+import  {useDarkMode} from "./components/useDarkMode"
+import { GlobalStyles } from "./components/Globalstyle";
+import { lightTheme, darkTheme } from "./components/Themes"
+import Toggle from "./components/Toggler"
 
-  state = {
-    contacts: [],
-    apiMessage: "",
-  }
+const App= () => {
+  
+  const [theme, themeToggler, mountedComponent] = useDarkMode();
 
-  componentDidMount() {
-    fetch("http://localhost:3001/api/hello")
-    .then(res => res.text())
-      .then(
-        (result) => {
-          this.setState({
-            apiMessage: result
-          });
-        },
-        (error) => {
-          console.log("Error");
-        }
-      )
-    fetch("http://localhost:3001/api")
-    .then(res => res.json())
-      .then(
-        (result) => {
-          console.log(result.name);
-          var joined = this.state.contacts.concat(result);
-          this.setState({
-            isLoaded: true,
-            contacts: joined
-          });
-        },
-        (error) => {
-          this.setState({
-            isLoaded: true,
-            contacts: []
-          });
-        }
-      )
-  }
+  const themeMode = theme === 'light' ? lightTheme : darkTheme;
 
-  render() {
-    const { apiMessage, contacts } = this.state;
-    return (
-    <div className="App">
-      <header className="App-header">
-        <img src="img/logo_tall.png" className="App-logo" alt="logo" />
-        <br/>
-        <h1>
-          Welcome to Sybl
-        </h1>
-        <h2>Distributed ML with Ensemble Methods</h2>
-        <br/>
-        <h3>Data from API</h3>
-        <p>
-          {apiMessage}
-        </p>
-        <ul>
-            {contacts.map((contact, index) => (
-                <li key={index}>
-                    {contact.name} {contact.age}
-                </li>
-            ))}
-            {console.log(contacts)}
-        </ul>
-      </header>
-   </div>
-   );
-  }
-}
+  if(!mountedComponent) return <div/>
+  
+
+  return (
+    <ThemeProvider theme={themeMode}>
+      <>
+        <GlobalStyles/>
+          <div className="App">
+            <header className="App-header">
+              
+            <br/>
+              <br/>
+              <br/>
+              <br/>
+              <h1>
+                Welcome to Sybl
+              </h1>
+              <h2>Distributed ML with Ensemble Methods</h2>
+              
+            </header>
+
+          <Toggle theme={theme} toggleTheme={themeToggler} />
+        </div>
+      </>
+    </ThemeProvider>
+  );
+};
 
 export default App;

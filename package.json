@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@svgr/cli": "^5.4.0"
+  },
+  "devDependencies": {
+    "@svgr/webpack": "^5.4.0"
+  }
+}
