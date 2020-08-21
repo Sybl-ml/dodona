@@ -1,22 +1,40 @@
 import React from "react"
-import { Navbar, Nav, NavDropdown, Button } from 'react-bootstrap';
-
+import { Navbar, Nav, NavDropdown,} from 'react-bootstrap';
+import styled from "styled-components";
 import MemoLogo from '../icons/Logo.js';
+import {PrimaryButton} from './Buttons';
+
+const HeaderBar = styled(Navbar)`
+	min-height: 4rem;
+    background: linear-gradient(${({ theme }) => theme.body}, ${({ theme }) => theme.body} 90%, transparent 100%);
+    transition: all 0.25s linear;
+`;
+
+
+const Square = styled.div`
+	position: absolute;
+	top: -5%;
+	left: 45%;
+	width: 10%;
+	height: 10%;
+	filter: drop-shadow(0 1px 2px 0 0 rgba(0,0,0,.5));
+	background-color:${({ theme }) => theme.body};
+	transform: rotate(45deg);
+`;
+
 
 const Header = ({theme}) => {
         return (
-		<Navbar sticky="top">
-			<Navbar.Brand href="#home">
-			
+		<HeaderBar sticky="top">
+			<HeaderBar.Brand href="#home">
 				<MemoLogo 
-					
 					theme={theme} 
 				/> 
-			</Navbar.Brand>
+			</HeaderBar.Brand>
 				
 			<Nav>
 				<NavDropdown title="Product" id="basic-nav-dropdown">
-					<div class="square"></div>
+					<Square></Square>
 					<NavDropdown.Item href="#action/3.1">Action</NavDropdown.Item>
 					<NavDropdown.Item href="#action/3.2">Another action</NavDropdown.Item>
 					<NavDropdown.Item href="#action/3.3">Something</NavDropdown.Item>
@@ -24,7 +42,7 @@ const Header = ({theme}) => {
 					<NavDropdown.Item href="#action/3.4">Separated link</NavDropdown.Item>
 				</NavDropdown>
 				<NavDropdown title="Resources" id="basic-nav-dropdown">
-					<div class="square"></div>
+					<Square></Square>
 					<NavDropdown.Item href="#action/3.1">Action</NavDropdown.Item>
 					<NavDropdown.Item href="#action/3.2">Another action</NavDropdown.Item>
 					<NavDropdown.Item href="#action/3.3">Something</NavDropdown.Item>
@@ -34,13 +52,13 @@ const Header = ({theme}) => {
 
 				<Nav.Link href="#pricing">Pricing</Nav.Link>
     		</Nav>
-    		<Navbar.Collapse className="justify-content-end">
+    		<HeaderBar.Collapse className="justify-content-end">
 				<Nav>
 					<Nav.Link href="#Login">Sign In</Nav.Link>
 				</Nav>
-				<Button variant="primary" href="#SignUp"><b>SIGN UP NOW</b></Button>
-			</Navbar.Collapse>
-  		</Navbar>
+				<PrimaryButton variant="primary" href="#SignUp">SIGN UP NOW</PrimaryButton>
+			</HeaderBar.Collapse>
+  		</HeaderBar>
         );
     };
 export default Header;

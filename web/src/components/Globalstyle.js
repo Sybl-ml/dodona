@@ -19,33 +19,10 @@ export const GlobalStyles = createGlobalStyle`
     text-align: center;
   }
 
-  .btn-primary {
-    background-color: ${({ theme }) => theme.mid};
-    border: 0.2rem solid ${({ theme }) => theme.mid};;
-
-    &:hover {
-      background-color: ${({ theme }) => theme.text};
-      color: ${({ theme }) => theme.body};
-    }
-    
-    &:active {
-      background-color: ${({ theme }) => theme.body};
-    }
-
-    &:focus {
-      outline:none;
-    }
-  }
-
-  .outline{
-    background-color:transparent;
-    color: ${({ theme }) => theme.mid};
-  }
-  
   .navbar {
     min-height: 4rem;
-    background-color:${({ theme }) => theme.body};
-    opacity:0.9;
+    background: linear-gradient(${({ theme }) => theme.body}, ${({ theme }) => theme.body} 90%, transparent 100%);
+    
     transition: all 0.25s linear;
   }
 
@@ -61,7 +38,7 @@ export const GlobalStyles = createGlobalStyle`
     color: ${({ theme }) => theme.text};
     font-size:1.2rem;
     &:hover {
-       color:${({ theme }) => theme.mid};
+       color:${({ theme }) => theme.dark};
     } 
   }
   .dropdown-menu{
@@ -74,17 +51,6 @@ export const GlobalStyles = createGlobalStyle`
     filter: drop-shadow(0 2px 2px  rgba(0,0,0,.5));
   }
 
-  .square {
-    position: absolute;
-    top: -5%;
-    left: 45%;
-    width: 10%;
-    height: 10%;
-    filter: drop-shadow(0 1px 2px 0 0 rgba(0,0,0,.5));
-    background-color:${({ theme }) => theme.body};
-    transform: rotate(45deg);
-  }
-
   .dropdown-item{
     color: ${({ theme }) => theme.text};
     &:hover {
@@ -95,14 +61,11 @@ export const GlobalStyles = createGlobalStyle`
    }
   }
 
-  .highlight{
-    padding-bottom:2rem;
-    text-align: center;
-    background-color: ${({ theme }) => theme.highlight};
-  }
-
-  .highlight-text{
-    color: ${({ theme }) => theme.dark};
+  a {
+    color: ${({ theme }) => theme.mid};
+    &:hover{
+      color: ${({ theme }) => theme.dark};
+    }
   }
 
   `

@@ -4,7 +4,7 @@ import styled from "styled-components";
 import { FaExternalLinkAlt } from 'react-icons/fa';
 import { SiTensorflow, SiKeras } from 'react-icons/si';
 import MemoPlaceholder from '../icons/Placeholder.js';
-
+import {PrimaryButton, OutlinedPrimaryButton} from './Buttons';
 const Main = styled(Row)`
     text-align:left;
     padding: 6rem 0;
@@ -26,9 +26,21 @@ const Quote = styled.h5`
     padding: 2rem 0;
 `;
 
-const FixButton = styled(Button)`
+const FixButton = styled(PrimaryButton)`
     width: auto;
     margin-right:1rem;
+`;
+
+const OutlinedFixButton = styled(OutlinedPrimaryButton)`
+    width: auto;
+    margin-right:1rem;
+`;
+
+const Highlight = styled.div`
+    padding-bottom:2rem;
+    text-align: center;
+    background-color: ${({ theme }) => theme.highlight};
+    color: ${({ theme }) => theme.accent};
 `;
 
 const Welcome= () => {
@@ -46,14 +58,14 @@ const Welcome= () => {
                             <SubTitle>
                                 Run complex models without any infrastructure or programming experience. 
                                 
-                                Works with <SiTensorflow /> & <SiKeras />
+                                Works with <a href="https://www.tensorflow.org/"><SiTensorflow /></a> & <a href="https://keras.io/"><SiKeras /></a>
                             </SubTitle>
                         </Row>
                         <Row>
                             <FixButton variant="primary">GET STARTED</FixButton>
-                            <FixButton variant="primary" className="outline">
+                            <OutlinedFixButton variant="primary" className="outline">
                                 <FaExternalLinkAlt /> EXAMPLE
-                            </FixButton>      
+                            </OutlinedFixButton>      
                         </Row>
                     </Col>
                     <Col>
@@ -62,8 +74,8 @@ const Welcome= () => {
                 </Main>
             </Container>
 
-            <div className="highlight">
-                <Quote className="highlighted-text">TRUSTED BY MANY ACROSS THE GLOBE</Quote>
+            <Highlight>
+                <Quote>TRUSTED BY MANY ACROSS THE GLOBE</Quote>
                 <Row className="justify-content-md-center">
                     <Col md="auto">
                         <Card style={{ width: '18rem' }} >
@@ -102,7 +114,7 @@ const Welcome= () => {
                         </Card>
                     </Col>
                 </Row>
-            </div>
+            </Highlight>
             </>
         );
     };
