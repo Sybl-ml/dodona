@@ -1,75 +1,49 @@
-import React, {Component} from 'react';
-import './App.css';
-// import List from './List';
+import React from "react";
 
-class App extends Component {
+import {ThemeProvider} from "styled-components";
+import  {useDarkMode} from "./components/useDarkMode"
+import { GlobalStyles } from "./components/Globalstyle";
+import { lightTheme, darkTheme } from "./components/Themes"
+import Toggle from "./components/Toggler"
+import Header from "./components/Navbar";
+import Welcome from "./components/Welcome";
+import Login from "./components/Login";
+import Register from "./components/Register";
 
-  state = {
-    contacts: [],
-    apiMessage: "",
-  }
+import { BrowserRouter as Router, Switch, Route } from "react-router-dom";
 
-  componentDidMount() {
-    fetch("http://localhost:3001/api/hello")
-    .then(res => res.text())
-      .then(
-        (result) => {
-          this.setState({
-            apiMessage: result
-          });
-        },
-        (error) => {
-          console.log("Error");
-        }
-      )
-    fetch("http://localhost:3001/api")
-    .then(res => res.json())
-      .then(
-        (result) => {
-          console.log(result.name);
-          var joined = this.state.contacts.concat(result);
-          this.setState({
-            isLoaded: true,
-            contacts: joined
-          });
-        },
-        (error) => {
-          this.setState({
-            isLoaded: true,
-            contacts: []
-          });
-        }
-      )
-  }
+const App= () => {
+  
+  const [theme, themeToggler, mountedComponent] = useDarkMode();
 
-  render() {
-    const { apiMessage, contacts } = this.state;
-    return (
-    <div className="App">
-      <header className="App-header">
-        <img src="img/logo_tall.png" className="App-logo" alt="logo" />
-        <br/>
-        <h1>
-          Welcome to Sybl
-        </h1>
-        <h2>Distributed ML with Ensemble Methods</h2>
-        <br/>
-        <h3>Data from API</h3>
-        <p>
-          {apiMessage}
-        </p>
-        <ul>
-            {contacts.map((contact, index) => (
-                <li key={index}>
-                    {contact.name} {contact.age}
-                </li>
-            ))}
-            {console.log(contacts)}
-        </ul>
-      </header>
-   </div>
-   );
-  }
-}
+  const themeMode = theme === 'light' ? lightTheme : darkTheme;
+
+  if(!mountedComponent) return <div/>
+  
+
+  return (
+    <Router>
+    <ThemeProvider theme={themeMode}>
+      <>
+        <GlobalStyles/>
+        
+          <Switch>
+          <Route path="/register">
+            <Register />
+          </Route>
+          <Route path="/login">
+            <Login />
+          </Route>
+          <Route path="/">
+            <Header theme={theme} />
+            <Welcome />
+            <Toggle theme={theme} toggleTheme={themeToggler} />
+          </Route>
+        </Switch>
+      </>
+    </ThemeProvider>
+    </Router>
+  );
+};
 
 export default App;
