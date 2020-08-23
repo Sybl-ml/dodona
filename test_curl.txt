@@ -1,0 +1,2 @@
+curl -X POST -H 'Content-Type: application/json' -d '{"email": "email@email.com", "password": "password"}' 0.0.0.0:3001/api/users/edit
+curl -X POST -H 'Content-Type: application/json' -d '{"_id":{"$oid":"5f3e5685004a23a800d98543"},"email":"email@email.com","password":"password"}' 0.0.0.0:3001/api/users/edit
