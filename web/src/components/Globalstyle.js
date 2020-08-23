@@ -1,6 +1,5 @@
 import { createGlobalStyle} from "styled-components"
 
-
 import kollektif from '../fonts/kollektif/Kollektif.ttf';
 
 

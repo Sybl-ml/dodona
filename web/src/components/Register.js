@@ -44,7 +44,7 @@ const Highlight = styled.div`
     color: ${({ theme }) => theme.accent};
 `;
 
-const Welcome= () => {
+const Register = () => {
 
         return (
             <>
@@ -119,4 +119,4 @@ const Welcome= () => {
             </>
         );
     };
-export default Welcome;
+export default Register;

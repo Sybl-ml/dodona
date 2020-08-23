@@ -44,7 +44,7 @@ const Highlight = styled.div`
     color: ${({ theme }) => theme.accent};
 `;
 
-const Welcome= () => {
+const Login = () => {
 
         return (
             <>
@@ -53,7 +53,7 @@ const Welcome= () => {
                 <Main>
                     <Col>
                         <Row>
-                            <Title>Empower your data with intuative Machine Learning</Title>
+                            <Title>Login</Title>
                         </Row>
                         <Row>
                             <SubTitle>
@@ -119,4 +119,4 @@ const Welcome= () => {
             </>
         );
     };
-export default Welcome;
+export default Login;

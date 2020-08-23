@@ -7,6 +7,10 @@ import { lightTheme, darkTheme } from "./components/Themes"
 import Toggle from "./components/Toggler"
 import Header from "./components/Navbar";
 import Welcome from "./components/Welcome";
+import Login from "./components/Login";
+import Register from "./components/Register";
+
+import { BrowserRouter as Router, Switch, Route } from "react-router-dom";
 
 const App= () => {
   
@@ -18,14 +22,27 @@ const App= () => {
   
 
   return (
+    <Router>
     <ThemeProvider theme={themeMode}>
       <>
         <GlobalStyles/>
-          <Header theme={theme} />
-          <Welcome />
-          <Toggle theme={theme} toggleTheme={themeToggler} />
+        
+          <Switch>
+          <Route path="/register">
+            <Register />
+          </Route>
+          <Route path="/login">
+            <Login />
+          </Route>
+          <Route path="/">
+            <Header theme={theme} />
+            <Welcome />
+            <Toggle theme={theme} toggleTheme={themeToggler} />
+          </Route>
+        </Switch>
       </>
     </ThemeProvider>
+    </Router>
   );
 };
 
