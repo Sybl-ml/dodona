@@ -22,6 +22,12 @@ const SubTitle = styled.h2`
 const Register = () => {
 
     const handleSubmit = (event) => {
+        // In here is where username and password are collected
+        // The password should be checked against confirm password 
+        // and should be hashed (maybe with a salt) and put into a 
+        // JSON object and sent to API
+        // Should receive ObjectID back and that should be put into 
+        // cookie and stored on client side (this client token)
         console.log(event.target.elements.Email.value);
         console.log(event.target.elements.Password.value);
         console.log(event.target.elements.ConfirmPassword.value);

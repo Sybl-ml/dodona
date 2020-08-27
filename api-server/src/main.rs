@@ -1,7 +1,7 @@
 use async_std::sync::Arc;
 use dotenv::dotenv;
 use http_types::headers::HeaderValue;
-use mongodb::options::{ClientOptions, Credential, StreamAddress};
+use mongodb::options::ClientOptions;
 use mongodb::Client;
 use std::env;
 use tide::security::{CorsMiddleware, Origin};
@@ -44,6 +44,7 @@ async fn main() -> Result<(), std::io::Error> {
     user_api.at("/:user_id").get(routes::users::get);
     user_api.at("/filter").post(routes::users::filter);
     user_api.at("/edit").post(routes::users::edit);
+    user_api.at("/login").post(routes::users::login);
 
     // CORS
     let cors = CorsMiddleware::new()

@@ -3,7 +3,6 @@ use crate::models::model::Model;
 use crate::models::users::User;
 use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
-use serde_json::value::Map;
 use tide;
 use tide::{Request, Response};
 
@@ -60,4 +59,28 @@ pub async fn edit(mut req: Request<State>) -> tide::Result {
         .body(json!(doc!{"user_id": user_id.to_string()}))
         .content_type(mime::JSON)
         .build())
+}
+
+/// Login route which will allow the frontend to send an email and password
+/// which will be checked against the database. If there is a user with those 
+/// credentials then a token will be returned. Otherwise "null" will be returned
+pub async fn login(mut req: Request<State>) -> tide::Result {
+    let state = &req.state();
+    let db = &state.client.database("sybl");
+    let filter: Document = req.body_json().await?;
+    println!("Filter: {:?}", &filter);
+    let doc = User::find_one(db.clone(), filter, None).await?;
+    match doc {
+        Some(user) => {
+            Ok(Response::builder(200)
+        .body(json!(doc!{"token": user.id().unwrap().to_string()}))
+        .content_type(mime::JSON)
+        .build())
+        },
+        None => {Ok(Response::builder(200)
+            .body(json!(doc!{"token": "null"}))
+            .content_type(mime::JSON)
+            .build())}
+    }
+    
 }
