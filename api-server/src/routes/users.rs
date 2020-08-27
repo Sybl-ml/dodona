@@ -231,6 +231,8 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
     
 }
 
+/// Delete method. Pass ID as part of JSON object and the corressponding user
+/// will be deleted from the Database.
 pub async fn delete(mut req: Request<State>) -> tide::Result {
     let state = &req.state();
     let db = &state.client.database("sybl");
