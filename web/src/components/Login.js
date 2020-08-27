@@ -1,5 +1,5 @@
 import React from "react"
-import { Container, Row, Col, Form} from 'react-bootstrap';
+import { Container, Row, Col, Form, Nav} from 'react-bootstrap';
 import styled from "styled-components";
 import {PrimaryButton, OutlinedPrimaryButton} from './Buttons';
 
@@ -48,9 +48,15 @@ const Login = () => {
                         <Form.Group controlId="RememberMe">
                             <Form.Check type="checkbox" label="Remember Me" />
                         </Form.Group>
+                        <Row>
                         <PrimaryButton variant="primary" type="submit">
                             Login
                         </PrimaryButton>
+                        <Nav>
+					        <Nav.Link href="/register">Sign Up</Nav.Link>
+				        </Nav>
+                        </Row>
+                        
                         </Form>
                         </Row>
                         </Col>

@@ -19,8 +19,6 @@ const SubTitle = styled.h2`
 `;
 
 
-
-
 const Register = () => {
 
     const handleSubmit = (event) => {

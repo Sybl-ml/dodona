@@ -32,9 +32,6 @@ const ClearHeader = ({theme}) => {
 				/> 
 			</ClearHeaderBar.Brand>
 				
-    		<ClearHeaderBar.Collapse className="justify-content-end">
-				<PrimaryButton variant="primary" href="/register">SIGN UP NOW</PrimaryButton>
-			</ClearHeaderBar.Collapse>
   		</ClearHeaderBar>
         );
     };
