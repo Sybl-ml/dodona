@@ -1,9 +1,6 @@
 import React from "react"
-import { Container, Row, Col, Button, Card, } from 'react-bootstrap';
+import { Container, Row, Col, Form} from 'react-bootstrap';
 import styled from "styled-components";
-import { FaExternalLinkAlt } from 'react-icons/fa';
-import { SiTensorflow, SiKeras } from 'react-icons/si';
-import MemoPlaceholder from '../icons/Placeholder.js';
 import {PrimaryButton, OutlinedPrimaryButton} from './Buttons';
 
 const Main = styled(Row)`
@@ -21,102 +18,44 @@ const SubTitle = styled.h2`
     font-size:2rem;
 `;
 
-const Quote = styled.h5`
-    font-weight: bold;
-    font-size:1rem;
-    padding: 2rem 0;
-`;
-
-const FixButton = styled(PrimaryButton)`
-    width: auto;
-    margin-right:1rem;
-`;
-
-const OutlinedFixButton = styled(OutlinedPrimaryButton)`
-    width: auto;
-    margin-right:1rem;
-`;
-
-const Highlight = styled.div`
-    padding-bottom:2rem;
-    text-align: center;
-    background-color: ${({ theme }) => theme.highlight};
-    color: ${({ theme }) => theme.accent};
-`;
-
 const Login = () => {
 
+    const handleSubmit = (event) => {
+        console.log(event.target.elements.Email.value);
+        console.log(event.target.elements.Password.value);
+        console.log(event.target.elements.RememberMe.value);
+    };
+
         return (
-            <>
             
-            <Container> 
+            <Container fluid="xl"> 
                 <Main>
-                    <Col>
-                        <Row>
-                            <Title>Login</Title>
+                <Col xs="auto">
+                    <Row>
+                    <Title>Login</Title>
+                    </Row>
+                    <Row>
+                    <Form onSubmit={event => handleSubmit(event)}>
+                        <Form.Group controlId="Email">
+                            <Form.Label>Email address</Form.Label>
+                            <Form.Control type="email" placeholder="Enter email" />
+                        </Form.Group>
+
+                        <Form.Group controlId="Password">
+                            <Form.Label>Password</Form.Label>
+                            <Form.Control type="password" placeholder="Password" />
+                        </Form.Group>
+                        <Form.Group controlId="RememberMe">
+                            <Form.Check type="checkbox" label="Remember Me" />
+                        </Form.Group>
+                        <PrimaryButton variant="primary" type="submit">
+                            Login
+                        </PrimaryButton>
+                        </Form>
                         </Row>
-                        <Row>
-                            <SubTitle>
-                                Run complex models without any infrastructure or programming experience. 
-                                
-                                Works with <a href="https://www.tensorflow.org/"><SiTensorflow /></a> & <a href="https://keras.io/"><SiKeras /></a>
-                            </SubTitle>
-                        </Row>
-                        <Row>
-                            <FixButton variant="primary">GET STARTED</FixButton>
-                            <OutlinedFixButton variant="primary" className="outline">
-                                <FaExternalLinkAlt /> EXAMPLE
-                            </OutlinedFixButton>      
-                        </Row>
-                    </Col>
-                    <Col>
-                        <MemoPlaceholder />
-                    </Col>
+                        </Col>
                 </Main>
             </Container>
-
-            <Highlight>
-                <Quote>TRUSTED BY MANY ACROSS THE GLOBE</Quote>
-                <Row className="justify-content-md-center">
-                    <Col md="auto">
-                        <Card style={{ width: '18rem' }} >
-                            <Card.Body>
-                                <Card.Title>Card Title</Card.Title>
-                                <Card.Text>
-                                Some quick example text to build on the card title and make up the bulk of
-                                the card's content.
-                                </Card.Text>
-                                <Button variant="primary">Go somewhere</Button>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                    <Col md="auto">
-                        <Card style={{ width: '18rem' }}>
-                            <Card.Body>
-                                <Card.Title>Card Title</Card.Title>
-                                <Card.Text>
-                                Some quick example text to build on the card title and make up the bulk of
-                                the card's content.
-                                </Card.Text>
-                                <Button variant="primary">Go somewhere</Button>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                    <Col md="auto">
-                        <Card style={{ width: '18rem' }}>
-                            <Card.Body>
-                                <Card.Title>Card Title</Card.Title>
-                                <Card.Text>
-                                Some quick example text to build on the card title and make up the bulk of
-                                the card's content.
-                                </Card.Text>
-                                <Button variant="primary">Go somewhere</Button>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                </Row>
-            </Highlight>
-            </>
         );
     };
 export default Login;

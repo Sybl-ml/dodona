@@ -26,7 +26,7 @@ const Square = styled.div`
 const Header = ({theme}) => {
         return (
 		<HeaderBar sticky="top">
-			<HeaderBar.Brand href="#home">
+			<HeaderBar.Brand href="/home">
 				<MemoLogo 
 					theme={theme} 
 				/> 
@@ -54,9 +54,9 @@ const Header = ({theme}) => {
     		</Nav>
     		<HeaderBar.Collapse className="justify-content-end">
 				<Nav>
-					<Nav.Link href="#Login">Sign In</Nav.Link>
+					<Nav.Link href="/login">Sign In</Nav.Link>
 				</Nav>
-				<PrimaryButton variant="primary" href="#SignUp">SIGN UP NOW</PrimaryButton>
+				<PrimaryButton variant="primary" href="/register">SIGN UP NOW</PrimaryButton>
 			</HeaderBar.Collapse>
   		</HeaderBar>
         );
