@@ -21,10 +21,6 @@ const SubTitle = styled.h2`
 const Login = () => {
 
     const handleSubmit = (event) => {
-        // Email and password should be collected. Password 
-        // should be hashed and sent to API and confirm if 
-        // correct. If it is correct, it will send back 
-        // client token
         console.log(event.target.elements.Email.value);
         console.log(event.target.elements.Password.value);
         console.log(event.target.elements.RememberMe.value);

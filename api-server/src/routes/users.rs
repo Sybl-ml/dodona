@@ -5,6 +5,47 @@ use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
 use tide;
 use tide::{Request, Response};
+use ring::{digest, pbkdf2};
+use std::{collections::HashMap, num::NonZeroU32};
+use std::str;
+
+static PBKDF2_ALG: pbkdf2::Algorithm = pbkdf2::PBKDF2_HMAC_SHA256;
+const CREDENTIAL_LEN: usize = digest::SHA256_OUTPUT_LEN;
+type PasswordHash = [u8; CREDENTIAL_LEN];
+
+fn hash_to_string(hash: PasswordHash) -> String {
+    let mut res = String::from("");
+    for i in hash.iter() {
+        res.push(*i as char)
+    }
+    res
+}
+
+fn string_to_hash(string: String) -> PasswordHash {
+    let mut res: PasswordHash = [0u8; CREDENTIAL_LEN];
+    for (i,c) in string.chars().enumerate() {
+        res[i] = c as u8;
+    }
+    res
+}
+
+fn hash(password: &str, salt: &str)-> PasswordHash {
+    let pbkdf2_iterations = NonZeroU32::new(100_000).unwrap();
+    let mut to_store: PasswordHash = [0u8; CREDENTIAL_LEN];
+    pbkdf2::derive(PBKDF2_ALG, pbkdf2_iterations, salt.as_bytes(), password.as_bytes(), &mut to_store);
+    to_store
+}
+
+fn verify(password: &str, hash: PasswordHash, salt: &str) -> bool {
+    println!("Password: {}, Salt: {}",&password, &salt);
+    let pbkdf2_iterations = NonZeroU32::new(100_000).unwrap();
+    match pbkdf2::verify(PBKDF2_ALG, pbkdf2_iterations, salt.as_bytes(),
+        password.as_bytes(),
+        &hash) {
+            Ok(_) => true,
+            _ => false
+        }
+ }
 
 /// This route will take in a user ID in the request and
 /// will return the information for that user
@@ -42,6 +83,48 @@ pub async fn filter(mut req: Request<State>) -> tide::Result {
         .build())
 }
 
+/// Creating a new User
+/// This generates a salt and hashes it
+/// It then combines this with the password and hashes it
+/// This is all then stored in the database
+pub async fn new(mut req: Request<State>) -> tide::Result {
+    let state = &req.state();
+    let db = &state.client.database("sybl");
+    let doc: Document = req.body_json().await?;
+    let password = doc.get_str("password").unwrap();
+    let email = doc.get_str("email").unwrap();
+    println!("Email: {}, Password: {}", email, password);
+
+    let salt_in = email.clone().as_bytes();
+
+    let mut salt = Vec::with_capacity(salt_in.len());
+    salt.extend(salt_in);
+    let salt_string = str::from_utf8(&salt).unwrap();
+
+    let pbkdf2_hash = hash(password, salt_string);
+
+    let verified = verify(&password, pbkdf2_hash, &salt_string);
+
+    println!("Verified: {}", verified);
+
+    println!("Hash: {:?}", pbkdf2_hash);
+    println!("Salt: {}", &salt_string);
+
+    let mut user: User = User{
+        id: Some(ObjectId::new()),
+        email: String::from(email),
+        password: hash_to_string(pbkdf2_hash),
+        salt: String::from(salt_string)
+    };
+
+    user.save(db.clone(), None).await?;
+    let user_id = user.id().unwrap();
+    Ok(Response::builder(200)
+        .body(json!(doc!{"token": user_id.to_string()}))
+        .content_type(mime::JSON)
+        .build())
+}
+
 /// A User information is passed as a JSON object and it is either updated
 /// or created in the database.
 /// If a JSON object is passed with an object ID, then it is saved as a user
@@ -51,12 +134,30 @@ pub async fn filter(mut req: Request<State>) -> tide::Result {
 pub async fn edit(mut req: Request<State>) -> tide::Result {
     let state = &req.state();
     let db = &state.client.database("sybl");
-    let mut user: User = req.body_json().await?;
+    let doc: Document = req.body_json().await?;
+    let id_str = doc.get_str("id").unwrap();
+    let id = ObjectId::with_string(&id_str).unwrap();
+    let filter = doc!{"_id": id};
+    let mut user = match User::find_one(db.clone(), filter, None).await {
+        Ok(u) => u,
+        Err(_) => {return Ok(Response::builder(200)
+            .body(json!(doc!{"status": "failed"}))
+            .content_type(mime::JSON)
+            .build())}
+    }.unwrap();
+
+    for key in doc.keys() {
+        println!("{}", key);
+        if key == "email" {
+            user.email = String::from(doc.get_str(key).unwrap());
+        }
+    }
+
     user.save(db.clone(), None).await?;
-    println!("User: {:?}", &user);
-    let user_id = user.id().unwrap();
+
+
     Ok(Response::builder(200)
-        .body(json!(doc!{"user_id": user_id.to_string()}))
+        .body(json!(doc!{"status": "changed"}))
         .content_type(mime::JSON)
         .build())
 }
@@ -67,20 +168,43 @@ pub async fn edit(mut req: Request<State>) -> tide::Result {
 pub async fn login(mut req: Request<State>) -> tide::Result {
     let state = &req.state();
     let db = &state.client.database("sybl");
-    let filter: Document = req.body_json().await?;
-    println!("Filter: {:?}", &filter);
-    let doc = User::find_one(db.clone(), filter, None).await?;
-    match doc {
+    let doc: Document = req.body_json().await?;
+    let password = doc.get_str("password").unwrap();
+    let email = doc.get_str("email").unwrap();
+    let filter = doc!{"email": email};
+    let user = User::find_one(db.clone(), filter, None).await?;
+    match user {
         Some(user) => {
-            Ok(Response::builder(200)
-        .body(json!(doc!{"token": user.id().unwrap().to_string()}))
-        .content_type(mime::JSON)
-        .build())
+
+            let hashed_password = string_to_hash(user.password.clone());
+
+            println!("Hashed Password: {:?}", &hashed_password);
+            println!("Salt: {}", &user.salt[..]);
+            println!("Email: {}", &user.email[..]);
+
+            let verified = verify(&password, hashed_password, &user.salt[..]);
+
+            if verified {
+                Ok(Response::builder(200)
+                .body(json!(doc!{"token": user.id().unwrap().to_string()}))
+                .content_type(mime::JSON)
+                .build())
+            }
+            else {
+                Ok(Response::builder(200)
+                .body(json!(doc!{"token": "null"}))
+                .content_type(mime::JSON)
+                .build())
+
+            }
+   
         },
-        None => {Ok(Response::builder(200)
-            .body(json!(doc!{"token": "null"}))
-            .content_type(mime::JSON)
-            .build())}
+        None => {
+            Ok(Response::builder(200)
+                .body(json!(doc!{"token": "null"}))
+                .content_type(mime::JSON)
+                .build())
+            }
     }
     
 }

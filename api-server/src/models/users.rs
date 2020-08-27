@@ -9,6 +9,7 @@ pub struct User {
     pub id: Option<ObjectId>,
     pub email: String,
     pub password: String,
+    pub salt: String
 }
 
 impl model::Model for User {
