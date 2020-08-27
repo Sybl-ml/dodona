@@ -46,6 +46,7 @@ async fn main() -> Result<(), std::io::Error> {
     user_api.at("/edit").post(routes::users::edit);
     user_api.at("/login").post(routes::users::login);
     user_api.at("/new").post(routes::users::new);
+    user_api.at("/delete").post(routes::users::delete);
 
     // CORS
     let cors = CorsMiddleware::new()

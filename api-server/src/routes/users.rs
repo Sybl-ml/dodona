@@ -230,3 +230,18 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
     }
     
 }
+
+pub async fn delete(mut req: Request<State>) -> tide::Result {
+    let state = &req.state();
+    let db = &state.client.database("sybl");
+    let doc: Document = req.body_json().await?;
+    let id_str = doc.get_str("id").unwrap();
+    let id = ObjectId::with_string(&id_str).unwrap();
+    let filter = doc!{"_id": id};
+    User::find_one_and_delete(db.clone(), filter, None).await.unwrap();
+
+    Ok(Response::builder(200)
+    .body(json!(doc!{"status": "deleted"}))
+    .content_type(mime::JSON)
+    .build())
+}
