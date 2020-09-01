@@ -59,6 +59,6 @@ async fn main() -> Result<(), std::io::Error> {
     // Serving App
     tide::log::start();
     app.at("/").get(|_| async { Ok("Hello, world!") });
-    app.listen("0.0.0.0:3001").await?;
+    app.listen("localhost:3001").await?;
     Ok(())
 }

@@ -2,6 +2,7 @@ import React from "react"
 import { Container, Row, Col, Form, Nav} from 'react-bootstrap';
 import styled from "styled-components";
 import {PrimaryButton, OutlinedPrimaryButton} from './Buttons';
+import axios from 'axios';
 
 const Main = styled(Row)`
     text-align:left;
@@ -21,9 +22,24 @@ const SubTitle = styled.h2`
 const Login = () => {
 
     const handleSubmit = (event) => {
-        console.log(event.target.elements.Email.value);
-        console.log(event.target.elements.Password.value);
-        console.log(event.target.elements.RememberMe.value);
+        // let eml = event.target.elements.Email.value;
+        // let pwd = event.target.elements.Password.value;
+        // console.log(eml);
+        // console.log(pwd);
+        // console.log(event.target.elements.RememberMe.value);
+
+        fetch('http://127.0.0.1:3001/api/users/login', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                email: 'cosmob@noser.net',
+                password: 'password',
+            })
+            }).then(response => response.json());
+
     };
 
         return (

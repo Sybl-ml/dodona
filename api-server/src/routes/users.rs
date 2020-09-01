@@ -193,6 +193,7 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
     let password = doc.get_str("password").unwrap();
     let email = doc.get_str("email").unwrap();
+    println!("{}, {}", &email, &password);
     let filter = doc!{"email": email};
     let user = User::find_one(db.clone(), filter, None).await?;
     match user {
@@ -207,12 +208,14 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
             let verified = verify(&password, hashed_password, &user.salt[..]);
 
             if verified {
+                println!("Logged in: {:?}", user);
                 Ok(Response::builder(200)
                 .body(json!(doc!{"token": user.id().unwrap().to_string()}))
                 .content_type(mime::JSON)
                 .build())
             }
             else {
+                println!("Failed login: wrong password");
                 Ok(Response::builder(200)
                 .body(json!(doc!{"token": "null"}))
                 .content_type(mime::JSON)
@@ -222,6 +225,7 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
    
         },
         None => {
+            println!("Failed login: wrong email");
             Ok(Response::builder(200)
                 .body(json!(doc!{"token": "null"}))
                 .content_type(mime::JSON)

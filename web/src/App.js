@@ -20,12 +20,6 @@ const App= () => {
   const themeMode = theme === 'light' ? lightTheme : darkTheme;
 
   if(!mountedComponent) return <div/>
-
-  function submit(event) {
-    console.log(event.target.elements.Email.value);
-    console.log(event.target.elements.Password.value);
-    console.log(event.target.elements.RememberMe.value);
-};
   
 
   return (
