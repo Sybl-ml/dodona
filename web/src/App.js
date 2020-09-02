@@ -13,7 +13,7 @@ import Register from "./components/Register";
 
 import { BrowserRouter as Router, Switch, Route } from "react-router-dom";
 
-const App= () => {
+const App = () => {
   
   const [theme, themeToggler, mountedComponent] = useDarkMode();
 
