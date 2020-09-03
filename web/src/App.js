@@ -6,13 +6,14 @@ import { GlobalStyles } from "./components/Globalstyle";
 import { lightTheme, darkTheme } from "./components/Themes"
 import Toggle from "./components/Toggler"
 import Header from "./components/Navbar";
+import ClearHeader from "./components/ClearNavbar";
 import Welcome from "./components/Welcome";
 import Login from "./components/Login";
 import Register from "./components/Register";
 
 import { BrowserRouter as Router, Switch, Route } from "react-router-dom";
 
-const App= () => {
+const App = () => {
   
   const [theme, themeToggler, mountedComponent] = useDarkMode();
 
@@ -29,10 +30,14 @@ const App= () => {
         
           <Switch>
           <Route path="/register">
+            <ClearHeader theme={theme} />
             <Register />
+            <Toggle theme={theme} toggleTheme={themeToggler} />
           </Route>
           <Route path="/login">
-            <Login />
+            <ClearHeader theme={theme} />
+            <Login/>
+            <Toggle theme={theme} toggleTheme={themeToggler} />
           </Route>
           <Route path="/">
             <Header theme={theme} />
