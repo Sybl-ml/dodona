@@ -9,6 +9,7 @@
     "axios": "^0.20.0",
     "axois": "^0.0.1-security",
     "bootstrap": "^4.5.0",
+    "http-proxy-middleware": "^1.0.5",
     "react": "^16.13.1",
     "react-bootstrap": "^1.0.1",
     "react-dom": "^16.13.1",
@@ -27,6 +28,7 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
+  "proxy": "http://api-server:3001/",
   "eslintConfig": {
     "extends": "react-app"
   },

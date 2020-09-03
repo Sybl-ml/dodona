@@ -28,7 +28,7 @@ const Login = () => {
     const handleSubmit = (evt) => {
         evt.preventDefault();
         // alert(`Submitting Email ${email} and Password ${password}`)
-        fetch('http://localhost:3001/api/users/login', {
+        fetch('/api/users/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

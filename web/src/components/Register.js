@@ -28,7 +28,7 @@ const Register = () => {
     const handleSubmit = (evt) => {
         evt.preventDefault();
         if (password == confirmPassword) {
-            fetch('http://localhost:3001/api/users/new', {
+            fetch('/api/users/new', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
