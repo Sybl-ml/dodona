@@ -1,7 +1,7 @@
 import React, { useState } from "react"
 import { Container, Row, Col, Form } from 'react-bootstrap';
 import styled from "styled-components";
-import {PrimaryButton, OutlinedPrimaryButton} from './Buttons';
+import {PrimaryButton} from './Buttons';
 
 const Main = styled(Row)`
     text-align:left;
@@ -13,10 +13,6 @@ const Title = styled.h1`
     font-size:3.5rem;
 `;
 
-const SubTitle = styled.h2`
-    font-weight: normal;
-    font-size:2rem;
-`;
 
 
 const Register = () => {
@@ -27,7 +23,7 @@ const Register = () => {
   
     const handleSubmit = (evt) => {
         evt.preventDefault();
-        if (password == confirmPassword) {
+        if (password === confirmPassword) {
             fetch('/api/users/new', {
                 method: 'POST',
                 headers: {

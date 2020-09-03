@@ -1,9 +1,8 @@
 import React, { useState } from "react"
-import { Container, Row, Col, Form, Nav, FormGroup} from 'react-bootstrap';
+import { Container, Row, Col, Form, Nav} from 'react-bootstrap';
 import { Redirect } from 'react-router-dom';
 import styled from "styled-components";
-import {PrimaryButton, OutlinedPrimaryButton} from './Buttons';
-import axios from 'axios';
+import {PrimaryButton} from './Buttons';
 
 const Main = styled(Row)`
     text-align:left;
@@ -13,11 +12,6 @@ const Main = styled(Row)`
 const Title = styled.h1`
     font-weight: bold;
     font-size:3.5rem;
-`;
-
-const SubTitle = styled.h2`
-    font-weight: normal;
-    font-size:2rem;
 `;
 
 const TokenContext = React.createContext("");
@@ -31,6 +25,7 @@ const Login = () => {
   
     const handleSubmit = (evt) => {
         evt.preventDefault();
+        console.log(remember);
         fetch('/api/users/login', {
             method: 'POST',
             headers: {
@@ -44,7 +39,7 @@ const Login = () => {
             .then(response => response.json())
             .then(data => {
                 console.log(data.token);
-                if (data.token == "null") {
+                if (data.token === "null") {
                     setLoginState(2);
                 }
                 else {
@@ -57,11 +52,11 @@ const Login = () => {
     }
 
     const checkLoginState = () => {
-        if (loginState == 1) {
+        if (loginState === 1) {
             console.log("Authenticated");
             return <Redirect to="/dashboard"/>;
         }
-        else if (loginState == 2){
+        else if (loginState === 2){
             console.log("Not Authenticated");
             return <h1>Something is wrong with your login information</h1>;
         }
