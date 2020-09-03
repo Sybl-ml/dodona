@@ -1,5 +1,6 @@
 import React, { useState } from "react"
 import { Container, Row, Col, Form, Nav, FormGroup} from 'react-bootstrap';
+import { Redirect } from 'react-router-dom';
 import styled from "styled-components";
 import {PrimaryButton, OutlinedPrimaryButton} from './Buttons';
 import axios from 'axios';
@@ -19,15 +20,17 @@ const SubTitle = styled.h2`
     font-size:2rem;
 `;
 
+const TokenContext = React.createContext("");
+
 const Login = () => {
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [remember, setRemember] = useState("");
+    const [loginState, setLoginState] = useState(0);
   
     const handleSubmit = (evt) => {
         evt.preventDefault();
-        // alert(`Submitting Email ${email} and Password ${password}`)
         fetch('/api/users/login', {
             method: 'POST',
             headers: {
@@ -39,8 +42,29 @@ const Login = () => {
             })
             })
             .then(response => response.json())
-            .then(data => console.log(data));
-            console.log("After Post")
+            .then(data => {
+                console.log(data.token);
+                if (data.token == "null") {
+                    setLoginState(2);
+                }
+                else {
+                    setLoginState(1);
+                    return <TokenContext.Provider value={data.token}/>
+                }
+            });
+            console.log("After Post");
+
+    }
+
+    const checkLoginState = () => {
+        if (loginState == 1) {
+            console.log("Authenticated");
+            return <Redirect to="/dashboard"/>;
+        }
+        else if (loginState == 2){
+            console.log("Not Authenticated");
+            return <h1>Something is wrong with your login information</h1>;
+        }
     }
 
     return (
@@ -75,6 +99,7 @@ const Login = () => {
                     </Row>
                     
                     </Form>
+                    {checkLoginState()}
                     </Row>
                     </Col>
             </Main>

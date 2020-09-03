@@ -10,6 +10,7 @@ import ClearHeader from "./components/ClearNavbar";
 import Welcome from "./components/Welcome";
 import Login from "./components/Login";
 import Register from "./components/Register";
+import Dashboard from "./components/Dashboard";
 
 import { BrowserRouter as Router, Switch, Route } from "react-router-dom";
 
@@ -37,6 +38,11 @@ const App = () => {
           <Route path="/login">
             <ClearHeader theme={theme} />
             <Login/>
+            <Toggle theme={theme} toggleTheme={themeToggler} />
+          </Route>
+          <Route path="/dashboard">
+            <Header theme={theme} />
+            <Dashboard/>
             <Toggle theme={theme} toggleTheme={themeToggler} />
           </Route>
           <Route path="/">
