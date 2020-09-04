@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::model::Model;
 use crate::models::users::User;
+use ammonia::clean_text;
 use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
 use rand::distributions::Alphanumeric;
@@ -114,8 +115,8 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     let state = &req.state();
     let db = &state.client.database("sybl");
     let doc: Document = req.body_json().await?;
-    let password = doc.get_str("password").unwrap();
-    let email = doc.get_str("email").unwrap();
+    let password = &clean_text(doc.get_str("password").unwrap());
+    let email = &clean_text(doc.get_str("email").unwrap());
     println!("Email: {}, Password: {}", email, password);
 
     let filter = doc! {"email": email};
@@ -169,7 +170,7 @@ pub async fn edit(mut req: Request<State>) -> tide::Result {
     let state = &req.state();
     let db = &state.client.database("sybl");
     let doc: Document = req.body_json().await?;
-    let id_str = doc.get_str("id").unwrap();
+    let id_str = &clean_text(doc.get_str("id").unwrap());
     let id = ObjectId::with_string(&id_str).unwrap();
     let filter = doc! {"_id": id};
     let mut user = match User::find_one(db.clone(), filter, None).await {
@@ -186,7 +187,7 @@ pub async fn edit(mut req: Request<State>) -> tide::Result {
     for key in doc.keys() {
         println!("{}", key);
         if key == "email" {
-            user.email = String::from(doc.get_str(key).unwrap());
+            user.email = String::from(&clean_text(doc.get_str(key).unwrap()));
         }
     }
 
@@ -212,8 +213,8 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
     let state = &req.state();
     let db = &state.client.database("sybl");
     let doc: Document = req.body_json().await?;
-    let password = doc.get_str("password").unwrap();
-    let email = doc.get_str("email").unwrap();
+    let password = &clean_text(doc.get_str("password").unwrap());
+    let email = &clean_text(doc.get_str("email").unwrap());
     println!("{}, {}", &email, &password);
     let filter = doc! {"email": email};
     let user = User::find_one(db.clone(), filter, None).await?;
@@ -257,7 +258,7 @@ pub async fn delete(mut req: Request<State>) -> tide::Result {
     let state = &req.state();
     let db = &state.client.database("sybl");
     let doc: Document = req.body_json().await?;
-    let id_str = doc.get_str("id").unwrap();
+    let id_str = &clean_text(doc.get_str("id").unwrap());
     let id = ObjectId::with_string(&id_str).unwrap();
     let filter = doc! {"_id": id};
     User::find_one_and_delete(db.clone(), filter, None)
