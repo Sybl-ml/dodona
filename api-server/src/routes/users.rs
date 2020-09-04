@@ -106,6 +106,17 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     let email = doc.get_str("email").unwrap();
     println!("Email: {}, Password: {}", email, password);
 
+    let filter = doc!{"email": email};
+    match User::find_one(db.clone(), filter, None).await? {
+        Some(_) => {
+            return Ok(Response::builder(200)
+            .body(json!(doc!{"token": "null"}))
+            .content_type(mime::JSON)
+            .build());
+        },
+        _ => ()
+    };
+
     let salt_in = email.clone().as_bytes();
 
     let mut salt = Vec::with_capacity(salt_in.len());

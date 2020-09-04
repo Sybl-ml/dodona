@@ -2,9 +2,9 @@ import React from "react"
 import { Container, Row, Col, Button, Card, } from 'react-bootstrap';
 import styled from "styled-components";
 import { FaExternalLinkAlt } from 'react-icons/fa';
-import { SiTensorflow, SiKeras } from 'react-icons/si';
 import MemoPlaceholder from '../icons/Placeholder.js';
 import {PrimaryButton, OutlinedPrimaryButton} from './Buttons';
+import cookies from './../Auth'; 
 
 const Main = styled(Row)`
     text-align:left;
@@ -56,11 +56,7 @@ const Dashboard= () => {
                             <Title>Dashboard</Title>
                         </Row>
                         <Row>
-                            <SubTitle>
-                                Run complex models without any infrastructure or programming experience. 
-                                
-                                Works with <a href="https://www.tensorflow.org/"><SiTensorflow /></a> & <a href="https://keras.io/"><SiKeras /></a>
-                            </SubTitle>
+                            <SubTitle>Token: {cookies.get("token")}</SubTitle>
                         </Row>
                         <Row>
                             <FixButton variant="primary">GET STARTED</FixButton>

@@ -18,6 +18,10 @@ export const GlobalStyles = createGlobalStyle`
     text-align: center;
   }
 
+  p {
+    font-family: kollektif, sans-serif;
+  }
+
   .navbar {
     min-height: 4rem;
     background: linear-gradient(${({ theme }) => theme.body}, ${({ theme }) => theme.body} 90%, transparent 100%);

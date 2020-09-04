@@ -3,6 +3,7 @@ import { Container, Row, Col, Form, Nav} from 'react-bootstrap';
 import { Redirect } from 'react-router-dom';
 import styled from "styled-components";
 import {PrimaryButton} from './Buttons';
+import cookies from './../Auth'; 
 
 const Main = styled(Row)`
     text-align:left;
@@ -14,7 +15,6 @@ const Title = styled.h1`
     font-size:3.5rem;
 `;
 
-const TokenContext = React.createContext("");
 
 const Login = () => {
 
@@ -25,7 +25,6 @@ const Login = () => {
   
     const handleSubmit = (evt) => {
         evt.preventDefault();
-        console.log(remember);
         fetch('/api/users/login', {
             method: 'POST',
             headers: {
@@ -44,10 +43,10 @@ const Login = () => {
                 }
                 else {
                     setLoginState(1);
-                    return <TokenContext.Provider value={data.token}/>
+                    console.log(data.token);
+                    cookies.set("token", data.token, { path: '/' , sameSite: true})
                 }
             });
-            console.log("After Post");
 
     }
 
@@ -58,7 +57,7 @@ const Login = () => {
         }
         else if (loginState === 2){
             console.log("Not Authenticated");
-            return <h1>Something is wrong with your login information</h1>;
+            return <p>Something is wrong with your login information</p>;
         }
     }
 
@@ -85,6 +84,7 @@ const Login = () => {
                         <Form.Check type="checkbox" label="Remember Me" onChange={e => setRemember(e.target.value)}/>
                     </Form.Group>
                     <Row>
+                    
                     <PrimaryButton variant="primary" type="submit">
                         LOGIN
                     </PrimaryButton>
@@ -92,9 +92,8 @@ const Login = () => {
                         <Nav.Link href="/register">Sign Up</Nav.Link>
                     </Nav>
                     </Row>
-                    
-                    </Form>
                     {checkLoginState()}
+                    </Form>
                     </Row>
                     </Col>
             </Main>

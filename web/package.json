@@ -19,6 +19,7 @@
     "react-scripts": "3.4.1",
     "react-scroll-shadow": "^2.0.2",
     "styled-components": "^5.1.1",
+    "universal-cookie": "^4.0.3",
     "webfontloader": "^1.6.28"
   },
   "scripts": {

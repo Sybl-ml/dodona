@@ -2,6 +2,8 @@ import React, { useState } from "react"
 import { Container, Row, Col, Form } from 'react-bootstrap';
 import styled from "styled-components";
 import {PrimaryButton} from './Buttons';
+import cookies from './../Auth'; 
+import { Redirect } from 'react-router-dom';
 
 const Main = styled(Row)`
     text-align:left;
@@ -20,6 +22,7 @@ const Register = () => {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [regState, setRegState] = useState(0);
   
     const handleSubmit = (evt) => {
         evt.preventDefault();
@@ -35,13 +38,34 @@ const Register = () => {
                 })
                 })
                 .then(response => response.json())
-                .then(data => console.log(data));
-                console.log("After Post")
+                .then(data => {
+                    console.log(data.token);
+                    if (data.token === "null") {
+                        setRegState(2);
+                    }
+                    else {
+                        setRegState(1);
+                        cookies.set("token", data.token, { path: '/' , sameSite: true})
+                    }
+                });
         }
         else {
-            alert("Password Don't Match")
+            setRegState(3);
         }
 
+    }
+
+    const checkRegState = () => {
+        if (regState === 1) {
+            console.log("Authenticated");
+            return <Redirect to="/dashboard"/>;
+        }
+        else if (regState === 2){
+            return <p>Something is wrong with the information you have provided</p>;
+        }
+        else if (regState === 3){
+            return <p>Passwords don't match</p>;
+        }
     }
 
     return (
@@ -72,7 +96,7 @@ const Register = () => {
                         SIGN UP
                     </PrimaryButton>
                     </Row>
-                    
+                    {checkRegState()}
                     </Form>
                     </Row>
                     </Col>
