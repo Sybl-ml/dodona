@@ -50,6 +50,15 @@ fn hash(password: &str, salt: &str) -> PasswordHash {
     to_store
 }
 
+/// Generates a cryptographic salt of length `length` using
+/// randomly generated alphanumeric characters
+fn generate_salt(length: usize) -> String {
+    return thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(length)
+        .collect();
+}
+
 /// This verifies that the password that is given is the correct one
 fn verify(password: &str, hash: PasswordHash, salt: &str) -> bool {
     println!("Password: {}, Salt: {}", &password, &salt);
@@ -130,7 +139,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
         _ => (),
     };
 
-    let salt: String = thread_rng().sample_iter(&Alphanumeric).take(30).collect();
+    let salt: String = generate_salt(64);
 
     let pbkdf2_hash = hash(password, &salt);
 
