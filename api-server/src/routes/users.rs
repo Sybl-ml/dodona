@@ -170,8 +170,7 @@ pub async fn edit(mut req: Request<State>) -> tide::Result {
     let state = &req.state();
     let db = &state.client.database("sybl");
     let doc: Document = req.body_json().await?;
-    let id_str = &clean_text(doc.get_str("id").unwrap());
-    let id = ObjectId::with_string(&id_str).unwrap();
+    let id = ObjectId::with_string(&clean_text(doc.get_str("id").unwrap())).unwrap();
     let filter = doc! {"_id": id};
     let mut user = match User::find_one(db.clone(), filter, None).await {
         Ok(u) => u,
@@ -258,8 +257,7 @@ pub async fn delete(mut req: Request<State>) -> tide::Result {
     let state = &req.state();
     let db = &state.client.database("sybl");
     let doc: Document = req.body_json().await?;
-    let id_str = &clean_text(doc.get_str("id").unwrap());
-    let id = ObjectId::with_string(&id_str).unwrap();
+    let id = ObjectId::with_string(&clean_text(doc.get_str("id").unwrap())).unwrap();
     let filter = doc! {"_id": id};
     User::find_one_and_delete(db.clone(), filter, None)
         .await
