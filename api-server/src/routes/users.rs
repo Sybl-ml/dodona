@@ -1,79 +1,13 @@
 use super::*;
+use crate::core::auth;
 use crate::models::model::Model;
 use crate::models::users::User;
 use ammonia::clean_text;
 use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
-use rand::distributions::Alphanumeric;
-use rand::{thread_rng, Rng};
-use ring::{digest, pbkdf2};
-use std::num::NonZeroU32;
 use std::str;
 use tide;
 use tide::{Request, Response};
-
-static PBKDF2_ALG: pbkdf2::Algorithm = pbkdf2::PBKDF2_HMAC_SHA256;
-const CREDENTIAL_LEN: usize = digest::SHA256_OUTPUT_LEN;
-type PasswordHash = [u8; CREDENTIAL_LEN];
-
-/// Function to turn a hash output into a string representation
-fn hash_to_string(hash: PasswordHash) -> String {
-    let mut res = String::from("");
-    for i in hash.iter() {
-        res.push(*i as char)
-    }
-    res
-}
-
-/// Will turn a string representation of a hash into
-/// a byte array representation
-fn string_to_hash(string: String) -> PasswordHash {
-    let mut res: PasswordHash = [0u8; CREDENTIAL_LEN];
-    for (i, c) in string.chars().enumerate() {
-        res[i] = c as u8;
-    }
-    res
-}
-
-/// Function which will return a hash of the provided password
-/// inlucding the provided salt
-pub fn hash(password: &str, salt: &str) -> PasswordHash {
-    let pbkdf2_iterations = NonZeroU32::new(100_000).unwrap();
-    let mut to_store: PasswordHash = [0u8; CREDENTIAL_LEN];
-    pbkdf2::derive(
-        PBKDF2_ALG,
-        pbkdf2_iterations,
-        salt.as_bytes(),
-        password.as_bytes(),
-        &mut to_store,
-    );
-    to_store
-}
-
-/// Generates a cryptographic salt of length `length` using
-/// randomly generated alphanumeric characters
-pub fn generate_salt(length: usize) -> String {
-    return thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(length)
-        .collect();
-}
-
-/// This verifies that the password that is given is the correct one
-fn verify(password: &str, hash: PasswordHash, salt: &str) -> bool {
-    println!("Password: {}, Salt: {}", &password, &salt);
-    let pbkdf2_iterations = NonZeroU32::new(100_000).unwrap();
-    match pbkdf2::verify(
-        PBKDF2_ALG,
-        pbkdf2_iterations,
-        salt.as_bytes(),
-        password.as_bytes(),
-        &hash,
-    ) {
-        Ok(_) => true,
-        _ => false,
-    }
-}
 
 /// This route will take in a user ID in the request and
 /// will return the information for that user
@@ -139,11 +73,11 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
         _ => (),
     };
 
-    let salt: String = generate_salt(64);
+    let salt: String = auth::generate_salt(64);
 
-    let pbkdf2_hash = hash(password, &salt);
+    let pbkdf2_hash = auth::hash(password, &salt);
 
-    let verified = verify(&password, pbkdf2_hash, &salt);
+    let verified = auth::verify(&password, pbkdf2_hash, &salt);
 
     println!("Verified: {}", verified);
 
@@ -153,7 +87,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     let mut user: User = User {
         id: Some(ObjectId::new()),
         email: String::from(email),
-        password: hash_to_string(pbkdf2_hash),
+        password: auth::hash_to_string(pbkdf2_hash),
         salt: salt,
     };
 
@@ -228,13 +162,13 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
     let user = User::find_one(db.clone(), filter, None).await?;
     match user {
         Some(user) => {
-            let hashed_password = string_to_hash(user.password.clone());
+            let hashed_password = auth::string_to_hash(user.password.clone());
 
             println!("Hashed Password: {:?}", &hashed_password);
             println!("Salt: {}", &user.salt[..]);
             println!("Email: {}", &user.email[..]);
 
-            let verified = verify(&password, hashed_password, &user.salt[..]);
+            let verified = auth::verify(&password, hashed_password, &user.salt[..]);
 
             if verified {
                 println!("Logged in: {:?}", user);
