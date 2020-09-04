@@ -115,8 +115,8 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     let state = &req.state();
     let db = &state.client.database("sybl");
     let doc: Document = req.body_json().await?;
-    let password = &clean_text(doc.get_str("password").unwrap());
-    let email = &clean_text(doc.get_str("email").unwrap());
+    let password: &str = &clean_text(doc.get_str("password").unwrap());
+    let email: &str = &clean_text(doc.get_str("email").unwrap());
     println!("Email: {}, Password: {}", email, password);
 
     let filter = doc! {"email": email};
@@ -145,7 +145,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
         id: Some(ObjectId::new()),
         email: String::from(email),
         password: hash_to_string(pbkdf2_hash),
-        salt: String::from(salt),
+        salt: salt,
     };
 
     user.save(db.clone(), None).await?;
@@ -212,8 +212,8 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
     let state = &req.state();
     let db = &state.client.database("sybl");
     let doc: Document = req.body_json().await?;
-    let password = &clean_text(doc.get_str("password").unwrap());
-    let email = &clean_text(doc.get_str("email").unwrap());
+    let password: &str = &clean_text(doc.get_str("password").unwrap());
+    let email: &str = &clean_text(doc.get_str("email").unwrap());
     println!("{}, {}", &email, &password);
     let filter = doc! {"email": email};
     let user = User::find_one(db.clone(), filter, None).await?;
