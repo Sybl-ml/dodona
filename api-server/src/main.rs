@@ -50,9 +50,9 @@ async fn main() -> Result<(), std::io::Error> {
 
     // CORS
     let cors = CorsMiddleware::new()
-    .allow_methods("GET, POST, OPTIONS".parse::<HeaderValue>().unwrap())
-    .allow_origin(Origin::from("*"))
-    .allow_credentials(false);
+        .allow_methods("GET, POST, OPTIONS".parse::<HeaderValue>().unwrap())
+        .allow_origin(Origin::from("*"))
+        .allow_credentials(false);
 
     app.with(cors);
 
