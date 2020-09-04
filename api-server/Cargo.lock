@@ -544,6 +544,7 @@ dependencies = [
  "futures",
  "http-types",
  "mongodb",
+ "rand",
  "ring",
  "serde",
  "serde_json",

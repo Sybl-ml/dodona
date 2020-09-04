@@ -3,6 +3,8 @@ use crate::models::model::Model;
 use crate::models::users::User;
 use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
+use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
 use ring::{digest, pbkdf2};
 use std::num::NonZeroU32;
 use std::str;
@@ -104,7 +106,7 @@ pub async fn filter(mut req: Request<State>) -> tide::Result {
 /// For this, a JSON object must be sent to the route, e.g:
 /// {
 ///     "email": "email@email.com",
-///     "password": "password"   
+///     "password": "password"
 /// }
 ///
 /// This will return the user token
@@ -127,26 +129,22 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
         _ => (),
     };
 
-    let salt_in = email.clone().as_bytes();
+    let salt: String = thread_rng().sample_iter(&Alphanumeric).take(30).collect();
 
-    let mut salt = Vec::with_capacity(salt_in.len());
-    salt.extend(salt_in);
-    let salt_string = str::from_utf8(&salt).unwrap();
+    let pbkdf2_hash = hash(password, &salt);
 
-    let pbkdf2_hash = hash(password, salt_string);
-
-    let verified = verify(&password, pbkdf2_hash, &salt_string);
+    let verified = verify(&password, pbkdf2_hash, &salt);
 
     println!("Verified: {}", verified);
 
     println!("Hash: {:?}", pbkdf2_hash);
-    println!("Salt: {}", &salt_string);
+    println!("Salt: {}", &salt);
 
     let mut user: User = User {
         id: Some(ObjectId::new()),
         email: String::from(email),
         password: hash_to_string(pbkdf2_hash),
-        salt: String::from(salt_string),
+        salt: String::from(salt),
     };
 
     user.save(db.clone(), None).await?;
@@ -163,7 +161,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
 /// {
 ///     "_id": "TOKEN"
 ///     "email": "email@email.com",
-///     "password": "password"   
+///     "password": "password"
 /// }
 ///
 /// This will return the status of the transaction
@@ -206,7 +204,7 @@ pub async fn edit(mut req: Request<State>) -> tide::Result {
 /// For this, a JSON object must be sent to the route
 /// {
 ///     "email": "email@email.com",
-///     "password": "password"   
+///     "password": "password"
 /// }
 ///
 /// This will return the user token
