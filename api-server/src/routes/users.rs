@@ -37,7 +37,7 @@ fn string_to_hash(string: String) -> PasswordHash {
 
 /// Function which will return a hash of the provided password
 /// inlucding the provided salt
-fn hash(password: &str, salt: &str) -> PasswordHash {
+pub fn hash(password: &str, salt: &str) -> PasswordHash {
     let pbkdf2_iterations = NonZeroU32::new(100_000).unwrap();
     let mut to_store: PasswordHash = [0u8; CREDENTIAL_LEN];
     pbkdf2::derive(
@@ -52,7 +52,7 @@ fn hash(password: &str, salt: &str) -> PasswordHash {
 
 /// Generates a cryptographic salt of length `length` using
 /// randomly generated alphanumeric characters
-fn generate_salt(length: usize) -> String {
+pub fn generate_salt(length: usize) -> String {
     return thread_rng()
         .sample_iter(&Alphanumeric)
         .take(length)
