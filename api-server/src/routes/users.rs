@@ -77,7 +77,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
 
     let pbkdf2_hash = auth::hash(password, &salt);
 
-    let verified = auth::verify(&password, pbkdf2_hash, &salt);
+    let verified = auth::verify(&password, &salt, pbkdf2_hash);
 
     println!("Verified: {}", verified);
 
@@ -162,13 +162,13 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
     let user = User::find_one(db.clone(), filter, None).await?;
     match user {
         Some(user) => {
-            let hashed_password = auth::string_to_hash(user.password.clone());
+            let hash = auth::string_to_hash(user.password.clone());
 
-            println!("Hashed Password: {:?}", &hashed_password);
+            println!("Hashed Password: {:?}", &hash);
             println!("Salt: {}", &user.salt[..]);
             println!("Email: {}", &user.email[..]);
 
-            let verified = auth::verify(&password, hashed_password, &user.salt[..]);
+            let verified = auth::verify(&password, &user.salt, hash);
 
             if verified {
                 println!("Logged in: {:?}", user);

@@ -51,7 +51,7 @@ pub fn generate_chars(length: usize) -> String {
 }
 
 /// This verifies that the password that is given is the correct one
-pub fn verify(password: &str, hash: PasswordHash, salt: &str) -> bool {
+pub fn verify(password: &str, salt: &str, hash: PasswordHash) -> bool {
     println!("Password: {}, Salt: {}", &password, &salt);
     let pbkdf2_iterations = NonZeroU32::new(100_000).unwrap();
     match pbkdf2::verify(

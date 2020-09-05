@@ -21,6 +21,6 @@ fn test_verify() {
     let salt = auth::generate_chars(64);
     let password = auth::generate_chars(128);
     let hash = auth::hash(&password, &salt);
-    let verify = auth::verify(&password, hash, &salt);
+    let verify = auth::verify(&password, &salt, hash);
     assert!(verify);
 }
