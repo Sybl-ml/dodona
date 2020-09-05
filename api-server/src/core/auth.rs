@@ -1,4 +1,4 @@
-use rand::distributions::Alphanumeric;
+use rand::distributions::Standard;
 use rand::{thread_rng, Rng};
 use ring::{digest, pbkdf2};
 use std::num::NonZeroU32;
@@ -45,7 +45,7 @@ pub fn hash(password: &str, salt: &str) -> PasswordHash {
 /// randomly generated alphanumeric characters
 pub fn generate_salt(length: usize) -> String {
     return thread_rng()
-        .sample_iter(&Alphanumeric)
+        .sample_iter::<char, Standard>(Standard)
         .take(length)
         .collect();
 }
