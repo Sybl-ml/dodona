@@ -33,22 +33,18 @@ const App = () => {
           <Route path="/register">
             <ClearHeader theme={theme} />
             <Register />
-            <Toggle theme={theme} toggleTheme={themeToggler} />
           </Route>
           <Route path="/login">
             <ClearHeader theme={theme} />
             <Login/>
-            <Toggle theme={theme} toggleTheme={themeToggler} />
           </Route>
           <Route path="/dashboard">
-            <Header theme={theme} />
+            <Header theme={theme} toggleTheme={themeToggler}/>
             <Dashboard/>
-            <Toggle theme={theme} toggleTheme={themeToggler} />
           </Route>
           <Route path="/">
-            <Header theme={theme} />
+            <Header theme={theme} toggleTheme={themeToggler}/>
             <Welcome />
-            <Toggle theme={theme} toggleTheme={themeToggler} />
           </Route>
         </Switch>
       </>

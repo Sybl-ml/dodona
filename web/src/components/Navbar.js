@@ -4,6 +4,8 @@ import styled from "styled-components";
 import MemoLogo from '../icons/Logo.js';
 import {PrimaryButton} from './Buttons';
 
+import Toggle from "./Toggler"
+
 const HeaderBar = styled(Navbar)`
 	min-height: 4rem;
     background: linear-gradient(${({ theme }) => theme.body}, ${({ theme }) => theme.body} 90%, transparent 100%);
@@ -23,7 +25,7 @@ const Square = styled.div`
 `;
 
 
-const Header = ({theme}) => {
+const Header = ({theme, toggleTheme}) => {
         return (
 		<HeaderBar sticky="top">
 			<HeaderBar.Brand href="/home">
@@ -53,8 +55,10 @@ const Header = ({theme}) => {
 				<Nav.Link href="#pricing">Pricing</Nav.Link>
     		</Nav>
     		<HeaderBar.Collapse className="justify-content-end">
+				<Toggle theme={theme} toggleTheme={toggleTheme} />
 				<Nav>
 					<Nav.Link href="/login">Sign In</Nav.Link>
+
 				</Nav>
 				<PrimaryButton variant="primary" href="/register">SIGN UP NOW</PrimaryButton>
 			</HeaderBar.Collapse>
