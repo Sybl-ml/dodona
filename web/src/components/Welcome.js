@@ -7,7 +7,7 @@ import MemoPlaceholder from '../icons/Placeholder.js';
 import {PrimaryButton, OutlinedPrimaryButton} from './Buttons';
 
 const Main = styled(Row)`
-    text-align:left;
+    text-align:center;
     padding: 6rem 0;
 `;
 
@@ -29,12 +29,12 @@ const Quote = styled.h5`
 
 const FixButton = styled(PrimaryButton)`
     width: auto;
-    margin-right:1rem;
+    margin: 1rem;
 `;
 
 const OutlinedFixButton = styled(OutlinedPrimaryButton)`
     width: auto;
-    margin-right:1rem;
+    margin: 1rem;
 `;
 
 const Highlight = styled.div`
@@ -44,11 +44,14 @@ const Highlight = styled.div`
     color: ${({ theme }) => theme.accent};
 `;
 
+const FixedRow = styled(Row)`
+    margin: 0;
+`;
+
 const Welcome= () => {
 
         return (
             <>
-            
             <Container> 
                 <Main>
                     <Col>
@@ -62,7 +65,7 @@ const Welcome= () => {
                                 Works with <a href="https://www.tensorflow.org/"><SiTensorflow /></a> & <a href="https://keras.io/"><SiKeras /></a>
                             </SubTitle>
                         </Row>
-                        <Row>
+                        <Row className="justify-content-md-center">
                             <FixButton variant="primary">GET STARTED</FixButton>
                             <OutlinedFixButton variant="primary" className="outline">
                                 <FaExternalLinkAlt /> EXAMPLE
@@ -70,14 +73,14 @@ const Welcome= () => {
                         </Row>
                     </Col>
                     <Col>
-                        <MemoPlaceholder />
+                        <MemoPlaceholder width="120%"/>
                     </Col>
                 </Main>
             </Container>
 
-            <Highlight>
+            <Highlight >
                 <Quote>TRUSTED BY MANY ACROSS THE GLOBE</Quote>
-                <Row className="justify-content-md-center">
+                <FixedRow className="justify-content-md-center">
                     <Col md="auto">
                         <Card style={{ width: '18rem' }} >
                             <Card.Body>
@@ -114,7 +117,7 @@ const Welcome= () => {
                             </Card.Body>
                         </Card>
                     </Col>
-                </Row>
+                </FixedRow>
             </Highlight>
             </>
         );
