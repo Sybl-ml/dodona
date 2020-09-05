@@ -73,7 +73,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
         _ => (),
     };
 
-    let salt: String = auth::generate_salt(64);
+    let salt: String = auth::generate_chars(64);
 
     let pbkdf2_hash = auth::hash(password, &salt);
 

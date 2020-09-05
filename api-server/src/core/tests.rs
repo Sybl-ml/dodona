@@ -7,7 +7,7 @@ fn test_sanity() {
 
 #[test]
 fn test_hash_strings() {
-    let salt = auth::generate_salt(64);
+    let salt = auth::generate_chars(64);
     let password: &str = "SecurityStinks";
     let hash = auth::hash(password, &salt[..]);
     let h2s = auth::hash_to_string(hash);
@@ -18,7 +18,7 @@ fn test_hash_strings() {
 
 #[test]
 fn test_verify() {
-    let salt = auth::generate_salt(64);
+    let salt = auth::generate_chars(64);
     let password: &str = "SecurityStinks";
     let hash = auth::hash(password, &salt[..]);
     let verify = auth::verify(password, hash, &salt[..]);
