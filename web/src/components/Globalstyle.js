@@ -1,7 +1,7 @@
 import { createGlobalStyle} from "styled-components"
 
 import kollektif from '../fonts/kollektif/Kollektif.ttf';
-import mySvg from '../icons/test.svg';
+
 
 export const GlobalStyles = createGlobalStyle`
   @font-face {
