@@ -6,7 +6,7 @@ const LogoImage = ({theme}) => {
 
 
   return (
-  <svg height="10em" viewBox="0 0 400 140" className="d-inline-block align-top">
+  <svg height="5em" viewBox="0 0 116 140" className="d-inline-block align-top">
       <defs>
         <linearGradient id="prefix__a">
           <stop offset={0} stopColor={lightTheme.primary} />
@@ -140,29 +140,6 @@ const LogoImage = ({theme}) => {
           xlinkHref="#prefix__z"
         />
       </defs>
-      <text
-        style={{
-          lineHeight: 1.25,
-          InkscapeFontSpecification: "'Kollektif Bold'",
-        }}
-        x={130.757}
-        y={117.704}
-        fontWeight={700}
-        fontSize={141.111}
-        fontFamily="Kollektif"
-        fill={themeMode.text}
-        strokeWidth={0.265}
-      >
-        <tspan
-          x={130.757}
-          y={117.704}
-          style={{
-            InkscapeFontSpecification: "'Kollektif Bold'",
-          }}
-        >
-          {"Sybl"}
-        </tspan>
-      </text>
       
       {theme === "light" ?
       <>

@@ -28,12 +28,10 @@ const App = () => {
           <GlobalStyles/>
             <Switch>
             <Route path="/register">
-              <ClearHeader theme={theme} toggleTheme={themeToggler}/>
-              <Register />
+              <Register theme={theme} toggleTheme={themeToggler}/>
             </Route>
             <Route path="/login">
-              <ClearHeader theme={theme} toggleTheme={themeToggler}/>
-              <Login theme={theme}/>
+              <Login theme={theme} toggleTheme={themeToggler}/>
             </Route>
             <Route path="/dashboard">
               <Header theme={theme} toggleTheme={themeToggler}/>

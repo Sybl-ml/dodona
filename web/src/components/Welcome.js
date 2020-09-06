@@ -4,7 +4,8 @@ import styled from "styled-components";
 import { FaExternalLinkAlt } from 'react-icons/fa';
 import { SiTensorflow, SiKeras } from 'react-icons/si';
 import MemoPlaceholder from '../icons/Placeholder.js';
-import {PrimaryButton, OutlinedPrimaryButton} from './Buttons';
+import { PrimaryButton, OutlinedPrimaryButton } from './Buttons';
+import { TextCard } from './Cards';
 
 const Main = styled(Row)`
     text-align:center;
@@ -24,7 +25,8 @@ const SubTitle = styled.h2`
 const Quote = styled.h5`
     font-weight: bold;
     font-size:1rem;
-    padding: 2rem 0;
+    padding-top: 2rem;
+    padding-bottom: 1rem;
 `;
 
 const FixButton = styled(PrimaryButton)`
@@ -82,40 +84,40 @@ const Welcome= () => {
                 <Quote>TRUSTED BY MANY ACROSS THE GLOBE</Quote>
                 <FixedRow className="justify-content-md-center">
                     <Col md="auto">
-                        <Card style={{ width: '18rem' }} >
-                            <Card.Body>
-                                <Card.Title>Card Title</Card.Title>
-                                <Card.Text>
+                        <TextCard style={{ width: '18rem' }} >
+                            <TextCard.Body>
+                                <TextCard.Title>Card Title</TextCard.Title>
+                                <TextCard.Text>
                                 Some quick example text to build on the card title and make up the bulk of
                                 the card's content.
-                                </Card.Text>
+                                </TextCard.Text>
                                 <Button variant="primary">Go somewhere</Button>
-                            </Card.Body>
-                        </Card>
+                            </TextCard.Body>
+                        </TextCard>
                     </Col>
                     <Col md="auto">
-                        <Card style={{ width: '18rem' }}>
-                            <Card.Body>
-                                <Card.Title>Card Title</Card.Title>
-                                <Card.Text>
+                        <TextCard style={{ width: '18rem' }}>
+                            <TextCard.Body>
+                                <TextCard.Title>Card Title</TextCard.Title>
+                                <TextCard.Text>
                                 Some quick example text to build on the card title and make up the bulk of
                                 the card's content.
-                                </Card.Text>
+                                </TextCard.Text>
                                 <Button variant="primary">Go somewhere</Button>
-                            </Card.Body>
-                        </Card>
+                            </TextCard.Body>
+                        </TextCard>
                     </Col>
                     <Col md="auto">
-                        <Card style={{ width: '18rem' }}>
-                            <Card.Body>
-                                <Card.Title>Card Title</Card.Title>
-                                <Card.Text>
+                        <TextCard style={{ width: '18rem' }}>
+                            <TextCard.Body>
+                                <TextCard.Title>Card Title</TextCard.Title>
+                                <TextCard.Text>
                                 Some quick example text to build on the card title and make up the bulk of
                                 the card's content.
-                                </Card.Text>
+                                </TextCard.Text>
                                 <Button variant="primary">Go somewhere</Button>
-                            </Card.Body>
-                        </Card>
+                            </TextCard.Body>
+                        </TextCard>
                     </Col>
                 </FixedRow>
             </Highlight>
