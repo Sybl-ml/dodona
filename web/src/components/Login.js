@@ -4,19 +4,15 @@ import { Redirect } from 'react-router-dom';
 import styled from "styled-components";
 import {PrimaryButton} from './Buttons';
 import cookies from './../Auth'; 
+import MemoLogoImage from '../icons/LogoImage.js';
+import { FcGoogle } from "react-icons/fc";
+import { FaGithub } from "react-icons/fa";
 
-const Main = styled(Row)`
-    text-align:left;
-    padding: 6rem 0;
+const LinksRow = styled(Row)`
+    font-size:2rem;
 `;
 
-const Title = styled.h1`
-    font-weight: bold;
-    font-size:3.5rem;
-`;
-
-
-const Login = () => {
+const Login = ({theme}) => {
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -63,40 +59,50 @@ const Login = () => {
 
     return (
             
-        <Container fluid="xl"> 
-            <Main>
-            <Col xs="auto">
-                <Row>
-                <Title>Login</Title>
-                </Row>
-                <Row>
-                <Form onSubmit={handleSubmit}>
-                    <Form.Group controlId="Email">
-                        <Form.Label>Email address</Form.Label>
-                        <Form.Control type="email" placeholder="Enter email" onChange={e => setEmail(e.target.value)}/>
-                    </Form.Group>
+        <Container> 
+            
+            <Row className="justify-content-md-center">
+                <MemoLogoImage 
+                    theme={theme}
+                />
+            </Row>
+            
+            <Row className="justify-content-md-center">
+                <Col className="justify-content-md-center" >
+                    <br/>
+                    <h4>Login with</h4>
+                    <LinksRow className="justify-content-md-center">
+                        <FcGoogle/>  
+                        <FaGithub/>
+                    </LinksRow>
 
-                    <Form.Group controlId="Password">
-                        <Form.Label>Password</Form.Label>
-                        <Form.Control type="password" placeholder="Password" onChange={e => setPassword(e.target.value)}/>
-                    </Form.Group>
-                    <Form.Group controlId="RememberMe">
-                        <Form.Check type="checkbox" label="Remember Me" onChange={e => setRemember(e.target.value)}/>
-                    </Form.Group>
-                    <Row>
-                    
-                    <PrimaryButton variant="primary" type="submit">
-                        LOGIN
-                    </PrimaryButton>
-                    <Nav>
-                        <Nav.Link href="/register">Sign Up</Nav.Link>
-                    </Nav>
+                    <h4>Or login using your Sybl account:</h4>
+                    <Row className="justify-content-md-center">
+                        <Form onSubmit={handleSubmit} width={'150%'}>
+                            <Form.Group controlId="Email">
+                                <Form.Label>Email address</Form.Label>
+                                <Form.Control type="email" placeholder="Enter email" onChange={e => setEmail(e.target.value)}/>
+                            </Form.Group>
+                            <Form.Group controlId="Password">
+                                <Form.Label>Password</Form.Label>
+                                <Form.Control type="password" placeholder="Password" onChange={e => setPassword(e.target.value)}/>
+                            </Form.Group>
+                            <Form.Group controlId="RememberMe">
+                                <Form.Check type="checkbox" label="Remember Me" onChange={e => setRemember(e.target.value)}/>
+                            </Form.Group>
+                            <Row className="justify-content-md-center">
+                                <PrimaryButton variant="primary" type="submit">
+                                    LOGIN
+                                </PrimaryButton>
+                                <Nav>
+                                    <Nav.Link href="/register">Sign Up</Nav.Link>
+                                </Nav>
+                            </Row>
+                            {checkLoginState()}
+                        </Form>
                     </Row>
-                    {checkLoginState()}
-                    </Form>
-                    </Row>
-                    </Col>
-            </Main>
+                </Col>
+            </Row>
         </Container>
     );
 

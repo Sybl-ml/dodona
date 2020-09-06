@@ -4,7 +4,6 @@ import {ThemeProvider} from "styled-components";
 import  {useDarkMode} from "./components/useDarkMode"
 import { GlobalStyles } from "./components/Globalstyle";
 import { lightTheme, darkTheme } from "./components/Themes"
-import Toggle from "./components/Toggler"
 import Header from "./components/Navbar";
 import ClearHeader from "./components/ClearNavbar";
 import Welcome from "./components/Welcome";
@@ -22,33 +21,31 @@ const App = () => {
 
   if(!mountedComponent) return <div/>
   
-
   return (
     <Router>
-    <ThemeProvider theme={themeMode}>
-      <>
-        <GlobalStyles/>
-        
-          <Switch>
-          <Route path="/register">
-            <ClearHeader theme={theme} />
-            <Register />
-          </Route>
-          <Route path="/login">
-            <ClearHeader theme={theme} />
-            <Login/>
-          </Route>
-          <Route path="/dashboard">
-            <Header theme={theme} toggleTheme={themeToggler}/>
-            <Dashboard/>
-          </Route>
-          <Route path="/">
-            <Header theme={theme} toggleTheme={themeToggler}/>
-            <Welcome />
-          </Route>
-        </Switch>
-      </>
-    </ThemeProvider>
+      <ThemeProvider theme={themeMode}>
+        <>
+          <GlobalStyles/>
+            <Switch>
+            <Route path="/register">
+              <ClearHeader theme={theme} toggleTheme={themeToggler}/>
+              <Register />
+            </Route>
+            <Route path="/login">
+              <ClearHeader theme={theme} toggleTheme={themeToggler}/>
+              <Login theme={theme}/>
+            </Route>
+            <Route path="/dashboard">
+              <Header theme={theme} toggleTheme={themeToggler}/>
+              <Dashboard/>
+            </Route>
+            <Route path="/">
+              <Header theme={theme} toggleTheme={themeToggler}/>
+              <Welcome />
+            </Route>
+          </Switch>
+        </>
+      </ThemeProvider>
     </Router>
   );
 };
