@@ -2,9 +2,6 @@ import * as React from "react";
 import { lightTheme, darkTheme } from "../components/Themes"
 
 const LogoImage = ({theme}) => {
-  const themeMode = theme === 'light' ? lightTheme : darkTheme;
-
-
   return (
   <svg height="5em" viewBox="0 0 116 140" className="d-inline-block align-top">
       <defs>

@@ -14,6 +14,7 @@ const ClearHeaderBar = styled(Navbar)`
 	min-height: 4rem;
     background: linear-gradient(${({ theme }) => theme.body}, ${({ theme }) => theme.body} 90%, transparent 100%);
     transition: all 0.25s linear;
+    background: none;
 `;
 
 const LinksRow = styled(Row)`
@@ -59,7 +60,7 @@ const Login = ({theme, toggleTheme}) => {
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [remember, setRemember] = useState("");
+    const [, setRemember] = useState("");
     const [loginState, setLoginState] = useState(0);
   
     const handleSubmit = (evt) => {

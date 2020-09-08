@@ -4,7 +4,7 @@ export const lightTheme = {
     secondary: '#ff1700',
     highlight: '#FCBF90',
     dark: '#FB8C38',
-    body: '#FFF',
+    body: '#FFFFFF',
     text: '#363537',
     accent: '#A97600',
 }

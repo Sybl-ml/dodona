@@ -1,7 +1,5 @@
 import { createGlobalStyle} from "styled-components"
-
 import kollektif from '../fonts/kollektif/Kollektif.ttf';
-
 
 export const GlobalStyles = createGlobalStyle`
   @font-face {
@@ -16,9 +14,6 @@ export const GlobalStyles = createGlobalStyle`
     color: ${({ theme }) => theme.text};
     font-family: kollektif, sans-serif;
     text-align: center;
-
-    
-    
   }
 
   p {
