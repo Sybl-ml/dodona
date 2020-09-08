@@ -1,26 +1,66 @@
 import React, { useState } from "react"
-import { Container, Row, Col, Form, Nav} from 'react-bootstrap';
+import { Container, Row, Col, Form, Navbar,} from 'react-bootstrap';
 import { Redirect } from 'react-router-dom';
 import styled from "styled-components";
 import {PrimaryButton} from './Buttons';
 import cookies from './../Auth'; 
+import MemoLogoImage from '../icons/LogoImage.js';
+import { FcGoogle } from "react-icons/fc";
+import { FaGithub } from "react-icons/fa";
+import {OutlinedPrimaryButton} from './Buttons';
+import Toggle from "./Toggler"
 
-const Main = styled(Row)`
-    text-align:left;
-    padding: 6rem 0;
+const ClearHeaderBar = styled(Navbar)`
+	min-height: 4rem;
+    background: linear-gradient(${({ theme }) => theme.body}, ${({ theme }) => theme.body} 90%, transparent 100%);
+    transition: all 0.25s linear;
+    background: none;
 `;
 
-const Title = styled.h1`
-    font-weight: bold;
-    font-size:3.5rem;
+const LinksRow = styled(Row)`
+    font-size:2.5rem;
 `;
 
+const Padding = styled.div`
+    padding: 0 0.5rem;
+`;
 
-const Login = () => {
+const Text = styled.div`
+    font-size: 1rem;
+    padding: 0.5rem 0;
+`;
+
+const Title = styled.div`
+    font-size: 2rem;
+    padding: 0.5rem 0;
+    padding-top: 1rem;
+`;
+
+const LoginButton = styled(PrimaryButton)`
+    width: 15rem;
+    padding: 0;
+    height: 2rem;
+`;
+
+const LoginForm = styled(Form)`
+    width: 15rem;
+`;
+
+const Forgot = styled.a`
+    font-size: 0.8rem;
+    padding-bottom: 0;
+    padding-top: 0.8rem;
+`;
+
+const Link = styled.a`
+    padding-top: 3rem;
+`;
+
+const Login = ({theme, toggleTheme}) => {
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [remember, setRemember] = useState("");
+    const [, setRemember] = useState("");
     const [loginState, setLoginState] = useState(0);
   
     const handleSubmit = (evt) => {
@@ -62,41 +102,62 @@ const Login = () => {
     }
 
     return (
-            
-        <Container fluid="xl"> 
-            <Main>
-            <Col xs="auto">
-                <Row>
-                <Title>Login</Title>
+        <Container> 
+            <ClearHeaderBar sticky="top">
+                <Toggle theme={theme} toggleTheme={toggleTheme} />
+                <ClearHeaderBar.Collapse className="justify-content-end">
+                    <ClearHeaderBar.Text>Don't have an account?</ClearHeaderBar.Text>
+                    <OutlinedPrimaryButton variant="primary" href="/register">CREATE ONE</OutlinedPrimaryButton>
+                </ClearHeaderBar.Collapse>
+            </ClearHeaderBar>
+            <Col className="justify-content-md-center">
+                <Row className="justify-content-md-center">
+                    <Link href="/">
+                        <MemoLogoImage 
+                            theme={theme}
+                        />
+                    </Link>
                 </Row>
-                <Row>
-                <Form onSubmit={handleSubmit}>
-                    <Form.Group controlId="Email">
-                        <Form.Label>Email address</Form.Label>
-                        <Form.Control type="email" placeholder="Enter email" onChange={e => setEmail(e.target.value)}/>
-                    </Form.Group>
-
-                    <Form.Group controlId="Password">
-                        <Form.Label>Password</Form.Label>
-                        <Form.Control type="password" placeholder="Password" onChange={e => setPassword(e.target.value)}/>
-                    </Form.Group>
-                    <Form.Group controlId="RememberMe">
-                        <Form.Check type="checkbox" label="Remember Me" onChange={e => setRemember(e.target.value)}/>
-                    </Form.Group>
-                    <Row>
                     
-                    <PrimaryButton variant="primary" type="submit">
-                        LOGIN
-                    </PrimaryButton>
-                    <Nav>
-                        <Nav.Link href="/register">Sign Up</Nav.Link>
-                    </Nav>
+                
+                <Row className="justify-content-md-center">
+                    <Title>Sign In To Sybl</Title>
+                </Row>
+                <Row className="justify-content-md-center">
+                    <Row className="justify-content-md-center">
+                        <LoginForm onSubmit={handleSubmit}>
+                            <LoginForm.Group controlId="Email">
+                                <LoginForm.Control type="email" placeholder="Enter email" onChange={e => setEmail(e.target.value)}/>
+                            </LoginForm.Group>
+                            <LoginForm.Group controlId="Password">
+                                <LoginForm.Control type="password" placeholder="Password" onChange={e => setPassword(e.target.value)}/>
+                            </LoginForm.Group>
+                            <LoginForm.Group controlId="RememberMe">
+                                <LoginForm.Check type="checkbox" label="Remember Me" onChange={e => setRemember(e.target.value)}/>
+                            </LoginForm.Group>
+                            <Row className="justify-content-md-center">
+                                <LoginButton variant="primary" type="submit">
+                                    SIGN IN
+                                </LoginButton>
+                            </Row>
+                            <Row className="justify-content-md-center">
+                                <Forgot href="/forgot">
+                                    Forgotten Password?
+                                </Forgot>
+                            </Row>
+                            {checkLoginState()}
+                        </LoginForm>
                     </Row>
-                    {checkLoginState()}
-                    </Form>
-                    </Row>
-                    </Col>
-            </Main>
+                </Row>
+                <Text>Or continue with</Text>
+                <LinksRow className="justify-content-md-center">
+                    
+                    <FcGoogle />
+                    <Padding></Padding>
+                    <FaGithub /> 
+                </LinksRow>
+            </Col>
+
         </Container>
     );
 

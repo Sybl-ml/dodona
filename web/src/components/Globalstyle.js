@@ -1,7 +1,5 @@
 import { createGlobalStyle} from "styled-components"
-
 import kollektif from '../fonts/kollektif/Kollektif.ttf';
-
 
 export const GlobalStyles = createGlobalStyle`
   @font-face {
@@ -31,6 +29,12 @@ export const GlobalStyles = createGlobalStyle`
 
   .navbar .navbar-nav .nav-link.active{
     color: ${({ theme }) => theme.text};
+  }
+
+  .navbar .navbar-text{
+    color: ${({ theme }) => theme.text};
+    font-size: 1.1rem;
+    padding: 0 1rem;
   }
 
   .navbar .navbar-nav .show>.nav-link{
@@ -70,5 +74,4 @@ export const GlobalStyles = createGlobalStyle`
       color: ${({ theme }) => theme.dark};
     }
   }
-
   `
