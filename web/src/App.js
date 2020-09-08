@@ -4,8 +4,6 @@ import {ThemeProvider} from "styled-components";
 import  {useDarkMode} from "./components/useDarkMode"
 import { GlobalStyles } from "./components/Globalstyle";
 import { lightTheme, darkTheme } from "./components/Themes"
-import Header from "./components/Navbar";
-import ClearHeader from "./components/ClearNavbar";
 import Welcome from "./components/Welcome";
 import Login from "./components/Login";
 import Register from "./components/Register";
@@ -34,12 +32,10 @@ const App = () => {
               <Login theme={theme} toggleTheme={themeToggler}/>
             </Route>
             <Route path="/dashboard">
-              <Header theme={theme} toggleTheme={themeToggler}/>
-              <Dashboard/>
+              <Dashboard theme={theme} toggleTheme={themeToggler}/>
             </Route>
             <Route path="/">
-              <Header theme={theme} toggleTheme={themeToggler}/>
-              <Welcome />
+              <Welcome theme={theme} toggleTheme={themeToggler}/>
             </Route>
           </Switch>
         </>

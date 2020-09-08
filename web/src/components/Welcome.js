@@ -1,11 +1,12 @@
 import React from "react"
-import { Container, Row, Col, Button, Card, } from 'react-bootstrap';
+import { Container, Row, Col, Button, } from 'react-bootstrap';
 import styled from "styled-components";
 import { FaExternalLinkAlt } from 'react-icons/fa';
 import { SiTensorflow, SiKeras } from 'react-icons/si';
 import MemoPlaceholder from '../icons/Placeholder.js';
 import { PrimaryButton, OutlinedPrimaryButton } from './Buttons';
 import { TextCard } from './Cards';
+import Header from "./Navbar";
 
 const Main = styled(Row)`
     text-align:center;
@@ -50,10 +51,11 @@ const FixedRow = styled(Row)`
     margin: 0;
 `;
 
-const Welcome= () => {
+const Welcome = ({theme, toggleTheme}) => {
 
         return (
             <>
+            <Header theme={theme} toggleTheme={toggleTheme}/>
             <Container> 
                 <Main>
                     <Col>

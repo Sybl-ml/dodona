@@ -5,6 +5,7 @@ import { FaExternalLinkAlt } from 'react-icons/fa';
 import MemoPlaceholder from '../icons/Placeholder.js';
 import {PrimaryButton, OutlinedPrimaryButton} from './Buttons';
 import cookies from './../Auth'; 
+import Header from "./Navbar";
 
 const Main = styled(Row)`
     text-align:left;
@@ -44,11 +45,12 @@ const Highlight = styled.div`
     color: ${({ theme }) => theme.accent};
 `;
 
-const Dashboard= () => {
+const Dashboard = ({theme, toggleTheme}) => {
 
         return (
             <>
             
+            <Header theme={theme} toggleTheme={toggleTheme}/>
             <Container> 
                 <Main>
                     <Col>

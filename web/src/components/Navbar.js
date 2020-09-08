@@ -1,5 +1,5 @@
 import React from "react"
-import { Navbar, Nav, NavDropdown,} from 'react-bootstrap';
+import { Navbar, Nav,} from 'react-bootstrap';
 import styled from "styled-components";
 import MemoLogo from '../icons/Logo.js';
 import {PrimaryButton} from './Buttons';
@@ -12,7 +12,7 @@ const HeaderBar = styled(Navbar)`
     transition: all 0.25s linear;
 `;
 
-
+/*
 const Square = styled.div`
 	position: absolute;
 	top: -5%;
@@ -23,7 +23,7 @@ const Square = styled.div`
 	background-color:${({ theme }) => theme.body};
 	transform: rotate(45deg);
 `;
-
+*/
 
 const Header = ({theme, toggleTheme}) => {
         return (

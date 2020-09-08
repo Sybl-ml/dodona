@@ -1,2 +1,0 @@
-CONN_STR=mongodb+srv://test:123@sybl1.kkv5g.mongodb.net/Sybl?retryWrites=true&w=majority
-APP_NAME=dodonaUK
