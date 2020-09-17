@@ -48,6 +48,12 @@ export const GlobalStyles = createGlobalStyle`
        color:${({ theme }) => theme.dark};
     } 
   }
+  
+  .styled-toggle{
+    color: ${({ theme }) => theme.text};
+    border:none;
+  }
+
   .dropdown-menu{
     background-color:${({ theme }) => theme.body};
     border: none;

@@ -34,7 +34,7 @@ const Header = ({theme, toggleTheme}) => {
 				/> 
 			</HeaderBar.Brand>
 			
-			<HeaderBar.Toggle aria-controls="responsive-navbar-nav" />
+			<HeaderBar.Toggle aria-controls="responsive-navbar-nav" style={{border:"none"}} class="styled-toggle"/>
   			<HeaderBar.Collapse id="responsive-navbar-nav" >	
 			<Nav>
 				<Nav.Link href="#product">Product</Nav.Link>
