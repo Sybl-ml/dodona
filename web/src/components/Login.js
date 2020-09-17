@@ -12,7 +12,6 @@ import Toggle from "./Toggler"
 
 const ClearHeaderBar = styled(Navbar)`
 	min-height: 4rem;
-    background: linear-gradient(${({ theme }) => theme.body}, ${({ theme }) => theme.body} 90%, transparent 100%);
     transition: all 0.25s linear;
     background: none;
 `;
@@ -104,7 +103,7 @@ const Login = ({theme, toggleTheme}) => {
     return (
         <Container> 
             <ClearHeaderBar collapseOnSelect expand="sm" sticky="top">
-            <ClearHeaderBar.Toggle aria-controls="responsive-navbar-nav" className="justify-content-end" style={{border:"none"}} class="styled-toggle"/>
+                <ClearHeaderBar.Toggle aria-controls="responsive-navbar-nav" className="justify-content-end" style={{border:"none"}} class="styled-toggle"/>
                 <ClearHeaderBar.Collapse>
                     <Toggle theme={theme} toggleTheme={toggleTheme} />
                 </ClearHeaderBar.Collapse>

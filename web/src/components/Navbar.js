@@ -8,8 +8,8 @@ import Toggle from "./Toggler"
 
 const HeaderBar = styled(Navbar)`
 	min-height: 5%;
-    background: linear-gradient(${({ theme }) => theme.body}, ${({ theme }) => theme.body} 90%, transparent 100%);
-    transition: all 0.25s linear;
+    background: ${({ theme }) => theme.body};
+	transition: all 0.25s linear;
 `;
 
 /*

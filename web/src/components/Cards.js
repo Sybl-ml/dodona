@@ -13,20 +13,27 @@ export const ItemCardTemplate = styled(Card)`
     background-color: ${({ theme }) => theme.body};
     color: ${({ theme }) => theme.text};
     width: 100%;
-    margin: 0.5rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0;
     padding: 0.5rem;
     text-align: left;
-    box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+    box-shadow: 0 2px 2px 0 rgba(0,0,0,0.1);
   }
 `;
 
-
-
-export const ItemCard = ({ children }) => {
+export const ProjectCard = ({ title, time }) => {
   return (
     <ItemCardTemplate>
-      <h5>Process #4</h5>
-      <h6>Time Elapsed: 6 Days</h6>
+      <h5>{title}</h5>
+      <h6>Time Elapsed: {time}</h6>
+    </ItemCardTemplate>
+  );
+};
+
+export const ModelCard = ({ title }) => {
+  return (
+    <ItemCardTemplate>
+      <h5>{title}</h5>
     </ItemCardTemplate>
   );
 };
