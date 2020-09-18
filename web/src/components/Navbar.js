@@ -27,7 +27,7 @@ const Square = styled.div`
 
 const Header = ({theme, toggleTheme}) => {
         return (
-		<HeaderBar  collapseOnSelect expand="lg"  sticky="top">
+		<HeaderBar  collapseOnSelect expand="md"  sticky="top">
 			<HeaderBar.Brand href="/home">
 				<MemoLogo 
 					theme={theme} 

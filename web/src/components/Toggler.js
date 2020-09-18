@@ -8,7 +8,7 @@ const Toggle = ({theme,  toggleTheme}) => {
       <DarkModeToggle 
         onChange={toggleTheme}
         checked={theme === "light" ? false : true}
-        size={90}
+        style={{height:"2.5rem", padding:0, margin:0}}
       />
     );
 };
