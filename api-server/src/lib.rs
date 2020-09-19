@@ -10,4 +10,5 @@ pub mod routes;
 pub struct State {
     pub client: Arc<Client>,
     pub db_name: Arc<String>,
+    pub pepper: Arc<String>,
 }

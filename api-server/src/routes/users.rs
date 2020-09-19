@@ -55,9 +55,10 @@ pub async fn filter(mut req: Request<State>) -> tide::Result {
 ///
 /// This will return the user token
 pub async fn new(mut req: Request<State>) -> tide::Result {
+    let doc: Document = req.body_json().await?;
     let state = &req.state();
     let db = &state.client.database("sybl");
-    let doc: Document = req.body_json().await?;
+    let pepper = &state.pepper;
     let password: &str = &clean_text(doc.get_str("password").unwrap());
     let email: &str = &clean_text(doc.get_str("email").unwrap());
     println!("Email: {}, Password: {}", email, password);
@@ -74,10 +75,11 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     };
 
     let salt: String = auth::generate_chars(64);
+    let peppered = format!("{}{}", &password, &pepper);
 
-    let pbkdf2_hash = auth::hash(password, &salt);
+    let pbkdf2_hash = auth::hash(&peppered, &salt);
 
-    let verified = auth::verify(&password, &salt, pbkdf2_hash);
+    let verified = auth::verify(&peppered, &salt, pbkdf2_hash);
 
     println!("Verified: {}", verified);
 
@@ -152,9 +154,10 @@ pub async fn edit(mut req: Request<State>) -> tide::Result {
 ///
 /// This will return the user token
 pub async fn login(mut req: Request<State>) -> tide::Result {
+    let doc: Document = req.body_json().await?;
     let state = &req.state();
     let db = &state.client.database("sybl");
-    let doc: Document = req.body_json().await?;
+    let pepper = &state.pepper;
     let password: &str = &clean_text(doc.get_str("password").unwrap());
     let email: &str = &clean_text(doc.get_str("email").unwrap());
     println!("{}, {}", &email, &password);
@@ -163,12 +166,13 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
     match user {
         Some(user) => {
             let hash = auth::string_to_hash(user.password.clone());
+            let peppered = format!("{}{}", password, pepper);
 
             println!("Hashed Password: {:?}", &hash);
             println!("Salt: {}", &user.salt[..]);
             println!("Email: {}", &user.email[..]);
 
-            let verified = auth::verify(&password, &user.salt, hash);
+            let verified = auth::verify(&peppered, &user.salt, hash);
 
             if verified {
                 println!("Logged in: {:?}", user);
