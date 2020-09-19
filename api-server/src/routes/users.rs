@@ -75,11 +75,11 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     };
 
     let salt: String = auth::generate_chars(64);
-    let peppered = &format!("{}{}", &password, &pepper)[..];
+    let peppered = &format!("{}{}", &password, &pepper);
 
-    let pbkdf2_hash = auth::hash(peppered, &salt);
+    let pbkdf2_hash = auth::hash(&peppered, &salt);
 
-    let verified = auth::verify(peppered, &salt, pbkdf2_hash);
+    let verified = auth::verify(&peppered, &salt, pbkdf2_hash);
 
     println!("Verified: {}", verified);
 
@@ -166,13 +166,13 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
     match user {
         Some(user) => {
             let hash = auth::string_to_hash(user.password.clone());
-            let peppered = &format!("{}{}", password, pepper)[..];
+            let peppered = &format!("{}{}", password, pepper);
 
             println!("Hashed Password: {:?}", &hash);
             println!("Salt: {}", &user.salt[..]);
             println!("Email: {}", &user.email[..]);
 
-            let verified = auth::verify(peppered, &user.salt, hash);
+            let verified = auth::verify(&peppered, &user.salt, hash);
 
             if verified {
                 println!("Logged in: {:?}", user);
