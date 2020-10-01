@@ -3,8 +3,6 @@ use crate::models::model::Model;
 use crate::models::users::User;
 use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
-use serde_json::value::Map;
-use tide;
 use tide::{Request, Response};
 
 /// This route will take in a user ID in the request and
@@ -57,7 +55,7 @@ pub async fn edit(mut req: Request<State>) -> tide::Result {
     println!("User: {:?}", &user);
     let user_id = user.id().unwrap();
     Ok(Response::builder(200)
-        .body(json!(doc!{"user_id": user_id.to_string()}))
+        .body(json!(doc! {"user_id": user_id.to_string()}))
         .content_type(mime::JSON)
         .build())
 }

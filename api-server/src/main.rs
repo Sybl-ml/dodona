@@ -1,7 +1,7 @@
 use async_std::sync::Arc;
 use dotenv::dotenv;
 use http_types::headers::HeaderValue;
-use mongodb::options::{ClientOptions, Credential, StreamAddress};
+use mongodb::options::ClientOptions;
 use mongodb::Client;
 use std::env;
 use tide::security::{CorsMiddleware, Origin};
