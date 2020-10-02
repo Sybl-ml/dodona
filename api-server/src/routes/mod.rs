@@ -1,5 +1,6 @@
-use super::*;
 use tide::{http::mime, Request, Response};
+
+use crate::State;
 
 pub mod users;
 
