@@ -4,12 +4,12 @@ use crate::State;
 
 pub mod users;
 
-pub async fn index(req: Request<State>) -> tide::Result<impl Into<Response>> {
+pub async fn index(_req: Request<State>) -> tide::Result<impl Into<Response>> {
     Ok(Response::builder(200)
         .body(json!({"name": "Freddie", "age": 22}))
         .content_type(mime::JSON))
 }
 
-pub async fn hello(req: Request<State>) -> tide::Result<impl Into<Response>> {
+pub async fn hello(_req: Request<State>) -> tide::Result<impl Into<Response>> {
     Ok("Hey from Dodona!")
 }
