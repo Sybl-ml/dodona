@@ -1,9 +1,11 @@
-use super::*;
-use crate::models::model::Model;
-use crate::models::users::User;
 use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
+
 use tide::{Request, Response};
+
+use crate::models::model::Model;
+use crate::models::users::User;
+use crate::State;
 
 /// This route will take in a user ID in the request and
 /// will return the information for that user

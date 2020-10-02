@@ -1,17 +1,14 @@
-use anyhow::{Error, Result};
-use async_trait::async_trait;
-use mongodb::bson::oid::ObjectId;
-use mongodb::bson::{doc, from_bson, to_bson};
-use mongodb::bson::{Bson, Document};
-use mongodb::options;
-use mongodb::results::DeleteResult;
-use mongodb::{Collection, Database};
-use serde::{de::DeserializeOwned, Serialize};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+use anyhow::{Error, Result};
+use async_trait::async_trait;
 use futures::stream::Stream;
-use mongodb::Cursor;
+use mongodb::bson::oid::ObjectId;
+use mongodb::bson::{doc, from_bson, to_bson, Bson, Document};
+use mongodb::results::DeleteResult;
+use mongodb::{options, Collection, Cursor, Database};
+use serde::{de::DeserializeOwned, Serialize};
 
 /// A cursor of model documents.
 pub struct ModelCursor<T> {
