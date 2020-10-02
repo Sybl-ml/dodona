@@ -1,6 +1,7 @@
-use super::*;
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
+
+use crate::models::model;
 
 // Define a model. Simple as deriving a few traits.
 #[derive(Debug, Serialize, Deserialize)]
