@@ -1,6 +1,6 @@
 use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
-
+use tide::http::mime;
 use tide::{Request, Response};
 
 use crate::models::model::Model;
