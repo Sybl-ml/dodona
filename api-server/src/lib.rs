@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate serde_json;
+
 use async_std::sync::Arc;
 use mongodb::Client;
 pub mod core;

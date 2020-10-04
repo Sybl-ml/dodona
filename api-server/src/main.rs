@@ -1,9 +1,10 @@
+use std::env;
+
 use async_std::sync::Arc;
 use dotenv::dotenv;
 use http_types::headers::HeaderValue;
 use mongodb::options::ClientOptions;
 use mongodb::Client;
-use std::env;
 use tide::security::{CorsMiddleware, Origin};
 
 use dodona::routes;
@@ -17,17 +18,10 @@ async fn main() -> Result<(), std::io::Error> {
     let pepper = env::var("PEPPER").expect("PEPPER must be set");
 
     // Configuring DB connection
-    let mut client_options = match ClientOptions::parse(&conn_str).await {
-        Ok(c) => c,
-        Err(e) => panic!("Client Options Failed: {}", e),
-    };
-
+    let mut client_options = ClientOptions::parse(&conn_str).await.unwrap();
     client_options.app_name = Some(app_name);
 
-    let client = match Client::with_options(client_options) {
-        Ok(c) => c,
-        Err(e) => panic!("Client Creation Failed: {}", e),
-    };
+    let client = Client::with_options(client_options).unwrap();
 
     let engine = State {
         client: Arc::new(client),

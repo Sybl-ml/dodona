@@ -9,6 +9,10 @@ use std::str;
 use tide;
 use tide::{Request, Response};
 
+use crate::models::model::Model;
+use crate::models::users::User;
+use crate::State;
+
 /// This route will take in a user ID in the request and
 /// will return the information for that user
 pub async fn get(req: Request<State>) -> tide::Result {
