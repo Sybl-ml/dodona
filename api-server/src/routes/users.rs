@@ -1,7 +1,5 @@
 use super::*;
 use crate::core::auth;
-use crate::models::model::Model;
-use crate::models::users::User;
 use ammonia::clean_text;
 use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
