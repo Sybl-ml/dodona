@@ -2,7 +2,7 @@ import * as React from "react";
 
 function Placeholder(props) {
   return (
-    <svg width={639} height={369} {...props}>
+    <svg height={369} {...props}>
       <defs>
         <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="p__a">
           <stop stopColor="#DCE3EB" offset="0%" />

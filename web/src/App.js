@@ -4,15 +4,14 @@ import {ThemeProvider} from "styled-components";
 import  {useDarkMode} from "./components/useDarkMode"
 import { GlobalStyles } from "./components/Globalstyle";
 import { lightTheme, darkTheme } from "./components/Themes"
-import Toggle from "./components/Toggler"
-import Header from "./components/Navbar";
 import Welcome from "./components/Welcome";
 import Login from "./components/Login";
 import Register from "./components/Register";
+import Dashboard from "./components/Dashboard";
 
 import { BrowserRouter as Router, Switch, Route } from "react-router-dom";
 
-const App= () => {
+const App = () => {
   
   const [theme, themeToggler, mountedComponent] = useDarkMode();
 
@@ -20,28 +19,27 @@ const App= () => {
 
   if(!mountedComponent) return <div/>
   
-
   return (
     <Router>
-    <ThemeProvider theme={themeMode}>
-      <>
-        <GlobalStyles/>
-        
-          <Switch>
-          <Route path="/register">
-            <Register />
-          </Route>
-          <Route path="/login">
-            <Login />
-          </Route>
-          <Route path="/">
-            <Header theme={theme} />
-            <Welcome />
-            <Toggle theme={theme} toggleTheme={themeToggler} />
-          </Route>
-        </Switch>
-      </>
-    </ThemeProvider>
+      <ThemeProvider theme={themeMode}>
+        <>
+          <GlobalStyles/>
+            <Switch>
+            <Route path="/register">
+              <Register theme={theme} toggleTheme={themeToggler}/>
+            </Route>
+            <Route path="/login">
+              <Login theme={theme} toggleTheme={themeToggler}/>
+            </Route>
+            <Route path="/dashboard">
+              <Dashboard theme={theme} toggleTheme={themeToggler}/>
+            </Route>
+            <Route path="/">
+              <Welcome theme={theme} toggleTheme={themeToggler}/>
+            </Route>
+          </Switch>
+        </>
+      </ThemeProvider>
     </Router>
   );
 };

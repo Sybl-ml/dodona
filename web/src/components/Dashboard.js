@@ -1,15 +1,14 @@
 import React from "react"
-import { Container, Row, Col, Button, } from 'react-bootstrap';
+import { Container, Row, Col, Button, Card, } from 'react-bootstrap';
 import styled from "styled-components";
 import { FaExternalLinkAlt } from 'react-icons/fa';
-import { SiTensorflow, SiKeras } from 'react-icons/si';
 import MemoPlaceholder from '../icons/Placeholder.js';
-import { PrimaryButton, OutlinedPrimaryButton } from './Buttons';
-import { TextCard } from './Cards';
+import {PrimaryButton, OutlinedPrimaryButton} from './Buttons';
+import cookies from './../Auth'; 
 import Header from "./Navbar";
 
 const Main = styled(Row)`
-    text-align:center;
+    text-align:left;
     padding: 6rem 0;
 `;
 
@@ -26,18 +25,17 @@ const SubTitle = styled.h2`
 const Quote = styled.h5`
     font-weight: bold;
     font-size:1rem;
-    padding-top: 2rem;
-    padding-bottom: 1rem;
+    padding: 2rem 0;
 `;
 
 const FixButton = styled(PrimaryButton)`
     width: auto;
-    margin: 1rem;
+    margin-right:1rem;
 `;
 
 const OutlinedFixButton = styled(OutlinedPrimaryButton)`
     width: auto;
-    margin: 1rem;
+    margin-right:1rem;
 `;
 
 const Highlight = styled.div`
@@ -47,29 +45,22 @@ const Highlight = styled.div`
     color: ${({ theme }) => theme.accent};
 `;
 
-const FixedRow = styled(Row)`
-    margin: 0;
-`;
-
-const Welcome = ({theme, toggleTheme}) => {
+const Dashboard = ({theme, toggleTheme}) => {
 
         return (
             <>
+            
             <Header theme={theme} toggleTheme={toggleTheme}/>
             <Container> 
                 <Main>
                     <Col>
                         <Row>
-                            <Title>Empower your data with intuative Machine Learning</Title>
+                            <Title>Dashboard</Title>
                         </Row>
                         <Row>
-                            <SubTitle>
-                                Run complex models without any infrastructure or programming experience. 
-                                
-                                Works with <a href="https://www.tensorflow.org/"><SiTensorflow /></a> & <a href="https://keras.io/"><SiKeras /></a>
-                            </SubTitle>
+                            <SubTitle>Token: {cookies.get("token")}</SubTitle>
                         </Row>
-                        <Row className="justify-content-md-center">
+                        <Row>
                             <FixButton variant="primary">GET STARTED</FixButton>
                             <OutlinedFixButton variant="primary" className="outline">
                                 <FaExternalLinkAlt /> EXAMPLE
@@ -77,53 +68,53 @@ const Welcome = ({theme, toggleTheme}) => {
                         </Row>
                     </Col>
                     <Col>
-                        <MemoPlaceholder width="120%"/>
+                        <MemoPlaceholder />
                     </Col>
                 </Main>
             </Container>
 
-            <Highlight >
+            <Highlight>
                 <Quote>TRUSTED BY MANY ACROSS THE GLOBE</Quote>
-                <FixedRow className="justify-content-md-center">
+                <Row className="justify-content-md-center">
                     <Col md="auto">
-                        <TextCard style={{ width: '18rem' }} >
-                            <TextCard.Body>
-                                <TextCard.Title>Card Title</TextCard.Title>
-                                <TextCard.Text>
+                        <Card style={{ width: '18rem' }} >
+                            <Card.Body>
+                                <Card.Title>Card Title</Card.Title>
+                                <Card.Text>
                                 Some quick example text to build on the card title and make up the bulk of
                                 the card's content.
-                                </TextCard.Text>
+                                </Card.Text>
                                 <Button variant="primary">Go somewhere</Button>
-                            </TextCard.Body>
-                        </TextCard>
+                            </Card.Body>
+                        </Card>
                     </Col>
                     <Col md="auto">
-                        <TextCard style={{ width: '18rem' }}>
-                            <TextCard.Body>
-                                <TextCard.Title>Card Title</TextCard.Title>
-                                <TextCard.Text>
+                        <Card style={{ width: '18rem' }}>
+                            <Card.Body>
+                                <Card.Title>Card Title</Card.Title>
+                                <Card.Text>
                                 Some quick example text to build on the card title and make up the bulk of
                                 the card's content.
-                                </TextCard.Text>
+                                </Card.Text>
                                 <Button variant="primary">Go somewhere</Button>
-                            </TextCard.Body>
-                        </TextCard>
+                            </Card.Body>
+                        </Card>
                     </Col>
                     <Col md="auto">
-                        <TextCard style={{ width: '18rem' }}>
-                            <TextCard.Body>
-                                <TextCard.Title>Card Title</TextCard.Title>
-                                <TextCard.Text>
+                        <Card style={{ width: '18rem' }}>
+                            <Card.Body>
+                                <Card.Title>Card Title</Card.Title>
+                                <Card.Text>
                                 Some quick example text to build on the card title and make up the bulk of
                                 the card's content.
-                                </TextCard.Text>
+                                </Card.Text>
                                 <Button variant="primary">Go somewhere</Button>
-                            </TextCard.Body>
-                        </TextCard>
+                            </Card.Body>
+                        </Card>
                     </Col>
-                </FixedRow>
+                </Row>
             </Highlight>
             </>
         );
     };
-export default Welcome;
+export default Dashboard;

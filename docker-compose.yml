@@ -5,6 +5,8 @@ services:
     build: ./web
     volumes:
       - ./web:/usr/src/app
+    expose:
+      - 3000
     ports:
       - "3000:3000"
     stdin_open: true
@@ -14,6 +16,8 @@ services:
 
   api-server:
     build: ./api-server
+    expose:
+      - 3001
     ports: 
       - "3001:3001"
     volumes:

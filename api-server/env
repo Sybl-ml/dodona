@@ -1,2 +1,4 @@
-CONN_STR=mongodb://localhost:27017
+// This is a template. Remove this line when using
+CONN_STR=localhost
 APP_NAME=dodonaUK
+PEPPER=pepper

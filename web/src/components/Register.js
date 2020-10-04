@@ -1,122 +1,164 @@
-import React from "react"
-import { Container, Row, Col, Button, Card, } from 'react-bootstrap';
+import React, { useState } from "react"
+import { Container, Row, Col, Form, Navbar} from 'react-bootstrap';
 import styled from "styled-components";
-import { FaExternalLinkAlt } from 'react-icons/fa';
-import { SiTensorflow, SiKeras } from 'react-icons/si';
-import MemoPlaceholder from '../icons/Placeholder.js';
-import {PrimaryButton, OutlinedPrimaryButton} from './Buttons';
+import {PrimaryButton} from './Buttons';
+import cookies from './../Auth'; 
+import { Redirect } from 'react-router-dom';
+import {OutlinedPrimaryButton} from './Buttons';
+import Toggle from "./Toggler"
+import MemoLogoImage from '../icons/LogoImage.js';
+import { FcGoogle } from "react-icons/fc";
+import { FaGithub } from "react-icons/fa";
 
-const Main = styled(Row)`
-    text-align:left;
-    padding: 6rem 0;
+const ClearHeaderBar = styled(Navbar)`
+	min-height: 4rem;
+    background: linear-gradient(${({ theme }) => theme.body}, ${({ theme }) => theme.body} 90%, transparent 100%);
+    transition: all 0.25s linear;
 `;
 
-const Title = styled.h1`
-    font-weight: bold;
-    font-size:3.5rem;
+const LinksRow = styled(Row)`
+    font-size:2.5rem;
 `;
 
-const SubTitle = styled.h2`
-    font-weight: normal;
-    font-size:2rem;
+const Padding = styled.div`
+    padding: 0 0.5rem;
 `;
 
-const Quote = styled.h5`
-    font-weight: bold;
-    font-size:1rem;
-    padding: 2rem 0;
+const Text = styled.div`
+    font-size: 1rem;
+    padding: 0.5rem 0;
 `;
 
-const FixButton = styled(PrimaryButton)`
-    width: auto;
-    margin-right:1rem;
+const Title = styled.div`
+    font-size: 2rem;
+    padding: 0.5rem 0;
+    padding-top: 1rem;
 `;
 
-const OutlinedFixButton = styled(OutlinedPrimaryButton)`
-    width: auto;
-    margin-right:1rem;
+const RegButton = styled(PrimaryButton)`
+    width: 15rem;
+    padding: 0;
+    height: 2rem;
 `;
 
-const Highlight = styled.div`
-    padding-bottom:2rem;
-    text-align: center;
-    background-color: ${({ theme }) => theme.highlight};
-    color: ${({ theme }) => theme.accent};
+const RegForm = styled(Form)`
+    width: 15rem;
 `;
 
-const Register = () => {
 
-        return (
-            <>
+const Link = styled.a`
+    padding-top: 3rem;
+`;
+
+
+const Register = ({theme, toggleTheme}) => {
+
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [regState, setRegState] = useState(0);
+  
+    const handleSubmit = (evt) => {
+        evt.preventDefault();
+        if (password === confirmPassword) {
+            fetch('/api/users/new', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: email,
+                    password: password,
+                })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data.token);
+                    if (data.token === "null") {
+                        setRegState(2);
+                    }
+                    else {
+                        setRegState(1);
+                        cookies.set("token", data.token, { path: '/' , sameSite: true})
+                    }
+                });
+        }
+        else {
+            setRegState(3);
+        }
+
+    }
+
+    const checkRegState = () => {
+        if (regState === 1) {
+            console.log("Authenticated");
+            return <Redirect to="/dashboard"/>;
+        }
+        else if (regState === 2){
+            return <p>Something is wrong with the information you have provided</p>;
+        }
+        else if (regState === 3){
+            return <p>Passwords don't match</p>;
+        }
+    }
+
+    return (
             
-            <Container> 
-                <Main>
-                    <Col>
-                        <Row>
-                            <Title>Empower your data with intuative Machine Learning</Title>
-                        </Row>
-                        <Row>
-                            <SubTitle>
-                                Run complex models without any infrastructure or programming experience. 
-                                
-                                Works with <a href="https://www.tensorflow.org/"><SiTensorflow /></a> & <a href="https://keras.io/"><SiKeras /></a>
-                            </SubTitle>
-                        </Row>
-                        <Row>
-                            <FixButton variant="primary">GET STARTED</FixButton>
-                            <OutlinedFixButton variant="primary" className="outline">
-                                <FaExternalLinkAlt /> EXAMPLE
-                            </OutlinedFixButton>      
-                        </Row>
-                    </Col>
-                    <Col>
-                        <MemoPlaceholder />
-                    </Col>
-                </Main>
-            </Container>
 
-            <Highlight>
-                <Quote>TRUSTED BY MANY ACROSS THE GLOBE</Quote>
+        <Container fluid='xl'> 
+            <ClearHeaderBar sticky="top">
+                <Toggle theme={theme} toggleTheme={toggleTheme} />
+                <ClearHeaderBar.Collapse className="justify-content-end">
+                    <ClearHeaderBar.Text>Already have an account?</ClearHeaderBar.Text>
+                    <OutlinedPrimaryButton variant="primary" href="/login">SIGN IN</OutlinedPrimaryButton>
+                </ClearHeaderBar.Collapse>
+            </ClearHeaderBar>
+
+            <Col className="justify-content-md-center">
                 <Row className="justify-content-md-center">
-                    <Col md="auto">
-                        <Card style={{ width: '18rem' }} >
-                            <Card.Body>
-                                <Card.Title>Card Title</Card.Title>
-                                <Card.Text>
-                                Some quick example text to build on the card title and make up the bulk of
-                                the card's content.
-                                </Card.Text>
-                                <Button variant="primary">Go somewhere</Button>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                    <Col md="auto">
-                        <Card style={{ width: '18rem' }}>
-                            <Card.Body>
-                                <Card.Title>Card Title</Card.Title>
-                                <Card.Text>
-                                Some quick example text to build on the card title and make up the bulk of
-                                the card's content.
-                                </Card.Text>
-                                <Button variant="primary">Go somewhere</Button>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                    <Col md="auto">
-                        <Card style={{ width: '18rem' }}>
-                            <Card.Body>
-                                <Card.Title>Card Title</Card.Title>
-                                <Card.Text>
-                                Some quick example text to build on the card title and make up the bulk of
-                                the card's content.
-                                </Card.Text>
-                                <Button variant="primary">Go somewhere</Button>
-                            </Card.Body>
-                        </Card>
-                    </Col>
+                    <Link href="/">
+                        <MemoLogoImage 
+                            theme={theme}
+                        />
+                    </Link>
                 </Row>
-            </Highlight>
-            </>
-        );
+                    
+                
+                
+                <Title>New Sybl Account</Title>
+
+                <Row className="justify-content-md-center">
+                    <Row className="justify-content-md-center">
+                    <RegForm onSubmit={handleSubmit}>
+                            <RegForm.Group controlId="Email">
+                                <RegForm.Control type="email" placeholder="Enter email" onChange={e => setEmail(e.target.value)}/>
+                            </RegForm.Group>
+
+                            <RegForm.Group controlId="Password">
+                                <RegForm.Control type="password" placeholder="Password" onChange={e => setPassword(e.target.value)}/>
+                            </RegForm.Group>
+                            <RegForm.Group controlId="Password">
+                                <RegForm.Control type="password" placeholder="Confirm Password" onChange={e => setConfirmPassword(e.target.value)}/>
+                            </RegForm.Group>
+                            <Row className="justify-content-md-center">
+                                <RegButton variant="primary" type="submit">
+                                    SIGN UP
+                                </RegButton>
+                            </Row>
+                            {checkRegState()}
+                        </RegForm>
+                    </Row>
+                </Row>
+                <Text>Or use one of the following</Text>
+                <LinksRow className="justify-content-md-center">
+                    <FcGoogle />
+                    <Padding></Padding>
+                    <FaGithub /> 
+                </LinksRow>
+            </Col>
+            
+
+        </Container>
+    );
     };
 export default Register;
