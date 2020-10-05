@@ -5,7 +5,6 @@ use std::sync::Arc;
 
 use mongodb::Client;
 
-pub mod core;
 pub mod models;
 pub mod routes;
 
