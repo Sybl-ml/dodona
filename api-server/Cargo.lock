@@ -1041,9 +1041,9 @@ dependencies = [
  "log",
  "mac",
  "markup5ever",
- "proc-macro2 1.0.19",
+ "proc-macro2 1.0.24",
  "quote 1.0.7",
- "syn 1.0.38",
+ "syn 1.0.42",
 ]
 
 [[package]]
@@ -2091,7 +2091,7 @@ checksum = "f24c8e5e19d22a726626f1a5e16fe15b132dcf21d10177fa5a45ce7962996b97"
 dependencies = [
  "phf_generator",
  "phf_shared",
- "proc-macro2 1.0.19",
+ "proc-macro2 1.0.24",
  "quote 1.0.7",
 ]
 
@@ -2644,5 +2644,5 @@ dependencies = [
  "log",
  "mac",
  "markup5ever",
- "time 0.1.43",
+ "time 0.1.44",
 ]
