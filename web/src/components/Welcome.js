@@ -88,7 +88,6 @@ const Welcome = ({ theme, toggleTheme }) => {
           </Col>
         </Main>
       </Container>
-
       <Highlight>
         <Quote>TRUSTED BY MANY ACROSS THE GLOBE</Quote>
         <FixedRow className="justify-content-md-center">

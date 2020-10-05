@@ -32,6 +32,7 @@ const Header = ({ theme, toggleTheme }) => {
         <MemoLogo theme={theme} />
       </HeaderBar.Brand>
 
+
       <HeaderBar.Toggle
         aria-controls="responsive-navbar-nav"
         style={{ border: "none" }}

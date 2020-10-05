@@ -1,4 +1,4 @@
-use super::*;
+use crate::core::auth;
 
 #[test]
 fn test_sanity() {
