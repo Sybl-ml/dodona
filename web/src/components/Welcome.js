@@ -70,7 +70,7 @@ const Welcome = ({theme, toggleTheme}) => {
                             </SubTitle>
                         </Row>
                         <Row className="justify-content-center">
-                            <FixButton variant="primary">GET STARTED</FixButton>
+                            <FixButton variant="primary" href="/register">GET STARTED</FixButton>
                             <OutlinedFixButton variant="primary" className="outline">
                                 <FaExternalLinkAlt /> EXAMPLE
                             </OutlinedFixButton>      

@@ -103,7 +103,7 @@ const Login = ({theme, toggleTheme}) => {
     return (
         <Container> 
             <ClearHeaderBar collapseOnSelect expand="sm" sticky="top">
-                <ClearHeaderBar.Toggle aria-controls="responsive-navbar-nav" className="justify-content-end" style={{border:"none"}} class="styled-toggle"/>
+			    <ClearHeaderBar.Toggle aria-controls="responsive-navbar-nav" className="justify-content-end styled-toggle"/>
                 <ClearHeaderBar.Collapse>
                     <Toggle theme={theme} toggleTheme={toggleTheme} />
                 </ClearHeaderBar.Collapse>
@@ -158,6 +158,7 @@ const Login = ({theme, toggleTheme}) => {
                     <FcGoogle />
                     <Padding></Padding>
                     <FaGithub /> 
+                    
                 </LinksRow>
             </Col>
 

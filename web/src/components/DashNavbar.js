@@ -2,7 +2,6 @@ import React from "react"
 import { Navbar, Nav,} from 'react-bootstrap';
 import styled from "styled-components";
 import MemoLogo from '../icons/Logo.js';
-import {PrimaryButton} from './Buttons';
 import { FaAngleDown } from 'react-icons/fa';
 
 import Toggle from "./Toggler"
@@ -28,7 +27,7 @@ const DashHeader = ({theme, toggleTheme}) => {
 					theme={theme} 
 				/> 
 			</HeaderBar.Brand>
-			<HeaderBar.Toggle aria-controls="responsive-navbar-nav" />
+			<HeaderBar.Toggle aria-controls="responsive-navbar-nav" className="styled-toggle"/>
   			<HeaderBar.Collapse id="responsive-navbar-nav" className="justify-content-end">
 				<Toggle theme={theme} toggleTheme={toggleTheme} />
 				<Nav className="justify-content-center">
