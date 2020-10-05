@@ -1,6 +1,6 @@
 use std::env;
+use std::sync::Arc;
 
-use async_std::sync::Arc;
 use dotenv::dotenv;
 use http_types::headers::HeaderValue;
 use mongodb::options::ClientOptions;
