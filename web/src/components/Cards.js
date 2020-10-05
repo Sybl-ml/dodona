@@ -1,5 +1,5 @@
 import React from "react";
-import { Card } from 'react-bootstrap';
+import { Card } from "react-bootstrap";
 import styled from "styled-components";
 
 export const TextCard = styled(Card)` 
@@ -7,7 +7,6 @@ export const TextCard = styled(Card)`
     color: ${({ theme }) => theme.text};
   }
 `;
-
 
 export const ItemCardTemplate = styled(Card)` 
     background-color: ${({ theme }) => theme.body};

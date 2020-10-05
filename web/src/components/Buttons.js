@@ -1,4 +1,4 @@
-import { Button } from 'react-bootstrap';
+import { Button } from "react-bootstrap";
 import styled from "styled-components";
 
 export const PrimaryButton = styled(Button)` 
@@ -22,7 +22,7 @@ export const PrimaryButton = styled(Button)`
   }
 `;
 
-export const OutlinedPrimaryButton = styled(PrimaryButton)` 
-    background-color:transparent;
-    color: ${({ theme }) => theme.mid};
+export const OutlinedPrimaryButton = styled(PrimaryButton)`
+  background-color: transparent;
+  color: ${({ theme }) => theme.mid};
 `;
