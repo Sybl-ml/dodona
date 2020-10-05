@@ -1,119 +1,87 @@
-import React from "react"
-import { Container, Row, Col, Button, Card, } from 'react-bootstrap';
+import React from "react";
+import { Container, Row, Col, Tabs, Tab, InputGroup, FormControl } from 'react-bootstrap';
 import styled from "styled-components";
-import { FaExternalLinkAlt } from 'react-icons/fa';
-import MemoPlaceholder from '../icons/Placeholder.js';
-import {PrimaryButton, OutlinedPrimaryButton} from './Buttons';
-import cookies from './../Auth'; 
-import Header from "./Navbar";
+import DashHeader from "./DashNavbar";
+import { ProjectCard, ModelCard } from "./Cards";
+import { FaSearch } from 'react-icons/fa';
 
-const Main = styled(Row)`
-    text-align:left;
-    padding: 6rem 0;
+const MaxCol = styled(Col)`
+    height:100vh;
 `;
 
-const Title = styled.h1`
-    font-weight: bold;
-    font-size:3.5rem;
+const SideBar = styled(Tabs)`
+    
 `;
 
-const SubTitle = styled.h2`
-    font-weight: normal;
-    font-size:2rem;
+const Top = styled.div`
+    height:6rem;
 `;
-
-const Quote = styled.h5`
-    font-weight: bold;
-    font-size:1rem;
-    padding: 2rem 0;
-`;
-
-const FixButton = styled(PrimaryButton)`
-    width: auto;
-    margin-right:1rem;
-`;
-
-const OutlinedFixButton = styled(OutlinedPrimaryButton)`
-    width: auto;
-    margin-right:1rem;
-`;
-
-const Highlight = styled.div`
-    padding-bottom:2rem;
-    text-align: center;
-    background-color: ${({ theme }) => theme.highlight};
-    color: ${({ theme }) => theme.accent};
-`;
-
 const Dashboard = ({theme, toggleTheme}) => {
-
         return (
             <>
             
-            <Header theme={theme} toggleTheme={toggleTheme}/>
-            <Container> 
-                <Main>
-                    <Col>
-                        <Row>
-                            <Title>Dashboard</Title>
-                        </Row>
-                        <Row>
-                            <SubTitle>Token: {cookies.get("token")}</SubTitle>
-                        </Row>
-                        <Row>
-                            <FixButton variant="primary">GET STARTED</FixButton>
-                            <OutlinedFixButton variant="primary" className="outline">
-                                <FaExternalLinkAlt /> EXAMPLE
-                            </OutlinedFixButton>      
-                        </Row>
-                    </Col>
-                    <Col>
-                        <MemoPlaceholder />
-                    </Col>
-                </Main>
-            </Container>
+            <DashHeader theme={theme} toggleTheme={toggleTheme}/>
+            <Container fluid>
+                <Row>
+                    <MaxCol xs={{span:12, order: 'last'}} lg={{span:3, order: 'first'}}>
+                        <Top>
+                            <InputGroup className="mb-2" style={{padding:"1.5rem 0"}}>
+                                <FormControl id="inlineFormInputGroup" placeholder="Search">
+                                    
+                                </FormControl>
+                           </InputGroup>
+                        </Top>
+                        <SideBar defaultActiveKey="home" transition={false} defaultActiveKey="projects">
+                            <Tab eventKey="projects" title="Projects">
+                                <ProjectCard 
+                                    title="Project #6"
+                                    time = "7 Days"
+                                />
+                                <ProjectCard 
+                                    title="Project #10"
+                                    time = "1 Hour"
+                                />
+                                <ProjectCard 
+                                    title="Project #8"
+                                    time = "30 Mins"
+                                />
+                                <ProjectCard 
+                                    title="Project #2"
+                                    time = "10 Hours"
+                                />
+                            </Tab>
+                            <Tab eventKey="models" title="Models">
+                                <ModelCard 
+                                    title="Cool Model 2"
+                                />
+                                <ModelCard 
+                                    title="Best Model XD"
+                                />
+                                <ModelCard 
+                                    title="This one is bad haha"
+                                />
+                            </Tab>
+                        </SideBar>
+                    </MaxCol>
+                    <Col xs={12} lg={9} style={{textAlign:"left"}}>
+                        <Top>
+                            <h2>Project #3</h2>
+                            <h5>Here is a desciption of some stuff...</h5>
+                        </Top>
+                        <Tabs defaultActiveKey="overview" transition={false}>
+                            <Tab eventKey="overview" title="Overview">
 
-            <Highlight>
-                <Quote>TRUSTED BY MANY ACROSS THE GLOBE</Quote>
-                <Row className="justify-content-md-center">
-                    <Col md="auto">
-                        <Card style={{ width: '18rem' }} >
-                            <Card.Body>
-                                <Card.Title>Card Title</Card.Title>
-                                <Card.Text>
-                                Some quick example text to build on the card title and make up the bulk of
-                                the card's content.
-                                </Card.Text>
-                                <Button variant="primary">Go somewhere</Button>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                    <Col md="auto">
-                        <Card style={{ width: '18rem' }}>
-                            <Card.Body>
-                                <Card.Title>Card Title</Card.Title>
-                                <Card.Text>
-                                Some quick example text to build on the card title and make up the bulk of
-                                the card's content.
-                                </Card.Text>
-                                <Button variant="primary">Go somewhere</Button>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                    <Col md="auto">
-                        <Card style={{ width: '18rem' }}>
-                            <Card.Body>
-                                <Card.Title>Card Title</Card.Title>
-                                <Card.Text>
-                                Some quick example text to build on the card title and make up the bulk of
-                                the card's content.
-                                </Card.Text>
-                                <Button variant="primary">Go somewhere</Button>
-                            </Card.Body>
-                        </Card>
+                            </Tab>
+                            <Tab eventKey="input" title="Input Data">
+
+                            </Tab>
+                            <Tab eventKey="output" title="Output Results">
+
+                            </Tab>
+                        </Tabs>
                     </Col>
                 </Row>
-            </Highlight>
+            </Container>
             </>
         );
     };

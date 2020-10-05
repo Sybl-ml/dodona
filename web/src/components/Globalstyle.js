@@ -22,8 +22,6 @@ export const GlobalStyles = createGlobalStyle`
 
   .navbar {
     min-height: 4rem;
-    background: linear-gradient(${({ theme }) => theme.body}, ${({ theme }) => theme.body} 90%, transparent 100%);
-    
     transition: all 0.25s linear;
   }
 
@@ -48,6 +46,12 @@ export const GlobalStyles = createGlobalStyle`
        color:${({ theme }) => theme.dark};
     } 
   }
+  
+  .styled-toggle{
+    color: ${({ theme }) => theme.text};
+    border:none;
+  }
+
   .dropdown-menu{
     background-color:${({ theme }) => theme.body};
     border: none;

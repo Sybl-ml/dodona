@@ -34,7 +34,6 @@ async fn main() -> Result<(), std::io::Error> {
     // Setting up routes
     let mut core_api = app.at("/api");
     core_api.at("/").get(routes::index);
-    core_api.at("/hello").get(routes::hello);
 
     let mut user_api = app.at("/api/users");
     user_api.at("/:user_id").get(routes::users::get);

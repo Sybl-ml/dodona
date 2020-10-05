@@ -12,7 +12,6 @@ import Toggle from "./Toggler"
 
 const ClearHeaderBar = styled(Navbar)`
 	min-height: 4rem;
-    background: linear-gradient(${({ theme }) => theme.body}, ${({ theme }) => theme.body} 90%, transparent 100%);
     transition: all 0.25s linear;
     background: none;
 `;
@@ -103,15 +102,19 @@ const Login = ({theme, toggleTheme}) => {
 
     return (
         <Container> 
-            <ClearHeaderBar sticky="top">
-                <Toggle theme={theme} toggleTheme={toggleTheme} />
+            <ClearHeaderBar collapseOnSelect expand="sm" sticky="top">
+			    <ClearHeaderBar.Toggle aria-controls="responsive-navbar-nav" className="justify-content-end styled-toggle"/>
+                <ClearHeaderBar.Collapse>
+                    <Toggle theme={theme} toggleTheme={toggleTheme} />
+                </ClearHeaderBar.Collapse>
                 <ClearHeaderBar.Collapse className="justify-content-end">
                     <ClearHeaderBar.Text>Don't have an account?</ClearHeaderBar.Text>
                     <OutlinedPrimaryButton variant="primary" href="/register">CREATE ONE</OutlinedPrimaryButton>
                 </ClearHeaderBar.Collapse>
             </ClearHeaderBar>
-            <Col className="justify-content-md-center">
-                <Row className="justify-content-md-center">
+
+            <Col className="justify-content-center">
+                <Row className="justify-content-center">
                     <Link href="/">
                         <MemoLogoImage 
                             theme={theme}
@@ -120,11 +123,11 @@ const Login = ({theme, toggleTheme}) => {
                 </Row>
                     
                 
-                <Row className="justify-content-md-center">
+                <Row className="justify-content-center">
                     <Title>Sign In To Sybl</Title>
                 </Row>
-                <Row className="justify-content-md-center">
-                    <Row className="justify-content-md-center">
+                <Row className="justify-content-center">
+                    <Row className="justify-content-center">
                         <LoginForm onSubmit={handleSubmit}>
                             <LoginForm.Group controlId="Email">
                                 <LoginForm.Control type="email" placeholder="Enter email" onChange={e => setEmail(e.target.value)}/>
@@ -135,12 +138,12 @@ const Login = ({theme, toggleTheme}) => {
                             <LoginForm.Group controlId="RememberMe">
                                 <LoginForm.Check type="checkbox" label="Remember Me" onChange={e => setRemember(e.target.value)}/>
                             </LoginForm.Group>
-                            <Row className="justify-content-md-center">
+                            <Row className="justify-content-center">
                                 <LoginButton variant="primary" type="submit">
                                     SIGN IN
                                 </LoginButton>
                             </Row>
-                            <Row className="justify-content-md-center">
+                            <Row className="justify-content-center">
                                 <Forgot href="/forgot">
                                     Forgotten Password?
                                 </Forgot>
@@ -150,11 +153,12 @@ const Login = ({theme, toggleTheme}) => {
                     </Row>
                 </Row>
                 <Text>Or continue with</Text>
-                <LinksRow className="justify-content-md-center">
+                <LinksRow className="justify-content-center">
                     
                     <FcGoogle />
                     <Padding></Padding>
                     <FaGithub /> 
+                    
                 </LinksRow>
             </Col>
 

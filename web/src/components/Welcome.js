@@ -56,7 +56,7 @@ const Welcome = ({theme, toggleTheme}) => {
         return (
             <>
             <Header theme={theme} toggleTheme={toggleTheme}/>
-            <Container> 
+            <Container fluid> 
                 <Main>
                     <Col>
                         <Row>
@@ -69,14 +69,14 @@ const Welcome = ({theme, toggleTheme}) => {
                                 Works with <a href="https://www.tensorflow.org/"><SiTensorflow /></a> & <a href="https://keras.io/"><SiKeras /></a>
                             </SubTitle>
                         </Row>
-                        <Row className="justify-content-md-center">
-                            <FixButton variant="primary">GET STARTED</FixButton>
+                        <Row className="justify-content-center">
+                            <FixButton variant="primary" href="/register">GET STARTED</FixButton>
                             <OutlinedFixButton variant="primary" className="outline">
                                 <FaExternalLinkAlt /> EXAMPLE
                             </OutlinedFixButton>      
                         </Row>
                     </Col>
-                    <Col>
+                    <Col className="d-none d-lg-block">
                         <MemoPlaceholder width="120%"/>
                     </Col>
                 </Main>

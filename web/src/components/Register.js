@@ -12,7 +12,6 @@ import { FaGithub } from "react-icons/fa";
 
 const ClearHeaderBar = styled(Navbar)`
 	min-height: 4rem;
-    background: linear-gradient(${({ theme }) => theme.body}, ${({ theme }) => theme.body} 90%, transparent 100%);
     transition: all 0.25s linear;
 `;
 

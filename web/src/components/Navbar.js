@@ -7,9 +7,9 @@ import {PrimaryButton} from './Buttons';
 import Toggle from "./Toggler"
 
 const HeaderBar = styled(Navbar)`
-	min-height: 4rem;
-    background: linear-gradient(${({ theme }) => theme.body}, ${({ theme }) => theme.body} 90%, transparent 100%);
-    transition: all 0.25s linear;
+	min-height: 5%;
+    background: ${({ theme }) => theme.body};
+	transition: all 0.25s linear;
 `;
 
 /*
@@ -27,18 +27,21 @@ const Square = styled.div`
 
 const Header = ({theme, toggleTheme}) => {
         return (
-		<HeaderBar sticky="top">
+		<HeaderBar  collapseOnSelect expand="md"  sticky="top">
 			<HeaderBar.Brand href="/home">
 				<MemoLogo 
 					theme={theme} 
 				/> 
 			</HeaderBar.Brand>
-				
+			
+			<HeaderBar.Toggle aria-controls="responsive-navbar-nav" style={{border:"none"}} className="styled-toggle"/>
+  			<HeaderBar.Collapse id="responsive-navbar-nav" >	
 			<Nav>
 				<Nav.Link href="#product">Product</Nav.Link>
 				<Nav.Link href="#meet">Meet The Team</Nav.Link>
 				<Nav.Link href="#pricing">Pricing</Nav.Link>
     		</Nav>
+			</HeaderBar.Collapse>
     		<HeaderBar.Collapse className="justify-content-end">
 				<Toggle theme={theme} toggleTheme={toggleTheme} />
 				<Nav>
