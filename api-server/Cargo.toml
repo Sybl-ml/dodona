@@ -24,6 +24,7 @@ anyhow = "1.0.32"
 async-trait = "0.1.38"
 dotenv = "0.15.0"
 pbkdf2 = "0.5.0"
+log = "0.4"
 
 [dependencies.mongodb]
 version = "1.1.0"
