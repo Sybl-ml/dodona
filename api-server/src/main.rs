@@ -45,9 +45,12 @@ async fn main() -> Result<(), std::io::Error> {
 
     let mut projects_api = core_api.at("/projects");
     projects_api
-        .at("/:user_id")
+        .at("/u/:user_id")
         .get(routes::projects::get_user_projects);
     projects_api.at("/").get(routes::projects::get_all);
+    projects_api
+        .at("/p/:project_id")
+        .get(routes::projects::get_project);
 
     // CORS
     let cors = CorsMiddleware::new()
