@@ -35,13 +35,19 @@ async fn main() -> Result<(), std::io::Error> {
     let mut core_api = app.at("/api");
     core_api.at("/").get(routes::index);
 
-    let mut user_api = app.at("/api/users");
+    let mut user_api = core_api.at("/users");
     user_api.at("/:user_id").get(routes::users::get);
     user_api.at("/filter").post(routes::users::filter);
     user_api.at("/edit").post(routes::users::edit);
     user_api.at("/login").post(routes::users::login);
     user_api.at("/new").post(routes::users::new);
     user_api.at("/delete").post(routes::users::delete);
+
+    let mut projects_api = core_api.at("/projects");
+    projects_api
+        .at("/:user_id")
+        .get(routes::projects::get_user_projects);
+    projects_api.at("/").get(routes::projects::get_all);
 
     // CORS
     let cors = CorsMiddleware::new()

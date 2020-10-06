@@ -3,6 +3,7 @@ use tide::{Request, Response};
 
 use crate::State;
 
+pub mod projects;
 pub mod users;
 
 pub async fn index(_req: Request<State>) -> tide::Result<impl Into<Response>> {
