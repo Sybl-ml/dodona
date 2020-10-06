@@ -1,5 +1,5 @@
-import { createGlobalStyle} from "styled-components"
-import kollektif from '../fonts/kollektif/Kollektif.ttf';
+import { createGlobalStyle } from "styled-components";
+import kollektif from "../fonts/kollektif/Kollektif.ttf";
 
 export const GlobalStyles = createGlobalStyle`
   @font-face {
@@ -22,8 +22,6 @@ export const GlobalStyles = createGlobalStyle`
 
   .navbar {
     min-height: 4rem;
-    background: linear-gradient(${({ theme }) => theme.body}, ${({ theme }) => theme.body} 90%, transparent 100%);
-    
     transition: all 0.25s linear;
   }
 
@@ -48,6 +46,12 @@ export const GlobalStyles = createGlobalStyle`
        color:${({ theme }) => theme.dark};
     } 
   }
+  
+  .styled-toggle{
+    color: ${({ theme }) => theme.text};
+    border:none;
+  }
+
   .dropdown-menu{
     background-color:${({ theme }) => theme.body};
     border: none;
@@ -74,4 +78,4 @@ export const GlobalStyles = createGlobalStyle`
       color: ${({ theme }) => theme.dark};
     }
   }
-  `
+  `;
