@@ -28,7 +28,10 @@ pub async fn get_project(req: Request<State>) -> tide::Result {
     let db = state.client.database("sybl");
 
     let project_id: String = req.param("project_id")?;
-    let object_id = ObjectId::with_string(&project_id).unwrap();
+    let object_id = match ObjectId::with_string(&project_id) {
+        Ok(id) => id,
+        Err(_e) => return Ok(Response::builder(404).body("user not found").build()),
+    };
 
     let filter = doc! { "_id": object_id };
 
@@ -46,15 +49,19 @@ pub async fn get_user_projects(req: Request<State>) -> tide::Result {
     let db = state.client.database("sybl");
 
     let user_id: String = req.param("user_id")?;
-    let object_id = ObjectId::with_string(&user_id).unwrap();
+    let object_id = match ObjectId::with_string(&user_id) {
+        Ok(id) => id,
+        Err(_e) => return Ok(Response::builder(404).body("user not found").build()),
+    };
 
-    // TODO check that user exists in users table when requesting projects
     let filter = doc! { "user_id": &object_id };
 
-    match User::find_one(db.clone(), doc! { "_id": &object_id}, None).await? {
-        None => return Ok(Response::builder(404).body("user not found").build()),
-        _ => (),
-    };
+    if User::find_one(db.clone(), doc! { "_id": &object_id}, None)
+        .await?
+        .is_none()
+    {
+        return Ok(Response::builder(404).body("user not found").build());
+    }
 
     let mut cursor = Project::find(db.clone(), filter, None).await?;
     let mut docs: Vec<Project> = Vec::new();
