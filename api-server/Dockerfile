@@ -7,8 +7,6 @@ RUN rustup default nightly
 RUN cargo install cargo-watch
 RUN rustc --version
 
-# CMD cargo watch -c -x run
-
 WORKDIR /usr/src/app
 
 EXPOSE 3001

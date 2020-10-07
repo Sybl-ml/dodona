@@ -25,10 +25,6 @@ services:
       - ./api-server:/usr/src/app
     working_dir: /usr/src/app
     command: cargo watch -c -x run
-    # command: 
-    #   - rustc --version
-    #   - cargo watch -c -x run
-        
 
 
 # cargo will try to redownload packages @ docker-compose up so store them here.
