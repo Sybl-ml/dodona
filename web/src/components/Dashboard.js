@@ -22,7 +22,7 @@ const SideBar = styled(Tabs)``;
 const Top = styled.div`
   height: 6rem;
 `;
-const Dashboard = ({ theme, toggleTheme }) => {
+const Dashboard = ({ theme, toggleTheme, match }) => {
   return (
     <>
       <DashHeader theme={theme} toggleTheme={toggleTheme} />
@@ -58,16 +58,9 @@ const Dashboard = ({ theme, toggleTheme }) => {
               </Tab>
             </SideBar>
           </MaxCol>
+          <Route path={`${match.path}/projects/:projectid`} component={ProjectDescription} ></Route>
           <Col xs={12} lg={9} style={{ textAlign: "left" }}>
-            <Top>
-              <h2>Project #3</h2>
-              <h5>Here is a desciption of some stuff...</h5>
-            </Top>
-            <Tabs defaultActiveKey="overview" transition={false}>
-              <Tab eventKey="overview" title="Overview"></Tab>
-              <Tab eventKey="input" title="Input Data"></Tab>
-              <Tab eventKey="output" title="Output Results"></Tab>
-            </Tabs>
+            <Route path={`${match.path}/projects/:projectid`} component={ProjectDescription} ></Route>
           </Col>
         </Row>
       </Container>
