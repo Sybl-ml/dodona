@@ -3,10 +3,11 @@
 
 FROM rust:latest
 
-RUN rustup toolchain nightly && rustup default nightly && rustup update
+RUN rustup default nightly
 RUN cargo install cargo-watch
+RUN rustc --version
 
-CMD cargo watch -c -x run
+# CMD cargo watch -c -x run
 
 WORKDIR /usr/src/app
 
