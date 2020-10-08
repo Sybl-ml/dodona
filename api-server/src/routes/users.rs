@@ -72,8 +72,11 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
 
     let password = doc.get_str("password").unwrap();
     let email = clean_text(doc.get_str("email").unwrap());
+    let first_name = clean_text(doc.get_str("firstName").unwrap());
+    let last_name = clean_text(doc.get_str("lastName").unwrap());
 
     log::info!("Email: {}, Password: {}", email, password);
+    log::info!("Name: {} {}", first_name, last_name);
 
     let filter = doc! { "email": &email };
 
@@ -99,8 +102,10 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
 
     let user = User {
         id: Some(ObjectId::new()),
-        email: email,
+        email,
         password: pbkdf2_hash,
+        first_name,
+        last_name
     };
 
     let document = mongodb::bson::ser::to_document(&user).unwrap();
