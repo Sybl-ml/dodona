@@ -105,7 +105,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
         email,
         password: pbkdf2_hash,
         first_name,
-        last_name
+        last_name,
     };
 
     let document = mongodb::bson::ser::to_document(&user).unwrap();
