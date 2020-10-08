@@ -163,13 +163,8 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
     let user = User::find_one(db.clone(), filter, None).await?;
     match user {
         Some(user) => {
-            let hash = pbkdf2::pbkdf2_simple(&user.password, PBKDF2_ROUNDS).unwrap();
             let peppered = format!("{}{}", password, pepper);
-
-            println!("Hashed Password: {:?}", &hash);
-            println!("Email: {}", &user.email);
-
-            let verified = pbkdf2::pbkdf2_check(&peppered, &hash).is_ok();
+            let verified = pbkdf2::pbkdf2_check(&peppered, &user.password).is_ok();
 
             if verified {
                 println!("Logged in: {:?}", user);
