@@ -50,6 +50,9 @@ const Link = styled.a`
 `;
 
 const Register = ({ theme, toggleTheme }) => {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [overAge, setOverAge] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -57,10 +60,10 @@ const Register = ({ theme, toggleTheme }) => {
 
   const handleSubmit = async (evt) => {
     evt.preventDefault();
-    if (password === confirmPassword) {
+    if (password === confirmPassword && overAge === true) {
       let response = await axios.post(
         "/api/users/new",
-        { email: email, password: password },
+        { email: email, password: password, firstName: firstName, lastName: lastName},
         {
           headers: {
             "Content-Type": "application/json",
@@ -89,7 +92,7 @@ const Register = ({ theme, toggleTheme }) => {
     } else if (regState === 2) {
       return <p>Something is wrong with the information you have provided</p>;
     } else if (regState === 3) {
-      return <p>Passwords don't match</p>;
+      return <p>Something went wrong, try again!</p>;
     }
   };
 
@@ -117,10 +120,27 @@ const Register = ({ theme, toggleTheme }) => {
         <Row className="justify-content-md-center">
           <Row className="justify-content-md-center">
             <RegForm onSubmit={handleSubmit}>
+
+            <RegForm.Group controlId="FirstName">
+                <RegForm.Control
+                  type="text"
+                  placeholder="First Name"
+                  onChange={(e) => setFirstName(e.target.value)}
+                />
+              </RegForm.Group>
+
+              <RegForm.Group controlId="LastName">
+                <RegForm.Control
+                  type="text"
+                  placeholder="Last Name"
+                  onChange={(e) => setLastName(e.target.value)}
+                />
+              </RegForm.Group>
+
               <RegForm.Group controlId="Email">
                 <RegForm.Control
                   type="email"
-                  placeholder="Enter email"
+                  placeholder="Email"
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </RegForm.Group>
@@ -139,6 +159,15 @@ const Register = ({ theme, toggleTheme }) => {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
               </RegForm.Group>
+
+              <RegForm.Group controlId="OverAge">
+                Are you older than 13 years old? 
+                <RegForm.Control
+                  type="checkbox"
+                  onChange={(e) => setOverAge(e.target.checked)}
+                />
+              </RegForm.Group>
+
               <Row className="justify-content-md-center">
                 <RegButton variant="primary" type="submit">
                   SIGN UP
