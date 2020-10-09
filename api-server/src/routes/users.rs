@@ -1,10 +1,10 @@
 use ammonia::clean_text;
 use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
-use tide::http::mime;
-use tide::{Request, Response};
+use tide::Request;
 
 use crate::models::users::User;
+use crate::routes::response_from_json;
 use crate::State;
 
 const PBKDF2_ROUNDS: u32 = 100_000;
@@ -23,13 +23,7 @@ pub async fn get(req: Request<State>) -> tide::Result {
     let document = users.find_one(filter, None).await?.unwrap();
 
     let json: User = mongodb::bson::de::from_document(document).unwrap();
-
-    let response = Response::builder(200)
-        .body(json!(json))
-        .content_type(mime::JSON)
-        .build();
-
-    Ok(response)
+    Ok(response_from_json(json))
 }
 
 /// More general version of get. Allows filter to be passed to
@@ -45,10 +39,7 @@ pub async fn filter(mut req: Request<State>) -> tide::Result {
     let cursor = users.find(filter, None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 
-    Ok(Response::builder(200)
-        .body(json!(documents.unwrap()))
-        .content_type(mime::JSON)
-        .build())
+    Ok(response_from_json(documents.unwrap()))
 }
 
 /// New route which will allow the frontend to send an email and password
@@ -84,10 +75,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
 
     if users.find_one(filter, None).await?.is_some() {
         log::error!("Found a user with email '{}' already", &email);
-        return Ok(Response::builder(200)
-            .body(json!(doc! {"token": "null"}))
-            .content_type(mime::JSON)
-            .build());
+        return Ok(response_from_json(doc! {"token": "null"}));
     }
 
     log::info!("User does not exist, registering them now");
@@ -111,10 +99,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     let document = mongodb::bson::ser::to_document(&user).unwrap();
     let id = users.insert_one(document, None).await?.inserted_id;
 
-    Ok(Response::builder(200)
-        .body(json!(doc! {"token": id}))
-        .content_type(mime::JSON)
-        .build())
+    Ok(response_from_json(doc! {"token": id}))
 }
 
 /// Pass a JSON object with the ObjectId for the user
@@ -139,12 +124,7 @@ pub async fn edit(mut req: Request<State>) -> tide::Result {
     let filter = doc! {"_id": id};
     let mut user = match users.find_one(filter.clone(), None).await? {
         Some(u) => mongodb::bson::de::from_document::<User>(u).unwrap(),
-        None => {
-            return Ok(Response::builder(200)
-                .body(json!(doc! {"status": "failed"}))
-                .content_type(mime::JSON)
-                .build())
-        }
+        None => return Ok(response_from_json(doc! {"status": "failed"})),
     };
 
     for key in doc.keys() {
@@ -158,10 +138,7 @@ pub async fn edit(mut req: Request<State>) -> tide::Result {
     let document = mongodb::bson::ser::to_document(&user).unwrap();
     users.update_one(filter.clone(), document, None).await?;
 
-    Ok(Response::builder(200)
-        .body(json!(doc! {"status": "changed"}))
-        .content_type(mime::JSON)
-        .build())
+    Ok(response_from_json(doc! {"status": "changed"}))
 }
 
 /// Login route which will allow the frontend to send an email and password
@@ -200,23 +177,15 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
 
         if verified {
             println!("Logged in: {:?}", user);
-            Ok(Response::builder(200)
-                .body(json!(doc! {"token": user.id.unwrap().to_string()}))
-                .content_type(mime::JSON)
-                .build())
+            let identifier = user.id.unwrap().to_string();
+            Ok(response_from_json(doc! {"token": identifier}))
         } else {
             println!("Failed login: wrong password");
-            Ok(Response::builder(200)
-                .body(json!(doc! {"token": "null"}))
-                .content_type(mime::JSON)
-                .build())
+            Ok(response_from_json(doc! {"token": "null"}))
         }
     } else {
         println!("Failed login: wrong email");
-        Ok(Response::builder(200)
-            .body(json!(doc! {"token": "null"}))
-            .content_type(mime::JSON)
-            .build())
+        Ok(response_from_json(doc! {"token": "null"}))
     }
 }
 
@@ -235,8 +204,5 @@ pub async fn delete(mut req: Request<State>) -> tide::Result {
 
     users.find_one_and_delete(filter, None).await.unwrap();
 
-    Ok(Response::builder(200)
-        .body(json!(doc! {"status": "deleted"}))
-        .content_type(mime::JSON)
-        .build())
+    Ok(response_from_json(doc! {"status": "deleted"}))
 }
