@@ -1,8 +1,6 @@
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
 
-use crate::models::model;
-
 // Define a model. Simple as deriving a few traits.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User {
@@ -10,16 +8,6 @@ pub struct User {
     pub id: Option<ObjectId>,
     pub email: String,
     pub password: String,
-}
-
-impl model::Model for User {
-    const COLLECTION_NAME: &'static str = "users";
-
-    fn id(&self) -> Option<ObjectId> {
-        self.id.clone()
-    }
-
-    fn set_id(&mut self, id: ObjectId) {
-        self.id = Some(id);
-    }
+    pub first_name: String,
+    pub last_name: String,
 }
