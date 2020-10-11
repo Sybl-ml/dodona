@@ -27,7 +27,7 @@ pub async fn get_project(req: Request<State>) -> tide::Result {
     let project_id: String = req.param("project_id")?;
     let object_id = match ObjectId::with_string(&project_id) {
         Ok(id) => id,
-        Err(_e) => return Ok(Response::builder(404).body("invalid project id").build()),
+        Err(_) => return Ok(Response::builder(404).body("invalid project id").build()),
     };
 
     let filter = doc! { "_id": object_id };
@@ -46,16 +46,15 @@ pub async fn get_user_projects(req: Request<State>) -> tide::Result {
     let user_id: String = req.param("user_id")?;
     let object_id = match ObjectId::with_string(&user_id) {
         Ok(id) => id,
-        Err(_e) => return Ok(Response::builder(404).body("invalid user id").build()),
+        Err(_) => return Ok(Response::builder(404).body("invalid user id").build()),
     };
 
-    if users
-        .find_one(doc! { "_id": &object_id}, None)
-        .await?
-        .is_none()
-    {
+    let found_user = users.find_one(doc! { "_id": &object_id}, None).await?;
+
+    if found_user.is_none() {
         return Ok(Response::builder(404).body("user not found").build());
     }
+
     let filter = doc! { "user_id": &object_id };
     let cursor = projects.find(filter, None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
