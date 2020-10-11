@@ -11,7 +11,10 @@ import {
 import styled from "styled-components";
 import DashHeader from "./DashNavbar";
 import { ProjectCard, ModelCard } from "./Cards";
+import { Route, useRouteMatch } from "react-router-dom";
 import { FaSearch } from "react-icons/fa";
+
+import ProjectDescription from "./ProjectDescription";
 
 const MaxCol = styled(Col)`
   height: 100vh;
@@ -23,6 +26,7 @@ const Top = styled.div`
   height: 6rem;
 `;
 const Dashboard = ({ theme, toggleTheme }) => {
+  let { path } = useRouteMatch();
   return (
     <>
       <DashHeader theme={theme} toggleTheme={toggleTheme} />
@@ -59,15 +63,10 @@ const Dashboard = ({ theme, toggleTheme }) => {
             </SideBar>
           </MaxCol>
           <Col xs={12} lg={9} style={{ textAlign: "left" }}>
-            <Top>
-              <h2>Project #3</h2>
-              <h5>Here is a desciption of some stuff...</h5>
-            </Top>
-            <Tabs defaultActiveKey="overview" transition={false}>
-              <Tab eventKey="overview" title="Overview"></Tab>
-              <Tab eventKey="input" title="Input Data"></Tab>
-              <Tab eventKey="output" title="Output Results"></Tab>
-            </Tabs>
+            <Route
+              path={`${path}/projects/:projectid`}
+              component={ProjectDescription}
+            />
           </Col>
         </Row>
       </Container>

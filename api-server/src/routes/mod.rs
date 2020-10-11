@@ -3,6 +3,7 @@ use tide::{Request, Response};
 
 use crate::State;
 
+pub mod projects;
 pub mod users;
 
 pub fn response_from_json<B: serde::Serialize>(body: B) -> Response {
