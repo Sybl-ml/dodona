@@ -1,13 +1,13 @@
 use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
-use tide::http::mime;
 use tide::{Request, Response};
 
 use crate::models::projects::Project;
-use crate::models::users::User;
 use crate::routes::response_from_json;
 use crate::State;
 
+/// route will return all projects in database
+/// mainly for testing purposes
 pub async fn get_all(req: Request<State>) -> tide::Result {
     let database = req.state().client.database("sybl");
     let projects = database.collection("projects");
@@ -18,6 +18,8 @@ pub async fn get_all(req: Request<State>) -> tide::Result {
     Ok(response_from_json(documents.unwrap()))
 }
 
+/// route will return a single project with the id
+/// matching the request
 pub async fn get_project(req: Request<State>) -> tide::Result {
     let database = req.state().client.database("sybl");
     let projects = database.collection("projects");
@@ -35,6 +37,7 @@ pub async fn get_project(req: Request<State>) -> tide::Result {
     Ok(response_from_json(proj))
 }
 
+/// Get all projects related to a user
 pub async fn get_user_projects(req: Request<State>) -> tide::Result {
     let database = req.state().client.database("sybl");
     let projects = database.collection("projects");
