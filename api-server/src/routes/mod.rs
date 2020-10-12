@@ -5,7 +5,6 @@ use crate::State;
 
 pub mod projects;
 pub mod users;
-pub mod jobs;
 
 pub fn response_from_json<B: serde::Serialize>(body: B) -> Response {
     Response::builder(200)
