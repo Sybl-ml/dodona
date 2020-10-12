@@ -28,7 +28,7 @@ const Upload = ({ theme, toggleTheme }) => {
         console.log(content);
 
         let response = await axios.post(
-            "/api/jobs/new",
+            "/api/projects/new",
             { content: content },
             {
               headers: {

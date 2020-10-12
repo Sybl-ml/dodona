@@ -1,6 +1,6 @@
 use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
-use tide::{Request, Response};
+use tide::{Request, Response, http::mime};
 
 use crate::models::projects::Project;
 use crate::routes::response_from_json;
@@ -60,4 +60,23 @@ pub async fn get_user_projects(req: Request<State>) -> tide::Result {
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 
     Ok(response_from_json(documents.unwrap()))
+}
+
+
+pub async fn new(mut req: Request<State>) -> tide::Result {
+    let doc: Document = req.body_json().await?;
+    log::debug!("Document received: {:?}", &doc);
+
+    // let state = req.state();
+
+    // let database = state.client.database("sybl");
+    // let users = database.collection("users");
+
+    // let password = doc.get_str("password").unwrap();
+
+
+    Ok(Response::builder(200)
+        .body(json!(doc! {"token": "hello"}))
+        .content_type(mime::JSON)
+        .build())
 }
