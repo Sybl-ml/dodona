@@ -4,7 +4,6 @@ use tide::{http::mime, Response};
 
 pub mod projects;
 pub mod users;
-pub mod jobs;
 
 /// Builds a [`Response`] with a 200 OK and JSON payload.
 ///
