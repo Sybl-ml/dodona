@@ -2,9 +2,9 @@ version: "3"
 
 services:
   web:
-    build: ./web2
+    build: ./web
     volumes:
-      - ./web2:/usr/src/app
+      - ./web:/usr/src/app
       - "/usr/src/app/node_modules"
     expose:
       - 3000
