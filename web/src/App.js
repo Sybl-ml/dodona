@@ -8,6 +8,7 @@ import Welcome from "./components/Welcome";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import Dashboard from "./components/Dashboard";
+import Upload from "./components/Upload";
 
 import { BrowserRouter as Router, Switch, Route } from "react-router-dom";
 
@@ -33,6 +34,9 @@ const App = () => {
             </Route>
             <Route path="/dashboard">
               <Dashboard theme={theme} toggleTheme={themeToggler}/>
+            </Route>
+            <Route path="/upload">
+              <Upload theme={theme} toggleTheme={themeToggler}/>
             </Route>
             <Route path="/">
               <Welcome theme={theme} toggleTheme={themeToggler}/>
