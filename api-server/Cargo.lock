@@ -581,16 +581,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crypto-mac"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58bcd97a54c7ca5ce2f6eb16f6bede5b0ab5f0055fedc17d2f0b4466e21671ca"
-dependencies = [
- "generic-array 0.14.4",
- "subtle 2.3.0",
-]
-
-[[package]]
 name = "darling"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -680,7 +670,8 @@ dependencies = [
  "http-types",
  "log",
  "mongodb",
- "pbkdf2 0.5.0",
+ "rand",
+ "ring",
  "serde",
  "serde_json",
  "tide",
@@ -1037,16 +1028,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hmac"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "deae6d9dbb35ec2c502d62b8f7b1c000a0822c3b0794ba36b3149c0a1c840dff"
-dependencies = [
- "crypto-mac 0.9.1",
- "digest 0.9.0",
-]
-
-[[package]]
 name = "hostname"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1376,7 +1357,7 @@ dependencies = [
  "lazy_static",
  "md-5",
  "os_info",
- "pbkdf2 0.3.0",
+ "pbkdf2",
  "percent-encoding",
  "rand",
  "rustls",
@@ -1528,21 +1509,6 @@ checksum = "006c038a43a45995a9670da19e67600114740e8511d4333bf97a56e66a7542d9"
 dependencies = [
  "byteorder",
  "crypto-mac 0.7.0",
-]
-
-[[package]]
-name = "pbkdf2"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7170d73bf11f39b4ce1809aabc95bf5c33564cdc16fc3200ddda17a5f6e5e48b"
-dependencies = [
- "base64 0.12.3",
- "crypto-mac 0.9.1",
- "hmac 0.9.0",
- "rand",
- "rand_core",
- "sha2 0.9.1",
- "subtle 2.3.0",
 ]
 
 [[package]]

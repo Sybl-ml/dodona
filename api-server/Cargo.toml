@@ -23,7 +23,8 @@ ammonia = "3.1.0"
 anyhow = "1.0.32"
 async-trait = "0.1.38"
 dotenv = "0.15.0"
-pbkdf2 = "0.5.0"
+rand = "0.7.3"
+ring = "0.16.15"
 log = "0.4"
 
 [dependencies.mongodb]
