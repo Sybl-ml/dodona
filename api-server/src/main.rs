@@ -1,5 +1,6 @@
 #[async_std::main]
 async fn main() -> Result<(), std::io::Error> {
+    dotenv::dotenv().unwrap();
     let app = dodona::build_server().await;
 
     tide::log::start();
