@@ -20,8 +20,6 @@ pub struct State {
 }
 
 pub async fn build_server() -> tide::Server<State> {
-    dotenv::dotenv().unwrap();
-
     let conn_str = env::var("CONN_STR").expect("CONN_STR must be set");
     let app_name = env::var("APP_NAME").expect("APP_NAME must be set");
     let pepper = env::var("PEPPER").expect("PEPPER must be set");
