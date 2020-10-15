@@ -107,7 +107,7 @@ export default {
       if (response.token === "null") {
         this.validRegistration = false;
       } else {
-        // cookies.set("token", response.token, { path: "/", sameSite: true });
+        $cookies.set("token", response.token, { path: "/", sameSite: true });
         this.$router.push("dashboard");
       }
     },

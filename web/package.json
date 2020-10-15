@@ -1,5 +1,5 @@
 {
-  "name": "web2",
+  "name": "web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -12,6 +12,7 @@
     "node-sass": "^4.14.1",
     "sass-loader": "^10.0.2",
     "vue": "^2.6.11",
+    "vue-cookies": "^1.7.4",
     "vue-router": "^3.2.0",
     "vue-simple-icons": "^3.10.0",
     "vuex": "^3.4.0"

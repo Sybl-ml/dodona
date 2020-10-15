@@ -63,7 +63,7 @@ export default {
       } else {
         this.authenticated = true;
         console.log(response.token);
-        // cookies.set("token", response.token, { path: "/", sameSite: true });
+        $cookies.set("token", response.token, { path: "/", sameSite: true });
         this.$router.push("dashboard");
       }
     },

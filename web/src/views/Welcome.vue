@@ -9,8 +9,11 @@
           <h2 class="subtitle">
             Run complex models without any infrastructure or programming
             experience. Works with
-            <a href="https://www.tensorflow.org/"> </a>
-            <a href="https://keras.io/"> </a>
+            <tensor-flow-icon>
+              <a href="https://www.tensorflow.org/"> </a>
+            </tensor-flow-icon>
+            &
+            <keras-icon><a href="https://keras.io/"> </a></keras-icon>
           </h2>
           <b-button class="fix-button" variant="primary" href="/register">
             GET STARTED
@@ -122,16 +125,14 @@
 <script>
 import PlaceHolder from "@/components/icons/PlaceHolder";
 import axios from "axios";
+import { KerasIcon, TensorFlowIcon } from "vue-simple-icons";
 
 export default {
   name: "Welcome",
-  created: async function () {
-    let response = await axios.get("http://localhost:3001/api/projects");
-
-    console.log(response.data);
-  },
   components: {
     placeholder: PlaceHolder,
+    KerasIcon,
+    TensorFlowIcon,
   },
 };
 </script>
