@@ -11,7 +11,7 @@ services:
     ports:
       - "3000:8080"
     stdin_open: true
-    command: yarn run serve
+    command: npm run serve
     links:
       - api-server
 
