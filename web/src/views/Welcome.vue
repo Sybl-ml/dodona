@@ -9,13 +9,11 @@
           <h2 class="subtitle">
             Run complex models without any infrastructure or programming
             experience. Works with
-            <tensor-flow-icon>
-              <a href="https://www.tensorflow.org/"> </a>
-            </tensor-flow-icon>
+            <a href="https://www.tensorflow.org/"><tensor-flow-icon /> </a>
             &
-            <keras-icon><a href="https://keras.io/"> </a></keras-icon>
+            <a href="https://keras.io/"><keras-icon /></a>
           </h2>
-          <b-button class="fix-button" variant="primary" href="/register">
+          <b-button class="fix-button" variant="primary" to="/register">
             GET STARTED
           </b-button>
           <b-button class="outline-fix-button" variant="primary">
@@ -29,7 +27,7 @@
     </b-container>
     <div class="highlight">
       <div class="quote">TRUSTED BY MANY ACROSS THE GLOBE</div>
-      <b-row class="justify-content-center fixed-row">
+      <b-row class="justify-content-center mr-0 ml-0">
         <b-col cols="auto">
           <b-card
             title="Card Title"
@@ -115,10 +113,6 @@
   text-align: center;
   background-color: #fcbf90;
   color: #a97600;
-}
-
-.fixed-row {
-  margin: 0;
 }
 </style>
 
