@@ -1,3 +1,3 @@
+pub mod datasets;
 pub mod projects;
 pub mod users;
-pub mod datasets;
