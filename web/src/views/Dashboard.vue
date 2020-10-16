@@ -9,6 +9,13 @@
         </b-row>
         <b-row class="text-left">
           <b-col>
+            <router-link :to="{ name: 'AddProject' }">
+              <b-button variant="primary" class="mb-1 add-new" block
+                ><b-row
+                  ><b-col class="text-left">Add new project</b-col
+                  ><b-col class="ml-auto text-right">
+                    <b-icon-plus-circle /></b-col></b-row></b-button
+            ></router-link>
             <router-link
               v-for="p in projects"
               :key="p.id"
@@ -37,6 +44,12 @@
   </b-container>
 </template>
 
+<style>
+.add-new {
+  height: 70px;
+  font-size: large;
+}
+</style>
 <script>
 import axios from "axios";
 
