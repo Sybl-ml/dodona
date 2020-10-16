@@ -1,6 +1,6 @@
 <template>
   <b-container fluid>
-    <b-row class="justify-content-center">
+    <b-row class="justify-content-center text-center">
       <b-col lg="2" md="6" sm="8" xs="12">
         <icon-logo height="5em" width="5em" :show_text="false" />
         <h1>New Sybl Account</h1>
