@@ -5,6 +5,7 @@ import Login from "../views/Login.vue";
 import Register from "../views/Register.vue";
 import Dashboard from "../views/Dashboard.vue";
 import ProjectView from "../components/ProjectView.vue";
+import AddProject from "../components/AddProject.vue";
 
 Vue.use(VueRouter);
 
@@ -34,6 +35,11 @@ const routes = [
         name: "ProjectView",
         component: ProjectView,
         props: true,
+      },
+      {
+        path: "/dashboard/new",
+        name: "AddProject",
+        component: AddProject,
       },
     ],
   },
