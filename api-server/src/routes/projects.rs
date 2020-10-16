@@ -55,7 +55,7 @@ pub async fn get_user_projects(req: Request<State>) -> tide::Result {
         return Ok(Response::builder(404).body("user not found").build());
     }
 
-    let filter = doc! { "user_id": &object_id };
+    let filter = doc! { "user_id": &user_id };
     let cursor = projects.find(filter, None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 
