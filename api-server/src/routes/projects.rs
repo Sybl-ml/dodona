@@ -1,8 +1,12 @@
 use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
+use mongodb::bson::Binary;
 use tide::{Request, Response, http::mime};
+use chrono::Utc;
+use bzip2::{Compress, Compression, Action};
 
 use crate::models::projects::Project;
+use crate::models::datasets::Dataset;
 use crate::routes::response_from_json;
 use crate::State;
 
@@ -62,21 +66,69 @@ pub async fn get_user_projects(req: Request<State>) -> tide::Result {
     Ok(response_from_json(documents.unwrap()))
 }
 
+/// This route will create a new project in the database
+pub async fn new(req: Request<State>) -> tide::Result {
+    let state = req.state();
+    let database = state.client.database("sybl");
+    let projects = database.collection("projects");
 
-pub async fn new(mut req: Request<State>) -> tide::Result {
-    let doc: Document = req.body_json().await?;
-    log::debug!("Document received: {:?}", &doc);
+    // get user ID
+    let user_id: String = req.param("user_id")?;
+    let user_id: ObjectId = ObjectId::with_string(&user_id).unwrap();
+    // get name
+    let name: String = req.param("name")?;
 
-    // let state = req.state();
+    let project = Project {
+        id: Some(ObjectId::new()),
+        name,
+        date_created: bson::DateTime(Utc::now()),
+        user_id: Some(user_id)
+    };
 
-    // let database = state.client.database("sybl");
-    // let users = database.collection("users");
+    let document = mongodb::bson::ser::to_document(&project).unwrap();
+    let id = projects.insert_one(document, None).await?.inserted_id;
 
-    // let password = doc.get_str("password").unwrap();
+    Ok(response_from_json(doc! {"project_id": id}))
+}
 
 
-    Ok(Response::builder(200)
-        .body(json!(doc! {"token": "hello"}))
-        .content_type(mime::JSON)
-        .build())
+/// This route will create a dataset associated with a project
+pub async fn add(req: Request<State>) -> tide::Result {
+    let state = req.state();
+    let database = state.client.database("sybl");
+    let datasets = database.collection("datasets");
+
+    let data: String = req.param("content")?;
+    let project_id: String = req.param("project_id")?;
+    let project_id: ObjectId = ObjectId::with_string(&project_id).unwrap();
+    log::info!("Dataset received: {:?}", &data);
+
+    let mut comp_dataset = vec![];
+    let mut compressor = Compress::new(Compression::best(), 250);
+    match compressor.compress(data.as_bytes(), &mut comp_dataset, Action::Run){
+        Ok(s) => match s {
+            bzip2::Status::StreamEnd => Ok(Response::builder(404).build()),
+            bzip2::Status::MemNeeded => Ok(Response::builder(404).build()),
+            _ => {
+                let dataset = Dataset {
+                    id: Some(ObjectId::new()),
+                    project_id: Some(project_id),
+                    date_created: bson::DateTime(Utc::now()),
+                    dataset: Some(Binary{
+                        subtype: bson::spec::BinarySubtype::Generic, 
+                        bytes: comp_dataset
+                    })
+                };
+            
+                let document = mongodb::bson::ser::to_document(&dataset).unwrap();
+                let id = datasets.insert_one(document, None).await?.inserted_id;
+            
+            
+                Ok(response_from_json(doc! {"dataset_id": id}))
+            }
+        },
+        Err(_) => Ok(Response::builder(404).build()),
+    }
+
+    
 }
