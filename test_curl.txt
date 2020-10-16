@@ -1,1 +1,0 @@
-curl -X POST -H 'Content-Type: application/json' -d '{"email": "cosmob@noser.net", "password": "password"}' 0.0.0.0:3001/api/users/login
