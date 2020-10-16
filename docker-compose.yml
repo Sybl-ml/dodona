@@ -5,27 +5,27 @@ services:
     build: ./web
     volumes:
       - ./web:/usr/src/app
+      - "/usr/src/app/node_modules"
     expose:
       - 3000
     ports:
-      - "3000:3000"
+      - "3000:8080"
     stdin_open: true
-    command: yarn start
+    command: npm run serve
     links:
       - api-server
 
   api-server:
-    image: 'rust:latest'
+    image: "rust:latest"
     build: ./api-server
     expose:
       - 3001
-    ports: 
+    ports:
       - "3001:3001"
     volumes:
       - ./api-server:/usr/src/app
     working_dir: /usr/src/app
     command: cargo watch -c -x run
-
 
 # cargo will try to redownload packages @ docker-compose up so store them here.
 volumes:

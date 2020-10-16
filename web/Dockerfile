@@ -1,8 +1,8 @@
-FROM node:8
+FROM node:11.1-alpine
 
 WORKDIR /usr/src/app
 
-RUN yarn add react-bootstrap bootstrap
-RUN yarn run
+COPY package*.json ./
+RUN npm install
 
-EXPOSE 3000
+EXPOSE 8080

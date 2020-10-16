@@ -1,1 +1,4 @@
-mongo.env
+api-server/.env
+
+web/node_modules
+api-server/target/
