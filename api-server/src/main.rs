@@ -30,6 +30,7 @@ async fn main() -> Result<(), std::io::Error> {
         .at("/p/:project_id")
         .get(routes::projects::get_project);
     projects_api.at("/new").post(routes::projects::new);
+    projects_api.at("/add").post(routes::projects::add);
 
     // CORS
     let cors = CorsMiddleware::new()
