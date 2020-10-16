@@ -1,5 +1,3 @@
-//! Defines the data models used in the MongoDB instance.
-
+pub mod datasets;
 pub mod projects;
 pub mod users;
-pub mod datasets;

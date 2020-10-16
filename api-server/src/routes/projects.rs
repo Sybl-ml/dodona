@@ -1,14 +1,14 @@
 //! Defines the routes specific to project operations.
 
 use async_std::stream::StreamExt;
-use mongodb::bson::{doc, document::Document, oid::ObjectId};
-use mongodb::bson::Binary;
-use tide::{Request, Response, http::mime};
+use bzip2::{Action, Compress, Compression};
 use chrono::Utc;
-use bzip2::{Compress, Compression, Action};
+use mongodb::bson::Binary;
+use mongodb::bson::{doc, document::Document, oid::ObjectId};
+use tide::{http::mime, Request, Response};
 
-use crate::models::projects::Project;
 use crate::models::datasets::Dataset;
+use crate::models::projects::Project;
 use crate::routes::response_from_json;
 use crate::State;
 
@@ -76,6 +76,8 @@ pub async fn get_user_projects(req: Request<State>) -> tide::Result {
 }
 
 /// This route will create a new project in the database
+/// This will take a project name and a user ID and will create 
+/// a Project model and will place it in the database. 
 pub async fn new(req: Request<State>) -> tide::Result {
     let state = req.state();
     let database = state.client.database("sybl");
@@ -91,7 +93,7 @@ pub async fn new(req: Request<State>) -> tide::Result {
         id: Some(ObjectId::new()),
         name,
         date_created: bson::DateTime(Utc::now()),
-        user_id: Some(user_id)
+        user_id: Some(user_id),
     };
 
     let document = mongodb::bson::ser::to_document(&project).unwrap();
@@ -100,8 +102,12 @@ pub async fn new(req: Request<State>) -> tide::Result {
     Ok(response_from_json(doc! {"project_id": id}))
 }
 
-
 /// This route will create a dataset associated with a project
+/// It will take a project ID and a dataset (a file like a CSV) and 
+/// will compress the file and create a Dataset model. This model is 
+/// then placed into the database and is associated with a project. 
+/// If something goes wrong, it will return a 404 stating that something 
+/// is wrong. This is generally because the compression has failed.
 pub async fn add(req: Request<State>) -> tide::Result {
     let state = req.state();
     let database = state.client.database("sybl");
@@ -114,7 +120,7 @@ pub async fn add(req: Request<State>) -> tide::Result {
 
     let mut comp_dataset = vec![];
     let mut compressor = Compress::new(Compression::best(), 250);
-    match compressor.compress(data.as_bytes(), &mut comp_dataset, Action::Run){
+    match compressor.compress(data.as_bytes(), &mut comp_dataset, Action::Run) {
         Ok(s) => match s {
             bzip2::Status::StreamEnd => Ok(Response::builder(404).build()),
             bzip2::Status::MemNeeded => Ok(Response::builder(404).build()),
@@ -123,21 +129,18 @@ pub async fn add(req: Request<State>) -> tide::Result {
                     id: Some(ObjectId::new()),
                     project_id: Some(project_id),
                     date_created: bson::DateTime(Utc::now()),
-                    dataset: Some(Binary{
-                        subtype: bson::spec::BinarySubtype::Generic, 
-                        bytes: comp_dataset
-                    })
+                    dataset: Some(Binary {
+                        subtype: bson::spec::BinarySubtype::Generic,
+                        bytes: comp_dataset,
+                    }),
                 };
-            
+
                 let document = mongodb::bson::ser::to_document(&dataset).unwrap();
                 let id = datasets.insert_one(document, None).await?.inserted_id;
-            
-            
+
                 Ok(response_from_json(doc! {"dataset_id": id}))
             }
         },
         Err(_) => Ok(Response::builder(404).build()),
     }
-
-    
 }
