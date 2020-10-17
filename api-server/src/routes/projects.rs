@@ -1,3 +1,5 @@
+//! Defines the routes specific to project operations.
+
 use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
 use tide::{Request, Response};
@@ -6,8 +8,10 @@ use crate::models::projects::Project;
 use crate::routes::response_from_json;
 use crate::State;
 
-/// route will return all projects in database
-/// mainly for testing purposes
+/// Gets all the projects from the database.
+///
+/// Defines a catch-all testing route that will pull all available projects and their information
+/// from the Mongo database.
 pub async fn get_all(req: Request<State>) -> tide::Result {
     let database = req.state().client.database("sybl");
     let projects = database.collection("projects");
@@ -18,8 +22,10 @@ pub async fn get_all(req: Request<State>) -> tide::Result {
     Ok(response_from_json(documents.unwrap()))
 }
 
-/// route will return a single project with the id
-/// matching the request
+/// Finds a project in the database given an identifier.
+///
+/// Given a project identifier, finds the project in the database and returns it as a JSON object.
+/// If the project does not exist, returns a 404 response code.
 pub async fn get_project(req: Request<State>) -> tide::Result {
     let database = req.state().client.database("sybl");
     let projects = database.collection("projects");
@@ -37,7 +43,10 @@ pub async fn get_project(req: Request<State>) -> tide::Result {
     Ok(response_from_json(proj))
 }
 
-/// Get all projects related to a user
+/// Finds all the projects related to a given user.
+///
+/// Given a user identifier, finds all the projects in the database that the user owns. If the user
+/// doesn't exist or an invalid identifier is given, returns a 404 response.
 pub async fn get_user_projects(req: Request<State>) -> tide::Result {
     let database = req.state().client.database("sybl");
     let projects = database.collection("projects");
