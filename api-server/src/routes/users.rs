@@ -9,8 +9,6 @@ use crate::models::users::User;
 use crate::routes::response_from_json;
 use crate::State;
 
-const PBKDF2_ROUNDS: u32 = 100_000;
-
 /// Gets a user given their database identifier.
 ///
 /// Given a user identifier, finds the user in the database and returns them as a JSON object. If
@@ -83,11 +81,8 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     log::info!("User does not exist, registering them now");
 
     let peppered = format!("{}{}", &password, &pepper);
+    let pbkdf2_hash = pbkdf2::pbkdf2_simple(&peppered, state.pbkdf2_iterations).unwrap();
 
-    let pbkdf2_hash = pbkdf2::pbkdf2_simple(&peppered, PBKDF2_ROUNDS).unwrap();
-    let verified = pbkdf2::pbkdf2_check(&peppered, &pbkdf2_hash).is_ok();
-
-    log::info!("Verified: {}", verified);
     log::info!("Hash: {:?}", pbkdf2_hash);
 
     let user = User {

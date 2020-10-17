@@ -12,6 +12,7 @@ extern crate serde;
 extern crate serde_json;
 
 use std::env;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use http_types::headers::HeaderValue;
@@ -32,6 +33,8 @@ pub struct State {
     pub db_name: Arc<String>,
     /// The pepper to use when hashing
     pub pepper: Arc<String>,
+    /// The number of iterations to use for hashing
+    pub pbkdf2_iterations: u32,
 }
 
 /// Builds the Tide server.
@@ -55,6 +58,7 @@ pub async fn build_server() -> tide::Server<State> {
     let conn_str = env::var("CONN_STR").expect("CONN_STR must be set");
     let app_name = env::var("APP_NAME").expect("APP_NAME must be set");
     let pepper = env::var("PEPPER").expect("PEPPER must be set");
+    let pbkdf2_iterations = env::var("PBKDF2_ITERATIONS").expect("PBKDF2_ITERATIONS must be set");
 
     // Configuring DB connection
     let mut client_options = ClientOptions::parse(&conn_str).await.unwrap();
@@ -66,6 +70,7 @@ pub async fn build_server() -> tide::Server<State> {
         client: Arc::new(client),
         db_name: Arc::new(String::from("sybl")),
         pepper: Arc::new(pepper),
+        pbkdf2_iterations: u32::from_str(&pbkdf2_iterations).unwrap(),
     };
 
     let mut app = tide::with_state(engine);

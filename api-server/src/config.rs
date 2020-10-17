@@ -18,14 +18,16 @@ pub enum Environment {
 }
 
 /// Defines what variables can be configured in the file and their types.
-#[derive(Debug, Default, Deserialize)]
+#[derive(Eq, PartialEq, Debug, Default, Deserialize)]
 pub struct Config {
     /// The name of the app to use for MongoDB
     pub app_name: Option<String>,
     /// The connection URI for the Mongo database instance
     pub conn_str: Option<String>,
-    /// The pepper to use for encryption purposes
+    /// The pepper to use for hashing purposes
     pub pepper: Option<String>,
+    /// The number of iterations to use for hashing purposes
+    pub pbkdf2_iterations: Option<u32>,
 }
 
 impl Config {
@@ -43,19 +45,26 @@ impl Config {
     ///     app_name: Some("app_name".into()),
     ///     conn_str: Some("localhost".into()),
     ///     pepper: None,
+    ///     pbkdf2_iterations: None,
     /// };
     ///
     /// let specific = Config {
     ///     app_name: None,
     ///     conn_str: Some("mongo_uri".into()),
     ///     pepper: Some("pepper".into()),
+    ///     pbkdf2_iterations: None,
     /// };
     ///
     /// config.or(specific);
     ///
-    /// assert_eq!(config.app_name, Some("app_name".into()));
-    /// assert_eq!(config.conn_str, Some("mongo_uri".into()));
-    /// assert_eq!(config.pepper, Some("pepper".into()));
+    /// let expected = Config {
+    ///     app_name: Some("app_name".into()),
+    ///     conn_str: Some("mongo_uri".into()),
+    ///     pepper: Some("pepper".into()),
+    ///     pbkdf2_iterations: None,
+    /// };
+    ///
+    /// assert_eq!(config, expected);
     /// ```
     pub fn or(&mut self, config: Config) {
         if config.app_name.is_some() {
@@ -68,6 +77,10 @@ impl Config {
 
         if config.pepper.is_some() {
             self.pepper = config.pepper;
+        }
+
+        if config.pbkdf2_iterations.is_some() {
+            self.pbkdf2_iterations = config.pbkdf2_iterations;
         }
     }
 
@@ -82,6 +95,7 @@ impl Config {
     ///     app_name: Some("app_name".into()),
     ///     conn_str: Some("localhost".into()),
     ///     pepper: None,
+    ///     pbkdf2_iterations: None,
     /// };
     ///
     /// config.populate_environment();
@@ -90,6 +104,7 @@ impl Config {
     /// assert_eq!(std::env::var("CONN_STR"), Ok("localhost".into()));
     ///
     /// assert!(std::env::var("PEPPER").is_err());
+    /// assert!(std::env::var("PBKDF2_ITERATIONS").is_err());
     /// ```
     pub fn populate_environment(&self) {
         if let Some(app_name) = &self.app_name {
@@ -102,6 +117,10 @@ impl Config {
 
         if let Some(pepper) = &self.pepper {
             std::env::set_var("PEPPER", pepper);
+        }
+
+        if let Some(pbkdf2_iterations) = &self.pbkdf2_iterations {
+            std::env::set_var("PBKDF2_ITERATIONS", pbkdf2_iterations.to_string());
         }
     }
 }
@@ -180,19 +199,28 @@ impl ConfigFile {
     /// app_name = "Dodona"
     /// pepper = "pepper"
     ///
+    /// [production]
+    /// pbkdf2_iterations = 10000
+    ///
     /// [development]
     /// pepper = "dev_pepper"
     ///
     /// [testing]
     /// conn_str = "localhost"
+    ///
     /// "#;
     ///
     /// let config_file = ConfigFile::from_str(config);
     /// let development = config_file.resolve(Environment::Development);
     ///
-    /// assert_eq!(development.app_name, Some("Dodona".into()));
-    /// assert_eq!(development.conn_str, None);
-    /// assert_eq!(development.pepper, Some("dev_pepper".into()));
+    /// let expected = Config {
+    ///     app_name: Some("Dodona".into()),
+    ///     conn_str: None,
+    ///     pepper: Some("dev_pepper".into()),
+    ///     pbkdf2_iterations: None,
+    /// };
+    ///
+    /// assert_eq!(development, expected);
     /// ```
     pub fn resolve(self, environment: Environment) -> Config {
         // Start with defaults
