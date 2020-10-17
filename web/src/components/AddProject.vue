@@ -14,10 +14,10 @@
 
 <style>
 .add-project {
-  border: none;
-  border-bottom: 1px solid black;
-  border-radius: 0;
-  font-size: 20px;
+  border: none !important;
+  border-bottom: 1px solid black !important;
+  border-radius: 0 !important;
+  font-size: x-large !important;
 }
 </style>
 
