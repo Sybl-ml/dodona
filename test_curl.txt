@@ -1,3 +1,0 @@
-curl -X POST -H 'Content-Type: application/json' -d '{"email": "cosmob@noser.net", "password": "password"}' 0.0.0.0:3001/api/users/login
-curl -X POST -H 'Content-Type: application/json' -d '{"name": "anotherAwesomeProject", "description": "really cool stuff"}' 0.0.0.0:3001/api/projects/u/5f8ab17a0039601d0004c2ea/new
-curl -X POST -H 'Content-Type: application/json' -d '{"content": "Year,Time\n1896,12\n"}' 0.0.0.0:3001/api/projects/p/5f8ab33100530ad300fb2324/add
