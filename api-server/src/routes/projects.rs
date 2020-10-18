@@ -1,5 +1,8 @@
+use std::io::prelude::*;
+
 use async_std::stream::StreamExt;
-use bzip2::{Action, Compress, Compression};
+use bzip2::Compression;
+use bzip2::write::BzEncoder;
 use chrono::Utc;
 use mongodb::bson::Binary;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
@@ -129,31 +132,30 @@ pub async fn add(mut req: Request<State>) -> tide::Result {
 
     log::info!("Dataset received: {:?}", &data);
 
-    let mut comp_dataset = vec![];
-    let mut compressor = Compress::new(Compression::best(), 0);
-    match compressor.compress_vec(data.as_bytes(), &mut comp_dataset, Action::Run) {
-        Ok(s) => match s {
-            bzip2::Status::StreamEnd => Ok(Response::builder(404).build()),
-            bzip2::Status::MemNeeded => Ok(Response::builder(404).build()),
-            _ => {
-                compressor.compress_vec(data.as_bytes(), &mut comp_dataset, Action::Finish)?;
-                log::info!("{:?}", comp_dataset);
-                let dataset = Dataset {
-                    id: Some(ObjectId::new()),
-                    project_id: Some(project_id),
-                    date_created: bson::DateTime(Utc::now()),
-                    dataset: Some(Binary {
-                        subtype: bson::spec::BinarySubtype::Generic,
-                        bytes: comp_dataset,
-                    }),
-                };
+    let mut write_compress = BzEncoder::new(vec![], Compression::best());
+    match write_compress.write(data.as_bytes()){
+        Ok(_) => (),
+        Err(_) => return Ok(Response::builder(404).body("Error finishing writing stream").build())
+    };
 
-                let document = mongodb::bson::ser::to_document(&dataset)?;
-                let id = datasets.insert_one(document, None).await?.inserted_id;
+    match write_compress.finish() {
+        Ok(compressed) => {
+            log::info!("Compressed data: {:?}", &compressed);
+            let dataset = Dataset {
+                id: Some(ObjectId::new()),
+                project_id: Some(project_id),
+                date_created: bson::DateTime(Utc::now()),
+                dataset: Some(Binary {
+                    subtype: bson::spec::BinarySubtype::Generic,
+                    bytes: compressed,
+                }),
+            };
 
-                Ok(response_from_json(doc! {"dataset_id": id}))
-            }
+            let document = mongodb::bson::ser::to_document(&dataset)?;
+            let id = datasets.insert_one(document, None).await?.inserted_id;
+
+            Ok(response_from_json(doc! {"dataset_id": id}))
         },
-        Err(_) => Ok(Response::builder(404).build()),
+        Err(_) => Ok(Response::builder(404).build())
     }
 }
