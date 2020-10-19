@@ -77,9 +77,11 @@ pub async fn get_user_projects(req: Request<State>) -> tide::Result {
     Ok(response_from_json(documents.unwrap()))
 }
 
-/// This route will create a new project in the database
-/// This will take a project name and a user ID and will create
-/// a Project model and will place it in the database.
+/// Creates a new project related to a given user
+///
+/// Given a user id, a project name and description, a project will 
+/// be created and saved in the database. This can fail if the user id 
+/// provided doesn't exist.
 pub async fn new(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
     let state = req.state();
@@ -115,12 +117,14 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     Ok(response_from_json(doc! {"project_id": id}))
 }
 
-/// This route will create a dataset associated with a project
-/// It will take a project ID and a dataset (a file like a CSV) and
-/// will compress the file and create a Dataset model. This model is
-/// then placed into the database and is associated with a project.
-/// If something goes wrong, it will return a 404 stating that something
-/// is wrong. This is generally because the compression has failed.
+/// Saves a dataset to mongodb for associated project
+///
+/// This will take in a project id and a dataset. This route will 
+/// compress the dataset using BZip2 and will store this compressed 
+/// data in the database as Binary data. This can go wrong if theres 
+/// an error writing out the compressed data to the vector or if there
+/// is an error finishing the compression stream. Both times an error 
+/// will return a 404 to the caller.
 pub async fn add(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
     let state = req.state();
