@@ -141,14 +141,12 @@ pub async fn add(mut req: Request<State>) -> tide::Result {
     log::info!("Dataset received: {:?}", &data);
 
     let mut write_compress = BzEncoder::new(vec![], Compression::best());
-    match write_compress.write(data.as_bytes()) {
-        Ok(_) => (),
-        Err(_) => {
-            return Ok(Response::builder(404)
+
+    if write_compress.write(data.as_bytes()).is_err() {
+        return Ok(Response::builder(404)
                 .body("Error finishing writing stream")
                 .build())
-        }
-    };
+    }
 
     match write_compress.finish() {
         Ok(compressed) => {
