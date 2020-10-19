@@ -52,8 +52,10 @@ export default {
     return {
       name: "",
       description: "",
-      file: None,
+      file: null,
       upload_in_progress: false,
+      file_reader: null,
+      project_id: "",
     };
   },
   mounted() {
@@ -63,7 +65,6 @@ export default {
     async onSubmit() {
       this.upload_in_progress = true;
       let user_id = $cookies.get("token");
-      let project_id = "";
       try {
         let project_response = await axios.post(
           `http://localhost:3001/api/projects/u/${user_id}/new`,
@@ -73,29 +74,22 @@ export default {
           }
         );
 
-        project_id = project_response.data.project_id;
+        this.project_id = project_response.data.project_id.$oid;
       } catch (err) {
         console.log(err);
       }
 
-      try {
-        let formData = new FormData();
-        formData.append("content", this.file);
-
-        let data_response = await axios.post(
-          `http://localhost:3001/api/projects/p/${project_id}/add`,
-          formData,
-          {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-          }
-        );
-
-        console.log(data_response.data);
-      } catch (err) {
-        console.log(err);
-      }
+      this.file_reader = new FileReader();
+      this.file_reader.onload = this.sendFile;
+      this.file_reader.readAsText(this.file);
+    },
+    async sendFile(e) {
+      let project_response = await axios.post(
+        `http://localhost:3001/api/projects/p/${this.project_id}/add`,
+        {
+          content: e.target.result,
+        }
+      );
     },
   },
 };
