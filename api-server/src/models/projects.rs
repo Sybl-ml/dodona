@@ -12,6 +12,8 @@ pub struct Project {
     pub id: Option<ObjectId>,
     /// The name of the project
     pub name: String,
+    /// The description of the project set by user
+    pub description: String,
     /// The date and time that the project was created
     pub date_created: bson::DateTime,
     /// The identifier of the user who created the project
