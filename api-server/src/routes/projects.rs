@@ -2,8 +2,8 @@
 use std::io::prelude::*;
 
 use async_std::stream::StreamExt;
-use bzip2::Compression;
 use bzip2::write::BzEncoder;
+use bzip2::Compression;
 use chrono::Utc;
 use mongodb::bson::Binary;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
@@ -78,8 +78,8 @@ pub async fn get_user_projects(req: Request<State>) -> tide::Result {
 }
 
 /// This route will create a new project in the database
-/// This will take a project name and a user ID and will create 
-/// a Project model and will place it in the database. 
+/// This will take a project name and a user ID and will create
+/// a Project model and will place it in the database.
 pub async fn new(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
     let state = req.state();
@@ -116,10 +116,10 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
 }
 
 /// This route will create a dataset associated with a project
-/// It will take a project ID and a dataset (a file like a CSV) and 
-/// will compress the file and create a Dataset model. This model is 
-/// then placed into the database and is associated with a project. 
-/// If something goes wrong, it will return a 404 stating that something 
+/// It will take a project ID and a dataset (a file like a CSV) and
+/// will compress the file and create a Dataset model. This model is
+/// then placed into the database and is associated with a project.
+/// If something goes wrong, it will return a 404 stating that something
 /// is wrong. This is generally because the compression has failed.
 pub async fn add(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
@@ -141,9 +141,13 @@ pub async fn add(mut req: Request<State>) -> tide::Result {
     log::info!("Dataset received: {:?}", &data);
 
     let mut write_compress = BzEncoder::new(vec![], Compression::best());
-    match write_compress.write(data.as_bytes()){
+    match write_compress.write(data.as_bytes()) {
         Ok(_) => (),
-        Err(_) => return Ok(Response::builder(404).body("Error finishing writing stream").build())
+        Err(_) => {
+            return Ok(Response::builder(404)
+                .body("Error finishing writing stream")
+                .build())
+        }
     };
 
     match write_compress.finish() {
@@ -163,7 +167,7 @@ pub async fn add(mut req: Request<State>) -> tide::Result {
             let id = datasets.insert_one(document, None).await?.inserted_id;
 
             Ok(response_from_json(doc! {"dataset_id": id}))
-        },
-        Err(_) => Ok(Response::builder(404).build())
+        }
+        Err(_) => Ok(Response::builder(404).build()),
     }
 }
