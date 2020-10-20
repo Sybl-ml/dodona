@@ -1,64 +1,35 @@
 # Dodona
 
-Dodona encapsulates the frontend and API server for the business website. The
-frontend is written in React and the server is written in Rust, using MongoDB
-as a persistant store.
+## Required Technology
 
-## Requirements
-
-### Rust
-
-You can install the Rust compiler and toolchain
-[here](https://www.rust-lang.org/learn/get-started).
-
-After installing the toolchain, you'll need to swap to the nightly compiler by
-using `rustup default nightly`.
-
-### JavaScript and Docker
-
-You'll also need the following installed:
-
+- Rust (Use `rustup` so version of Rust compiler can be changed)
 - npm
 - yarn
 - docker
-- docker-compose
+- docker-compose (if on MacOS, this comes with Docker Desktop)
 
-## Getting Started
+## Running Project
 
-When first setting up the project, you will need to go into `frontend` and run
-`yarn` to download the dependencies as these will be copied into the Docker
-container for now.
+Use `docker-compose up`
 
-You can then run `docker-compose up`, which will build the Docker images for
-both the frontend and the API server, before allowing you to view the frontend
-at `localhost:3000`.
+After it spins up go to `localhost:3000` (or `{docker ip}:3000` on windows) to see the React front-end.
 
-The API server will be running on `localhost:3001`, which means you can send
-requests to it either through the console in JavaScript or using cURL for
-example.
+The API layer can be viewed at `localhost:3001/api`. You can directly use `fetch("localhost:3001/api/{whatever}")` from the React side to get data from the API.
 
 ## MongoDB
 
-To use the MongoDB website functionality, you must either have a hosted or
-local instance of a MongoDB database.
+To setup the MongoDB website functionality, either have a hosted or local instance of a MongoDB database.
 
-Once this is done, you can create a `.env` file at `api-server/.env` containing
-the following environment variables:
+Once this is done, set the environment variables `CONN_STR` and `APP_NAME`. `CONN_STR` is the address of the MongoDB cluster you want to use. If using a local instance, the `CONN_STR` would be: `mongodb://localhost:27017`. This will need to change depending on which cluster is needed.
 
-```
-CONN_STR=<mongodb_connection_string>
-APP_NAME=<app_name>
-PEPPER=<random_string>
-```
+These should be set in the `.env` file. This should be created using the `env` template
 
-These mappings will then be placed in the environment variables when the server
-starts, allowing them to be used across machines and without hard-coding API
-keys.
+## First Time
 
-## Screenshots
+The first time this runs, it will need to download and create a number of docker images for the code to run on. This can take some time. On top of this, `react-scripts` will need to be installed so that the frontend can be run. To do this, run `yarn` in the `web` directory. This will build all the `node_modules` so they can be used by the frontend. Additionally, you may need to run `cargo install cargo-watch` in the `api-server` directory.
 
-### Index Page
+## Index Page
 <img width="1920" alt="Sybl_Static" src="https://user-images.githubusercontent.com/37386274/85752077-041cc280-b703-11ea-8add-f29305779dea.png">
 
-### Login Page
+## Login Page
 <img width="1920" alt="Screenshot 2020-06-25 at 16 45 51" src="https://user-images.githubusercontent.com/37386274/85752484-5e1d8800-b703-11ea-852e-695d033221de.png">
