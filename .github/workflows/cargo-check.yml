@@ -10,4 +10,4 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: cargo check
-      run: "cd api-server/ && cargo check --verbose"
+      run: cargo check --verbose
