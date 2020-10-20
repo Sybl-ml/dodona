@@ -1,11 +1,3 @@
-//! Contains the API server for the Sybl website.
-//!
-//! Manages the backend with a Mongo database and responds to frontend requests for data.
-
-#![warn(rust_2018_idioms)]
-#![warn(missing_debug_implementations)]
-#![warn(missing_docs)]
-
 #[macro_use]
 extern crate serde;
 #[macro_use]
@@ -23,34 +15,13 @@ pub mod config;
 pub mod models;
 pub mod routes;
 
-/// Defines the state for each request to access.
 #[derive(Clone, Debug)]
 pub struct State {
-    /// An instance of the MongoDB client
     pub client: Arc<Client>,
-    /// The name of the database to access
     pub db_name: Arc<String>,
-    /// The pepper to use when hashing
     pub pepper: Arc<String>,
 }
 
-/// Builds the Tide server.
-///
-/// Creates a new Tide server instance and adds the API routes to it, along with setting up the
-/// [`State`] that each request has access to. This allows the server to be set up externally more
-/// easily, by simply building it and then calling the `listen` method.
-///
-/// # Examples
-///
-/// ```no_run
-/// #[async_std::main]
-/// async fn main() -> std::io::Result<()> {
-///     let server = dodona::build_server().await;
-///     server.listen("localhost:3000").await?;
-///
-///     Ok(())
-/// }
-/// ```
 pub async fn build_server() -> tide::Server<State> {
     let conn_str = env::var("CONN_STR").expect("CONN_STR must be set");
     let app_name = env::var("APP_NAME").expect("APP_NAME must be set");
@@ -72,6 +43,7 @@ pub async fn build_server() -> tide::Server<State> {
 
     // Setting up routes
     let mut core_api = app.at("/api");
+    core_api.at("/").get(routes::index);
 
     let mut user_api = core_api.at("/users");
     user_api.at("/:user_id").get(routes::users::get);
@@ -104,10 +76,6 @@ pub async fn build_server() -> tide::Server<State> {
     app
 }
 
-/// Loads the configuration for a given environment into environment variables.
-///
-/// Given the current environment, loads the configuration file and resolves it based on the given
-/// environment, before populating the environment variables with the values contained.
 pub fn load_config(environment: config::Environment) {
     let config = config::ConfigFile::from_file("config.toml");
     let resolved = config.resolve(environment);

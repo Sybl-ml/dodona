@@ -1,5 +1,3 @@
-//! Defines the routes specific to user operations.
-
 use ammonia::clean_text;
 use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
@@ -11,10 +9,8 @@ use crate::State;
 
 const PBKDF2_ROUNDS: u32 = 100_000;
 
-/// Gets a user given their database identifier.
-///
-/// Given a user identifier, finds the user in the database and returns them as a JSON object. If
-/// the user does not exist, the handler will panic.
+/// This route will take in a user ID in the request and
+/// will return the information for that user
 pub async fn get(req: Request<State>) -> tide::Result {
     let database = req.state().client.database("sybl");
     let users = database.collection("users");
@@ -30,11 +26,9 @@ pub async fn get(req: Request<State>) -> tide::Result {
     Ok(response_from_json(json))
 }
 
-/// Gets all users who match a filter.
-///
-/// Given a filter query, finds all users who match the filter and returns them as a JSON array of
-/// objects. For example, given `{"first_name", "John"}`, finds all the users with the first name
-/// John.
+/// More general version of get. Allows filter to be passed to
+/// the find. This will return a JSON object containing multiple
+/// users which fulfill the filter.
 pub async fn filter(mut req: Request<State>) -> tide::Result {
     let database = req.state().client.database("sybl");
     let users = database.collection("users");
@@ -48,11 +42,15 @@ pub async fn filter(mut req: Request<State>) -> tide::Result {
     Ok(response_from_json(documents.unwrap()))
 }
 
-/// Creates a new user given the form information.
+/// New route which will allow the frontend to send an email and password
+/// which create a new user. This will return the token for the new user.
+/// For this, a JSON object must be sent to the route, e.g:
+/// {
+///     "email": "email@email.com",
+///     "password": "password"
+/// }
 ///
-/// Given an email, password, first name and last name, peppers their password and hashes it. This
-/// then gets stored in the Mongo database with a randomly generated user identifier. If the user's
-/// email already exists, the route will not register any user.
+/// This will return the user token
 pub async fn new(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
     log::debug!("Document received: {:?}", &doc);
@@ -104,10 +102,16 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     Ok(response_from_json(doc! {"token": id.to_string()}))
 }
 
-/// Edits a user in the database and updates their information.
+/// Pass a JSON object with the ObjectId for the user
+/// which is being edited and the attributes which are being
+/// changed. This should look like:
+/// {
+///     "id": "TOKEN"
+///     "email": "email@email.com",
+///     "password": "password"
+/// }
 ///
-/// Given a user identifier, finds the user in the database and updates their information based on
-/// the JSON provided, returning a message based on whether it was updated.
+/// This will return the status of the transaction
 pub async fn edit(mut req: Request<State>) -> tide::Result {
     let state = req.state();
     let database = state.client.database("sybl");
@@ -137,11 +141,16 @@ pub async fn edit(mut req: Request<State>) -> tide::Result {
     Ok(response_from_json(doc! {"status": "changed"}))
 }
 
-/// Verifies a user's password against the one in the database.
+/// Login route which will allow the frontend to send an email and password
+/// which will be checked against the database. If there is a user with those
+/// credentials then a token will be returned. Otherwise "null" will be returned
+/// For this, a JSON object must be sent to the route
+/// {
+///     "email": "email@email.com",
+///     "password": "password"
+/// }
 ///
-/// Given an email and password, finds the user in the database and checks that the two hashes
-/// match. If they don't, or the user does not exist, it will not authenticate them and send back a
-/// null token.
+/// This will return the user token
 pub async fn login(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
 
@@ -180,9 +189,8 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
     }
 }
 
-/// Deletes a user from the database.
-///
-/// Given a user identifier, deletes the related user from the database if they exist.
+/// Delete method. Pass ID as part of JSON object and the corressponding user
+/// will be deleted from the Database.
 pub async fn delete(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
 
