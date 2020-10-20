@@ -99,7 +99,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     let document = mongodb::bson::ser::to_document(&user).unwrap();
     let id = users.insert_one(document, None).await?.inserted_id;
 
-    Ok(response_from_json(doc! {"token": id.to_string()}))
+    Ok(response_from_json(doc! {"token": id}))
 }
 
 /// Pass a JSON object with the ObjectId for the user
