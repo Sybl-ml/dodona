@@ -46,7 +46,7 @@
 
 <style>
 .add-new {
-  height: 40px;
+  height: 70px;
   font-size: large;
 }
 </style>

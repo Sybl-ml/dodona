@@ -1,5 +1,4 @@
 //! Defines the structure of datasets in the MongoDB instance.
-
 use mongodb::bson;
 use mongodb::bson::oid::ObjectId;
 use mongodb::bson::Binary;

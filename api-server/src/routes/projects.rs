@@ -59,7 +59,6 @@ pub async fn get_user_projects(req: Request<State>) -> tide::Result {
     let users = database.collection("users");
 
     let user_id: String = req.param("user_id")?;
-
     let object_id = match ObjectId::with_string(&user_id) {
         Ok(id) => id,
         Err(_) => return Ok(Response::builder(404).body("invalid user id").build()),
@@ -71,7 +70,7 @@ pub async fn get_user_projects(req: Request<State>) -> tide::Result {
         return Ok(Response::builder(404).body("user not found").build());
     }
 
-    let filter = doc! { "user_id": &object_id };
+    let filter = doc! { "user_id": &user_id };
     let cursor = projects.find(filter, None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 
@@ -146,6 +145,7 @@ pub async fn add(mut req: Request<State>) -> tide::Result {
     log::info!("Dataset received: {:?}", &data);
 
     let mut write_compress = BzEncoder::new(vec![], Compression::best());
+
     if write_compress.write(data.as_bytes()).is_err() {
         return Ok(Response::builder(404)
             .body("Error finishing writing stream")
