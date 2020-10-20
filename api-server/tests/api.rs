@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use bson::document::Document;
 use bson::oid::ObjectId;
 use serde::Deserialize;
@@ -55,9 +53,7 @@ fn initialise() {
 
             // Insert some test users
             let peppered = format!("password{}", std::env::var("PEPPER").unwrap());
-            let pbkdf2_iterations =
-                u32::from_str(&std::env::var("PBKDF2_ITERATIONS").unwrap()).unwrap();
-            let hash = pbkdf2::pbkdf2_simple(&peppered, pbkdf2_iterations).unwrap();
+            let hash = pbkdf2::pbkdf2_simple(&peppered, 10_000).unwrap();
 
             let matthew = bson::doc! {
                 "email": "matthewsmith@email.com",
