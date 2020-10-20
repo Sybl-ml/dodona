@@ -5,13 +5,6 @@ use crate::State;
 
 pub mod users;
 
-pub fn response_from_json<B: serde::Serialize>(body: B) -> Response {
-    Response::builder(200)
-        .body(json!(body))
-        .content_type(mime::JSON)
-        .build()
-}
-
 pub async fn index(_req: Request<State>) -> tide::Result<impl Into<Response>> {
     Ok(Response::builder(200)
         .body(json!({"name": "Freddie", "age": 22}))
