@@ -194,29 +194,32 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
         .await?
         .map(|doc| mongodb::bson::de::from_document::<User>(doc).unwrap());
 
-    if let Some(user) = user {
-        let peppered = format!("{}{}", password, pepper);
-        let verified = pbkdf2::pbkdf2_check(&peppered, &user.password).is_ok();
+    match user {
+        Some(user) => {
+            let peppered = format!("{}{}", password, pepper);
+            let verified = pbkdf2::pbkdf2_check(&peppered, &user.password).is_ok();
 
-        if verified {
-            println!("Logged in: {:?}", user);
-            Ok(Response::builder(200)
-                .body(json!(doc! {"token": user.id.unwrap().to_string()}))
-                .content_type(mime::JSON)
-                .build())
-        } else {
-            println!("Failed login: wrong password");
+            if verified {
+                println!("Logged in: {:?}", user);
+                Ok(Response::builder(200)
+                    .body(json!(doc! {"token": user.id.unwrap().to_string()}))
+                    .content_type(mime::JSON)
+                    .build())
+            } else {
+                println!("Failed login: wrong password");
+                Ok(Response::builder(200)
+                    .body(json!(doc! {"token": "null"}))
+                    .content_type(mime::JSON)
+                    .build())
+            }
+        }
+        None => {
+            println!("Failed login: wrong email");
             Ok(Response::builder(200)
                 .body(json!(doc! {"token": "null"}))
                 .content_type(mime::JSON)
                 .build())
         }
-    } else {
-        println!("Failed login: wrong email");
-        Ok(Response::builder(200)
-            .body(json!(doc! {"token": "null"}))
-            .content_type(mime::JSON)
-            .build())
     }
 }
 
