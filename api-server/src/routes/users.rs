@@ -6,11 +6,10 @@ use mongodb::bson::{doc, document::Document, oid::ObjectId};
 use tide::http::mime;
 use tide::{Request, Response};
 
+use crate::core::auth;
 use crate::models::model::Model;
 use crate::models::users::User;
 use crate::State;
-
-const PBKDF2_ROUNDS: u32 = 100_000;
 
 /// This route will take in a user ID in the request and
 /// will return the information for that user
@@ -77,18 +76,23 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
         _ => (),
     };
 
+    let salt: String = auth::generate_chars(64);
     let peppered = format!("{}{}", &password, &pepper);
 
-    let pbkdf2_hash = pbkdf2::pbkdf2_simple(&peppered, PBKDF2_ROUNDS).unwrap();
-    let verified = pbkdf2::pbkdf2_check(&peppered, &pbkdf2_hash).is_ok();
+    let pbkdf2_hash = auth::hash(&peppered, &salt);
+
+    let verified = auth::verify(&peppered, &salt, pbkdf2_hash);
 
     println!("Verified: {}", verified);
+
     println!("Hash: {:?}", pbkdf2_hash);
+    println!("Salt: {}", &salt);
 
     let mut user: User = User {
         id: Some(ObjectId::new()),
         email: String::from(email),
-        password: pbkdf2_hash,
+        password: auth::hash_to_string(pbkdf2_hash),
+        salt: salt,
     };
 
     user.save(db.clone(), None).await?;
@@ -163,13 +167,14 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
     let user = User::find_one(db.clone(), filter, None).await?;
     match user {
         Some(user) => {
-            let hash = pbkdf2::pbkdf2_simple(&user.password, PBKDF2_ROUNDS).unwrap();
+            let hash = auth::string_to_hash(user.password.clone());
             let peppered = format!("{}{}", password, pepper);
 
             println!("Hashed Password: {:?}", &hash);
-            println!("Email: {}", &user.email);
+            println!("Salt: {}", &user.salt[..]);
+            println!("Email: {}", &user.email[..]);
 
-            let verified = pbkdf2::pbkdf2_check(&peppered, &hash).is_ok();
+            let verified = auth::verify(&peppered, &user.salt, hash);
 
             if verified {
                 println!("Logged in: {:?}", user);
