@@ -1,0 +1,14 @@
+body {
+  margin: 0;
+  font-family: 'Lato','Roboto Slab';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco;
+}
+
+p {
+  font-family: 'Roboto';	
+}
