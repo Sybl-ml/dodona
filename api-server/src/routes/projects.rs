@@ -77,10 +77,10 @@ pub async fn get_user_projects(req: Request<State>) -> tide::Result {
     Ok(response_from_json(documents.unwrap()))
 }
 
-/// Creates a new project related to a given user.
+/// Creates a new project related to a given user
 ///
-/// Given a user id, a project name and description, a project will
-/// be created and saved in the database. This can fail if the user id
+/// Given a user id, a project name and description, a project will 
+/// be created and saved in the database. This can fail if the user id 
 /// provided doesn't exist.
 pub async fn new(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
@@ -117,13 +117,13 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     Ok(response_from_json(doc! {"project_id": id}))
 }
 
-/// Saves a dataset to MongoDB for associated project.
+/// Saves a dataset to mongodb for associated project
 ///
-/// This will take in a project id and a dataset. This route will
-/// compress the dataset using BZip2 and will store this compressed
-/// data in the database as binary data. This can go wrong if there's
+/// This will take in a project id and a dataset. This route will 
+/// compress the dataset using BZip2 and will store this compressed 
+/// data in the database as Binary data. This can go wrong if theres 
 /// an error writing out the compressed data to the vector or if there
-/// is an error finishing the compression stream. Both times an error
+/// is an error finishing the compression stream. Both times an error 
 /// will return a 404 to the caller.
 pub async fn add(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
@@ -148,8 +148,8 @@ pub async fn add(mut req: Request<State>) -> tide::Result {
 
     if write_compress.write(data.as_bytes()).is_err() {
         return Ok(Response::builder(404)
-            .body("Error finishing writing stream")
-            .build());
+                .body("Error finishing writing stream")
+                .build())
     }
 
     match write_compress.finish() {
