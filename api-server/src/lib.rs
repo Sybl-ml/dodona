@@ -1,6 +1,4 @@
 #[macro_use]
-extern crate serde;
-#[macro_use]
 extern crate serde_json;
 
 use std::env;
@@ -11,7 +9,6 @@ use mongodb::options::ClientOptions;
 use mongodb::Client;
 use tide::security::{CorsMiddleware, Origin};
 
-pub mod config;
 pub mod models;
 pub mod routes;
 
@@ -74,10 +71,4 @@ pub async fn build_server() -> tide::Server<State> {
     app.at("/").get(|_| async { Ok("Hello, world!") });
 
     app
-}
-
-pub fn load_config(environment: config::Environment) {
-    let config = config::ConfigFile::from_file("config.toml");
-    let resolved = config.resolve(environment);
-    resolved.populate_environment();
 }

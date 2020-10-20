@@ -3,8 +3,6 @@ use bson::oid::ObjectId;
 use serde::Deserialize;
 use tide::http::Response;
 
-use dodona::config::Environment;
-
 #[derive(Deserialize)]
 struct AuthResponse {
     pub token: String,
@@ -35,9 +33,7 @@ fn initialise() {
     INIT.call_once(|| {
         async_std::task::block_on(async {
             // Setup the environment variables
-            let config = dodona::config::ConfigFile::from_file("config.toml");
-            let resolved = config.resolve(Environment::Testing);
-            resolved.populate_environment();
+            dotenv::dotenv().unwrap();
 
             // Connect to the database
             let conn_str = std::env::var("CONN_STR").expect("CONN_STR must be set");

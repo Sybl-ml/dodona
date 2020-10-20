@@ -42,14 +42,13 @@ example.
 To use the MongoDB website functionality, you must either have a hosted or
 local instance of a MongoDB database.
 
-Once this is done, you can create a `config.toml` file in `api-server` containing
-the following basic configuration:
+Once this is done, you can create a `.env` file at `api-server/.env` containing
+the following environment variables:
 
 ```
-[global]
-app_name = <app_name>
-conn_str = <mongodb_connection_string>
-pepper = <random_string>
+CONN_STR=<mongodb_connection_string>
+APP_NAME=<app_name>
+PEPPER=<random_string>
 ```
 
 These mappings will then be placed in the environment variables when the server
