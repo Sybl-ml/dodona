@@ -1,0 +1,72 @@
+<template>
+  <b-container fluid>
+    <b-row class="justify-content-center text-center">
+      <b-col lg="2" md="6" sm="8" xs="12">
+        <icon-logo height="5em" width="5em" :show_text="false" />
+        <h1>Sign In To Sybl</h1>
+        <b-form class="mt-5 mb-3" @submit.prevent="onSubmit">
+          <b-form-input
+            class="mb-3"
+            type="email"
+            required
+            placeholder="Enter Email"
+            v-model="email"
+          />
+          <b-form-input
+            type="password"
+            required
+            placeholder="Password"
+            class="mb-3"
+            v-model="password"
+          />
+          <b-form-checkbox value="me" class="mb-3" v-model="remember_password"
+            >Remember Me</b-form-checkbox
+          >
+          <b-button variant="primary" type="submit" block> SIGN IN </b-button>
+        </b-form>
+        <a href="/forgot">Forgotten Password?</a>
+        <p v-show="!valid_credentials">Incorrect Username or Password</p>
+      </b-col>
+    </b-row>
+  </b-container>
+</template>
+
+<script>
+import IconLogo from "@/components/icons/IconLogo";
+import axios from "axios";
+export default {
+  data() {
+    return {
+      email: "",
+      password: "",
+      remember_password: false,
+
+      valid_credentials: true,
+    };
+  },
+  components: {
+    IconLogo,
+  },
+  methods: {
+    async onSubmit() {
+      console.log("hello");
+      let response = await axios.post("http://localhost:3001/api/users/login", {
+        email: this.email,
+        password: this.password,
+      });
+
+      response = response.data;
+      console.log(response.token);
+
+      if (response.token === "null") {
+        this.authenticated = false;
+      } else {
+        this.authenticated = true;
+        console.log(response.token);
+        $cookies.set("token", response.token, { path: "/", sameSite: true });
+        this.$router.push("dashboard");
+      }
+    },
+  },
+};
+</script>
