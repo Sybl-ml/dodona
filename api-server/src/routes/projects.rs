@@ -39,14 +39,18 @@ pub async fn get_project(req: Request<State>) -> tide::Result {
     let project_id: String = req.param("project_id")?;
     let object_id = match ObjectId::with_string(&project_id) {
         Ok(id) => id,
-        Err(_) => return Ok(Response::builder(404).body("invalid project id").build()),
+        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
     };
 
     let filter = doc! { "_id": object_id };
+    let doc = projects.find_one(filter, None).await?;
 
-    let doc = projects.find_one(filter, None).await?.unwrap();
-    let proj: Project = mongodb::bson::de::from_document(doc).unwrap();
-    Ok(response_from_json(proj))
+    if let Some(doc) = doc {
+        let proj: Project = mongodb::bson::de::from_document(doc).unwrap();
+        Ok(response_from_json(proj))
+    } else {
+        Ok(Response::builder(404).body("project id not found").build())
+    }
 }
 
 /// Finds all the projects related to a given user.
