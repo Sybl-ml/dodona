@@ -11,6 +11,7 @@ use mongodb::bson::{doc, document::Document, oid::ObjectId, Binary};
 use tide::{Request, Response};
 
 use crate::models::datasets::Dataset;
+use crate::models::dataset_details::DatasetDetails;
 use crate::models::projects::Project;
 use crate::routes::response_from_json;
 use crate::utils;
