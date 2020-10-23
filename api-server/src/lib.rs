@@ -23,6 +23,7 @@ use tide::security::{CorsMiddleware, Origin};
 pub mod config;
 pub mod models;
 pub mod routes;
+pub mod utils;
 
 /// Defines the state for each request to access.
 #[derive(Clone, Debug)]
