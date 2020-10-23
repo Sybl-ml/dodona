@@ -1,9 +1,10 @@
 //! Defines the structure of datasets in the MongoDB instance.
 
+use std::collections::HashMap;
+
 use mongodb::bson;
 use mongodb::bson::oid::ObjectId;
 use mongodb::bson::Binary;
-use serde::{Deserialize, Serialize};
 
 /// Defines the information that should be stored with a dataset in the database.
 #[derive(Debug, Serialize, Deserialize)]
@@ -17,4 +18,6 @@ pub struct Dataset {
     pub date_created: bson::DateTime,
     /// Dataset binary stored in the db
     pub dataset: Option<Binary>,
+    /// The types of each column
+    pub column_types: HashMap<String, crate::utils::DatasetType>,
 }

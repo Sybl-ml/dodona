@@ -1,4 +1,5 @@
 //! Defines the routes specific to project operations.
+
 use std::io::prelude::*;
 
 use async_std::stream::StreamExt;
@@ -12,6 +13,7 @@ use tide::{Request, Response};
 use crate::models::datasets::Dataset;
 use crate::models::projects::Project;
 use crate::routes::response_from_json;
+use crate::utils;
 use crate::State;
 
 /// Gets all the projects from the database.
@@ -147,7 +149,8 @@ pub async fn add(mut req: Request<State>) -> tide::Result {
         return Ok(Response::builder(404).body("project not found").build());
     }
 
-    log::info!("Dataset received: {:?}", &data);
+    let types = utils::infer_dataset_types(&data).unwrap();
+    log::info!("Dataset types: {:?}", &types);
 
     let mut write_compress = BzEncoder::new(vec![], Compression::best());
     if write_compress.write(data.as_bytes()).is_err() {
@@ -167,6 +170,7 @@ pub async fn add(mut req: Request<State>) -> tide::Result {
                     subtype: bson::spec::BinarySubtype::Generic,
                     bytes: compressed,
                 }),
+                column_types: types,
             };
 
             let document = mongodb::bson::ser::to_document(&dataset)?;
