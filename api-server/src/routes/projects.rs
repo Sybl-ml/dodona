@@ -1,10 +1,6 @@
 //! Defines the routes specific to project operations.
 
-use std::io::prelude::*;
-
 use async_std::stream::StreamExt;
-use bzip2::write::{BzDecoder, BzEncoder};
-use bzip2::Compression;
 use chrono::Utc;
 use mongodb::bson;
 use mongodb::bson::{doc, document::Document, oid::ObjectId, Binary};
@@ -133,7 +129,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
 /// an error writing out the compressed data to the vector or if there
 /// is an error finishing the compression stream. Both times an error
 /// will return a 404 to the caller.
-pub async fn add(mut req: Request<State>) -> tide::Result {
+pub async fn add_data(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
     let state = req.state();
     let database = state.client.database("sybl");
@@ -170,14 +166,7 @@ pub async fn add(mut req: Request<State>) -> tide::Result {
     dataset_details.insert_one(document, None).await?;
 
     // Compression
-    let mut write_compress = BzEncoder::new(vec![], Compression::best());
-    if write_compress.write(data.as_bytes()).is_err() {
-        return Ok(Response::builder(404)
-            .body("Error writing to compress stream")
-            .build());
-    }
-
-    match write_compress.finish() {
+    match utils::compress_data(data) {
         Ok(compressed) => {
             log::info!("Compressed data: {:?}", &compressed);
             let dataset = Dataset {
@@ -235,7 +224,7 @@ pub async fn overview(req: Request<State>) -> tide::Result {
 /// project id. Compressed data is then taken from returned struct
 /// and is decompressed before being sent in a response back to the
 /// user.
-pub async fn data(req: Request<State>) -> tide::Result {
+pub async fn get_data(req: Request<State>) -> tide::Result {
     let state = req.state();
     let database = state.client.database("sybl");
     let datasets = database.collection("datasets");
@@ -264,14 +253,8 @@ pub async fn data(req: Request<State>) -> tide::Result {
 
     let comp_data = dataset.dataset.unwrap().bytes;
 
-    let mut write_decompress = BzDecoder::new(vec![]);
-    if write_decompress.write(&comp_data).is_err() {
-        return Ok(Response::builder(404)
-            .body("Error writing to decompress stream")
-            .build());
-    }
 
-    match write_decompress.finish() {
+    match utils::decompress_data(&comp_data) {
         Ok(decompressed) => {
             let decomp_data = std::str::from_utf8(&decompressed)?;
             log::info!("Decompressed data: {:?}", &decomp_data);

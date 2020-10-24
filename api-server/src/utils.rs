@@ -2,6 +2,9 @@
 
 use std::collections::HashMap;
 use std::str::FromStr;
+use bzip2::write::{BzDecoder, BzEncoder};
+use bzip2::Compression;
+use std::io::Write;
 
 /// Represents what is returned from Analysis function
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -74,8 +77,8 @@ pub fn analyse(dataset: &str) -> Analysis {
 /// Warwick,22
 /// Coventry,24
 /// "#;
-///
-/// let types = infer_dataset_types(dataset).unwrap();
+/// let mut reader = csv::Reader::from_reader(std::io::Cursor::new(dataset));
+/// let types = infer_dataset_types(&mut reader).unwrap();
 ///
 /// let mut expected = HashMap::new();
 /// expected.insert(String::from("education"), DatasetType::Categorical);
@@ -139,6 +142,67 @@ pub fn parse_body<R: std::io::Read>(reader: &mut csv::Reader<R>, n: usize) -> St
     .join("\n")
 }
 
+
+/// Compresses data and returns result about compression process
+///
+/// Takes in a dataset as a string slice and will convert it into a byte representation 
+/// of the string. Then it will be compressed using BZip2 using an io stream. This write 
+/// stream is then finished and the Result is returned.
+///
+/// # Examples
+///
+/// ```
+/// use dodona::utils::compress_data;
+/// let dataset = r#"
+/// education,age
+/// Warwick,22
+/// Coventry,24
+/// "#;
+///
+/// match compress_data(dataset) {
+///     Ok(compressed) => {
+///         log::info!("Compressed data: {:?}", &compressed);
+///     }
+///     Err(_) => log::error!("Compression failed"),
+/// }
+/// ```
+pub fn compress_data(data: &str) -> Result<Vec<u8>, std::io::Error>{
+    let mut write_compress = BzEncoder::new(vec![], Compression::best());
+    write_compress.write(data.as_bytes()).unwrap();
+    write_compress.finish()
+}
+
+/// Decompresses data and returns a result about the compression process
+///
+/// Takes in compressed data as an array slice and writes it to the decompresssion
+/// stream. Here the data is decompressed and the write stream is finished. A result 
+/// is then returned displaying the status of the decompression.
+///
+/// # Examples
+///
+/// ```
+/// use dodona::utils::{decompress_data, compress_data};
+/// let dataset = r#"
+/// education,age
+/// Warwick,22
+/// Coventry,24
+/// "#;
+///
+/// let compressed = compress_data(dataset).unwrap();
+///
+/// match decompress_data(&compressed) {
+///     Ok(decompressed) => {
+///         log::info!("Decompressed data: {:?}", &decompressed);
+///     }
+///     Err(_) => log::error!("Decompression failed"),
+/// }
+/// ```
+pub fn decompress_data(data: &[u8]) -> Result<Vec<u8>, std::io::Error>{
+    let mut write_decompress = BzDecoder::new(vec![]);
+    write_decompress.write(data).unwrap();
+    write_decompress.finish()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -153,5 +217,15 @@ mod tests {
         expected.insert(String::from("age"), DatasetType::Categorical);
 
         assert_eq!(types, expected);
+    }
+
+    #[test]
+    fn compression_full_stack(){
+        let data = "Hello World!";
+        let comp_data: Vec<u8> = compress_data(data).unwrap();
+        let decomp_vec = decompress_data(&comp_data).unwrap();
+        let decomp_data = std::str::from_utf8(&decomp_vec).unwrap();
+        assert_eq!(data, decomp_data);
+
     }
 }
