@@ -163,19 +163,15 @@ pub async fn add(mut req: Request<State>) -> tide::Result {
         .headers()?
         .deserialize::<Vec<String>>(None)?
         .join(",");
-    for (i, record) in records.into_records().enumerate() {
-        if i < 5 {
-            data_head.push_str("\n");
-            data_head.push_str(
-                &record
-                    .unwrap()
-                    .deserialize::<Vec<String>>(None)
-                    .unwrap()
-                    .join(","),
-            );
-            continue;
-        }
-        break;
+    for record in records.into_records().take(5) {
+        data_head.push_str("\n");
+        data_head.push_str(
+            &record
+                .unwrap()
+                .deserialize::<Vec<String>>(None)
+                .unwrap()
+                .join(","),
+        );
     }
 
     let data_details = DatasetDetails {
@@ -191,7 +187,7 @@ pub async fn add(mut req: Request<State>) -> tide::Result {
     let mut write_compress = BzEncoder::new(vec![], Compression::best());
     if write_compress.write(data.as_bytes()).is_err() {
         return Ok(Response::builder(404)
-            .body("Error finishing writing stream")
+            .body("Error writing to compress stream")
             .build());
     }
 
@@ -234,12 +230,10 @@ pub async fn overview(req: Request<State>) -> tide::Result {
         Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
     };
 
-    let found_project = projects.find_one(doc! { "_id": &project_id}, None).await?;
+    let found_project = projects.find_one(doc! { "_id": &object_id}, None).await?;
 
     if found_project.is_none() {
-        return Ok(Response::builder(404)
-            .body("dataset details not found for project")
-            .build());
+        return Ok(Response::builder(404).body("project not found").build());
     }
 
     let filter = doc! { "project_id": &object_id };
@@ -267,19 +261,36 @@ pub async fn data(req: Request<State>) -> tide::Result {
         Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
     };
 
-    let found_project = projects.find_one(doc! { "_id": &project_id}, None).await?;
+    log::info!("Project ID: {}", &project_id);
+
+    let found_project = projects.find_one(doc! { "_id": &object_id}, None).await?;
 
     if found_project.is_none() {
-        return Ok(Response::builder(404)
-            .body("dataset details not found for project")
-            .build());
+        return Ok(Response::builder(404).body("project not found").build());
     }
 
     let filter = doc! { "project_id": &object_id };
     let dataset = datasets
         .find_one(filter, None)
         .await?
-        .map(|doc| mongodb::bson::de::from_document::<Dataset>(doc).unwrap());
+        .map(|doc| mongodb::bson::de::from_document::<Dataset>(doc).unwrap())
+        .unwrap();
 
-    Ok(Response::builder(200).build())
+    let comp_data = dataset.dataset.unwrap().bytes;
+
+    let mut write_decompress = BzDecoder::new(vec![]);
+    if write_decompress.write(&comp_data).is_err() {
+        return Ok(Response::builder(404)
+            .body("Error writing to decompress stream")
+            .build());
+    }
+
+    match write_decompress.finish() {
+        Ok(decompressed) => {
+            let decomp_data = std::str::from_utf8(&decompressed)?;
+            log::info!("Decompressed data: {:?}", &decomp_data);
+            Ok(response_from_json(doc! {"dataset": decomp_data}))
+        }
+        Err(_) => Ok(Response::builder(404).build()),
+    }
 }

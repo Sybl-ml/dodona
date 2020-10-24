@@ -101,6 +101,12 @@ pub async fn build_server() -> tide::Server<State> {
     projects_api
         .at("/p/:project_id/add")
         .post(routes::projects::add);
+    projects_api
+        .at("/p/:project_id/data")
+        .post(routes::projects::data);
+    projects_api
+        .at("/p/:project_id/overview")
+        .post(routes::projects::overview);
 
     // CORS
     let cors = CorsMiddleware::new()
