@@ -159,7 +159,7 @@ pub fn parse_body<R: std::io::Read>(reader: &mut csv::Reader<R>, n: usize) -> St
 /// # Examples
 ///
 /// ```no_run
-/// use dodona::utils::compress_data;
+/// # use dodona::utils::compress_data;
 /// let dataset = r#"
 /// education,age
 /// Warwick,22
@@ -188,7 +188,7 @@ pub fn compress_data(data: &str) -> Result<Vec<u8>, std::io::Error> {
 /// # Examples
 ///
 /// ```no_run
-/// use dodona::utils::{decompress_data, compress_data};
+/// # use dodona::utils::{decompress_data, compress_data};
 /// let dataset = r#"
 /// education,age
 /// Warwick,22
