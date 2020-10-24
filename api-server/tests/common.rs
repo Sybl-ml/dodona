@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use mongodb::bson::document::Document;
+use mongodb::bson::oid::ObjectId;
 use chrono::TimeZone;
 use mongodb::bson::{self, document::Document, oid::ObjectId};
 
@@ -57,20 +59,20 @@ async fn insert_test_users(database: &mongodb::Database) {
     let pbkdf2_iterations = u32::from_str(&std::env::var("PBKDF2_ITERATIONS").unwrap()).unwrap();
     let hash = pbkdf2::pbkdf2_simple(&peppered, pbkdf2_iterations).unwrap();
 
-    let matthew = bson::doc! {
+    let matthew = mongodb::bson::doc! {
         "_id": ObjectId::with_string(MAIN_USER_ID).unwrap(),
         "email": "matthewsmith@email.com",
         "password": hash,
         "first_name": "Matthew",
         "last_name": "Smith",
     };
-    let delete = bson::doc! {
+    let delete = mongodb::bson::doc! {
         "email": "delete@me.com",
         "password": "password",
         "first_name": "Delete",
         "last_name": "Me",
     };
-    let creates_project = bson::doc! {
+    let creates_project = mongodb::bson::doc! {
         "_id": ObjectId::with_string(CREATES_PROJECT_UID).unwrap(),
         "email": "creates@projects.com",
         "password": "password",
@@ -85,18 +87,18 @@ async fn insert_test_users(database: &mongodb::Database) {
 }
 
 async fn insert_test_projects(database: &mongodb::Database) {
-    let project = bson::doc! {
+    let project = mongodb::bson::doc! {
         "_id": ObjectId::with_string(MAIN_PROJECT_ID).unwrap(),
         "name": "Test Project",
         "description": "Test Description",
-        "date_created": bson::Bson::DateTime(chrono::Utc.timestamp_millis(0)),
+        "date_created": mongodb::bson::Bson::DateTime(chrono::Utc.timestamp_millis(0)),
         "user_id": ObjectId::with_string(MAIN_USER_ID).unwrap(),
     };
-    let userless = bson::doc! {
+    let userless = mongodb::bson::doc! {
         "_id": ObjectId::with_string(USERLESS_PROJECT_ID).unwrap(),
         "name": "Test Project",
         "description": "Test Description",
-        "date_created": bson::Bson::DateTime(chrono::Utc.timestamp_millis(0)),
+        "date_created": mongodb::bson::Bson::DateTime(chrono::Utc.timestamp_millis(0)),
         "user_id": ObjectId::with_string(NON_EXISTENT_USER_ID).unwrap(),
     };
 
