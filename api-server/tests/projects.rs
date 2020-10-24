@@ -194,3 +194,47 @@ async fn datasets_cannot_be_added_if_projects_do_not_exist() -> tide::Result<()>
 
     Ok(())
 }
+
+#[async_std::test]
+async fn dataset_can_be_taken_from_database() -> tide::Result<()> {
+    common::initialise();
+    let app = dodona::build_server().await;
+
+    let body = r#"{"content": "age,sex,location\n22,M,Leamington Spa"}"#;
+    let url = format!("/api/projects/p/{}/data", common::MAIN_PROJECT_ID);
+    let req = common::build_json_put_request(&url, body);
+    let res: Response = app.respond(req).await?;
+
+    assert_eq!(tide::StatusCode::Ok, res.status());
+
+    let url = format!("localhost:/api/projects/p/{}/data", common::MAIN_PROJECT_ID);
+    let url = Url::parse(&url).unwrap();
+    let req = Request::new(tide::http::Method::Get, url);
+    let res: Response = app.respond(req).await?;
+
+    assert_eq!(tide::StatusCode::Ok, res.status());
+
+    Ok(())
+}
+
+#[async_std::test]
+async fn overview_of_dataset_can_be_returned() -> tide::Result<()> {
+    common::initialise();
+    let app = dodona::build_server().await;
+
+    let body = r#"{"content": "age,sex,location\n22,M,Leamington Spa"}"#;
+    let url = format!("/api/projects/p/{}/data", common::MAIN_PROJECT_ID);
+    let req = common::build_json_put_request(&url, body);
+
+    let res: Response = app.respond(req).await?;
+    assert_eq!(tide::StatusCode::Ok, res.status());
+
+    let body = r#"{}"#;
+    let url = format!("/api/projects/p/{}/overview", common::MAIN_PROJECT_ID);
+    let req = common::build_json_request(&url, body);
+
+    let res: Response = app.respond(req).await?;
+    assert_eq!(tide::StatusCode::Ok, res.status());
+
+    Ok(())
+}
