@@ -16,5 +16,4 @@ pub struct DatasetDetails {
     pub date_created: bson::DateTime,
     /// Head of the dataset
     pub head: Option<String>,
-
 }
