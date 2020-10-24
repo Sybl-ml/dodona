@@ -147,14 +147,12 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
         return Ok(Response::builder(404).body("project not found").build());
     }
 
-
     let analysis = utils::analyse(&data);
 
     let types = analysis.types;
     log::info!("Dataset types: {:?}", &types);
 
     let data_head = analysis.header;
-
 
     let data_details = DatasetDetails {
         id: Some(ObjectId::new()),
@@ -252,7 +250,6 @@ pub async fn get_data(req: Request<State>) -> tide::Result {
         .unwrap();
 
     let comp_data = dataset.dataset.unwrap().bytes;
-
 
     match utils::decompress_data(&comp_data) {
         Ok(decompressed) => {
