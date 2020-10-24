@@ -8,7 +8,6 @@ use bzip2::Compression;
 use chrono::Utc;
 use mongodb::bson;
 use mongodb::bson::{doc, document::Document, oid::ObjectId, Binary};
-use csv::Reader;
 use tide::{Request, Response};
 
 use crate::models::dataset_details::DatasetDetails;
@@ -152,27 +151,14 @@ pub async fn add(mut req: Request<State>) -> tide::Result {
         return Ok(Response::builder(404).body("project not found").build());
     }
 
-    let types = utils::infer_dataset_types(&data).unwrap();
+
+    let analysis = utils::analyse(&data);
+
+    let types = analysis.types;
     log::info!("Dataset types: {:?}", &types);
 
-    // Goes through data and gets the first 5 rows and builds head
-    // as a string and puts it into a struct. This is then sent to
-    // MongoDB to be stored alongside project.
-    let mut records = Reader::from_reader(data.as_bytes());
-    let mut data_head: String = records
-        .headers()?
-        .deserialize::<Vec<String>>(None)?
-        .join(",");
-    for record in records.into_records().take(5) {
-        data_head.push_str("\n");
-        data_head.push_str(
-            &record
-                .unwrap()
-                .deserialize::<Vec<String>>(None)
-                .unwrap()
-                .join(","),
-        );
-    }
+    let data_head = analysis.header;
+
 
     let data_details = DatasetDetails {
         id: Some(ObjectId::new()),
