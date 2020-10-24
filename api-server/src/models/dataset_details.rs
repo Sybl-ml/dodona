@@ -2,6 +2,7 @@
 
 use mongodb::bson;
 use mongodb::bson::oid::ObjectId;
+use serde::{Deserialize, Serialize};
 
 /// Defines the information that should be stored as details for a project
 #[derive(Debug, Serialize, Deserialize)]

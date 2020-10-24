@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use mongodb::bson;
 use mongodb::bson::oid::ObjectId;
 use mongodb::bson::Binary;
+use serde::{Deserialize, Serialize};
 
 /// Defines the information that should be stored with a dataset in the database.
 #[derive(Debug, Serialize, Deserialize)]
