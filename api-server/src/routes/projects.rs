@@ -3,7 +3,7 @@
 use std::io::prelude::*;
 
 use async_std::stream::StreamExt;
-use bzip2::write::BzEncoder;
+use bzip2::write::{BzEncoder, BzDecoder};
 use bzip2::Compression;
 use chrono::Utc;
 use mongodb::bson;
@@ -218,6 +218,7 @@ pub async fn overview(req: Request<State>) -> tide::Result {
     let state = req.state();
     let database = state.client.database("sybl");
     let dataset_details = database.collection("dataset_details");
+    let projects = database.collection("projects");
     let project_id: String = req.param("project_id")?;
 
     let object_id = match ObjectId::with_string(&project_id) {
@@ -225,7 +226,7 @@ pub async fn overview(req: Request<State>) -> tide::Result {
         Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
     };
     
-    let found_project = dataset_details.find_one(doc! { "_id": &project_id}, None).await?;
+    let found_project = projects.find_one(doc! { "_id": &project_id}, None).await?;
 
     if found_project.is_none() {
         return Ok(Response::builder(404).body("dataset details not found for project").build());
@@ -238,6 +239,32 @@ pub async fn overview(req: Request<State>) -> tide::Result {
     Ok(response_from_json(documents.unwrap()))
 }
 
-pub async fn data(mut req: Request<State>) -> tide::Result {
+/// Route returns back uncompressed dataset 
+///
+/// Makes a request to mongodb and gets dataset associated with 
+/// project id. Compressed data is then taken from returned struct
+/// and is decompressed before being sent in a response back to the 
+/// user. 
+pub async fn data(req: Request<State>) -> tide::Result {
+    let state = req.state();
+    let database = state.client.database("sybl");
+    let datasets = database.collection("datasets");
+    let projects = database.collection("projects");
+    let project_id: String = req.param("project_id")?;
+
+    let object_id = match ObjectId::with_string(&project_id) {
+        Ok(id) => id,
+        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
+    };
+    
+    let found_project = projects.find_one(doc! { "_id": &project_id}, None).await?;
+
+    if found_project.is_none() {
+        return Ok(Response::builder(404).body("dataset details not found for project").build());
+    }
+
+    let filter = doc! { "project_id": &object_id };
+    let dataset = datasets.find_one(filter, None) .await?.map(|doc| mongodb::bson::de::from_document::<Dataset>(doc).unwrap());
+
     Ok(Response::builder(200).build())
 }
