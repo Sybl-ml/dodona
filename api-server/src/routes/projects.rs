@@ -6,8 +6,8 @@ use async_std::stream::StreamExt;
 use bzip2::write::BzEncoder;
 use bzip2::Compression;
 use chrono::Utc;
-use mongodb::bson::Binary;
-use mongodb::bson::{doc, document::Document, oid::ObjectId};
+use mongodb::bson;
+use mongodb::bson::{doc, document::Document, oid::ObjectId, Binary};
 use tide::{Request, Response};
 
 use crate::models::datasets::Dataset;

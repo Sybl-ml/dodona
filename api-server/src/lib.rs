@@ -15,9 +15,9 @@ use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use http_types::headers::HeaderValue;
 use mongodb::options::ClientOptions;
 use mongodb::Client;
+use tide::http::headers::HeaderValue;
 use tide::security::{CorsMiddleware, Origin};
 
 pub mod config;
@@ -103,8 +103,9 @@ pub async fn build_server() -> tide::Server<State> {
         .post(routes::projects::add);
 
     // CORS
+    let headers = "GET, POST, OPTIONS".parse::<HeaderValue>().unwrap();
     let cors = CorsMiddleware::new()
-        .allow_methods("GET, POST, OPTIONS".parse::<HeaderValue>().unwrap())
+        .allow_methods(headers)
         .allow_origin(Origin::from("*"))
         .allow_credentials(false);
 
