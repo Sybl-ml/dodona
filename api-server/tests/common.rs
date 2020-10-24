@@ -1,8 +1,7 @@
 use std::str::FromStr;
 
-use bson::document::Document;
-use bson::oid::ObjectId;
 use chrono::TimeZone;
+use mongodb::bson::{self, document::Document, oid::ObjectId};
 
 use dodona::config::Environment;
 
