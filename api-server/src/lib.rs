@@ -99,11 +99,9 @@ pub async fn build_server() -> tide::Server<State> {
         .at("/u/:user_id/new")
         .post(routes::projects::new);
     projects_api
-        .at("/p/:project_id/add")
-        .post(routes::projects::add);
-    projects_api
         .at("/p/:project_id/data")
-        .post(routes::projects::data);
+        .put(routes::projects::add_data)
+        .get(routes::projects::get_data);
     projects_api
         .at("/p/:project_id/overview")
         .post(routes::projects::overview);

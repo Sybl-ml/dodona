@@ -171,8 +171,8 @@ async fn datasets_can_be_added_to_projects() -> tide::Result<()> {
     let app = dodona::build_server().await;
 
     let body = r#"{"content": "age,sex,location\n22,M,Leamington Spa"}"#;
-    let url = format!("/api/projects/p/{}/add", common::MAIN_PROJECT_ID);
-    let req = common::build_json_request(&url, body);
+    let url = format!("/api/projects/p/{}/data", common::MAIN_PROJECT_ID);
+    let req = common::build_json_put_request(&url, body);
 
     let res: Response = app.respond(req).await?;
     assert_eq!(tide::StatusCode::Ok, res.status());
@@ -186,8 +186,8 @@ async fn datasets_cannot_be_added_if_projects_do_not_exist() -> tide::Result<()>
     let app = dodona::build_server().await;
 
     let body = r#"{"content": "age,sex,location\n22,M,Leamington Spa"}"#;
-    let url = format!("/api/projects/p/{}/add", common::NON_EXISTENT_PROJECT_ID);
-    let req = common::build_json_request(&url, body);
+    let url = format!("/api/projects/p/{}/data", common::NON_EXISTENT_PROJECT_ID);
+    let req = common::build_json_put_request(&url, body);
 
     let res: Response = app.respond(req).await?;
     assert_eq!(tide::StatusCode::NotFound, res.status());
