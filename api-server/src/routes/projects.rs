@@ -9,6 +9,7 @@ use chrono::Utc;
 use mongodb::bson;
 use mongodb::bson::{doc, document::Document, oid::ObjectId, Binary};
 use tide::{Request, Response};
+use csv::{Reader};
 
 use crate::models::datasets::Dataset;
 use crate::models::dataset_details::DatasetDetails;
@@ -138,6 +139,7 @@ pub async fn add(mut req: Request<State>) -> tide::Result {
     let state = req.state();
     let database = state.client.database("sybl");
     let datasets = database.collection("datasets");
+    let dataset_details = database.collection("dataset_details");
     let projects = database.collection("projects");
 
     let data = doc.get_str("content")?;
@@ -153,6 +155,31 @@ pub async fn add(mut req: Request<State>) -> tide::Result {
     let types = utils::infer_dataset_types(&data).unwrap();
     log::info!("Dataset types: {:?}", &types);
 
+    // Goes through data and gets the first 5 rows and builds head 
+    // as a string and puts it into a struct. This is then sent to 
+    // MongoDB to be stored alongside project.
+    let mut records = Reader::from_reader(data.as_bytes());
+    let mut data_head: String = records.headers()?.deserialize::<Vec<String>>(None)?.join(",");
+    for (i, record) in records.into_records().enumerate() {
+        if i < 5 {
+            data_head.push_str("\n");
+            data_head.push_str(&record.unwrap().deserialize::<Vec<String>>(None).unwrap().join(","));
+            continue;
+        }
+        break;
+    }
+
+    let data_details = DatasetDetails {
+        id: Some(ObjectId::new()),
+        project_id: Some(project_id.clone()),
+        date_created: bson::DateTime(Utc::now()),
+        head: Some(data_head)
+    };
+    let document = mongodb::bson::ser::to_document(&data_details)?;
+    dataset_details.insert_one(document, None).await?;
+    
+
+    // Compression
     let mut write_compress = BzEncoder::new(vec![], Compression::best());
     if write_compress.write(data.as_bytes()).is_err() {
         return Ok(Response::builder(404)
@@ -181,4 +208,36 @@ pub async fn add(mut req: Request<State>) -> tide::Result {
         }
         Err(_) => Ok(Response::builder(404).build()),
     }
+}
+
+/// Gets the dataset details for a project
+///
+/// Project Id passed in as part of route and the dataset details
+/// for that project are returned from the database.
+pub async fn overview(req: Request<State>) -> tide::Result {
+    let state = req.state();
+    let database = state.client.database("sybl");
+    let dataset_details = database.collection("dataset_details");
+    let project_id: String = req.param("project_id")?;
+
+    let object_id = match ObjectId::with_string(&project_id) {
+        Ok(id) => id,
+        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
+    };
+    
+    let found_project = dataset_details.find_one(doc! { "_id": &project_id}, None).await?;
+
+    if found_project.is_none() {
+        return Ok(Response::builder(404).body("dataset details not found for project").build());
+    }
+
+    let filter = doc! { "project_id": &object_id };
+    let cursor = dataset_details.find(filter, None).await?;
+    let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
+
+    Ok(response_from_json(documents.unwrap()))
+}
+
+pub async fn data(mut req: Request<State>) -> tide::Result {
+    Ok(Response::builder(200).build())
 }
