@@ -115,3 +115,14 @@ pub fn build_json_request(url: &str, body: &str) -> tide::http::Request {
 
     req
 }
+
+pub fn build_json_put_request(url: &str, body: &str) -> tide::http::Request {
+    let full_url = format!("localhost:{}", url);
+    let url = tide::http::Url::parse(&full_url).unwrap();
+    let mut req = tide::http::Request::new(tide::http::Method::Put, url);
+
+    req.set_body(body);
+    req.set_content_type(tide::http::mime::JSON);
+
+    req
+}
