@@ -35,6 +35,13 @@ pub fn initialise() {
 
             // Connect to the database
             let conn_str = std::env::var("CONN_STR").expect("CONN_STR must be set");
+
+            // Ensure that we aren't using the Atlas instance
+            assert!(
+                !conn_str.starts_with("mongodb+srv"),
+                "Please setup a local MongoDB instance for running the tests"
+            );
+
             let client = mongodb::Client::with_uri_str(&conn_str).await.unwrap();
             let database = client.database("sybl");
             let collection_names = database.list_collection_names(None).await.unwrap();
