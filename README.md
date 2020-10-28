@@ -56,3 +56,20 @@ These mappings will then be placed in the environment variables when the server
 starts, allowing them to be used across machines and without hard-coding API
 keys.
 
+### Local MongoDB Instances for Testing
+
+If you want to run tests, you should use a local instance of MongoDB to avoid
+deleting production data or collections that other people are using at the same
+time. You can use `config.toml` to switch between a local instance and Atlas
+depending on the context using something such as:
+
+```
+[global]
+conn_str = <atlas_connection_string>
+
+[testing]
+conn_str = <local_connection_string>
+```
+
+Then, when you use `cargo run [--release]`, it will use the Atlas instance,
+whereas using `cargo test` will use your local instance instead.
