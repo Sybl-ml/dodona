@@ -107,7 +107,7 @@ pub async fn build_server() -> tide::Server<State> {
         .post(routes::projects::overview);
 
     // CORS
-    let headers = "GET, POST, OPTIONS".parse::<HeaderValue>().unwrap();
+    let headers = "GET, POST, PUT, OPTIONS".parse::<HeaderValue>().unwrap();
     let cors = CorsMiddleware::new()
         .allow_methods(headers)
         .allow_origin(Origin::from("*"))
