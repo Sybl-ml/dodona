@@ -34,6 +34,7 @@ pub async fn get_all(req: Request<State>) -> tide::Result {
 pub async fn get_project(req: Request<State>) -> tide::Result {
     let database = req.state().client.database("sybl");
     let projects = database.collection("projects");
+    let details = database.collection("dataset_details");
 
     let project_id: String = req.param("project_id")?;
     let object_id = match ObjectId::with_string(&project_id) {
@@ -41,12 +42,28 @@ pub async fn get_project(req: Request<State>) -> tide::Result {
         Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
     };
 
-    let filter = doc! { "_id": object_id };
+    let filter = doc! { "_id": &object_id };
     let doc = projects.find_one(filter, None).await?;
 
+    // if project exists get project from projects collection and
+    // get dataset details from dataset_details collection
     if let Some(doc) = doc {
-        let proj: Project = mongodb::bson::de::from_document(doc).unwrap();
-        Ok(response_from_json(proj))
+        // get that project from the projects collection
+		
+        let filter = doc! { "project_id": &object_id };
+		let details_doc = details.find_one(filter, None).await?;
+		
+		let response = if let Some(details_doc) = details_doc {
+			log::info!("{:?}", &details_doc);
+			doc! {"project": &doc, "details": details_doc}
+		} else {
+			log::info!("{:?}", &details_doc);
+			doc! {"project": &doc, "details": {}}
+		};
+
+		log::info!("{:?}", &response);
+
+        Ok(response_from_json(response))
     } else {
         Ok(Response::builder(404).body("project id not found").build())
     }
