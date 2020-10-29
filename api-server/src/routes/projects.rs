@@ -49,20 +49,18 @@ pub async fn get_project(req: Request<State>) -> tide::Result {
     // get dataset details from dataset_details collection
     if let Some(doc) = doc {
         // get that project from the projects collection
-		
         let filter = doc! { "project_id": &object_id };
-		let details_doc = details.find_one(filter, None).await?;
-		
-		let response = if let Some(details_doc) = details_doc {
-			log::info!("{:?}", &details_doc);
-			doc! {"project": &doc, "details": details_doc}
-		} else {
-			log::info!("{:?}", &details_doc);
-			doc! {"project": &doc, "details": {}}
-		};
+        let details_doc = details.find_one(filter, None).await?;
 
-		log::info!("{:?}", &response);
+        let response = if let Some(details_doc) = details_doc {
+            log::info!("{:?}", &details_doc);
+            doc! {"project": &doc, "details": details_doc}
+        } else {
+            log::info!("{:?}", &details_doc);
+            doc! {"project": &doc, "details": {}}
+        };
 
+        log::info!("{:?}", &response);
         Ok(response_from_json(response))
     } else {
         Ok(Response::builder(404).body("project id not found").build())
@@ -176,6 +174,7 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
         project_id: Some(project_id.clone()),
         date_created: bson::DateTime(Utc::now()),
         head: Some(data_head),
+        column_types: types,
     };
     let document = mongodb::bson::ser::to_document(&data_details)?;
     dataset_details.insert_one(document, None).await?;
@@ -192,7 +191,6 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
                     subtype: bson::spec::BinarySubtype::Generic,
                     bytes: compressed,
                 }),
-                column_types: types,
             };
 
             let document = mongodb::bson::ser::to_document(&dataset)?;
