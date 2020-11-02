@@ -1,11 +1,12 @@
 use std::collections::VecDeque;
-use std::io::Read;
-use std::net::TcpListener;
-use std::sync::{mpsc, Arc, Mutex};
-use std::thread;
+use std::io::{Read, Write};
+use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
+use std::str::FromStr;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 /// Listens for incoming messages from the API server and forwards them to the queue.
-fn listen(sender: mpsc::Sender<[u8; 24]>) -> std::io::Result<()> {
+fn listen(inner: Arc<Inner>) -> std::io::Result<()> {
     let listener = TcpListener::bind("127.0.0.1:5000")?;
     let mut incoming = listener.incoming();
 
@@ -13,42 +14,57 @@ fn listen(sender: mpsc::Sender<[u8; 24]>) -> std::io::Result<()> {
         let mut stream = incoming?;
         let mut buffer = [0_u8; 24];
         stream.read(&mut buffer)?;
-        sender.send(buffer).expect("Failed to send a message");
+
+        let mut queue = inner.queue.lock().unwrap();
+        queue.push_back(buffer);
     }
 
     Ok(())
 }
 
+/// Continually tries to connect until a connection is achieved.
+fn retry_until_connect(address: &SocketAddr, timeout: Duration) -> TcpStream {
+    loop {
+        if let Ok(stream) = TcpStream::connect_timeout(address, timeout) {
+            return stream;
+        }
+    }
+}
+
 /// Receives messages from the frontend thread and communicates with the DCL.
-fn receive(receiver: mpsc::Receiver<[u8; 24]>) -> std::io::Result<()> {
-    let mut queue = VecDeque::new();
+fn receive(inner: Arc<Inner>) -> std::io::Result<()> {
+    let address = SocketAddr::from_str("127.0.0.1:6000").unwrap();
+    let timeout = Duration::from_secs(1);
 
     loop {
-        let buffer = receiver.recv().expect("Failed to receive a message");
-        let identifier = std::str::from_utf8(&buffer).expect("Invalid ObjectId");
-        queue.push_back(String::from(identifier));
+        // Lock the queue so it cannot change
+        let mut queue = inner.queue.lock().unwrap();
+
+        // Try and send something onwards
+        if let Some(element) = queue.pop_front() {
+            let mut stream = retry_until_connect(&address, timeout);
+            stream.write(&element)?;
+            stream.shutdown(Shutdown::Both)?;
+        }
     }
 }
 
 type ObjectId = [u8; 24];
 type Queue = VecDeque<ObjectId>;
 
-struct InterfaceLayer {
-    queue: Arc<Mutex<Queue>>,
+#[derive(Debug, Default)]
+struct Inner {
+    queue: Mutex<Queue>,
 }
 
 fn main() -> std::io::Result<()> {
-    // Create a channel for the threads to talk over
-    let (s, r) = mpsc::channel::<[u8; 24]>();
+    let inner = Arc::new(Inner::default());
 
-    // Spawn 2 threads
-    let mut threads = Vec::new();
-    threads.push(thread::spawn(move || listen(s)));
-    threads.push(thread::spawn(move || receive(r)));
-
-    for thread in threads {
-        thread.join().unwrap().unwrap();
-    }
+    crossbeam::scope(|s| {
+        s.spawn(|_| listen(Arc::clone(&inner)));
+        s.spawn(|_| receive(Arc::clone(&inner)));
+    })
+    .unwrap();
 
     Ok(())
 }
