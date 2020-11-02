@@ -4,28 +4,17 @@
     <h5>{{ description }}</h5>
     <p>{{ getProjectDate }}</p>
     <b-tabs>
-      <b-tab title="Overview" active>
-        <b-container fluid>
-          <b-row>
-            <b-col>
-              <h4>&lt;Dataset Title&gt;</h4>
-              <p>{{ getDatasetDate }}</p>
-            </b-col>
-          </b-row>
-          <b-table striped :items="this.dataHead.data" />
-          <b-row>
-            <b-col class="text-center" style="color: #4650e8">
-              <b-link @click="$refs.dataTab.activate()"
-                >See More...</b-link
-              ></b-col
-            ></b-row
-          >
-        </b-container>
+      <b-tab title="Overview" active lazy>
+        <project-overview
+          :projectId="projectId"
+          :key="projectId"
+          v-on:input-tab="$refs.dataTab.activate()"
+        />
       </b-tab>
-      <b-tab title="Input" ref="dataTab">
-        <br />This will show the input and some basic graphs
+      <b-tab title="Input" ref="dataTab" lazy>
+        <project-input :projectId="projectId" :key="projectId" />
       </b-tab>
-      <b-tab title="Ouptut">
+      <b-tab title="Ouptut" lazy>
         <br />This will show the output from the machine learning methods
       </b-tab>
     </b-tabs>
@@ -35,6 +24,8 @@
 <script>
 import axios from "axios";
 import Papa from "papaparse";
+import ProjectOverview from "@/components/ProjectOverview";
+import ProjectInput from "@/components/ProjectInput";
 
 export default {
   name: "ProjectView",
@@ -51,39 +42,16 @@ export default {
     description: String,
     dateCreated: Date,
   },
-  async mounted() {
-    let project_response = await axios.get(
-      `http://localhost:3001/api/projects/p/${this.projectId}`
-    );
-
-    let project_details = project_response.data.details;
-
-    this.dataHead = Papa.parse(project_details.head, { header: true });
-
-    this.dataDate = new Date(project_details.date_created.$date);
-    this.dataTypes = project_details.column_types;
+  components: {
+    ProjectOverview,
+    ProjectInput,
   },
-  methods: {
-    async getProjectData() {
-      let data_response = await axios.get(
-        `http://localhost:3001/api/projects/p/${this.projectId}/data`
-      );
-
-      console.log(data_response.data);
-    },
-  },
+  methods: {},
   computed: {
     getProjectDate() {
       return `${this.dateCreated.toLocaleString("en-GB", {
         dateStyle: "short",
       })} - ${this.dateCreated.toLocaleString("en-GB", {
-        timeStyle: "short",
-      })}`;
-    },
-    getDatasetDate() {
-      return `${this.dataDate.toLocaleString("en-GB", {
-        dateStyle: "short",
-      })} - ${this.dataDate.toLocaleString("en-GB", {
         timeStyle: "short",
       })}`;
     },
