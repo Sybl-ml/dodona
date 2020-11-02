@@ -6,14 +6,14 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 /// Listens for incoming messages from the API server and forwards them to the queue.
-fn listen(inner: Arc<Inner>) -> std::io::Result<()> {
+fn listen(inner: &Arc<Inner>) -> std::io::Result<()> {
     let listener = TcpListener::bind("127.0.0.1:5000")?;
-    let mut incoming = listener.incoming();
+    let incoming = listener.incoming();
 
-    while let Some(incoming) = incoming.next() {
-        let mut stream = incoming?;
+    for possible_stream in incoming {
+        let mut stream = possible_stream?;
         let mut buffer = [0_u8; 24];
-        stream.read(&mut buffer)?;
+        stream.read_exact(&mut buffer)?;
 
         let mut queue = inner.queue.lock().unwrap();
         queue.push_back(buffer);
@@ -32,7 +32,7 @@ fn retry_until_connect(address: &SocketAddr, timeout: Duration) -> TcpStream {
 }
 
 /// Receives messages from the frontend thread and communicates with the DCL.
-fn receive(inner: Arc<Inner>) -> std::io::Result<()> {
+fn receive(inner: &Arc<Inner>) -> std::io::Result<()> {
     let address = SocketAddr::from_str("127.0.0.1:6000").unwrap();
     let timeout = Duration::from_secs(1);
 
@@ -43,7 +43,7 @@ fn receive(inner: Arc<Inner>) -> std::io::Result<()> {
         // Try and send something onwards
         if let Some(element) = queue.pop_front() {
             let mut stream = retry_until_connect(&address, timeout);
-            stream.write(&element)?;
+            stream.write_all(&element)?;
             stream.shutdown(Shutdown::Both)?;
         }
     }
@@ -61,8 +61,8 @@ fn main() -> std::io::Result<()> {
     let inner = Arc::new(Inner::default());
 
     crossbeam::scope(|s| {
-        s.spawn(|_| listen(Arc::clone(&inner)));
-        s.spawn(|_| receive(Arc::clone(&inner)));
+        s.spawn(|_| listen(&Arc::clone(&inner)));
+        s.spawn(|_| receive(&Arc::clone(&inner)));
     })
     .unwrap();
 
