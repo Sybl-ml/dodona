@@ -20,6 +20,7 @@
           drop-placeholder="Drop file here..."
           v-model="file"
         />
+        <br /><br />
         <b-button @click="onSubmit" variant="primary">Submit</b-button>
       </b-tab>
     </b-tabs>
