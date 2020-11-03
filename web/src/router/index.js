@@ -3,6 +3,7 @@ import VueRouter from "vue-router";
 import Welcome from "../views/Welcome.vue";
 import Login from "../views/Login.vue";
 import Register from "../views/Register.vue";
+import Settings from "../views/Settings.vue";
 import Dashboard from "../views/Dashboard.vue";
 import ProjectView from "../components/ProjectView.vue";
 import AddProject from "../components/AddProject.vue";
@@ -42,6 +43,11 @@ const routes = [
         component: AddProject,
       },
     ],
+  },
+  {
+    path: "/settings",
+    name: "Settings",
+    component: Settings,
   },
 ];
 
