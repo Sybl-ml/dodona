@@ -50,14 +50,12 @@ export default {
   },
   methods: {
     async onSubmit() {
-      console.log("hello");
       let response = await axios.post("http://localhost:3001/api/users/login", {
         email: this.email,
         password: this.password,
       });
 
       response = response.data;
-      console.log(response.token);
 
       if (response.token === "null") {
         this.authenticated = false;

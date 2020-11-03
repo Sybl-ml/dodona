@@ -1,8 +1,16 @@
+use serde::{Deserialize, Serialize};
 use tide::http::{Request, Response, Url};
 
+use dodona::models::dataset_details::DatasetDetails;
 use dodona::models::projects::Project;
 
 mod common;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProjectResponse {
+    project: Project,
+    details: DatasetDetails,
+}
 
 #[async_std::test]
 async fn projects_can_be_fetched_for_a_user() -> tide::Result<()> {
@@ -72,11 +80,11 @@ async fn projects_can_be_fetched_by_identifier() -> tide::Result<()> {
     assert_eq!(tide::StatusCode::Ok, res.status());
     assert_eq!(Some(tide::http::mime::JSON), res.content_type());
 
-    let project: Project = res.body_json().await?;
+    let project_response: ProjectResponse = res.body_json().await?;
 
-    assert_eq!("Test Project", project.name);
-    assert_eq!("Test Description", project.description);
-    assert_eq!(0, project.date_created.timestamp_millis());
+    assert_eq!("Test Project", project_response.project.name);
+    assert_eq!("Test Description", project_response.project.description);
+    assert_eq!(0, project_response.project.date_created.timestamp_millis());
 
     Ok(())
 }

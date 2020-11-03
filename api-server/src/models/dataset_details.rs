@@ -1,5 +1,7 @@
 //! Defines the dataset details for a given dataset and project in the MongoDB instance.
 
+use std::collections::HashMap;
+
 use mongodb::bson;
 use mongodb::bson::oid::ObjectId;
 
@@ -15,4 +17,6 @@ pub struct DatasetDetails {
     pub date_created: bson::DateTime,
     /// Head of the dataset
     pub head: Option<String>,
+    /// The types of each column
+    pub column_types: HashMap<String, crate::utils::DatasetType>,
 }

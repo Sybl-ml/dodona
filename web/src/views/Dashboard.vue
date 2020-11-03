@@ -74,11 +74,7 @@ export default {
       `http://localhost:3001/api/projects/u/${user_id}`
     );
 
-    this.projects = response.data.map((x) => {
-      let y = { id: x._id.$oid, ...x };
-      delete y._id;
-      return y;
-    });
+    this.projects = response.data;
   },
   methods: {},
 };
