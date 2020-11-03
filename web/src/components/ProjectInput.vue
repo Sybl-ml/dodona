@@ -1,5 +1,6 @@
 <template>
-  <b-container fluid class="scrollable">
+  <b-container fluid>
+    <h3>Look at all your data</h3>
     <b-row>
       <b-col v-if="loading" class="text-center">
         <b-icon
@@ -8,12 +9,19 @@
           font-scale="4"
         ></b-icon>
       </b-col>
-      <b-col v-else>
+      <b-col v-else class="input-table">
         <b-table striped :items="this.data.data" />
       </b-col>
     </b-row>
   </b-container>
 </template>
+
+<style scoped>
+.input-table {
+  height: calc(50px * 12);
+  overflow-y: scroll;
+}
+</style>
 
 <script>
 import axios from "axios";
