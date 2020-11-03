@@ -1,22 +1,30 @@
 <template>
-  <b-container fluid="md">
-    <b-row>
-      <b-col>
-        <h1>Settings</h1>
-        <hr>
-        <h5><b>API Key:</b> {{ user_data.api_key }}</h5>
-      </b-col>
-    </b-row>
-  </b-container>
+  <div>
+    <Header />
+    <b-container>
+      <b-row >
+        <b-col>
+          <h1>Settings</h1>
+          <hr>
+          <h5><b>API Key:</b> {{ user_data.api_key }}</h5>
+        </b-col>
+      </b-row>
+    </b-container>
+  </div>
 </template>
 
 <style>
 </style>
+
 <script>
+import Header from "@/components/headers/Dashboard";
 import axios from "axios";
 
 export default {
   name: "Settings",
+  components: {
+    Header
+  },
   data() {
     return {
       user_data: {},
