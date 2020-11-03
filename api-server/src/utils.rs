@@ -206,7 +206,7 @@ pub fn compress_data(data: &str) -> Result<Vec<u8>, std::io::Error> {
 /// ```
 pub fn decompress_data(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     let mut write_decompress = BzDecoder::new(vec![]);
-    write_decompress.write(data).unwrap();
+    write_decompress.write_all(data).unwrap();
     write_decompress.finish()
 }
 

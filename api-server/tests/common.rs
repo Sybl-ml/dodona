@@ -35,6 +35,13 @@ pub fn initialise() {
 
             // Connect to the database
             let conn_str = std::env::var("CONN_STR").expect("CONN_STR must be set");
+
+            // Ensure that we aren't using the Atlas instance
+            assert!(
+                !conn_str.starts_with("mongodb+srv"),
+                "Please setup a local MongoDB instance for running the tests"
+            );
+
             let client = mongodb::Client::with_uri_str(&conn_str).await.unwrap();
             let database = client.database("sybl");
             let collection_names = database.list_collection_names(None).await.unwrap();
@@ -63,12 +70,14 @@ async fn insert_test_users(database: &mongodb::Database) {
         "password": hash,
         "first_name": "Matthew",
         "last_name": "Smith",
+        "api_key": "",
     };
     let delete = bson::doc! {
         "email": "delete@me.com",
         "password": "password",
         "first_name": "Delete",
         "last_name": "Me",
+        "api_key": "",
     };
     let creates_project = bson::doc! {
         "_id": ObjectId::with_string(CREATES_PROJECT_UID).unwrap(),
@@ -76,6 +85,7 @@ async fn insert_test_users(database: &mongodb::Database) {
         "password": "password",
         "first_name": "Create",
         "last_name": "Project",
+        "api_key": "",
     };
 
     let users = database.collection("users");

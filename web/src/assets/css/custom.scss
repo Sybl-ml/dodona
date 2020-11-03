@@ -1,6 +1,12 @@
 $theme-colors: (
   "primary": #fbb000,
   "secondary": #ff1700,
+  "dark": #fb8c38,
+  "mid": #fbb000,
+  "highlight": #fcbf90,
+  "body": #ffffff,
+  "text": #000000,
+  "accent": #a97600,
 ) !default;
 
 // Bootstrap and its default variables
@@ -59,12 +65,6 @@ p {
 
 .dropdown-menu {
   background-color: var(--body);
-  border: none;
-  -webkit-filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
-  -moz-filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
-  -ms-filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
-  -o-filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
-  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
 }
 
 .dropdown-item {
@@ -73,13 +73,14 @@ p {
     background-color: var(--mid);
   }
   &:active {
-    background-color: var(--secondary);
+    background-color: var(--dark);
   }
 }
 
 a {
-  color: var(--mid);
+  color: var(--text);
   &:hover {
     color: var(--dark);
+    text-decoration: none;
   }
 }

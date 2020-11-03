@@ -19,8 +19,8 @@
 </template>
 
 <script>
-import IconBase from './IconBase'
-import IconLogo from './icons/IconLogo'
+import IconBase from '../IconBase'
+import IconLogo from '../icons/IconLogo'
 export default {
   name: "Header",
   components: {
