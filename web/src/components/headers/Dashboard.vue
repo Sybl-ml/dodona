@@ -11,12 +11,14 @@
       <b-nav-item-dropdown text="User 1" right>
         <template #button-content>
           <img src="https://www.w3schools.com/w3images/avatar6.png" class="img-circle">
-          Joe Biden
+          {{name}}
         </template>
-          <b-dropdown-item href="#">My Profile</b-dropdown-item>
-          <b-dropdown-item href="#">Help</b-dropdown-item>
-          <b-dropdown-divider></b-dropdown-divider>
-          <b-dropdown-item @click="logout">Logout</b-dropdown-item>
+        <b-dropdown-item disabled>{{email}}</b-dropdown-item>
+        <b-dropdown-divider></b-dropdown-divider>
+        <b-dropdown-item href="#">My Profile</b-dropdown-item>
+        <b-dropdown-item href="#">Help</b-dropdown-item>
+        <b-dropdown-divider></b-dropdown-divider>
+        <b-dropdown-item @click="logout">Logout</b-dropdown-item>
         </b-nav-item-dropdown>
     </b-navbar-nav>
   </b-navbar>
@@ -34,6 +36,7 @@
 <script>
 import IconBase from '../IconBase'
 import IconLogo from '../icons/IconLogo'
+import axios from "axios"
 
 export default {
   name: "Header",
@@ -42,14 +45,27 @@ export default {
   },
   data() {
     return {
+      name: "",
+      email: "",
       time: "November 3rd 2020, 3:54:22 am"
     }
   },
   methods: {
     logout: function () {
       $cookies.remove("token")
-      console.log("TEST")
       this.$router.push('/')
+    }
+  },
+  async mounted() {
+    let user_id = $cookies.get("token");
+    try {
+      let user_data = await axios.get(
+        `http://localhost:3001/api/users/${user_id}`
+      );
+      this.name = user_data.data.first_name + " " + user_data.data.last_name;
+      this.email = user_data.data.email;
+    } catch (err) {
+      console.log(err);
     }
   },
   created() {
