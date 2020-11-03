@@ -5,6 +5,8 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+const TIMEOUT_SECS: u64 = 1;
+
 /// Listens for incoming messages from the API server and forwards them to the queue.
 fn listen(inner: &Arc<Inner>) -> std::io::Result<()> {
     let listener = TcpListener::bind("127.0.0.1:5000")?;
@@ -25,22 +27,29 @@ fn listen(inner: &Arc<Inner>) -> std::io::Result<()> {
 }
 
 /// Continually tries to connect until a connection is achieved.
-fn retry_until_connect(address: &SocketAddr, timeout: Duration) -> TcpStream {
-    loop {
+fn try_to_connect(address: &SocketAddr, timeout: Duration, attempts: usize) -> Option<TcpStream> {
+    for i in 0..attempts {
+        log::debug!("Connection attempt: {}", i + 1);
+
         if let Ok(stream) = TcpStream::connect(address) {
-            break stream;
+            return Some(stream);
         }
 
         log::debug!("Failed to connect to: {}", address);
         log::debug!("Sleeping for: {:?}", timeout);
         std::thread::sleep(timeout);
     }
+
+    log::debug!("Failed to make a connection at all");
+
+    None
 }
 
 /// Receives messages from the frontend thread and communicates with the DCL.
 fn receive(inner: &Arc<Inner>) -> std::io::Result<()> {
     let address = SocketAddr::from_str("127.0.0.1:6000").unwrap();
-    let timeout = Duration::from_secs(5);
+    let timeout = Duration::from_secs(TIMEOUT_SECS);
+    let attempts = 3;
 
     loop {
         // Lock the queue so it cannot change
@@ -48,9 +57,20 @@ fn receive(inner: &Arc<Inner>) -> std::io::Result<()> {
 
         // Try and send something onwards
         if let Some(element) = queue.pop_front() {
+            let mut stream = match try_to_connect(&address, timeout, attempts) {
+                Some(stream) => stream,
+                None => {
+                    // Readd the element back to the queue at the front
+                    queue.push_front(element);
+                    // Manually release the mutex and wait before continuing
+                    drop(queue);
+                    std::thread::sleep(timeout);
+                    continue;
+                }
+            };
+
             log::info!("Sending: {}", std::str::from_utf8(&element).unwrap());
 
-            let mut stream = retry_until_connect(&address, timeout);
             stream.write_all(&element)?;
             stream.shutdown(Shutdown::Both)?;
         }
