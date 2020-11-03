@@ -4,7 +4,7 @@
       <b-col>
         <h1>Settings</h1>
         <hr>
-        <h4>{{ user_data.api_key }}</h4>
+        <h5><b>API Key:</b> {{ user_data.api_key }}</h5>
       </b-col>
     </b-row>
   </b-container>
@@ -28,10 +28,11 @@ export default {
       let data = await axios.get(
         `http://localhost:3001/api/users/${user_id}`
       );
-      this.user_data = data
+      this.user_data = data.data
     } catch (err) {
       console.log(err);
     }
+      console.log(this.user_data)
   },
   methods: {},
 };
