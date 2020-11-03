@@ -16,7 +16,7 @@
           <b-dropdown-item href="#">My Profile</b-dropdown-item>
           <b-dropdown-item href="#">Help</b-dropdown-item>
           <b-dropdown-divider></b-dropdown-divider>
-          <b-dropdown-item href="#">Logout</b-dropdown-item>
+          <b-dropdown-item @click="logout">Logout</b-dropdown-item>
         </b-nav-item-dropdown>
     </b-navbar-nav>
   </b-navbar>
@@ -45,9 +45,16 @@ export default {
       time: "November 3rd 2020, 3:54:22 am"
     }
   },
+  methods: {
+    logout: function () {
+      $cookies.remove("token")
+      console.log("TEST")
+      this.$router.push('/')
+    }
+  },
   created() {
     setInterval(() => {
-      this.time = luxon.DateTime.local();
+      this.time = "November 3rd 2020, 3:54:22 am";
     }, 1000)
   }
 };
