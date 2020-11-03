@@ -1,5 +1,6 @@
 <template>
   <div>
+    <Header />
     <b-container fluid>
       <b-row>
         <b-col class="justify-content-center main" md="12" lg="6">
@@ -117,6 +118,7 @@
 </style>
 
 <script>
+import Header from "@/components/headers/Main";
 import PlaceHolder from "@/components/icons/PlaceHolder";
 import axios from "axios";
 import { KerasIcon, TensorFlowIcon } from "vue-simple-icons";
@@ -124,6 +126,7 @@ import { KerasIcon, TensorFlowIcon } from "vue-simple-icons";
 export default {
   name: "Welcome",
   components: {
+    Header,
     placeholder: PlaceHolder,
     KerasIcon,
     TensorFlowIcon,
