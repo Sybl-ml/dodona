@@ -1,12 +1,14 @@
 <template>
   <b-navbar>
-    <b-navbar-brand :to="this.logoRoute">
+    <b-navbar-brand to="/">
       <icon-logo width="5em" height="3em" :show_text="true" />
     </b-navbar-brand>
-    <b-navbar-nav v-if="this.loggedIn">
+    <b-navbar-nav v-if="this.atDashboard">
+      <b-nav-item to="/dashboard">Dashboard</b-nav-item>
+      <b-nav-item to="/#">Help</b-nav-item>
       <b-nav-item disabled> {{time}} </b-nav-item>
     </b-navbar-nav>
-    <b-navbar-nav v-else>
+    <b-navbar-nav v-else-if="this.atLanding">
       <b-nav-item>Product</b-nav-item>
       <b-nav-item>Meet the Team</b-nav-item>
       <b-nav-item>Pricing</b-nav-item>
@@ -22,7 +24,7 @@
         <b-dropdown-item disabled>{{email}}</b-dropdown-item>
         <b-dropdown-divider></b-dropdown-divider>
         <b-dropdown-item to="/settings">My Profile</b-dropdown-item>
-        <b-dropdown-item to="#">Help</b-dropdown-item>
+        <b-dropdown-item to="#">Manage Nodes</b-dropdown-item>
         <b-dropdown-divider></b-dropdown-divider>
         <b-dropdown-item @click="logout">Logout</b-dropdown-item>
         </b-nav-item-dropdown>
@@ -63,8 +65,9 @@ export default {
       name: "test",
       email: "",
       time: "",
-      logoRoute: "/",
       loggedIn: false,
+      atDashboard: false,
+      atLanding: false,
     }
   },
   methods: {
@@ -89,17 +92,28 @@ export default {
   created() {
     let user_id = $cookies.get("token");
 
-    if (user_id) {
-        this.loggedIn = true
-        this.logoRoute = "/dashboard";
+    this.loggedIn = user_id ? true : false
+
+    console.log(this.$route.name)
+    console.log(this.$route.name in ["Dashboard, Settings"])
+    let pageName = this.$route.name
+    if (pageName == "Welcome"){
+        this.atLanding = true
     }
     else {
-        this.loggedIn = false
-        this.logoRoute = "/";
+        this.atLanding = false
+    }
+
+    if (pageName === "Dashboard" || pageName === "Settings"){
+        this.atDashboard = true
+    }
+    else {
+        this.atDashboard = false
     }
 
     setInterval(() => {
-      this.time = new Date();
+      this.time = (new Date()).toLocaleString('en-GB',{ dateStyle: 'long', timeStyle: 'medium' });
+      this.time = this.time.toString().replace(" at", ",")
     }, 1000)
   }
 };
