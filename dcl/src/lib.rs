@@ -10,6 +10,7 @@ pub mod backend;
 pub mod frontend;
 pub mod config;
 pub mod utils;
+pub mod models;
 
 #[tokio::main]
 pub async fn run() -> Result<()> {
