@@ -25,8 +25,6 @@
                   name: `ProjectView`,
                   params: {
                     projectId: p.id,
-                    name: p.name,
-                    description: p.description,
                   },
                 }"
               >
@@ -74,7 +72,16 @@ export default {
       `http://localhost:3001/api/projects/u/${user_id}`
     );
 
-    this.projects = response.data;
+    this.projects = response.data.map((x) => {
+      let y = {
+        ...x,
+        id: x._id.$oid,
+        user_id: x.user_id.$oid,
+        date_created: x.date_created.$date,
+      };
+      delete y._id;
+      return y;
+    });
   },
   methods: {},
 };

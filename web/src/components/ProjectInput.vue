@@ -29,24 +29,13 @@ import Papa from "papaparse";
 
 export default {
   name: "ProjectInput",
-  data() {
-    return {
-      data: {},
-      loading: true,
-    };
-  },
   props: {
     projectId: String,
+    data: Object,
+    loading: Boolean,
   },
   async created() {
-    let project_response = await axios.get(
-      `http://localhost:3001/api/projects/p/${this.projectId}/data`
-    );
-
-    let project_data = project_response.data.dataset;
-
-    this.data = Papa.parse(project_data, { header: true });
-    this.loading = false;
+    this.$emit("getData");
   },
   methods: {},
   computed: {
