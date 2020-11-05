@@ -1,6 +1,5 @@
 <template>
   <div>
-    <Header />
     <b-container fluid>
       <b-row>
         <b-col xs="12" order-xs="2" lg="3">
@@ -52,13 +51,11 @@
 }
 </style>
 <script>
-import Header from "@/components/headers/Dashboard";
 import axios from "axios";
 
 export default {
   name: "Dashboard",
   components: {
-    Header,
   },
   data() {
     return {
