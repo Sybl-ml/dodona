@@ -59,13 +59,16 @@ const router = new VueRouter({
 
 router.beforeEach((to, from, next) => {
   let access_token = Vue.$cookies.get("token");
-  // if (access_token === null) {
-  //   if (to.name === "Login" || to.name === "Register" || to.name === "Welcome")
-  //     next();
-  //   else next({ name: "Login" });
-  // } else {
-  //   next();
-  // }
+  if (access_token === null) {
+    if (to.name === "Login" || to.name === "Register" || to.name === "Welcome")
+      next();
+    else next({ name: "Login" });
+  } else {
+    if (to.name === "Login" || to.name === "Register"){
+      next({ name: "Dashboard" });
+    }
+    next();
+  }
   next();
 });
 
