@@ -21,8 +21,8 @@
         </template>
         <b-dropdown-item disabled>{{email}}</b-dropdown-item>
         <b-dropdown-divider></b-dropdown-divider>
-        <b-dropdown-item href="#">My Profile</b-dropdown-item>
-        <b-dropdown-item href="#">Help</b-dropdown-item>
+        <b-dropdown-item to="/settings">My Profile</b-dropdown-item>
+        <b-dropdown-item to="#">Help</b-dropdown-item>
         <b-dropdown-divider></b-dropdown-divider>
         <b-dropdown-item @click="logout">Logout</b-dropdown-item>
         </b-nav-item-dropdown>
