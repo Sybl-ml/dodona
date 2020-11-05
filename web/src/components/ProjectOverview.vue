@@ -21,29 +21,12 @@ import Papa from "papaparse";
 
 export default {
   name: "ProjectOverview",
-  data() {
-    return {
-      dataHead: "",
-      dataDate: "",
-      dataTypes: {},
-    };
-  },
   props: {
     projectId: String,
+    dataDate: Date,
+    dataHead: Object,
+    dataTypes: Object,
   },
-  async created() {
-    let project_response = await axios.get(
-      `http://localhost:3001/api/projects/p/${this.projectId}`
-    );
-
-    let project_details = project_response.data.details;
-
-    this.dataHead = Papa.parse(project_details.head, { header: true });
-
-    this.dataDate = new Date(project_details.date_created.$date);
-    this.dataTypes = project_details.column_types;
-  },
-  methods: {},
   computed: {
     getDatasetDate() {
       return `${this.dataDate.toLocaleString("en-GB", {
