@@ -1,11 +1,10 @@
 <template>
-  <b-navbar>
-    <b-navbar-brand to="/">
+  <b-navbar :key="$route.fullPath">
+    <b-navbar-brand :to="this.logoRoute">
       <icon-logo width="5em" height="3em" :show_text="true" />
     </b-navbar-brand>
     <b-navbar-nav v-if="this.atDashboard">
-      <b-nav-item to="/dashboard">Dashboard</b-nav-item>
-      <b-nav-item to="/#">Help</b-nav-item>
+      
       <b-nav-item disabled> {{time}} </b-nav-item>
     </b-navbar-nav>
     <b-navbar-nav v-else-if="this.atLanding">
@@ -23,10 +22,13 @@
         </template>
         <b-dropdown-item disabled>{{email}}</b-dropdown-item>
         <b-dropdown-divider></b-dropdown-divider>
-        <b-dropdown-item to="/settings">My Profile</b-dropdown-item>
-        <b-dropdown-item to="#">Manage Nodes</b-dropdown-item>
+        <b-dropdown-item to="/dashboard">Dashboard</b-dropdown-item>
+        <b-dropdown-item to="#">Nodes</b-dropdown-item>
         <b-dropdown-divider></b-dropdown-divider>
-        <b-dropdown-item @click="logout">Logout</b-dropdown-item>
+        <b-dropdown-item to="/settings">My Profile</b-dropdown-item>
+        <b-dropdown-item to="#">Help</b-dropdown-item>
+        <b-dropdown-divider></b-dropdown-divider>
+        <b-dropdown-item @click="signout">Sign Out</b-dropdown-item>
         </b-nav-item-dropdown>
     </b-navbar-nav>
 
@@ -66,55 +68,60 @@ export default {
       email: "",
       time: "",
       loggedIn: false,
+      logoRoute: "/",
       atDashboard: false,
       atLanding: false,
     }
   },
   methods: {
-    logout: function () {
+    signout: function () {
       $cookies.remove("token");
-      this.$router.push('/');
-    }
+      this.$router.push('/login');
+    },
+    getUserData: async function() {
+      let user_id = $cookies.get("token");
+      if (!user_id){
+        return
+      }
+      try {
+        let user_data = await axios.get(
+          `http://localhost:3001/api/users/${user_id}`
+        );
+        this.name = user_data.data.first_name + " " + user_data.data.last_name;
+        this.email = user_data.data.email;
+      } catch (err) {
+        console.log(err);
+      }
+    },
+    updateHeader: function() {
+      let user_id = $cookies.get("token");
+      
+      this.getUserData()
+
+      this.loggedIn = user_id ? true : false
+      this.logoRoute = user_id ? "/dashboard" : "/"
+
+      let pageName = this.$route.name
+      
+      this.atLanding = (pageName == "Welcome") ? true : false;
+      this.atDashboard = (pageName === "Dashboard" || pageName === "Settings") ? true : false;
+    },
   },
   async mounted() {
-    let user_id = $cookies.get("token");
-
-    try {
-      let user_data = await axios.get(
-        `http://localhost:3001/api/users/${user_id}`
-      );
-      this.name = user_data.data.first_name + " " + user_data.data.last_name;
-      this.email = user_data.data.email;
-    } catch (err) {
-      console.log(err);
-    }
-  },
-  created() {
-    let user_id = $cookies.get("token");
-
-    this.loggedIn = user_id ? true : false
-
-    console.log(this.$route.name)
-    console.log(this.$route.name in ["Dashboard, Settings"])
-    let pageName = this.$route.name
-    if (pageName == "Welcome"){
-        this.atLanding = true
-    }
-    else {
-        this.atLanding = false
-    }
-
-    if (pageName === "Dashboard" || pageName === "Settings"){
-        this.atDashboard = true
-    }
-    else {
-        this.atDashboard = false
-    }
-
+    this.getUserData();
+    
     setInterval(() => {
       this.time = (new Date()).toLocaleString('en-GB',{ dateStyle: 'long', timeStyle: 'medium' });
       this.time = this.time.toString().replace(" at", ",")
     }, 1000)
+  },
+  created() {
+    this.updateHeader()
+  },
+  watch: {
+    $route: function() {
+      this.updateHeader();
+    },
   }
 };
 </script>
