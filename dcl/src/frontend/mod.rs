@@ -12,6 +12,7 @@ use mongodb::{Database, Client};
 use mongodb::bson::{Binary, doc, document::Document, oid::ObjectId};
 
 use crate::models::datasets::Dataset;
+use crate::utils;
 
 type OId = [u8; 24];
 
@@ -51,6 +52,15 @@ async fn process_connection(mut stream: TcpStream, db_conn: Arc<Database>) -> Re
     log::info!("{:?}", &filter);
     let doc = datasets.find_one(filter, None).await?.unwrap();
     let dataset: Dataset = mongodb::bson::de::from_document(doc).unwrap();
-    log::info!("{:?}", dataset);
+    log::info!("{:?}", &dataset);
+    let comp_data = dataset.dataset.unwrap().bytes;
+
+    match utils::decompress_data(&comp_data) {
+        Ok(decompressed) => {
+            let decomp_data = std::str::from_utf8(&decompressed)?;
+            log::info!("Decompressed data: {:?}", &decomp_data);
+        }
+        Err(_) => {log::error!("Bad dataset id received"); return Ok(())},
+    };
     Ok(())
 }
