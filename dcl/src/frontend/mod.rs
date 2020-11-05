@@ -3,13 +3,12 @@ use std::sync::Arc;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::from_utf8;
 use std::str::FromStr;
-use tokio::io;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::prelude::*;
 use anyhow::Result;
 use mongodb::options::ClientOptions;
 use mongodb::{Database, Client};
-use mongodb::bson::{Binary, doc, document::Document, oid::ObjectId};
+use mongodb::bson::{doc, oid::ObjectId};
 
 use crate::models::datasets::Dataset;
 use crate::utils;
