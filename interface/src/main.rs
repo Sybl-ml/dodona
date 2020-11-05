@@ -57,22 +57,18 @@ fn receive(inner: &Arc<Inner>) -> std::io::Result<()> {
 
         // Try and send something onwards
         if let Some(element) = queue.pop_front() {
-            let mut stream = match try_to_connect(&address, timeout, attempts) {
-                Some(stream) => stream,
-                None => {
-                    // Readd the element back to the queue at the front
-                    queue.push_front(element);
-                    // Manually release the mutex and wait before continuing
-                    drop(queue);
-                    std::thread::sleep(timeout);
-                    continue;
-                }
+            if let Some(mut stream) = try_to_connect(&address, timeout, attempts) {
+                // Send the element to the onward node that we connected to
+                stream.write_all(&element)?;
+                log::info!("Sent: {}", std::str::from_utf8(&element).unwrap());
+                stream.shutdown(Shutdown::Both)?;
+            } else {
+                // Readd the element back to the queue at the front
+                queue.push_front(element);
+                // Manually release the mutex and wait before continuing
+                drop(queue);
+                std::thread::sleep(timeout);
             };
-
-            log::info!("Sending: {}", std::str::from_utf8(&element).unwrap());
-
-            stream.write_all(&element)?;
-            stream.shutdown(Shutdown::Both)?;
         }
     }
 }
