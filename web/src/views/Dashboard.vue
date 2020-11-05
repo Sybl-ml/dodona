@@ -25,9 +25,6 @@
                   name: `ProjectView`,
                   params: {
                     projectId: p.id,
-                    name: p.name,
-                    description: p.description,
-                    dateCreated: new Date(p.date_created),
                   },
                 }"
               >
