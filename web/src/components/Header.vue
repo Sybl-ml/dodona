@@ -1,19 +1,19 @@
 <template>
   <b-navbar :key="$route.fullPath">
-    <b-navbar-brand :to="this.logoRoute">
+    <b-navbar-brand :to="logoRoute">
       <icon-logo width="5em" height="3em" :show_text="true" />
     </b-navbar-brand>
-    <b-navbar-nav v-if="this.atDashboard">
+    <b-navbar-nav v-if="atDashboard">
       
       <b-nav-item disabled> {{time}} </b-nav-item>
     </b-navbar-nav>
-    <b-navbar-nav v-else-if="this.atLanding">
+    <b-navbar-nav v-else-if="atLanding">
       <b-nav-item>Product</b-nav-item>
       <b-nav-item>Meet the Team</b-nav-item>
       <b-nav-item>Pricing</b-nav-item>
     </b-navbar-nav>
 
-    <b-navbar-nav class="ml-auto" v-if="this.loggedIn">
+    <b-navbar-nav class="ml-auto" v-if="loggedIn">
       <b-nav-item disabled>Credits: £20.20</b-nav-item>
       <b-nav-item-dropdown right>
         <template #button-content>
@@ -64,7 +64,7 @@ export default {
   },
   data() {
     return {
-      name: "test",
+      name: "",
       email: "",
       time: "",
       loggedIn: false,
