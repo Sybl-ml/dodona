@@ -103,7 +103,6 @@ export default {
       });
 
       response = response.data;
-      console.log(response.token);
 
       if (response.token === "null") {
         this.validRegistration = false;
