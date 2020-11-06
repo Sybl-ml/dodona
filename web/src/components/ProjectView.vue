@@ -5,6 +5,7 @@
     <p>{{ getProjectDate }}</p>
     <b-tabs>
       <b-tab title="Overview" active lazy>
+        <br />
         <project-overview
           :projectId="projectId"
           :key="projectId"
@@ -15,6 +16,7 @@
         />
       </b-tab>
       <b-tab title="Input" ref="dataTab">
+        <br />
         <project-input
           :projectId="projectId"
           :key="projectId"
@@ -24,7 +26,8 @@
         />
       </b-tab>
       <b-tab title="Ouptut" lazy>
-        <br />This will show the output from the machine learning methods
+        <br />
+        This will show the output from the machine learning methods
       </b-tab>
     </b-tabs>
   </b-container>
