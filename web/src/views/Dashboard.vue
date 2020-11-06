@@ -60,7 +60,6 @@ export default {
   data() {
     return {
       projects: [],
-      filtered_projects: [],
       search: "",
     };
   },
@@ -81,23 +80,15 @@ export default {
       delete y._id;
       return y;
     });
-
-    this.filtered_projects = this.projects;
   },
-  methods: {},
-  watch: {
-    search: function() {
-      if (this.search === "") {
-        this.filtered_projects = this.projects;
-      }
-      else {
-        this.filtered_projects = this.projects.filter((x) => {
-          if (x['name'].includes(this.search)) {
-            return x;
-          }
-        });
-      }
-    },
-  }
+  computed: {
+    filtered_projects: function() {
+      return this.projects.filter((x) => {
+        if (x['name'].includes(this.search)) {
+          return x;
+        }
+      });
+    }
+  },
 };
 </script>
