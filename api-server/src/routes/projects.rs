@@ -258,11 +258,16 @@ pub async fn get_data(req: Request<State>) -> tide::Result {
     }
 
     let filter = doc! { "project_id": &object_id };
-    let dataset = datasets
+
+    // 404 if no dataset
+    let dataset = match datasets
         .find_one(filter, None)
         .await?
         .map(|doc| mongodb::bson::de::from_document::<Dataset>(doc).unwrap())
-        .unwrap();
+    {
+        Some(x) => x,
+        None => return Ok(Response::builder(404).build()),
+    };
 
     let comp_data = dataset.dataset.unwrap().bytes;
 
