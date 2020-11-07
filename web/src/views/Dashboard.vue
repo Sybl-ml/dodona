@@ -5,7 +5,7 @@
         <b-col xs="12" order-xs="2" lg="3">
           <b-row>
             <b-col class="mb-3">
-              <b-form-input placeholder="Search" block />
+              <b-form-input  v-model="search" placeholder="Search" block />
             </b-col>
           </b-row>
           <b-row class="text-left">
@@ -18,7 +18,7 @@
                       <b-icon-plus-circle /></b-col></b-row></b-button
               ></router-link>
               <router-link
-                v-for="p in projects"
+                v-for="p in filtered_projects"
                 :key="p.id"
                 :to="{
                   name: `ProjectView`,
@@ -63,7 +63,7 @@
             </b-col>
           </b-row>
         </b-col>
-        <b-col>
+        <b-col lg="9">
           <router-view></router-view>
         </b-col>
       </b-row>
@@ -99,6 +99,7 @@ export default {
   data() {
     return {
       projects: [],
+      search: "",
     };
   },
   async mounted() {
@@ -119,6 +120,14 @@ export default {
       return y;
     });
   },
-  methods: {},
+  computed: {
+    filtered_projects: function() {
+      return this.projects.filter((x) => {
+        if (x['name'].includes(this.search)) {
+          return x;
+        }
+      });
+    }
+  },
 };
 </script>

@@ -6,7 +6,9 @@
         <p>{{ getDatasetDate }}</p>
       </b-col>
     </b-row>
-    <b-table striped :items="this.dataHead.data" />
+    <b-row class="input-table">
+      <b-table striped :items="this.dataHead.data" />
+    </b-row>
     <b-row>
       <b-col class="text-center" style="color: #4650e8">
         <b-link @click="$emit('input-tab')">See More...</b-link></b-col
@@ -14,6 +16,12 @@
     >
   </b-container>
 </template>
+
+<style scoped>
+.input-table {
+  overflow-y: scroll;
+}
+</style>
 
 <script>
 import axios from "axios";
