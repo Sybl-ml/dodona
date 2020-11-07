@@ -36,7 +36,6 @@
                     <b-col>
                       <b-card-body :title="p.name">
                         <b-card-text>
-                          {{ p.status }}
                           <b-icon-play-fill
                             v-if="p.status == 'Unfinished'"
                             style="color: red"
@@ -54,6 +53,7 @@
                             v-else-if="p.status == 'Completed'"
                             style="color: green"
                           />
+                          {{ p.status }}
                         </b-card-text>
                       </b-card-body>
                     </b-col>
