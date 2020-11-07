@@ -27,35 +27,36 @@
                   },
                 }"
               >
-                <b-card class="mb-1" no-body>
-                  <b-row no-gutters>
-                    <b-col cols="10">
+                <b-card class="mb-1" no-body :class="p.status.toLowerCase()">
+                  <b-row
+                    no-gutters
+                    class="ml-2"
+                    style="background-color: white"
+                  >
+                    <b-col>
                       <b-card-body :title="p.name">
                         <b-card-text>
-                          {{ p.description }}
+                          {{ p.status }}
+                          <b-icon-play-fill
+                            v-if="p.status == 'Unfinished'"
+                            style="color: red"
+                          />
+                          <b-icon-play-fill
+                            v-else-if="p.status == 'Ready'"
+                            style="color: blue"
+                          />
+                          <b-icon-hourglass-split
+                            v-if="p.status == 'Processing'"
+                            animation="fade"
+                            variant="primary"
+                          />
+                          <b-icon-check2-circle
+                            v-else-if="p.status == 'Completed'"
+                            style="color: green"
+                          />
                         </b-card-text>
                       </b-card-body>
                     </b-col>
-                    <b-col
-                      class="text-center justify-content-center"
-                      align-self="center"
-                      ><b-icon-hourglass
-                        v-if="p.status == 'Unfinished'"
-                        class="h3" />
-                      <b-icon-hourglass-top
-                        v-else-if="p.status == 'Ready'"
-                        style="color: blue"
-                        class="h3" />
-                      <b-icon-hourglass-split
-                        v-else-if="p.status == 'Processing'"
-                        animation="fade"
-                        variant="primary"
-                        class="h3" />
-                      <b-icon-hourglass-bottom
-                        v-else-if="p.status == 'Completed'"
-                        style="color: green"
-                        class="h3"
-                    /></b-col>
                   </b-row>
                 </b-card>
               </router-link>
@@ -75,7 +76,21 @@
   height: 40px;
   font-size: large;
 }
+
+.unfinished {
+  background-color: red !important;
+}
+.ready {
+  background-color: blue !important;
+}
+.processing {
+  background-color: var(--primary) !important;
+}
+.completed {
+  background-color: green !important;
+}
 </style>
+
 <script>
 import axios from "axios";
 
