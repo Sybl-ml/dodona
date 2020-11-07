@@ -8,7 +8,7 @@ use tide::{Request, Response};
 
 use crate::models::dataset_details::DatasetDetails;
 use crate::models::datasets::Dataset;
-use crate::models::projects::Project;
+use crate::models::projects::{Project, Status};
 use crate::routes::response_from_json;
 use crate::utils;
 use crate::State;
@@ -128,6 +128,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
         description: String::from(description),
         date_created: bson::DateTime(Utc::now()),
         user_id: Some(user_id),
+        status: Status::Unfinished,
     };
 
     let document = mongodb::bson::ser::to_document(&project)?;
@@ -157,7 +158,13 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
     let project_id: ObjectId = ObjectId::with_string(&project_id)?;
 
     // check project exists
-    let found_project = projects.find_one(doc! { "_id": &project_id}, None).await?;
+    let found_project = projects
+        .find_one_and_update(
+            doc! { "_id": &project_id},
+            doc! {"$set": {"status": Status::Ready.to_string()}},
+            None,
+        )
+        .await?;
     if found_project.is_none() {
         return Ok(Response::builder(404).body("project not found").build());
     }

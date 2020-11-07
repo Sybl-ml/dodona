@@ -1,9 +1,12 @@
 //! Defines the structure of projects in the MongoDB instance.
 
+use std::fmt;
+
 use mongodb::bson;
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
 
+/// Defines the status for a project
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Status {
     Unfinished,
@@ -11,6 +14,18 @@ pub enum Status {
     Processing,
     Complete,
     Read,
+}
+
+impl fmt::Display for Status {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Status::Unfinished => write!(f, "Unfinished"),
+            Status::Ready => write!(f, "Ready"),
+            Status::Processing => write!(f, "Processing"),
+            Status::Complete => write!(f, "Complete"),
+            Status::Read => write!(f, "Read"),
+        }
+    }
 }
 
 /// Defines the information that should be stored with a project in the database.
