@@ -27,10 +27,37 @@
                   },
                 }"
               >
-                <b-card :title="p.name" class="mb-1">
-                  <b-card-text>
-                    {{ p.description }}
-                  </b-card-text>
+                <b-card class="mb-1" no-body :class="p.status.toLowerCase()">
+                  <b-row
+                    no-gutters
+                    class="ml-2"
+                    style="background-color: white"
+                  >
+                    <b-col>
+                      <b-card-body :title="p.name">
+                        <b-card-text>
+                          <b-icon-play-fill
+                            v-if="p.status == 'Unfinished'"
+                            style="color: red"
+                          />
+                          <b-icon-play-fill
+                            v-else-if="p.status == 'Ready'"
+                            style="color: blue"
+                          />
+                          <b-icon-hourglass-split
+                            v-if="p.status == 'Processing'"
+                            animation="fade"
+                            variant="primary"
+                          />
+                          <b-icon-check2-circle
+                            v-else-if="p.status == 'Completed'"
+                            style="color: green"
+                          />
+                          {{ p.status }}
+                        </b-card-text>
+                      </b-card-body>
+                    </b-col>
+                  </b-row>
                 </b-card>
               </router-link>
             </b-col>
@@ -49,14 +76,26 @@
   height: 40px;
   font-size: large;
 }
+
+.unfinished {
+  background-color: red !important;
+}
+.ready {
+  background-color: blue !important;
+}
+.processing {
+  background-color: var(--primary) !important;
+}
+.completed {
+  background-color: green !important;
+}
 </style>
+
 <script>
 import axios from "axios";
 
 export default {
   name: "Dashboard",
-  components: {
-  },
   data() {
     return {
       projects: [],

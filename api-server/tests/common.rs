@@ -101,6 +101,7 @@ async fn insert_test_projects(database: &mongodb::Database) {
         "description": "Test Description",
         "date_created": bson::Bson::DateTime(chrono::Utc.timestamp_millis(0)),
         "user_id": ObjectId::with_string(MAIN_USER_ID).unwrap(),
+        "status": "Ready"
     };
     let userless = bson::doc! {
         "_id": ObjectId::with_string(USERLESS_PROJECT_ID).unwrap(),
@@ -108,6 +109,7 @@ async fn insert_test_projects(database: &mongodb::Database) {
         "description": "Test Description",
         "date_created": bson::Bson::DateTime(chrono::Utc.timestamp_millis(0)),
         "user_id": ObjectId::with_string(NON_EXISTENT_USER_ID).unwrap(),
+        "status": "Ready"
     };
 
     let projects = database.collection("projects");
