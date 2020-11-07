@@ -11,14 +11,14 @@
           :dataHead="dataHead"
           :dataDate="datasetDate"
           :dataTypes="dataTypes"
-          v-on:input-tab="$refs.dataTab.activate()"
+          v-on:input-tab="viewInput"
         />
       </b-tab>
       <b-tab title="Input" ref="dataTab">
         <project-input
           :projectId="projectId"
           :key="projectId"
-          v-on:getData="getData"
+          v-on:get-data="fetchData"
           :data="data"
           :loading="loading"
         />
@@ -48,8 +48,8 @@ export default {
       dataHead: {},
       dataTypes: {},
 
-      data: {},
-      loading: true,
+      data: null,
+      loading: false,
     };
   },
   props: {
@@ -61,14 +61,15 @@ export default {
   },
   watch: {
     projectId: function () {
-      this.fetchData();
+      this.resetProject();
+      this.fetchProject();
     },
   },
   async mounted() {
-    this.fetchData();
+    this.fetchProject();
   },
   methods: {
-    async fetchData() {
+    async fetchProject() {
       let project_response = await axios.get(
         `http://localhost:3001/api/projects/p/${this.projectId}`
       );
@@ -84,8 +85,9 @@ export default {
       this.datasetDate = new Date(project_details.date_created.$date);
       this.dataTypes = project_details.column_types;
     },
-    async getData() {
-      console.log("data");
+    async fetchData() {
+      this.loading = true;
+
       let project_response = await axios.get(
         `http://localhost:3001/api/projects/p/${this.projectId}/data`
       );
@@ -94,6 +96,22 @@ export default {
 
       this.data = Papa.parse(project_data, { header: true });
       this.loading = false;
+    },
+    resetProject() {
+      this.name = "";
+      this.description = "";
+      this.dateCreated = new Date();
+
+      this.datasetDate = new Date();
+      this.dataHead = {};
+      this.dataTypes = {};
+
+      this.data = null;
+      this.loading = false;
+    },
+    viewInput() {
+      this.$refs.dataTab.activate();
+      this.fetchData();
     },
   },
   computed: {

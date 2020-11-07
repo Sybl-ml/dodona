@@ -1,8 +1,12 @@
 <template>
-  <b-container fluid>
-    <h3>Look at all your data</h3>
+  <b-container fluid class="mt-3">
     <b-row>
-      <b-col v-if="loading" class="text-center">
+      <b-col v-if="!data && !loading" class="text-center">
+        <b-button @click="$emit('get-data')" variant="primary" class="px-5"
+          >Load Data</b-button
+        >
+      </b-col>
+      <b-col v-else-if="loading" class="text-center">
         <b-icon
           icon="arrow-counterclockwise"
           animation="spin-reverse"
@@ -33,9 +37,6 @@ export default {
     projectId: String,
     data: Object,
     loading: Boolean,
-  },
-  async created() {
-    this.$emit("getData");
   },
   methods: {},
   computed: {
