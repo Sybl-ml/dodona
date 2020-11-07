@@ -4,6 +4,15 @@ use mongodb::bson;
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Serialize, Deserialize)]
+pub enum Status {
+    Unfinished,
+    Ready,
+    Processing,
+    Complete,
+    Read,
+}
+
 /// Defines the information that should be stored with a project in the database.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Project {
@@ -18,4 +27,6 @@ pub struct Project {
     pub date_created: bson::DateTime,
     /// The identifier of the user who created the project
     pub user_id: Option<ObjectId>,
+    /// The status of the project
+    pub status: Status,
 }
