@@ -27,10 +27,36 @@
                   },
                 }"
               >
-                <b-card :title="p.name" class="mb-1">
-                  <b-card-text>
-                    {{ p.description }}
-                  </b-card-text>
+                <b-card class="mb-1" no-body>
+                  <b-row no-gutters>
+                    <b-col cols="10">
+                      <b-card-body :title="p.name">
+                        <b-card-text>
+                          {{ p.description }}
+                        </b-card-text>
+                      </b-card-body>
+                    </b-col>
+                    <b-col
+                      class="text-center justify-content-center"
+                      align-self="center"
+                      ><b-icon-hourglass
+                        v-if="p.status == 'Unfinished'"
+                        class="h3" />
+                      <b-icon-hourglass-top
+                        v-else-if="p.status == 'Ready'"
+                        style="color: blue"
+                        class="h3" />
+                      <b-icon-hourglass-split
+                        v-else-if="p.status == 'Processing'"
+                        animation="fade"
+                        variant="primary"
+                        class="h3" />
+                      <b-icon-hourglass-bottom
+                        v-else-if="p.status == 'Completed'"
+                        style="color: green"
+                        class="h3"
+                    /></b-col>
+                  </b-row>
                 </b-card>
               </router-link>
             </b-col>
@@ -55,8 +81,6 @@ import axios from "axios";
 
 export default {
   name: "Dashboard",
-  components: {
-  },
   data() {
     return {
       projects: [],
