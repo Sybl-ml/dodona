@@ -6,6 +6,7 @@ use mongodb::bson;
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
 
+#[allow(missing_docs)]
 /// Defines the status for a project
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Status {
