@@ -28,14 +28,6 @@
       <b-tab title="Ouptut" lazy>
         <br />
         This will show the output from the machine learning methods
-
-        <data-table
-          :projectId="projectId"
-          :key="projectId"
-          v-on:get-data="fetchData"
-          :data="data"
-          :loading="loading"
-        />
       </b-tab>
     </b-tabs>
   </b-container>
@@ -46,7 +38,6 @@ import axios from "axios";
 import Papa from "papaparse";
 import ProjectOverview from "@/components/ProjectOverview";
 import ProjectInput from "@/components/ProjectInput";
-import DataTable from "@/components/DataTable";
 
 export default {
   name: "ProjectView",
@@ -70,7 +61,6 @@ export default {
   components: {
     ProjectOverview,
     ProjectInput,
-    DataTable,
   },
   watch: {
     projectId: function () {

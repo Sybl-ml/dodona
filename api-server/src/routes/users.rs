@@ -99,6 +99,8 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     // Generate an API key for the user
     let api_key = generate_api_key();
 
+    let credits = 10;
+
     let user = User {
         id: Some(ObjectId::new()),
         email,
@@ -106,6 +108,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
         first_name,
         last_name,
         api_key,
+        credits,
     };
 
     let document = mongodb::bson::ser::to_document(&user).unwrap();
