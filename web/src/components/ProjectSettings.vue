@@ -34,7 +34,9 @@
         description="WARNING: This is permanent all data and analysis will be deleted"
         class="font-weight-bold"
       >
-        <b-button id="delete" variant="secondary">DELETE</b-button>
+        <b-button id="delete" variant="secondary" @click="deleteProject"
+          >DELETE</b-button
+        >
       </b-form-group>
     </b-card>
   </b-container>
@@ -92,7 +94,19 @@ export default {
         console.log(err);
       }
     },
-    deleteProject() {},
+    async deleteProject() {
+      this.$emit("delete:project", this.projectId);
+
+      try {
+        let project_response = await axios.delete(
+          `http://localhost:3001/api/projects/p/${this.projectId}`
+        );
+      } catch (err) {
+        console.log(err);
+      }
+
+      this.$router.replace("/dashboard");
+    },
   },
 };
 </script>

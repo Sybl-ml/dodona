@@ -37,6 +37,7 @@
           :description="description"
           @update:name="updateName"
           @update:description="updateDescription"
+          @delete:project="$emit('delete:project', projectId)"
         />
       </b-tab>
     </b-tabs>

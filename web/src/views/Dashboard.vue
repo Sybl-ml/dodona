@@ -67,6 +67,7 @@
           <router-view
             @update:description="updateDescription"
             @update:name="updateName"
+            @delete:project="deleteProject"
           ></router-view>
         </b-col>
       </b-row>
@@ -142,6 +143,17 @@ export default {
           break;
         }
       }
+    },
+    deleteProject(id) {
+      let index = 0;
+      for (var i in this.projects) {
+        if (this.projects[i].id == id) {
+          index = i;
+          break;
+        }
+      }
+
+      this.projects.splice(index, 1);
     },
   },
   computed: {
