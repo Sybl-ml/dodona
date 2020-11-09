@@ -20,7 +20,7 @@
         <project-input
           :projectId="projectId"
           :key="projectId"
-          v-on:get-data="fetchData"
+          @get-data="fetchData"
           :data="data"
           :loading="loading"
         />
@@ -32,9 +32,11 @@
       <b-tab title="Settings" lazy>
         <project-settings
           :projectId="projectId"
+          :key="projectId"
           :name="name"
           :description="description"
-          :key="projectId"
+          @update:name="updateName"
+          @update:description="updateDescription"
         />
       </b-tab>
     </b-tabs>
@@ -126,6 +128,14 @@ export default {
     viewInput() {
       this.$refs.inputTab.activate();
       this.fetchData();
+    },
+    updateName(newName) {
+      this.name = newName;
+      this.$emit("update:name", newName, this.projectId);
+    },
+    updateDescription(newDescription) {
+      this.description = newDescription;
+      this.$emit("update:description", newDescription, this.projectId);
     },
   },
   computed: {
