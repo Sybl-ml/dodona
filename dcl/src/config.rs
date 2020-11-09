@@ -25,8 +25,10 @@ pub struct Config {
     pub app_name: Option<String>,
     /// The connection URI for the Mongo database instance
     pub conn_str: Option<String>,
-    /// The address to open a socket for
-    pub socket: Option<u16>,
+    /// The address to open a socket for interface
+    pub interface_socket: Option<u16>,
+    /// The address to open a socket for nodes
+    pub node_socket: Option<u16>,
 }
 
 impl Config {
@@ -74,8 +76,12 @@ impl Config {
             self.conn_str = config.conn_str;
         }
 
-        if config.socket.is_some() {
-            self.socket = config.socket;
+        if config.interface_socket.is_some() {
+            self.interface_socket = config.interface_socket;
+        }
+
+        if config.node_socket.is_some() {
+            self.node_socket = config.node_socket;
         }
     }
 
@@ -110,8 +116,12 @@ impl Config {
             std::env::set_var("CONN_STR", conn_str);
         }
 
-        if let Some(socket) = &self.socket {
-            std::env::set_var("SOCKET", socket.to_string());
+        if let Some(interface_socket) = &self.interface_socket {
+            std::env::set_var("INTERFACE_SOCKET", interface_socket.to_string());
+        }
+
+        if let Some(node_socket) = &self.node_socket {
+            std::env::set_var("NODE_SOCKET", node_socket.to_string());
         }
     }
 }
