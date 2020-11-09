@@ -85,9 +85,33 @@ pub async fn patch_project(mut req: Request<State>) -> tide::Result {
 
     let filter = doc! { "_id": &object_id };
     let update_doc = doc! { "$set": doc };
-    let _update = projects
+    let update_id = projects
         .find_one_and_update(filter, update_doc, None)
         .await?;
+
+    if update_id.is_none() {
+        return Ok(Response::builder(404).body("project not found").build());
+    }
+
+    Ok(Response::builder(200).build())
+}
+
+pub async fn delete_project(req: Request<State>) -> tide::Result {
+    let database = req.state().client.database("sybl");
+    let projects = database.collection("projects");
+
+    let project_id: String = req.param("project_id")?;
+    let object_id = match ObjectId::with_string(&project_id) {
+        Ok(id) => id,
+        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
+    };
+
+    let filter = doc! { "_id": &object_id };
+    let deleted_id = projects.find_one_and_delete(filter, None).await?;
+
+    if deleted_id.is_none() {
+        return Ok(Response::builder(404).body("project not found").build());
+    }
 
     Ok(Response::builder(200).build())
 }
