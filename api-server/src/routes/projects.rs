@@ -67,6 +67,31 @@ pub async fn get_project(req: Request<State>) -> tide::Result {
     }
 }
 
+/// Patches a project with the provided data.
+///
+/// Given a project identifier, finds and updates the project in the database
+/// matching new data
+/// If project does not exist return a 404
+pub async fn patch_project(mut req: Request<State>) -> tide::Result {
+    let doc: Document = req.body_json().await?;
+    let database = req.state().client.database("sybl");
+    let projects = database.collection("projects");
+
+    let project_id: String = req.param("project_id")?;
+    let object_id = match ObjectId::with_string(&project_id) {
+        Ok(id) => id,
+        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
+    };
+
+    let filter = doc! { "_id": &object_id };
+    let update_doc = doc! { "$set": doc };
+    let _update = projects
+        .find_one_and_update(filter, update_doc, None)
+        .await?;
+
+    Ok(Response::builder(200).build())
+}
+
 /// Finds all the projects related to a given user.
 ///
 /// Given a user identifier, finds all the projects in the database that the user owns. If the user
