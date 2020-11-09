@@ -7,7 +7,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use anyhow::Result;
 use mongodb::options::ClientOptions;
-use mongodb::{Database, Client};
+use mongodb::Client;
 
 pub mod interface_end;
 pub mod node_end;
@@ -26,9 +26,16 @@ pub async fn run() -> Result<()> {
     client_options.app_name = Some(app_name);
     let client = Arc::new(Client::with_options(client_options).unwrap().database("sybl"));
     let db_conn_interface = client.clone();
+    let serverpool = Arc::new(node_end::ServerPool::new());
 
     tokio::spawn(async move {
         interface_end::run_server(interface_socket, db_conn_interface).await.unwrap();
+    }).await?;
+
+    let db_conn_node = client.clone();
+    let serverpool_clone = serverpool.clone();
+    tokio::spawn(async move {
+        node_end::run_server(serverpool_clone, node_socket, db_conn_node).await.unwrap();
     }).await?;
     
     log::info!("(DCL) shutting down...");

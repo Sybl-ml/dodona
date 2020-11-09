@@ -15,11 +15,12 @@ type OId = [u8; 24];
 pub async fn run_server(socket: u16, db_conn: Arc<Database>) -> Result<()>{
 
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
+    log::info!("Socket: {:?}", socket);
 
     let mut listener = TcpListener::bind(&socket).await?;
-
-
+    log::info!("RUNNING INTERFACE SERVER");
     while let Ok((inbound, _)) = listener.accept().await {
+        log::info!("INTERFACE CONNECTION");
         let db_conn_clone = db_conn.clone();
         tokio::spawn(async move {
             process_connection(inbound, db_conn_clone).await.unwrap();
