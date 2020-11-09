@@ -4,7 +4,7 @@
     <h5>{{ description }}</h5>
     <p>{{ getProjectDate }}</p>
     <b-tabs>
-      <b-tab title="Overview" active lazy>
+      <b-tab title="Overview" active lazy ref="overviewTab">
         <br />
         <project-overview
           :projectId="projectId"
@@ -15,7 +15,7 @@
           v-on:input-tab="viewInput"
         />
       </b-tab>
-      <b-tab title="Input" ref="dataTab">
+      <b-tab title="Input" ref="inputTab">
         <br />
         <project-input
           :projectId="projectId"
@@ -29,6 +29,14 @@
         <br />
         This will show the output from the machine learning methods
       </b-tab>
+      <b-tab title="Settings" lazy>
+        <project-settings
+          :projectId="projectId"
+          :name="name"
+          :description="description"
+          :key="projectId"
+        />
+      </b-tab>
     </b-tabs>
   </b-container>
 </template>
@@ -38,6 +46,7 @@ import axios from "axios";
 import Papa from "papaparse";
 import ProjectOverview from "@/components/ProjectOverview";
 import ProjectInput from "@/components/ProjectInput";
+import ProjectSettings from "@/components/ProjectSettings";
 
 export default {
   name: "ProjectView",
@@ -61,11 +70,13 @@ export default {
   components: {
     ProjectOverview,
     ProjectInput,
+    ProjectSettings,
   },
   watch: {
     projectId: function () {
       this.resetProject();
       this.fetchProject();
+      this.$refs.overviewTab.activate();
     },
   },
   async mounted() {
@@ -113,7 +124,7 @@ export default {
       this.loading = false;
     },
     viewInput() {
-      this.$refs.dataTab.activate();
+      this.$refs.inputTab.activate();
       this.fetchData();
     },
   },
