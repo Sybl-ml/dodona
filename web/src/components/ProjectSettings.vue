@@ -48,6 +48,8 @@
 </style>
 
 <script>
+import axios from "axios";
+
 export default {
   name: "ProjectSettings",
   data() {
@@ -62,11 +64,33 @@ export default {
     description: String,
   },
   methods: {
-    updateName() {
+    async updateName() {
       this.$emit("update:name", this.newName);
+
+      try {
+        let project_response = await axios.patch(
+          `http://localhost:3001/api/projects/p/${this.projectId}`,
+          {
+            name: this.newName,
+          }
+        );
+      } catch (err) {
+        console.log(err);
+      }
     },
-    updateDescription() {
+    async updateDescription() {
       this.$emit("update:description", this.newDescription);
+
+      try {
+        let project_response = await axios.patch(
+          `http://localhost:3001/api/projects/p/${this.projectId}`,
+          {
+            description: this.newDescription,
+          }
+        );
+      } catch (err) {
+        console.log(err);
+      }
     },
     deleteProject() {},
   },
