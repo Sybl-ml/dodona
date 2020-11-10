@@ -1,17 +1,16 @@
 //! Defines the routes specific to project operations.
-use std::io::prelude::*;
 
 use async_std::stream::StreamExt;
-use bzip2::write::BzEncoder;
-use bzip2::Compression;
 use chrono::Utc;
-use mongodb::bson::Binary;
-use mongodb::bson::{doc, document::Document, oid::ObjectId};
+use mongodb::bson;
+use mongodb::bson::{doc, document::Document, oid::ObjectId, Binary};
 use tide::{Request, Response};
 
+use crate::models::dataset_details::DatasetDetails;
 use crate::models::datasets::Dataset;
-use crate::models::projects::Project;
+use crate::models::projects::{Project, Status};
 use crate::routes::response_from_json;
+use crate::utils;
 use crate::State;
 
 /// Gets all the projects from the database.
@@ -35,18 +34,37 @@ pub async fn get_all(req: Request<State>) -> tide::Result {
 pub async fn get_project(req: Request<State>) -> tide::Result {
     let database = req.state().client.database("sybl");
     let projects = database.collection("projects");
+    let details = database.collection("dataset_details");
 
     let project_id: String = req.param("project_id")?;
     let object_id = match ObjectId::with_string(&project_id) {
         Ok(id) => id,
-        Err(_) => return Ok(Response::builder(404).body("invalid project id").build()),
+        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
     };
 
-    let filter = doc! { "_id": object_id };
+    let filter = doc! { "_id": &object_id };
+    let doc = projects.find_one(filter, None).await?;
 
-    let doc = projects.find_one(filter, None).await?.unwrap();
-    let proj: Project = mongodb::bson::de::from_document(doc).unwrap();
-    Ok(response_from_json(proj))
+    // if project exists get project from projects collection and
+    // get dataset details from dataset_details collection
+    if let Some(doc) = doc {
+        // get that project from the projects collection
+        let filter = doc! { "project_id": &object_id };
+        let details_doc = details.find_one(filter, None).await?;
+
+        let response = if let Some(details_doc) = details_doc {
+            log::info!("{:?}", &details_doc);
+            doc! {"project": &doc, "details": details_doc}
+        } else {
+            log::info!("{:?}", &details_doc);
+            doc! {"project": &doc, "details": {}}
+        };
+
+        log::info!("{:?}", &response);
+        Ok(response_from_json(response))
+    } else {
+        Ok(Response::builder(404).body("project id not found").build())
+    }
 }
 
 /// Finds all the projects related to a given user.
@@ -110,6 +128,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
         description: String::from(description),
         date_created: bson::DateTime(Utc::now()),
         user_id: Some(user_id),
+        status: Status::Unfinished,
     };
 
     let document = mongodb::bson::ser::to_document(&project)?;
@@ -126,11 +145,12 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
 /// an error writing out the compressed data to the vector or if there
 /// is an error finishing the compression stream. Both times an error
 /// will return a 404 to the caller.
-pub async fn add(mut req: Request<State>) -> tide::Result {
+pub async fn add_data(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
     let state = req.state();
     let database = state.client.database("sybl");
     let datasets = database.collection("datasets");
+    let dataset_details = database.collection("dataset_details");
     let projects = database.collection("projects");
 
     let data = doc.get_str("content")?;
@@ -138,21 +158,36 @@ pub async fn add(mut req: Request<State>) -> tide::Result {
     let project_id: ObjectId = ObjectId::with_string(&project_id)?;
 
     // check project exists
-    let found_project = projects.find_one(doc! { "_id": &project_id}, None).await?;
+    let found_project = projects
+        .find_one_and_update(
+            doc! { "_id": &project_id},
+            doc! {"$set": {"status": Status::Ready.to_string()}},
+            None,
+        )
+        .await?;
     if found_project.is_none() {
         return Ok(Response::builder(404).body("project not found").build());
     }
 
-    log::info!("Dataset received: {:?}", &data);
+    let analysis = utils::analyse(&data);
 
-    let mut write_compress = BzEncoder::new(vec![], Compression::best());
-    if write_compress.write(data.as_bytes()).is_err() {
-        return Ok(Response::builder(404)
-            .body("Error finishing writing stream")
-            .build());
-    }
+    let types = analysis.types;
+    log::info!("Dataset types: {:?}", &types);
 
-    match write_compress.finish() {
+    let data_head = analysis.header;
+
+    let data_details = DatasetDetails {
+        id: Some(ObjectId::new()),
+        project_id: Some(project_id.clone()),
+        date_created: bson::DateTime(Utc::now()),
+        head: Some(data_head),
+        column_types: types,
+    };
+    let document = mongodb::bson::ser::to_document(&data_details)?;
+    dataset_details.insert_one(document, None).await?;
+
+    // Compression
+    match utils::compress_data(data) {
         Ok(compressed) => {
             log::info!("Compressed data: {:?}", &compressed);
             let dataset = Dataset {
@@ -169,6 +204,85 @@ pub async fn add(mut req: Request<State>) -> tide::Result {
             let id = datasets.insert_one(document, None).await?.inserted_id;
 
             Ok(response_from_json(doc! {"dataset_id": id}))
+        }
+        Err(_) => Ok(Response::builder(404).build()),
+    }
+}
+
+/// Gets the dataset details for a project
+///
+/// Project Id passed in as part of route and the dataset details
+/// for that project are returned from the database.
+pub async fn overview(req: Request<State>) -> tide::Result {
+    let state = req.state();
+    let database = state.client.database("sybl");
+    let dataset_details = database.collection("dataset_details");
+    let projects = database.collection("projects");
+    let project_id: String = req.param("project_id")?;
+
+    let object_id = match ObjectId::with_string(&project_id) {
+        Ok(id) => id,
+        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
+    };
+
+    let found_project = projects.find_one(doc! { "_id": &object_id}, None).await?;
+
+    if found_project.is_none() {
+        return Ok(Response::builder(404).body("project not found").build());
+    }
+
+    let filter = doc! { "project_id": &object_id };
+    let cursor = dataset_details.find(filter, None).await?;
+    let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
+
+    Ok(response_from_json(documents.unwrap()))
+}
+
+/// Route returns back uncompressed dataset
+///
+/// Makes a request to mongodb and gets dataset associated with
+/// project id. Compressed data is then taken from returned struct
+/// and is decompressed before being sent in a response back to the
+/// user.
+pub async fn get_data(req: Request<State>) -> tide::Result {
+    let state = req.state();
+    let database = state.client.database("sybl");
+    let datasets = database.collection("datasets");
+    let projects = database.collection("projects");
+    let project_id: String = req.param("project_id")?;
+
+    let object_id = match ObjectId::with_string(&project_id) {
+        Ok(id) => id,
+        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
+    };
+
+    log::info!("Project ID: {}", &project_id);
+
+    let found_project = projects.find_one(doc! { "_id": &object_id}, None).await?;
+
+    if found_project.is_none() {
+        return Ok(Response::builder(404).body("project not found").build());
+    }
+
+    let filter = doc! { "project_id": &object_id };
+
+    // 404 if no dataset
+    let dataset = match datasets
+        .find_one(filter, None)
+        .await?
+        .map(|doc| mongodb::bson::de::from_document::<Dataset>(doc).unwrap())
+    {
+        Some(x) => x,
+        None => return Ok(Response::builder(404).build()),
+    };
+
+    let comp_data = dataset.dataset.unwrap().bytes;
+
+    match utils::decompress_data(&comp_data) {
+        Ok(decompressed) => {
+            let decomp_data = std::str::from_utf8(&decompressed)?;
+            log::info!("Decompressed data: {:?}", &decomp_data);
+            Ok(response_from_json(doc! {"dataset": decomp_data}))
         }
         Err(_) => Ok(Response::builder(404).build()),
     }

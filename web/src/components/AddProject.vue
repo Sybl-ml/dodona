@@ -15,11 +15,14 @@
           v-model="description"
         />
         <br />
+        <b-form-checkbox v-model="show_upload">Upload data</b-form-checkbox>
         <b-form-file
+          v-show="show_upload"
           placeholder="Upload a dataset"
           drop-placeholder="Drop file here..."
           v-model="file"
         />
+        <br /><br />
         <b-button @click="onSubmit" variant="primary">Submit</b-button>
       </b-tab>
     </b-tabs>
@@ -56,6 +59,7 @@ export default {
       upload_in_progress: false,
       file_reader: null,
       project_id: "",
+      show_upload: false,
     };
   },
   mounted() {
@@ -79,13 +83,18 @@ export default {
         console.log(err);
       }
 
+      if (this.file) {
+        this.readFile();
+      }
+    },
+    readFile() {
       this.file_reader = new FileReader();
       this.file_reader.onload = this.sendFile;
       this.file_reader.readAsText(this.file);
     },
     async sendFile(e) {
-      let project_response = await axios.post(
-        `http://localhost:3001/api/projects/p/${this.project_id}/add`,
+      let project_response = await axios.put(
+        `http://localhost:3001/api/projects/p/${this.project_id}/data`,
         {
           content: e.target.result,
         }

@@ -17,4 +17,6 @@ pub struct User {
     pub first_name: String,
     /// The user's last name
     pub last_name: String,
+    /// The user's API key
+    pub api_key: String,
 }

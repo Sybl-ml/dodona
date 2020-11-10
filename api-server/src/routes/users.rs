@@ -3,11 +3,22 @@
 use ammonia::clean_text;
 use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
+use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
 use tide::Request;
 
 use crate::models::users::User;
 use crate::routes::response_from_json;
 use crate::State;
+
+/// Generates an API key of 32 alphanumeric characters.
+fn generate_api_key() -> String {
+    let mut rng = thread_rng();
+    std::iter::repeat(())
+        .map(|()| rng.sample(Alphanumeric))
+        .take(32)
+        .collect()
+}
 
 /// Gets a user given their database identifier.
 ///
@@ -85,18 +96,24 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
 
     log::info!("Hash: {:?}", pbkdf2_hash);
 
+    // Generate an API key for the user
+    let api_key = generate_api_key();
+
     let user = User {
         id: Some(ObjectId::new()),
         email,
         password: pbkdf2_hash,
         first_name,
         last_name,
+        api_key,
     };
 
     let document = mongodb::bson::ser::to_document(&user).unwrap();
     let id = users.insert_one(document, None).await?.inserted_id;
 
-    Ok(response_from_json(doc! {"token": id.to_string()}))
+    Ok(response_from_json(
+        doc! {"token": id.as_object_id().unwrap().to_string()},
+    ))
 }
 
 /// Edits a user in the database and updates their information.

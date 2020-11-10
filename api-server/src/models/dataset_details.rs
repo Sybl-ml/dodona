@@ -1,12 +1,13 @@
-//! Defines the structure of datasets in the MongoDB instance.
+//! Defines the dataset details for a given dataset and project in the MongoDB instance.
+
+use std::collections::HashMap;
 
 use mongodb::bson;
 use mongodb::bson::oid::ObjectId;
-use mongodb::bson::Binary;
 
-/// Defines the information that should be stored with a dataset in the database.
+/// Defines the information that should be stored as details for a project
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Dataset {
+pub struct DatasetDetails {
     /// The unique identifier for the dataset
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id: Option<ObjectId>,
@@ -14,6 +15,8 @@ pub struct Dataset {
     pub project_id: Option<ObjectId>,
     /// The date that the dataset was uploaded
     pub date_created: bson::DateTime,
-    /// Dataset binary stored in the db
-    pub dataset: Option<Binary>,
+    /// Head of the dataset
+    pub head: Option<String>,
+    /// The types of each column
+    pub column_types: HashMap<String, crate::utils::DatasetType>,
 }

@@ -15,14 +15,15 @@ use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use http_types::headers::HeaderValue;
 use mongodb::options::ClientOptions;
 use mongodb::Client;
+use tide::http::headers::HeaderValue;
 use tide::security::{CorsMiddleware, Origin};
 
 pub mod config;
 pub mod models;
 pub mod routes;
+pub mod utils;
 
 /// Defines the state for each request to access.
 #[derive(Clone, Debug)]
@@ -98,12 +99,17 @@ pub async fn build_server() -> tide::Server<State> {
         .at("/u/:user_id/new")
         .post(routes::projects::new);
     projects_api
-        .at("/p/:project_id/add")
-        .post(routes::projects::add);
+        .at("/p/:project_id/data")
+        .put(routes::projects::add_data)
+        .get(routes::projects::get_data);
+    projects_api
+        .at("/p/:project_id/overview")
+        .post(routes::projects::overview);
 
     // CORS
+    let headers = "GET, POST, PUT, OPTIONS".parse::<HeaderValue>().unwrap();
     let cors = CorsMiddleware::new()
-        .allow_methods("GET, POST, OPTIONS".parse::<HeaderValue>().unwrap())
+        .allow_methods(headers)
         .allow_origin(Origin::from("*"))
         .allow_credentials(false);
 

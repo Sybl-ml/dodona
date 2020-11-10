@@ -223,6 +223,8 @@ impl ConfigFile {
     /// assert_eq!(development, expected);
     /// ```
     pub fn resolve(self, environment: Environment) -> Config {
+        log::info!("Resolving config: {:?}", environment);
+
         // Start with defaults
         let mut config = Config::default();
 
@@ -242,6 +244,8 @@ impl ConfigFile {
         if let Some(subconfig) = subconfig {
             config.or(subconfig);
         }
+
+        log::info!("Config values: {:#?}", config);
 
         config
     }

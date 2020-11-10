@@ -2,6 +2,7 @@
   <b-container fluid>
     <b-row class="justify-content-center text-center">
       <b-col lg="2" md="6" sm="8" xs="12">
+        <br/><br/>
         <icon-logo height="5em" width="5em" :show_text="false" />
         <h1>New Sybl Account</h1>
         <b-form class="mt-5 mb-3" @submit.prevent="onSubmit">
@@ -102,7 +103,6 @@ export default {
       });
 
       response = response.data;
-      console.log(response.token);
 
       if (response.token === "null") {
         this.validRegistration = false;

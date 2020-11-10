@@ -3,6 +3,7 @@ import VueRouter from "vue-router";
 import Welcome from "../views/Welcome.vue";
 import Login from "../views/Login.vue";
 import Register from "../views/Register.vue";
+import Settings from "../views/Settings.vue";
 import Dashboard from "../views/Dashboard.vue";
 import ProjectView from "../components/ProjectView.vue";
 import AddProject from "../components/AddProject.vue";
@@ -43,6 +44,11 @@ const routes = [
       },
     ],
   },
+  {
+    path: "/settings",
+    name: "Settings",
+    component: Settings,
+  },
 ];
 
 const router = new VueRouter({
@@ -53,13 +59,16 @@ const router = new VueRouter({
 
 router.beforeEach((to, from, next) => {
   let access_token = Vue.$cookies.get("token");
-  // if (access_token === null) {
-  //   if (to.name === "Login" || to.name === "Register" || to.name === "Welcome")
-  //     next();
-  //   else next({ name: "Login" });
-  // } else {
-  //   next();
-  // }
+  if (access_token === null) {
+    if (to.name === "Login" || to.name === "Register" || to.name === "Welcome")
+      next();
+    else next({ name: "Login" });
+  } else {
+    if (to.name === "Login" || to.name === "Register"){
+      next({ name: "Dashboard" });
+    }
+    next();
+  }
   next();
 });
 
