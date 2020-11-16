@@ -1,4 +1,5 @@
 use anyhow::Result;
+use mongodb::bson::oid::ObjectId;
 use std::sync::Arc;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
@@ -11,9 +12,10 @@ pub async fn run(serverpool: Arc<ServerPool>, mut rx: Receiver<String>) -> Resul
     log::info!("RUNNING JOB END");
     while let Some(msg) = rx.recv().await {
         log::info!("Received: {}", msg);
-        let dcn: Arc<RwLock<TcpStream>> = serverpool.get().await.unwrap();
+        let (key, dcn): (ObjectId, Arc<RwLock<TcpStream>>) = serverpool.get().await.unwrap();
         let mut dcn_write = dcn.write().await;
         dcn_write.write(msg.as_bytes()).await.unwrap();
+        serverpool.end(key).await;
     }
     Ok(())
 }

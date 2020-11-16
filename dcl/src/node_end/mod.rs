@@ -1,5 +1,7 @@
 use anyhow::{anyhow, Result};
+use mongodb::bson::oid::ObjectId;
 use mongodb::Database;
+use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::from_utf8;
 use std::sync::Arc;
@@ -63,33 +65,41 @@ impl ServerInfo {
 
 #[derive(Debug)]
 pub struct ServerPool {
-    servers: RwLock<Vec<Server>>,
-    info: RwLock<Vec<ServerInfo>>,
+    servers: RwLock<HashMap<ObjectId, Server>>,
+    info: RwLock<HashMap<ObjectId, ServerInfo>>,
 }
 // ServerPool Methods
 impl ServerPool {
     pub fn new() -> ServerPool {
         ServerPool {
-            servers: RwLock::new(vec![]),
-            info: RwLock::new(vec![]),
+            servers: RwLock::new(HashMap::new()),
+            info: RwLock::new(HashMap::new()),
         }
     }
 
     pub async fn add(&self, server: Server) {
+        let oid: ObjectId = ObjectId::new();
         let mut server_vec = self.servers.write().await;
         let mut info_vec = self.info.write().await;
-        server_vec.push(server);
-        info_vec.push(ServerInfo::new());
+        server_vec.insert(oid.clone(), server);
+        info_vec.insert(oid.clone(), ServerInfo::new());
     }
 
-    pub async fn get(&self) -> Option<Arc<RwLock<TcpStream>>> {
+    pub async fn get(&self) -> Option<(ObjectId, Arc<RwLock<TcpStream>>)> {
         let servers_read = self.servers.read().await;
-        if servers_read.len() == 0 {
-            return None;
-        }
         let mut info_write = self.info.write().await;
-        info_write[0].set_using(true);
-        Some(servers_read[0].get_tcp())
+        for (key, info) in info_write.iter_mut() {
+            if info.get_alive() && !info.get_using() {
+                info.set_using(true);
+                return Some((key.clone(), servers_read.get(key).unwrap().get_tcp()));
+            }
+        }
+        return None;
+    }
+
+    pub async fn end(&self, key: ObjectId) {
+        let mut info_write = self.info.write().await;
+        info_write.get_mut(&key).unwrap().set_using(false);
     }
 }
 
