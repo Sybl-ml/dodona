@@ -1,22 +1,25 @@
-use std::sync::Arc;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::str::from_utf8;
-use tokio::prelude::*;
-use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::RwLock;
 use anyhow::{anyhow, Result};
 use mongodb::Database;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::str::from_utf8;
+use std::sync::Arc;
+use tokio::net::{TcpListener, TcpStream};
+use tokio::prelude::*;
+use tokio::sync::RwLock;
 
 #[derive(Debug)]
-pub struct Server{
+pub struct Server {
     conn: Arc<RwLock<TcpStream>>,
-    api_key: String
+    api_key: String,
 }
 
 // Server Methods
-impl Server{
+impl Server {
     pub fn new(conn: TcpStream, api_key: String) -> Server {
-        Server {conn: Arc::new(RwLock::new(conn)), api_key}
+        Server {
+            conn: Arc::new(RwLock::new(conn)),
+            api_key,
+        }
     }
 
     pub fn get_tcp(&self) -> Arc<RwLock<TcpStream>> {
@@ -28,19 +31,55 @@ impl Server{
     }
 }
 
-pub struct ServerPool{
-    servers: RwLock<Vec<Server>>
+#[derive(Deserialize, Debug, Copy, Clone)]
+pub struct ServerInfo {
+    alive: bool,
+    using: bool,
 }
-// ServerPool Methods
-impl ServerPool{
 
-    pub fn new() -> ServerPool{
-        ServerPool{servers: RwLock::new(vec![])}
+impl ServerInfo {
+    pub fn new() -> ServerInfo {
+        ServerInfo {
+            alive: true,
+            using: false,
+        }
+    }
+    pub fn get_using(&self) -> bool {
+        self.using
     }
 
-    pub async fn add(&self, server: Server){
+    pub fn set_using(&mut self, using: bool) {
+        self.using = using
+    }
+
+    pub fn get_alive(&self) -> bool {
+        self.alive
+    }
+
+    pub fn set_alive(&mut self, alive: bool) {
+        self.alive = alive
+    }
+}
+
+#[derive(Debug)]
+pub struct ServerPool {
+    servers: RwLock<Vec<Server>>,
+    info: RwLock<Vec<ServerInfo>>,
+}
+// ServerPool Methods
+impl ServerPool {
+    pub fn new() -> ServerPool {
+        ServerPool {
+            servers: RwLock::new(vec![]),
+            info: RwLock::new(vec![]),
+        }
+    }
+
+    pub async fn add(&self, server: Server) {
         let mut server_vec = self.servers.write().await;
+        let mut info_vec = self.info.write().await;
         server_vec.push(server);
+        info_vec.push(ServerInfo::new());
     }
 
     pub async fn get(&self) -> Option<Arc<RwLock<TcpStream>>> {
@@ -48,15 +87,14 @@ impl ServerPool{
         if servers_read.len() == 0 {
             return None;
         }
-
+        let mut info_write = self.info.write().await;
+        info_write[0].set_using(true);
         Some(servers_read[0].get_tcp())
-
-
     }
 }
 
 // Run node_end method
-pub async fn run(serverpool: Arc<ServerPool>, socket: u16, db_conn: Arc<Database>) -> Result<()>{
+pub async fn run(serverpool: Arc<ServerPool>, socket: u16, db_conn: Arc<Database>) -> Result<()> {
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
     let mut listener = TcpListener::bind(&socket).await?;
     log::info!("RUNNING NODE SERVER");
@@ -66,15 +104,21 @@ pub async fn run(serverpool: Arc<ServerPool>, socket: u16, db_conn: Arc<Database
         let db_conn_clone = db_conn.clone();
         let sp_clone = serverpool.clone();
         tokio::spawn(async move {
-            process_connection(inbound, db_conn_clone, sp_clone).await.unwrap();
+            process_connection(inbound, db_conn_clone, sp_clone)
+                .await
+                .unwrap();
         });
     }
     Ok(())
 }
 
-async fn process_connection(mut stream: TcpStream, db_conn: Arc<Database>, serverpool: Arc<ServerPool>) -> Result<()> {
+async fn process_connection(
+    mut stream: TcpStream,
+    db_conn: Arc<Database>,
+    serverpool: Arc<ServerPool>,
+) -> Result<()> {
     log::info!("PROCESSING");
-    let mut buffer: [u8; 24] = [0_u8; 24]; 
+    let mut buffer: [u8; 24] = [0_u8; 24];
     stream.read(&mut buffer).await?;
     let api_key = from_utf8(&buffer).unwrap();
     log::info!("API KEY: {}", api_key);

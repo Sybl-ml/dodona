@@ -6,7 +6,6 @@
 //! For example, a local instance of MongoDB can be used for running tests, whereas the Atlas
 //! instance can be used for production purposes.
 
-
 /// Defines which subconfig to use for overwriting.
 #[derive(Debug)]
 pub enum Environment {

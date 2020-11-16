@@ -1,5 +1,5 @@
-use dcl::run;
 use dcl::config::Environment;
+use dcl::run;
 
 fn main() {
     pretty_env_logger::formatted_timed_builder()
@@ -11,7 +11,7 @@ fn main() {
     } else {
         Environment::Production
     };
-    
+
     dcl::load_config(environment);
 
     // Do config stuff here

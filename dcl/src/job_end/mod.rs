@@ -1,13 +1,13 @@
+use anyhow::Result;
 use std::sync::Arc;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
-use tokio::sync::RwLock;
 use tokio::sync::mpsc::Receiver;
-use anyhow::Result;
+use tokio::sync::RwLock;
 
-use crate::node_end::{ServerPool};
+use crate::node_end::ServerPool;
 
-pub async fn run(serverpool: Arc<ServerPool>, mut rx: Receiver<String>) -> Result<()>{
+pub async fn run(serverpool: Arc<ServerPool>, mut rx: Receiver<String>) -> Result<()> {
     log::info!("RUNNING JOB END");
     while let Some(msg) = rx.recv().await {
         log::info!("Received: {}", msg);
