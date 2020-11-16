@@ -8,6 +8,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use mongodb::options::ClientOptions;
 use mongodb::Client;
+use tokio::sync::mpsc::{self, Sender, Receiver};
 
 pub mod interface_end;
 pub mod node_end;
@@ -27,15 +28,21 @@ pub async fn run() -> Result<()> {
     let client = Arc::new(Client::with_options(client_options).unwrap().database("sybl"));
     let db_conn_interface = client.clone();
     let serverpool = Arc::new(node_end::ServerPool::new());
+    let (tx, rx): (Sender<String>, Receiver<String>)  = mpsc::channel(20);
 
     tokio::spawn(async move {
-        interface_end::run_server(interface_socket, db_conn_interface).await.unwrap();
-    }).await?;
+        interface_end::run(interface_socket, db_conn_interface, tx).await.unwrap();
+    });
 
     let db_conn_node = client.clone();
     let serverpool_clone = serverpool.clone();
     tokio::spawn(async move {
-        node_end::run_server(serverpool_clone, node_socket, db_conn_node).await.unwrap();
+        node_end::run(serverpool_clone, node_socket, db_conn_node).await.unwrap();
+    });
+
+    let serverpool_clone = serverpool.clone();
+    tokio::spawn(async move {
+        job_end::run(serverpool_clone, rx).await.unwrap();
     }).await?;
     
     log::info!("(DCL) shutting down...");

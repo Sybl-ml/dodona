@@ -7,6 +7,7 @@ use tokio::sync::RwLock;
 use anyhow::{anyhow, Result};
 use mongodb::Database;
 
+#[derive(Debug, Clone)]
 pub struct Server{
     addr: SocketAddr,
     api_key: String
@@ -40,10 +41,21 @@ impl ServerPool{
         let mut server_vec = self.servers.write().await;
         server_vec.push(server);
     }
+
+    pub async fn get(&self) -> Option<Server> {
+        let servers_read = self.servers.read().await;
+        if servers_read.len() == 0 {
+            return None;
+        }
+
+        Some(servers_read[0].clone())
+
+
+    }
 }
 
 // Run node_end method
-pub async fn run_server(serverpool: Arc<ServerPool>, socket: u16, db_conn: Arc<Database>) -> Result<()>{
+pub async fn run(serverpool: Arc<ServerPool>, socket: u16, db_conn: Arc<Database>) -> Result<()>{
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
     let mut listener = TcpListener::bind(&socket).await?;
     log::info!("RUNNING NODE SERVER");
@@ -78,6 +90,6 @@ async fn process_connection(mut stream: TcpStream, db_conn: Arc<Database>, serve
     Ok(())
 }
 
-fn check_api_key(db_conn: &Database, api_key: &str) -> bool {
+fn check_api_key(_db_conn: &Database, _api_key: &str) -> bool {
     true
 }
