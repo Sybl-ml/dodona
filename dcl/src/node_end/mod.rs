@@ -7,19 +7,20 @@ use tokio::sync::RwLock;
 use anyhow::{anyhow, Result};
 use mongodb::Database;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Server{
-    addr: SocketAddr,
+    conn: Arc<RwLock<TcpStream>>,
     api_key: String
 }
+
 // Server Methods
 impl Server{
-    pub fn new(addr: SocketAddr, api_key: String) -> Server {
-        Server {addr, api_key}
+    pub fn new(conn: TcpStream, api_key: String) -> Server {
+        Server {conn: Arc::new(RwLock::new(conn)), api_key}
     }
 
-    pub fn get_addr(&self) -> SocketAddr {
-        self.addr
+    pub fn get_tcp(&self) -> Arc<RwLock<TcpStream>> {
+        self.conn.clone()
     }
 
     pub fn get_api_key(&self) -> &String {
@@ -42,13 +43,13 @@ impl ServerPool{
         server_vec.push(server);
     }
 
-    pub async fn get(&self) -> Option<Server> {
+    pub async fn get(&self) -> Option<Arc<RwLock<TcpStream>>> {
         let servers_read = self.servers.read().await;
         if servers_read.len() == 0 {
             return None;
         }
 
-        Some(servers_read[0].clone())
+        Some(servers_read[0].get_tcp())
 
 
     }
@@ -72,6 +73,7 @@ pub async fn run(serverpool: Arc<ServerPool>, socket: u16, db_conn: Arc<Database
 }
 
 async fn process_connection(mut stream: TcpStream, db_conn: Arc<Database>, serverpool: Arc<ServerPool>) -> Result<()> {
+    log::info!("PROCESSING");
     let mut buffer: [u8; 24] = [0_u8; 24]; 
     stream.read(&mut buffer).await?;
     let api_key = from_utf8(&buffer).unwrap();
@@ -80,13 +82,10 @@ async fn process_connection(mut stream: TcpStream, db_conn: Arc<Database>, serve
         log::info!("API KEY doesn't match a user");
         return Err(anyhow!("API Key is not valid"));
     }
-    let server = Server{
-        addr:stream.local_addr().unwrap(),
-        api_key: String::from(api_key)
-    };
+    let server = Server::new(stream, String::from(api_key));
 
     serverpool.add(server).await;
-
+    log::info!("PROCESSED");
     Ok(())
 }
 
