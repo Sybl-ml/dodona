@@ -1,4 +1,11 @@
-extern crate tokio;
+//! Contains the Distributed Control Layer for the Sybl project.
+//!
+//! Manages connections to Compute Nodes, a MongoDB database and an Inteface Layer
+
+#![warn(rust_2018_idioms)]
+#![warn(missing_debug_implementations)]
+#![warn(missing_docs)]
+
 #[macro_use]
 extern crate serde;
 
@@ -17,6 +24,12 @@ pub mod models;
 pub mod node_end;
 pub mod utils;
 
+/// Main runner function for the DCL
+///
+/// This function is called when starting up the DCL. It starts the
+/// tokio runtime and sets up its connection with the MongoDB database.
+/// It will then spawn threads for the different parts of the DCL to
+/// offer the full functionality of the product.
 #[tokio::main]
 pub async fn run() -> Result<()> {
     let conn_str = env::var("CONN_STR").expect("CONN_STR must be set");

@@ -1,3 +1,8 @@
+//! Deals with DCL connection to the interface layer
+//!
+//! Listens to traffic over a socket and maintains a transmitter end of
+//! a mpsc channel which allows it to send data to the job end.
+
 use anyhow::Result;
 use mongodb::bson::{doc, oid::ObjectId};
 use mongodb::Database;
@@ -12,7 +17,12 @@ use crate::models::datasets::Dataset;
 use crate::utils;
 
 type OId = [u8; 24];
-
+/// Starts up interface server
+///
+/// Takes in socket, db connection and transmitter end of mpsc chaneel and will
+/// read in data from an interface. Messages read over this are taken and the
+/// corresponding dataset is found and decompressed before being passed to the
+/// job end to be sent to a compute node.
 pub async fn run(socket: u16, db_conn: Arc<Database>, tx: Sender<String>) -> Result<()> {
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
     log::info!("Socket: {:?}", socket);
