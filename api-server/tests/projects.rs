@@ -9,7 +9,7 @@ mod common;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProjectResponse {
     project: Project,
-    details: DatasetDetails,
+    details: Option<DatasetDetails>,
 }
 
 #[async_std::test]
@@ -27,7 +27,7 @@ async fn projects_can_be_fetched_for_a_user() -> tide::Result<()> {
 
     let projects: Vec<Project> = res.body_json().await?;
 
-    assert_eq!(projects.len(), 1);
+    assert_eq!(projects.len(), 2);
 
     let found = &projects[0];
 
@@ -135,7 +135,7 @@ async fn all_projects_can_be_fetched() -> tide::Result<()> {
 
     let projects: Vec<Project> = res.body_json().await?;
 
-    assert_eq!(projects.len(), 2);
+    assert_eq!(projects.len(), 4);
 
     Ok(())
 }
@@ -243,6 +243,59 @@ async fn overview_of_dataset_can_be_returned() -> tide::Result<()> {
 
     let res: Response = app.respond(req).await?;
     assert_eq!(tide::StatusCode::Ok, res.status());
+
+    Ok(())
+}
+
+#[async_std::test]
+async fn projects_can_be_deleted() -> tide::Result<()> {
+    common::initialise();
+    let app = dodona::build_server().await;
+
+    let formatted = format!("localhost:/api/projects/p/{}", common::DELETABLE_PROJECT_ID);
+    let url = Url::parse(&formatted).unwrap();
+    let req = Request::new(tide::http::Method::Delete, url);
+
+    let res: Response = app.respond(req).await?;
+    assert_eq!(tide::StatusCode::Ok, res.status());
+
+    let formatted = format!("localhost:/api/projects/u/{}", common::DELETES_PROJECT_UID);
+    let url = Url::parse(&formatted).unwrap();
+    let req = Request::new(tide::http::Method::Get, url);
+    let mut res: Response = app.respond(req).await?;
+
+    let projects: Vec<Project> = res.body_json().await?;
+    assert_eq!(projects.len(), 0);
+
+    Ok(())
+}
+
+#[async_std::test]
+async fn projects_can_be_edited() -> tide::Result<()> {
+    common::initialise();
+    let app = dodona::build_server().await;
+
+    let formatted = format!("localhost:/api/projects/p/{}", common::EDITABLE_PROJECT_ID);
+    let url = tide::http::Url::parse(&formatted).unwrap();
+    let mut req = tide::http::Request::new(tide::http::Method::Patch, url);
+    let body = r#"{"description": "new description"}"#;
+    req.set_body(body);
+    req.set_content_type(tide::http::mime::JSON);
+
+    let res: Response = app.respond(req).await?;
+    assert_eq!(tide::StatusCode::Ok, res.status());
+
+    // let formatted = format!("localhost:/api/projects/p/{}", common::EDITABLE_PROJECT_ID);
+    // let url = Url::parse(&formatted).unwrap();
+    // let req = Request::new(tide::http::Method::Get, url);
+
+    // let mut res: Response = app.respond(req).await?;
+    // assert_eq!(tide::StatusCode::Ok, res.status());
+    // assert_eq!(Some(tide::http::mime::JSON), res.content_type());
+
+    // let project_response: ProjectResponse = res.body_json().await?;
+
+    // assert_eq!(0, project_response.project.date_created.timestamp_millis());
 
     Ok(())
 }
