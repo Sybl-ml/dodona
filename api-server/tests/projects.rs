@@ -285,17 +285,17 @@ async fn projects_can_be_edited() -> tide::Result<()> {
     let res: Response = app.respond(req).await?;
     assert_eq!(tide::StatusCode::Ok, res.status());
 
-    // let formatted = format!("localhost:/api/projects/p/{}", common::EDITABLE_PROJECT_ID);
-    // let url = Url::parse(&formatted).unwrap();
-    // let req = Request::new(tide::http::Method::Get, url);
+    let formatted = format!("localhost:/api/projects/p/{}", common::EDITABLE_PROJECT_ID);
+    let url = Url::parse(&formatted).unwrap();
+    let req = Request::new(tide::http::Method::Get, url);
 
-    // let mut res: Response = app.respond(req).await?;
-    // assert_eq!(tide::StatusCode::Ok, res.status());
-    // assert_eq!(Some(tide::http::mime::JSON), res.content_type());
+    let mut res: Response = app.respond(req).await?;
+    assert_eq!(tide::StatusCode::Ok, res.status());
+    assert_eq!(Some(tide::http::mime::JSON), res.content_type());
 
-    // let project_response: ProjectResponse = res.body_json().await?;
+    let project_response: ProjectResponse = res.body_json().await?;
 
-    // assert_eq!(0, project_response.project.date_created.timestamp_millis());
+    assert_eq!("new description", project_response.project.description);
 
     Ok(())
 }
