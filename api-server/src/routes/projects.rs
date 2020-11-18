@@ -204,12 +204,6 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
             let document = mongodb::bson::ser::to_document(&dataset)?;
             let id = datasets.insert_one(document, None).await?.inserted_id;
 
-            // Message the Interface Layer with the Dataset ID
-            let mut stream = TcpStream::connect("127.0.0.1:5000").await?;
-            let hex = id.as_object_id().unwrap().to_hex();
-            stream.write(hex.as_bytes()).await?;
-            stream.shutdown(std::net::Shutdown::Both)?;
-
             Ok(response_from_json(doc! {"dataset_id": id}))
         }
         Err(_) => Ok(Response::builder(404).build()),
@@ -293,4 +287,54 @@ pub async fn get_data(req: Request<State>) -> tide::Result {
         }
         Err(_) => Ok(Response::builder(404).build()),
     }
+}
+
+/// Begins the processing of data associated with a project.
+///
+/// Checks that the project exists, before sending the identifier of its dataset to the interface
+/// layer, which will then forward it to the DCL for processing. Updates the project state to
+/// `State::Processing`.
+pub async fn begin_processing(req: Request<State>) -> tide::Result {
+    let state = req.state();
+    let database = state.client.database("sybl");
+
+    let projects = database.collection("projects");
+    let datasets = database.collection("datasets");
+
+    let project_id: String = req.param("project_id")?;
+
+    // Check the project ID to make sure it exists
+    let object_id = match ObjectId::with_string(&project_id) {
+        Ok(id) => id,
+        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
+    };
+
+    let project_query = doc! { "_id": &object_id};
+    let found_project = projects.find_one(project_query.clone(), None).await?;
+
+    if found_project.is_none() {
+        log::error!("Failed to find project with id: {}", &project_id);
+        return Ok(Response::builder(404).body("project not found").build());
+    }
+
+    let filter = doc! { "project_id": &object_id };
+    let dataset = datasets
+        .find_one(filter, None)
+        .await?
+        .map(|doc| mongodb::bson::de::from_document::<Dataset>(doc).unwrap())
+        .unwrap();
+
+    // Send a request to the interface layer
+    let hex = dataset.id.expect("Dataset with no identifier").to_hex();
+    log::info!("Forwarding dataset id: {} to the interface layer", &hex);
+
+    let mut stream = TcpStream::connect("127.0.0.1:5000").await?;
+    stream.write(hex.as_bytes()).await?;
+    stream.shutdown(std::net::Shutdown::Both)?;
+
+    // Mark the project as processing
+    let update = doc! { "$set": doc!{ "status": Status::Processing.to_string() } };
+    projects.update_one(project_query, update, None).await?;
+
+    Ok(response_from_json(doc! {"success": true}))
 }
