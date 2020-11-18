@@ -21,6 +21,7 @@ use tide::http::headers::HeaderValue;
 use tide::security::{CorsMiddleware, Origin};
 
 pub mod config;
+pub mod crypto;
 pub mod models;
 pub mod routes;
 pub mod utils;
