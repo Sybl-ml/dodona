@@ -1,6 +1,5 @@
 //! Defines the structure of datasets in the MongoDB instance.
 
-use mongodb::bson;
 use mongodb::bson::oid::ObjectId;
 use mongodb::bson::Binary;
 
@@ -12,8 +11,6 @@ pub struct Dataset {
     pub id: Option<ObjectId>,
     /// Unique identifier for the associated project
     pub project_id: Option<ObjectId>,
-    /// The date that the dataset was uploaded
-    pub date_created: bson::DateTime,
     /// Dataset binary stored in the db
     pub dataset: Option<Binary>,
 }

@@ -193,7 +193,6 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
             let dataset = Dataset {
                 id: Some(ObjectId::new()),
                 project_id: Some(project_id),
-                date_created: bson::DateTime(Utc::now()),
                 dataset: Some(Binary {
                     subtype: bson::spec::BinarySubtype::Generic,
                     bytes: compressed,
