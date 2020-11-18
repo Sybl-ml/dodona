@@ -12,8 +12,6 @@ pub struct Dataset {
     pub id: Option<ObjectId>,
     /// Unique identifier for the associated project
     pub project_id: Option<ObjectId>,
-    /// The date that the dataset was uploaded
-    pub date_created: bson::DateTime,
     /// Dataset binary stored in the db
     pub dataset: Option<Binary>,
 }
