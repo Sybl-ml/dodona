@@ -96,6 +96,13 @@ pub async fn patch_project(mut req: Request<State>) -> tide::Result {
     Ok(Response::builder(200).build())
 }
 
+/// Deletes a project provided a valid project id.
+///
+/// Given a project identifier, deletes a project from the database.
+/// If the project ID is invalid return a 422
+/// if project is not found return a 422
+///
+/// Will not currently authenticate the userid
 pub async fn delete_project(req: Request<State>) -> tide::Result {
     let database = req.state().client.database("sybl");
     let projects = database.collection("projects");
