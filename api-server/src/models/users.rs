@@ -19,4 +19,6 @@ pub struct User {
     pub last_name: String,
     /// The user's API key
     pub api_key: String,
+    // The user's client status
+    pub client: bool,
 }
