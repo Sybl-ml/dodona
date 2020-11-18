@@ -25,7 +25,7 @@
         <b-dropdown-item disabled>{{ email }}</b-dropdown-item>
         <b-dropdown-divider />
         <b-dropdown-item to="/dashboard">Dashboard</b-dropdown-item>
-        <b-dropdown-item to="/register/client">{{
+        <b-dropdown-item to="/client/confirm">{{
           client ? "Nodes" : "Register As Client"
         }}</b-dropdown-item>
         <b-dropdown-divider />
