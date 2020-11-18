@@ -204,12 +204,6 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
             let document = mongodb::bson::ser::to_document(&dataset)?;
             let id = datasets.insert_one(document, None).await?.inserted_id;
 
-            // Message the Interface Layer with the Dataset ID
-            let mut stream = TcpStream::connect("127.0.0.1:5000").await?;
-            let hex = id.as_object_id().unwrap().to_hex();
-            stream.write(hex.as_bytes()).await?;
-            stream.shutdown(std::net::Shutdown::Both)?;
-
             Ok(response_from_json(doc! {"dataset_id": id}))
         }
         Err(_) => Ok(Response::builder(404).build()),
