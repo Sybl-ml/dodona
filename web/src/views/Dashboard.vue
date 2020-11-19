@@ -4,14 +4,14 @@
       <b-row>
         <b-col xs="12" order-xs="2" lg="3">
           <b-row>
-            <b-col class="mb-3">
+            <b-col class="mb-2">
               <b-form-input  v-model="search" placeholder="Search" block />
             </b-col>
           </b-row>
           <b-row class="text-left">
             <b-col>
               <router-link :to="{ name: 'AddProject' }">
-                <b-button variant="primary" class="mb-1 add-new" block
+                <b-button variant="primary" class="mb-2 add-new" block
                   ><b-row
                     ><b-col class="text-left">Add new project</b-col
                     ><b-col class="ml-auto text-right">
@@ -27,31 +27,31 @@
                   },
                 }"
               >
-                <b-card class="mb-1" no-body :class="p.status.toLowerCase()">
+                <b-card class="mb-2" no-body :class="p.status.toLowerCase()" style="border: none">
                   <b-row
                     no-gutters
                     class="ml-2"
                     style="background-color: white"
                   >
                     <b-col>
-                      <b-card-body :title="p.name">
+                      <b-card-body :title="p.name" title-tag="h5">
                         <b-card-text>
                           <b-icon-play-fill
                             v-if="p.status == 'Unfinished'"
-                            style="color: red"
+                            style="color: #ff643d"
                           />
                           <b-icon-play-fill
                             v-else-if="p.status == 'Ready'"
-                            style="color: blue"
+                            style="color: #6391ff"
                           />
                           <b-icon-hourglass-split
                             v-if="p.status == 'Processing'"
                             animation="fade"
-                            variant="primary"
+                            style="color: #FFC12F"
                           />
                           <b-icon-check2-circle
                             v-else-if="p.status == 'Completed'"
-                            style="color: green"
+                            style="color: #00bf26"
                           />
                           {{ p.status }}
                         </b-card-text>
@@ -78,16 +78,16 @@
 }
 
 .unfinished {
-  background-color: red !important;
+  background-color: #ff643d !important;
 }
 .ready {
-  background-color: blue !important;
+  background-color: #6391ff !important;
 }
 .processing {
-  background-color: var(--primary) !important;
+  background-color: #FFC12F !important;
 }
 .completed {
-  background-color: green !important;
+  background-color: #00bf26 !important;
 }
 </style>
 
