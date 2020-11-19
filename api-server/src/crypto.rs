@@ -1,5 +1,6 @@
 //! Contains cryptographic functions used by the web server
 
+use base64::decode;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use rsa::hash::Hash::SHA2_256;
@@ -40,10 +41,15 @@ pub fn encoded_key_pair() -> (String, String) {
 
 /// Returns an encoded key with PKCS1 padding removed
 ///
-/// Removes PKCS1 padding from `key` so that the output can
-/// be parsed as an RSA key
-pub fn remove_pkcs1_padding(key: String) -> String {
-    key.lines().filter(|l| !l.starts_with("-")).collect()
+/// Removes PKCS1 padding from `key` and decodes its value into
+/// a binary vector such that it can be parsed as an RSA key.
+/// Returns None if `key` cannot be decoded from Base64
+pub fn prepare_pkcs1(key: String) -> Option<Vec<u8>> {
+    let key_str = key
+        .lines()
+        .filter(|l| !l.starts_with("-"))
+        .collect::<String>();
+    decode(key_str.as_bytes()).ok()
 }
 
 /// Returns a random string of size `n`

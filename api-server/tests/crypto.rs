@@ -1,4 +1,3 @@
-use base64::decode;
 use dodona::crypto::*;
 use rsa::hash::Hash::SHA2_256;
 use rsa::{PaddingScheme, RSAPrivateKey, RSAPublicKey};
@@ -12,10 +11,10 @@ fn key_generation() {
 #[test]
 fn key_encoding() {
     let (prv_str, pub_str) = encoded_key_pair();
-    let prv_bin = decode(remove_pkcs1_padding(prv_str)).unwrap();
-    let private = RSAPrivateKey::from_pkcs1(&prv_bin).expect("Unable to parse private key");
-    let pub_bin = decode(remove_pkcs1_padding(pub_str)).unwrap();
-    let public = RSAPublicKey::from_pkcs1(&pub_bin).expect("Unable to parse public key");
+    let private = RSAPrivateKey::from_pkcs1(&prepare_pkcs1(prv_str).unwrap())
+        .expect("Unable to parse private key");
+    let public = RSAPublicKey::from_pkcs1(&prepare_pkcs1(pub_str).unwrap())
+        .expect("Unable to parse public key");
     assert_eq!(private.to_public_key(), public);
 }
 
