@@ -3,21 +3,16 @@
 use ammonia::clean_text;
 use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
-use rand::distributions::Alphanumeric;
-use rand::{thread_rng, Rng};
 use tide::Request;
 
+use crate::crypto::generate_string;
 use crate::models::users::User;
 use crate::routes::response_from_json;
 use crate::State;
 
 /// Generates an API key of 32 alphanumeric characters.
 fn generate_api_key() -> String {
-    let mut rng = thread_rng();
-    std::iter::repeat(())
-        .map(|()| rng.sample(Alphanumeric))
-        .take(32)
-        .collect()
+    generate_string(32)
 }
 
 /// Gets a user given their database identifier.
