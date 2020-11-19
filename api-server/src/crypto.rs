@@ -11,6 +11,7 @@ use rsa::{
 
 const KEY_SIZE: usize = 1024;
 const CHALLENGE_SIZE: usize = 32;
+const API_KEY_SIZE: usize = 32;
 
 /// Returns a new, random RSA key pair
 ///
@@ -85,4 +86,9 @@ pub fn verify_challenge(challenge: Vec<u8>, response: Vec<u8>, public_key: RSAPu
             &response,
         )
         .is_ok()
+}
+
+/// Generates a user API key of `API_KEY_SIZE` alphanumeric characters.
+pub fn generate_user_api_key() -> String {
+    generate_string(API_KEY_SIZE)
 }

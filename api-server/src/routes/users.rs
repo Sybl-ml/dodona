@@ -5,15 +5,10 @@ use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
 use tide::Request;
 
-use crate::crypto::generate_string;
+use crate::crypto::generate_user_api_key;
 use crate::models::users::User;
 use crate::routes::response_from_json;
 use crate::State;
-
-/// Generates an API key of 32 alphanumeric characters.
-fn generate_api_key() -> String {
-    generate_string(32)
-}
 
 /// Gets a user given their database identifier.
 ///
@@ -92,7 +87,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     log::info!("Hash: {:?}", pbkdf2_hash);
 
     // Generate an API key for the user
-    let api_key = generate_api_key();
+    let api_key = generate_user_api_key();
 
     let user = User {
         id: Some(ObjectId::new()),
