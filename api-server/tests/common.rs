@@ -71,6 +71,7 @@ async fn insert_test_users(database: &mongodb::Database) {
         "first_name": "Matthew",
         "last_name": "Smith",
         "api_key": "",
+        "credits" : 100,
     };
     let delete = bson::doc! {
         "email": "delete@me.com",
@@ -78,6 +79,7 @@ async fn insert_test_users(database: &mongodb::Database) {
         "first_name": "Delete",
         "last_name": "Me",
         "api_key": "",
+        "credits" : 100,
     };
     let creates_project = bson::doc! {
         "_id": ObjectId::with_string(CREATES_PROJECT_UID).unwrap(),
@@ -86,6 +88,7 @@ async fn insert_test_users(database: &mongodb::Database) {
         "first_name": "Create",
         "last_name": "Project",
         "api_key": "",
+        "credits" : 100,
     };
 
     let users = database.collection("users");
