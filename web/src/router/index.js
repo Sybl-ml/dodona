@@ -4,6 +4,7 @@ import Welcome from "../views/Welcome.vue";
 import Login from "../views/Login.vue";
 import Register from "../views/Register.vue";
 import Nodes from "../views/Nodes.vue";
+import Confirm from "../views/Confirm.vue";
 import Settings from "../views/Settings.vue";
 import Dashboard from "../views/Dashboard.vue";
 import ProjectView from "../components/ProjectView.vue";
@@ -26,6 +27,17 @@ const routes = [
     path: "/register",
     name: "Register",
     component: Register,
+  },
+  {
+    path: "/client/confirm",
+    name: "Confirm",
+    component: Confirm,
+  },
+  {
+    path: "/client/dashboard",
+    name: "ClientDashboard",
+    component: ClientDashboard,
+    props: true
   },
   {
     path: "/dashboard",

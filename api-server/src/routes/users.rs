@@ -3,22 +3,12 @@
 use ammonia::clean_text;
 use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
-use rand::distributions::Alphanumeric;
-use rand::{thread_rng, Rng};
 use tide::Request;
 
+use crate::crypto::generate_user_api_key;
 use crate::models::users::User;
 use crate::routes::response_from_json;
 use crate::State;
-
-/// Generates an API key of 32 alphanumeric characters.
-fn generate_api_key() -> String {
-    let mut rng = thread_rng();
-    std::iter::repeat(())
-        .map(|()| rng.sample(Alphanumeric))
-        .take(32)
-        .collect()
-}
 
 /// Gets a user given their database identifier.
 ///
@@ -62,6 +52,7 @@ pub async fn filter(mut req: Request<State>) -> tide::Result {
 /// Given an email, password, first name and last name, peppers their password and hashes it. This
 /// then gets stored in the Mongo database with a randomly generated user identifier. If the user's
 /// email already exists, the route will not register any user.
+/// The user's client status will be false which can be later changed
 pub async fn new(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
     log::debug!("Document received: {:?}", &doc);
@@ -97,7 +88,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     log::info!("Hash: {:?}", pbkdf2_hash);
 
     // Generate an API key for the user
-    let api_key = generate_api_key();
+    let api_key = generate_user_api_key();
 
     let credits = 10;
 
@@ -108,6 +99,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
         first_name,
         last_name,
         api_key,
+        client: false,
         credits,
     };
 
