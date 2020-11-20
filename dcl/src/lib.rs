@@ -68,6 +68,11 @@ pub async fn run() -> Result<()> {
     let nodepool_clone = nodepool.clone();
     tokio::spawn(async move {
         job_end::run(nodepool_clone, rx).await.unwrap();
+    });
+
+    let nodepool_clone = nodepool.clone();
+    tokio::spawn(async move {
+        health::health_runner(nodepool_clone, 5).await;
     })
     .await?;
 
