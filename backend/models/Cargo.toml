@@ -1,0 +1,17 @@
+[package]
+name = "models"
+version = "0.1.0"
+authors = ["Alexander Jackson <alexanderjackson@protonmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+utils = { path = "../utils" }
+
+[dependencies.mongodb]
+version = "1.1.0"
+default-features = false
+features = ["async-std-runtime"]
