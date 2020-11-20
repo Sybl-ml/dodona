@@ -1,5 +1,6 @@
 //! Defines routes specific to client operations
 
+use base64;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
 use tide::{Request, Response};
 
@@ -93,10 +94,7 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
     let user_id = user.id.expect("ID is none");
 
     // Generate challenge
-    let challenge = Binary {
-        subtype: bson::spec::BinarySubtype::Generic,
-        bytes: crypto::generate_challenge(),
-    };
+    let challenge = crypto::generate_challenge();
     // Make new model
     let temp_model = ClientModel {
         id: Some(ObjectId::new()),
@@ -113,5 +111,7 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
     models.insert_one(document, None).await?;
 
     // return challenge
-    Ok(response_from_json(doc! {"challenge": challenge}))
+    Ok(response_from_json(
+        doc! {"challenge": base64::encode(challenge)},
+    ))
 }
