@@ -15,20 +15,6 @@ use crate::routes::response_from_json;
 use crate::utils;
 use crate::State;
 
-/// Gets all the projects from the database.
-///
-/// Defines a catch-all testing route that will pull all available projects and their information
-/// from the Mongo database.
-pub async fn get_all(req: Request<State>) -> tide::Result {
-    let database = req.state().client.database("sybl");
-    let projects = database.collection("projects");
-
-    let cursor = projects.find(None, None).await?;
-    let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
-
-    Ok(response_from_json(documents.unwrap()))
-}
-
 /// Finds a project in the database given an identifier.
 ///
 /// Given a project identifier, finds the project in the database and returns it as a JSON object.
