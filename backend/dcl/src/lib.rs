@@ -44,7 +44,7 @@ pub async fn run() -> Result<()> {
             .database("sybl"),
     );
     let db_conn_interface = client.clone();
-    let serverpool = Arc::new(node_end::ServerPool::new());
+    let nodepool = Arc::new(node_end::NodePool::new());
     let (tx, rx): (Sender<String>, Receiver<String>) = mpsc::channel(20);
 
     tokio::spawn(async move {
@@ -54,16 +54,16 @@ pub async fn run() -> Result<()> {
     });
 
     let db_conn_node = client.clone();
-    let serverpool_clone = serverpool.clone();
+    let nodepool_clone = nodepool.clone();
     tokio::spawn(async move {
-        node_end::run(serverpool_clone, node_socket, db_conn_node)
+        node_end::run(nodepool_clone, node_socket, db_conn_node)
             .await
             .unwrap();
     });
 
-    let serverpool_clone = serverpool.clone();
+    let nodepool_clone = nodepool.clone();
     tokio::spawn(async move {
-        job_end::run(serverpool_clone, rx).await.unwrap();
+        job_end::run(nodepool_clone, rx).await.unwrap();
     })
     .await?;
 
