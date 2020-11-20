@@ -34,12 +34,6 @@ const routes = [
     component: Confirm,
   },
   {
-    path: "/client/dashboard",
-    name: "ClientDashboard",
-    component: ClientDashboard,
-    props: true
-  },
-  {
     path: "/dashboard",
     name: "Dashboard",
     component: Dashboard,
