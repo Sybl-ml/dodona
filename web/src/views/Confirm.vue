@@ -37,8 +37,6 @@ export default {
     return {
       email: "",
       password: "",
-      remember_password: false,
-
       valid_credentials: true,
     };
   },
@@ -63,7 +61,7 @@ export default {
       } else {
         this.authenticated = true;
         this.$router.push({
-          name: "ClientDashboard",
+          name: "Nodes",
           params: { privkey: response.privKey },
         });
       }
