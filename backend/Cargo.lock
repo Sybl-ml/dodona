@@ -105,6 +105,7 @@ version = "0.1.0"
 dependencies = [
  "ammonia",
  "async-std",
+ "base64 0.13.0",
  "bzip2",
  "chrono",
  "config",
