@@ -141,7 +141,9 @@
 </template>
 
 <style>
-
+.nodeExpansion {
+  width: 100%;
+}
 </style>
 
 <script>
@@ -152,20 +154,23 @@ export default {
   name: "Nodes",
   data() {
     return {
-      model_data: [{"title":"Model 1", "status":"Locked"},{"title":"Model 2", "status":"Available"}, {"title":"Model 3", "status":"Disabled"}],
+      model_data: [
+        { title: "Model 1", status: "Locked" },
+        { title: "Model 2", status: "Available" },
+        { title: "Model 3", status: "Disabled" },
+      ],
       auth_token: "",
       error: false,
       cli_code: "git clone www.sybl.com/cli",
       cli_setup: "sybl-cli new",
     };
   },
-  components: {
-    ModelCard,
-  },
   async mounted() {
     let user_id = $cookies.get("token");
     try {
-      let data = await axios.get(`http://localhost:3001/api/clients/u/${user_id}`);
+      let data = await axios.get(
+        `http://localhost:3001/api/clients/u/${user_id}`
+      );
       this.model_data = data.data;
     } catch (err) {
       console.log(err);
