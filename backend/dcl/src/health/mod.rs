@@ -75,7 +75,7 @@ pub async fn heartbeat(stream: Arc<RwLock<TcpStream>>) -> bool {
     }
 
     let mut buffer = vec![];
-    if let Err(_) = timeout(Duration::from_millis(10), stream_write.read(&mut buffer)).await {
+    if let Err(_) = timeout(Duration::from_millis(100), stream_write.read(&mut buffer)).await {
         return false;
     } else {
         return true;
