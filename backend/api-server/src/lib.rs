@@ -44,7 +44,7 @@ pub struct State {
 /// ```no_run
 /// #[async_std::main]
 /// async fn main() -> std::io::Result<()> {
-///     let server = dodona::build_server().await;
+///     let server = api_server::build_server().await;
 ///     server.listen("localhost:3000").await?;
 ///
 ///     Ok(())

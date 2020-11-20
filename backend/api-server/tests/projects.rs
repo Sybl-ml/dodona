@@ -20,7 +20,7 @@ pub struct DatasetResponse {
 #[async_std::test]
 async fn projects_can_be_fetched_for_a_user() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let formatted = format!("localhost:/api/projects/u/{}", common::MAIN_USER_ID);
     let url = Url::parse(&formatted).unwrap();
@@ -46,7 +46,7 @@ async fn projects_can_be_fetched_for_a_user() -> tide::Result<()> {
 #[async_std::test]
 async fn projects_must_be_tied_to_a_user() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let formatted = format!("localhost:/api/projects/u/{}", common::NON_EXISTENT_USER_ID);
     let url = Url::parse(&formatted).unwrap();
@@ -61,7 +61,7 @@ async fn projects_must_be_tied_to_a_user() -> tide::Result<()> {
 #[async_std::test]
 async fn projects_cannot_be_found_for_invalid_user_ids() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let url = Url::parse("localhost:/api/projects/u/invalid").unwrap();
     let req = Request::new(tide::http::Method::Get, url);
@@ -75,7 +75,7 @@ async fn projects_cannot_be_found_for_invalid_user_ids() -> tide::Result<()> {
 #[async_std::test]
 async fn projects_can_be_fetched_by_identifier() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let formatted = format!("localhost:/api/projects/p/{}", common::MAIN_PROJECT_ID);
     let url = Url::parse(&formatted).unwrap();
@@ -97,7 +97,7 @@ async fn projects_can_be_fetched_by_identifier() -> tide::Result<()> {
 #[async_std::test]
 async fn non_existent_projects_are_not_found() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let formatted = format!(
         "localhost:/api/projects/p/{}",
@@ -115,7 +115,7 @@ async fn non_existent_projects_are_not_found() -> tide::Result<()> {
 #[async_std::test]
 async fn projects_cannot_be_found_with_invalid_identifiers() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let url = Url::parse("localhost:/api/projects/p/invalid").unwrap();
     let req = Request::new(tide::http::Method::Get, url);
@@ -129,7 +129,7 @@ async fn projects_cannot_be_found_with_invalid_identifiers() -> tide::Result<()>
 #[async_std::test]
 async fn projects_cannot_be_created_for_non_existent_users() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let url_str = format!(
         "localhost:/api/projects/u/{}/new",
@@ -147,7 +147,7 @@ async fn projects_cannot_be_created_for_non_existent_users() -> tide::Result<()>
 #[async_std::test]
 async fn projects_can_be_created() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let body = r#"{"name": "test", "description": "test"}"#;
     let url = format!("/api/projects/u/{}/new", common::CREATES_PROJECT_UID);
@@ -162,7 +162,7 @@ async fn projects_can_be_created() -> tide::Result<()> {
 #[async_std::test]
 async fn datasets_can_be_added_to_projects() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let body = r#"{"content": "age,sex,location\n22,M,Leamington Spa"}"#;
     let url = format!("/api/projects/p/{}/data", common::MAIN_PROJECT_ID);
@@ -177,7 +177,7 @@ async fn datasets_can_be_added_to_projects() -> tide::Result<()> {
 #[async_std::test]
 async fn only_one_dataset_can_be_added_to_a_project() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let body = r#"{"content": "age,sex,location\n22,M,Leamington Spa"}"#;
     let url = format!(
@@ -221,7 +221,7 @@ async fn only_one_dataset_can_be_added_to_a_project() -> tide::Result<()> {
 #[async_std::test]
 async fn datasets_cannot_be_added_if_projects_do_not_exist() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let body = r#"{"content": "age,sex,location\n22,M,Leamington Spa"}"#;
     let url = format!("/api/projects/p/{}/data", common::NON_EXISTENT_PROJECT_ID);
@@ -236,7 +236,7 @@ async fn datasets_cannot_be_added_if_projects_do_not_exist() -> tide::Result<()>
 #[async_std::test]
 async fn dataset_can_be_taken_from_database() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let body = r#"{"content": "age,sex,location\n22,M,Leamington Spa"}"#;
     let url = format!("/api/projects/p/{}/data", common::MAIN_PROJECT_ID);
@@ -258,7 +258,7 @@ async fn dataset_can_be_taken_from_database() -> tide::Result<()> {
 #[async_std::test]
 async fn overview_of_dataset_can_be_returned() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let body = r#"{"content": "age,sex,location\n22,M,Leamington Spa"}"#;
     let url = format!("/api/projects/p/{}/data", common::MAIN_PROJECT_ID);
@@ -280,7 +280,7 @@ async fn overview_of_dataset_can_be_returned() -> tide::Result<()> {
 #[async_std::test]
 async fn projects_can_be_deleted() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let formatted = format!("localhost:/api/projects/p/{}", common::DELETABLE_PROJECT_ID);
     let url = Url::parse(&formatted).unwrap();
@@ -303,7 +303,7 @@ async fn projects_can_be_deleted() -> tide::Result<()> {
 #[async_std::test]
 async fn projects_can_be_edited() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let formatted = format!("localhost:/api/projects/p/{}", common::EDITABLE_PROJECT_ID);
     let url = tide::http::Url::parse(&formatted).unwrap();

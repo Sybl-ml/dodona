@@ -16,7 +16,7 @@ pub mod users;
 ///
 /// ```
 /// use serde::Serialize;
-/// use dodona::routes::response_from_json;
+/// use api_server::routes::response_from_json;
 ///
 /// #[derive(Serialize)]
 /// struct Payload {

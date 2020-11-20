@@ -13,7 +13,7 @@ struct AuthResponse {
 #[async_std::test]
 async fn users_can_register() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let body = r#"
     {
@@ -37,7 +37,7 @@ async fn users_can_register() -> tide::Result<()> {
 #[async_std::test]
 async fn users_cannot_register_twice() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let body = r#"
     {
@@ -61,7 +61,7 @@ async fn users_cannot_register_twice() -> tide::Result<()> {
 #[async_std::test]
 async fn users_can_login() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let body = r#"{
         "email": "matthewsmith@email.com",
@@ -82,7 +82,7 @@ async fn users_can_login() -> tide::Result<()> {
 #[async_std::test]
 async fn users_cannot_login_without_correct_password() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let body = r#"{
         "email": "matthewsmith@email.com",
@@ -104,7 +104,7 @@ async fn users_cannot_login_without_correct_password() -> tide::Result<()> {
 #[async_std::test]
 async fn users_cannot_login_without_correct_email() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let body = r#"{
         "email": "mattsmith@email.com",
@@ -126,7 +126,7 @@ async fn users_cannot_login_without_correct_email() -> tide::Result<()> {
 #[async_std::test]
 async fn filter_finds_given_user_and_no_others() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let body = r#"{"email": "matthewsmith@email.com"}"#;
     let req = common::build_json_request("/api/users/filter", body);
@@ -150,7 +150,7 @@ async fn filter_finds_given_user_and_no_others() -> tide::Result<()> {
 #[async_std::test]
 async fn non_existent_users_are_not_found() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     let body = r#"{"email": "nonexistent@email.com"}"#;
     let req = common::build_json_request("/api/users/filter", body);
@@ -168,7 +168,7 @@ async fn non_existent_users_are_not_found() -> tide::Result<()> {
 #[async_std::test]
 async fn users_can_be_deleted() -> tide::Result<()> {
     common::initialise();
-    let app = dodona::build_server().await;
+    let app = api_server::build_server().await;
 
     // Find the user
     let body = r#"{"email": "delete@me.com"}"#;
