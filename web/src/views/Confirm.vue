@@ -57,8 +57,13 @@ export default {
       if (response.status === 200) {
         this.authenticated = true;
         this.$router.push({
+<<<<<<< HEAD
           name: "PrivateKey",
           params: { private_key: response.data.privKey },
+=======
+          name: "Nodes",
+          params: { privkey: response.privKey },
+>>>>>>> Update header links dependdent on client status
         });
       } else {
         this.authenticated = false;
