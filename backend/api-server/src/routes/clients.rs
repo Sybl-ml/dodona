@@ -40,11 +40,7 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
         // Entered and stored email and password match
         if verified && email == user.email {
             // generate public and private key pair
-<<<<<<< HEAD
             let (private_key, public_key) = crypto::encoded_key_pair();
-=======
-            let (public_key, private_key) = encoded_key_pair();
->>>>>>> Added clients model which is updated on registration
             // create a new client object
             users
                 .update_one(
@@ -73,11 +69,8 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
         }
     } else {
         println!("User ID does not exist");
-<<<<<<< HEAD
         Ok(Response::builder(404).body("User not found").build())
-=======
-        Ok(response_from_json(doc! {"token": "null"}))
->>>>>>> Added clients model which is updated on registration
+
     }
 }
 
@@ -154,6 +147,11 @@ pub async fn get_user_models(req: Request<State>) -> tide::Result {
 
     if found_user.is_none() {
         return Ok(Response::builder(404).body("user not found").build());
+=======
+        Ok(Response::builder(404)
+                .body("User not found")
+                .build())
+>>>>>>> corrected priv and pub keys
     }
 
     let filter = doc! { "user_id": &object_id };
