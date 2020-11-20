@@ -18,6 +18,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 
 pub mod config;
+pub mod health;
 pub mod interface_end;
 pub mod job_end;
 pub mod models;
