@@ -100,6 +100,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf8dcb5b4bbaa28653b647d8c77bd4ed40183b48882e130c1f1ffb73de069fd7"
 
 [[package]]
+name = "api-server"
+version = "0.1.0"
+dependencies = [
+ "ammonia",
+ "async-std",
+ "bzip2",
+ "chrono",
+ "config",
+ "crypto",
+ "csv",
+ "log",
+ "models",
+ "mongodb",
+ "pbkdf2 0.5.0",
+ "serde",
+ "serde_json",
+ "tide",
+ "toml",
+ "utils",
+]
+
+[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -890,28 +912,6 @@ name = "discard"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "212d0f5754cb6769937f4501cc0e67f4f4483c8d2c3e1e922ee9edbe4ab4c7c0"
-
-[[package]]
-name = "dodona"
-version = "0.1.0"
-dependencies = [
- "ammonia",
- "async-std",
- "bzip2",
- "chrono",
- "config",
- "crypto",
- "csv",
- "log",
- "models",
- "mongodb",
- "pbkdf2 0.5.0",
- "serde",
- "serde_json",
- "tide",
- "toml",
- "utils",
-]
 
 [[package]]
 name = "enum-as-inner"

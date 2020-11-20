@@ -1,5 +1,5 @@
 [package]
-name = "dodona"
+name = "api-server"
 version = "0.1.0"
 authors = ["Freddie Brown <fred@noser.net>"]
 edition = "2018"

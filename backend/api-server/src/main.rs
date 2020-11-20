@@ -10,8 +10,8 @@ async fn main() -> Result<(), std::io::Error> {
         Environment::Production
     };
 
-    dodona::load_config(environment);
-    let app = dodona::build_server().await;
+    config::load(environment);
+    let app = api_server::build_server().await;
 
     app.listen("0.0.0.0:3001").await?;
 

@@ -3,3 +3,6 @@
 
 config.toml
 **/config.toml
+
+*.sh
+**/*.sh

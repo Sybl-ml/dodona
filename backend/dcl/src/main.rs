@@ -12,7 +12,7 @@ fn main() {
         Environment::Production
     };
 
-    dcl::load_config(environment);
+    config::load(environment);
 
     // Do config stuff here
     let code = {

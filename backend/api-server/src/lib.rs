@@ -121,13 +121,3 @@ pub async fn build_server() -> tide::Server<State> {
 
     app
 }
-
-/// Loads the configuration for a given environment into environment variables.
-///
-/// Given the current environment, loads the configuration file and resolves it based on the given
-/// environment, before populating the environment variables with the values contained.
-pub fn load_config(environment: config::Environment) {
-    let config = config::ConfigFile::from_filesystem();
-    let resolved = config.resolve(environment);
-    resolved.populate_environment();
-}
