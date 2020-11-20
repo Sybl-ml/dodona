@@ -215,3 +215,7 @@ async fn process_connection(
 fn check_api_key(_db_conn: &Database, _api_key: &str) -> bool {
     true
 }
+
+
+#[cfg(test)]
+mod tests;
