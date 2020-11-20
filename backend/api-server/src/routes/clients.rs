@@ -3,6 +3,7 @@ use crate::State;
 use base64;
 use mongodb::bson::{self, doc, document::Document, oid::ObjectId, Binary};
 use tide::{Request, Response};
+use base64;
 
 use crate::routes::{get_from_doc, response_from_json, tide_err};
 use crypto;
@@ -181,10 +182,7 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
     let user_id = user.id.expect("ID is none");
 
     // Generate challenge
-    let challenge = Binary {
-        subtype: bson::spec::BinarySubtype::Generic,
-        bytes: crypto::generate_challenge()
-    };
+    let challenge = crypto::generate_challenge();
     
     // Make new model
     let temp_model = ClientModel {
@@ -194,7 +192,10 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
         status: None,
         locked: true,
         authenticated: false,
-        challenge: challenge.clone()
+        challenge: Binary {
+            subtype: bson::spec::BinarySubtype::Generic,
+            bytes: challenge.clone()
+        },
     };
 
     // insert model into database
@@ -202,5 +203,5 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
     models.insert_one(document, None).await?;
 
     // return challenge
-    Ok(response_from_json(doc! {"challenge": challenge}))
+    Ok(response_from_json(doc! {"challenge": base64::encode(challenge)}))
 }
