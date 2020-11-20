@@ -160,3 +160,47 @@ pub async fn get_user_models(req: Request<State>) -> tide::Result {
 
     Ok(response_from_json(documents.unwrap()))
 }
+
+pub async fn new_model(mut req: Request<State>) -> tide::Result {
+    let doc: Document = req.body_json().await?;
+    let state = req.state();
+    let database = state.client.database("sybl");
+    let users = database.collection("users");
+    let models = database.collection("models");
+
+    let email = clean_text(doc.get_str("email").unwrap());
+
+    let filter = doc! { "email": &email };
+    
+    let user = match users.find_one(filter, None).await? {
+        Some(u) => mongodb::bson::de::from_document::<User>(u).unwrap(),
+        None => return Ok(Response::builder(404)
+        .body("User not found")
+        .build()),
+    };
+    let user_id = user.id.expect("ID is none");
+
+    // Generate challenge
+    let challenge = Binary {
+        subtype: bson::spec::BinarySubtype::Generic,
+        bytes: crypto::generate_challenge()
+    };
+    
+    // Make new model
+    let temp_model = ClientModel {
+        id: Some(ObjectId::new()),
+        user_id: user_id.clone(),
+        name: None,
+        status: None,
+        locked: true,
+        authenticated: false,
+        challenge: challenge.clone()
+    };
+
+    // insert model into database
+    let document = mongodb::bson::ser::to_document(&temp_model).unwrap();
+    models.insert_one(document, None).await?;
+
+    // return challenge
+    Ok(response_from_json(doc! {"challenge": challenge}))
+}
