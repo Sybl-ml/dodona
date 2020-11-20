@@ -95,7 +95,6 @@
         <b-card class="mb-4 shadow" no-body v-b-toggle.collapse-3 border-variant="primary" style="border-width: 0.15rem" onfocus="this.blur();">
           <b-card-body title-tag="h5">
             <b-card-title>Compute Node #4722</b-card-title>
-            <b-card-sub-title class="mb-2"></b-card-sub-title>
             <b-card-text>
               <b-icon-wifi-off style="color: #fbb000"></b-icon-wifi-off>
               Not Connected
@@ -127,17 +126,17 @@
         <b-card class="mb-4 shadow" no-body style="border:none" onfocus="this.blur();">
           <b-card-body title-tag="h5">
             <b-card-title>Connect a New Node</b-card-title>
-            <p>Execute the below script on your host compute node to connect to the Sybl servers</p>
+            <p>Execute the below script on your host compute node to get the Sybl-CLI</p>
             <b-row class="justify-content-center">
               <b-col xs="12" lg="10">
-                <b-card>
+                <b-card class="shadow">
                   <b-row>
-                    <b-col>
-                      <code>{{sample_code}}</code>
+                    <b-col md="10">
+                      <code>{{cli_code}}</code>
                     </b-col>
-                    <b-col style="text-align:right">
+                    <b-col style="text-align:right" md="2">
                       <b-button no-body variant="dark" style="background:none; border:none; margin:0; padding:0;" onfocus="this.blur();">
-                        <b-icon-clipboard-plus @click="copy()"></b-icon-clipboard-plus>
+                        <b-icon-clipboard-plus @click="copy(cli_code)"></b-icon-clipboard-plus>
                         </b-button>
                     </b-col>
                   </b-row>
@@ -145,9 +144,47 @@
               </b-col>
             </b-row>
             <br>
+            <p>Then run the following commands to connect your compute node the Sybl servers</p>
             <b-row class="justify-content-center">
-              <b-spinner style="width: 3rem; height: 3rem;" label="Large Spinner" type="grow"></b-spinner>
+              <b-col xs="12" lg="10">
+                <b-card class="shadow">
+                  <b-row>
+                    <b-col md="10">
+                      <code>{{cli_setup}}</code>
+                    </b-col>
+                    <b-col style="text-align:right" md="2">
+                      <b-button no-body variant="dark" style="background:none; border:none; margin:0; padding:0;" onfocus="this.blur();">
+                        <b-icon-clipboard-plus @click="copy(cli_setup)"></b-icon-clipboard-plus>
+                        </b-button>
+                    </b-col>
+                  </b-row>
+                </b-card>
+              </b-col>
             </b-row>
+            <br>
+            <p>Once completed you will be given a OTP to enter below to link everything together</p>
+            <b-form>
+              <b-form-group
+                id="auth_token"
+                label="Authentication Token:"
+                label-for="auth_token_inp"
+              >
+                <b-form-input
+                  id="auth_token_inp"
+                  v-model="auth_token"
+                  type="text"
+                  required
+                  placeholder="eg. ABC123"
+                  
+                ></b-form-input>
+                <b-form-invalid-feedback :state="validation">
+                  Token did not match, try again
+                </b-form-invalid-feedback>
+              </b-form-group>
+              <b-button variant="ready">
+                Generate
+              </b-button> 
+            </b-form>
           </b-card-body>
         </b-card>
         </b-collapse>
@@ -170,7 +207,10 @@ export default {
   data() {
     return {
       user_data: {},
-      sample_code: "wget test-code.com/code",
+      auth_token: "",
+      error: false,
+      cli_code: "git clone www.sybl.com/cli",
+      cli_setup: "sybl-cli new",
     }
   },
   async mounted() {
@@ -185,8 +225,13 @@ export default {
     }
   },
   methods: {
-    async copy(){
-      await navigator.clipboard.writeText(this.sample_code);
+    async copy(s){
+      await navigator.clipboard.writeText(s);
+    },
+  },
+  computed: {
+    validation(){
+      return !this.error
     }
   },
 };
