@@ -22,8 +22,8 @@
         <b-dropdown-item disabled>{{ email }}</b-dropdown-item>
         <b-dropdown-divider />
         <b-dropdown-item to="/dashboard">Dashboard</b-dropdown-item>
-        <b-dropdown-item to="/client/confirm">{{
-          client ? "Nodes" : "Register As Client"
+        <b-dropdown-item to="/nodes">{{
+          client ? "Nodes" : "Register as Client"
         }}</b-dropdown-item>
         <b-dropdown-divider />
         <b-dropdown-item to="/settings">My Profile</b-dropdown-item>
@@ -101,14 +101,13 @@ export default {
 
       this.getUserData();
 
+      let pageName = this.$route.name
+      
       this.loggedIn = user_id ? true : false;
       this.logoRoute = user_id ? "/dashboard" : "/";
-
-      let pageName = this.$route.name;
-
-      this.atLanding = pageName == "Welcome" ? true : false;
-      this.atDashboard =
-        pageName === "Dashboard" || pageName === "Settings" ? true : false;
+      
+      this.atLanding = (pageName == "Welcome") ? true : false;
+      this.atDashboard = (pageName === "Dashboard" || pageName === "Settings" || pageName === "Nodes") ? true : false;
     },
   },
   async mounted() {

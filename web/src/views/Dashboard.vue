@@ -5,13 +5,13 @@
         <b-col xs="12" order-xs="2" lg="3">
           <b-row>
             <b-col class="mb-2">
-              <b-form-input  v-model="search" placeholder="Search" block />
+              <b-form-input class="shadow-sm" v-model="search" placeholder="Search" block />
             </b-col>
           </b-row>
           <b-row class="text-left">
             <b-col>
               <router-link :to="{ name: 'AddProject' }">
-                <b-button variant="primary" class="mb-2 add-new" block
+                <b-button variant="primary" class="mb-2 shadow-sm add-new" block
                   ><b-row
                     ><b-col class="text-left">Add new project</b-col
                     ><b-col class="ml-auto text-right">
@@ -27,7 +27,7 @@
                   },
                 }"
               >
-                <b-card class="mb-2" no-body :class="p.status.toLowerCase()" style="border: none">
+                <b-card class="mb-2 shadow-sm" no-body :class="p.status.toLowerCase()" style="border: none">
                   <b-row
                     no-gutters
                     class="ml-2"
