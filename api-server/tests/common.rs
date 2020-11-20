@@ -14,6 +14,7 @@ pub static DELETES_PROJECT_UID: &str = "5fb2b3fa9d524e99ac7f1c40";
 pub static MAIN_PROJECT_ID: &str = "5f8ca1a80065f27c0089e8b5";
 pub static USERLESS_PROJECT_ID: &str = "5f8ca1a80065f27b0089e8b6";
 pub static NON_EXISTENT_PROJECT_ID: &str = "5f8ca1a80065f27b0089e8a5";
+pub static OVERWRITTEN_DATA_PROJECT_ID: &str = "5fb784e4ead1758e1ce67bcd";
 pub static DELETABLE_PROJECT_ID: &str = "5fb2b4049d524e99ac7f1c41";
 pub static EDITABLE_PROJECT_ID: &str = "5fb2c4e4b4b7becc1e81e278";
 
@@ -129,6 +130,14 @@ async fn insert_test_projects(database: &mongodb::Database) {
         "user_id": ObjectId::with_string(NON_EXISTENT_USER_ID).unwrap(),
         "status": "Ready"
     };
+    let overwritten_data = bson::doc! {
+        "_id": ObjectId::with_string(OVERWRITTEN_DATA_PROJECT_ID).unwrap(),
+        "name": "Test Project",
+        "description": "Test Description",
+        "date_created": bson::Bson::DateTime(chrono::Utc.timestamp_millis(0)),
+        "user_id": ObjectId::with_string(NON_EXISTENT_USER_ID).unwrap(),
+        "status": "Ready",
+    };
     let deletable = bson::doc! {
         "_id": ObjectId::with_string(DELETABLE_PROJECT_ID).unwrap(),
         "name": "Delete Project",
@@ -149,6 +158,7 @@ async fn insert_test_projects(database: &mongodb::Database) {
     let projects = database.collection("projects");
     projects.insert_one(project, None).await.unwrap();
     projects.insert_one(userless, None).await.unwrap();
+    projects.insert_one(overwritten_data, None).await.unwrap();
     projects.insert_one(deletable, None).await.unwrap();
     projects.insert_one(editable, None).await.unwrap();
 }

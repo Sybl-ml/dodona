@@ -12,6 +12,11 @@ pub struct ProjectResponse {
     details: DatasetDetails,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DatasetResponse {
+    dataset: String,
+}
+
 #[async_std::test]
 async fn projects_can_be_fetched_for_a_user() -> tide::Result<()> {
     common::initialise();
@@ -135,7 +140,7 @@ async fn all_projects_can_be_fetched() -> tide::Result<()> {
 
     let projects: Vec<Project> = res.body_json().await?;
 
-    assert_eq!(projects.len(), 4);
+    assert_eq!(projects.len(), 5);
 
     Ok(())
 }
@@ -184,6 +189,50 @@ async fn datasets_can_be_added_to_projects() -> tide::Result<()> {
 
     let res: Response = app.respond(req).await?;
     assert_eq!(tide::StatusCode::Ok, res.status());
+
+    Ok(())
+}
+
+#[async_std::test]
+async fn only_one_dataset_can_be_added_to_a_project() -> tide::Result<()> {
+    common::initialise();
+    let app = dodona::build_server().await;
+
+    let body = r#"{"content": "age,sex,location\n22,M,Leamington Spa"}"#;
+    let url = format!(
+        "/api/projects/p/{}/data",
+        common::OVERWRITTEN_DATA_PROJECT_ID
+    );
+    let req = common::build_json_put_request(&url, body);
+
+    let res: Response = app.respond(req).await?;
+    assert_eq!(tide::StatusCode::Ok, res.status());
+
+    let body = r#"{"content": "age,sex,location\n23,M,Leamington Spa"}"#;
+    let url = format!(
+        "/api/projects/p/{}/data",
+        common::OVERWRITTEN_DATA_PROJECT_ID
+    );
+    let req = common::build_json_put_request(&url, body);
+
+    let res: Response = app.respond(req).await?;
+    assert_eq!(tide::StatusCode::Ok, res.status());
+
+    let url = format!(
+        "localhost:/api/projects/p/{}/data",
+        common::OVERWRITTEN_DATA_PROJECT_ID
+    );
+    let url = Url::parse(&url).unwrap();
+    let req = Request::new(tide::http::Method::Get, url);
+    let mut res: Response = app.respond(req).await?;
+
+    let dataset_response: DatasetResponse = res.body_json().await?;
+
+    assert_eq!(tide::StatusCode::Ok, res.status());
+    assert_eq!(
+        dataset_response.dataset,
+        "age,sex,location\n23,M,Leamington Spa"
+    );
 
     Ok(())
 }

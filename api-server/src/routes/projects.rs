@@ -227,43 +227,57 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
         return Ok(Response::builder(404).body("project not found").build());
     }
 
+    // Check whether the project has data already
+    let project_has_data = datasets
+        .find_one(doc! { "project_id": &project_id }, None)
+        .await?
+        .is_some();
+    log::info!("Project already has data: {}", project_has_data);
+
     let analysis = utils::analyse(&data);
-
-    let types = analysis.types;
-    log::info!("Dataset types: {:?}", &types);
-
+    let column_types = analysis.types;
     let data_head = analysis.header;
 
-    let data_details = DatasetDetails {
-        id: Some(ObjectId::new()),
+    log::info!("Dataset types: {:?}", &column_types);
+
+    // Compression
+    let compressed = match utils::compress_data(data) {
+        Ok(compressed) => compressed,
+        Err(_) => return Ok(Response::builder(422).build()),
+    };
+
+    let details = DatasetDetails {
+        id: None,
         project_id: Some(project_id.clone()),
         date_created: bson::DateTime(Utc::now()),
         head: Some(data_head),
-        column_types: types,
+        column_types,
     };
-    let document = mongodb::bson::ser::to_document(&data_details)?;
+
+    let dataset = Dataset {
+        id: None,
+        project_id: Some(project_id.clone()),
+        dataset: Some(Binary {
+            subtype: bson::spec::BinarySubtype::Generic,
+            bytes: compressed,
+        }),
+    };
+
+    // If the project has data, delete the existing information
+    if project_has_data {
+        let query = doc! { "project_id": &project_id };
+        datasets.delete_one(query.clone(), None).await?;
+        dataset_details.delete_one(query, None).await?;
+    }
+
+    // Insert the dataset details and the dataset itself
+    let document = mongodb::bson::ser::to_document(&details)?;
     dataset_details.insert_one(document, None).await?;
 
-    // Compression
-    match utils::compress_data(data) {
-        Ok(compressed) => {
-            log::info!("Compressed data: {:?}", &compressed);
-            let dataset = Dataset {
-                id: Some(ObjectId::new()),
-                project_id: Some(project_id),
-                dataset: Some(Binary {
-                    subtype: bson::spec::BinarySubtype::Generic,
-                    bytes: compressed,
-                }),
-            };
+    let document = mongodb::bson::ser::to_document(&dataset)?;
+    let id = datasets.insert_one(document, None).await?.inserted_id;
 
-            let document = mongodb::bson::ser::to_document(&dataset)?;
-            let id = datasets.insert_one(document, None).await?.inserted_id;
-
-            Ok(response_from_json(doc! {"dataset_id": id}))
-        }
-        Err(_) => Ok(Response::builder(404).build()),
-    }
+    Ok(response_from_json(doc! {"dataset_id": id}))
 }
 
 /// Gets the dataset details for a project
