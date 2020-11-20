@@ -11,6 +11,7 @@ use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
 use tokio::sync::RwLock;
+use tokio::time::timeout;
 
 /// Helper struct to send data to a Node to check if it is alive
 #[derive(Serialize, Deserialize, Debug)]
@@ -65,15 +66,25 @@ pub async fn check_health(nodepool: Arc<NodePool>) {
 pub async fn heartbeat(stream: Arc<RwLock<TcpStream>>) -> bool {
     let mut stream_write = stream.write().await;
     let check = Health::new(1);
-    stream_write
+    if stream_write
         .write(serde_json::to_string(&check).unwrap().as_bytes())
         .await
-        .unwrap();
-    let mut buffer = Vec::new();
-    match stream_write.read(&mut buffer).await {
-        Ok(_) => true,
-        _ => false,
+        .is_err()
+    {
+        return false;
     }
+
+    let mut buffer = vec![];
+    if let Err(_) = timeout(Duration::from_millis(10), stream_write.read(&mut buffer)).await {
+        return false;
+    }
+    else {
+        return true
+    }
+    // Wait to read data back
+    // If duration is reached, return false
+    // Otherwise return true
+    // true
 }
 
 #[cfg(test)]

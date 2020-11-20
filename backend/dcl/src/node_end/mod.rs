@@ -94,7 +94,7 @@ pub struct NodePool {
     /// HashMap of Node objects with unique IDs
     pub nodes: RwLock<HashMap<ObjectId, Node>>,
     /// HashMap of NodeInfo objects with unique IDs
-    info: RwLock<HashMap<ObjectId, NodeInfo>>,
+    pub info: RwLock<HashMap<ObjectId, NodeInfo>>,
 }
 // NodePool Methods
 impl NodePool {
@@ -175,7 +175,7 @@ impl NodePool {
 /// communicate with the DCNs.
 pub async fn run(nodepool: Arc<NodePool>, socket: u16, db_conn: Arc<Database>) -> Result<()> {
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
-    let mut listener = TcpListener::bind(&socket).await?;
+    let listener = TcpListener::bind(&socket).await?;
     log::info!("RUNNING NODE END");
 
     while let Ok((inbound, _)) = listener.accept().await {
@@ -215,7 +215,3 @@ async fn process_connection(
 fn check_api_key(_db_conn: &Database, _api_key: &str) -> bool {
     true
 }
-
-
-#[cfg(test)]
-mod tests;
