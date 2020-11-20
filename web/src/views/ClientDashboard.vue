@@ -1,12 +1,12 @@
 <template>
-  <div>{{ privKey }}</div>
+  <div>{{ privkey }}</div>
 </template>
 
 <script>
 export default {
   name: "ClientDashboard",
   props: {
-    privKey: String,
+    privkey: String,
   },
 };
 </script>
