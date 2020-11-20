@@ -2,6 +2,7 @@
 
 use tide::{http::mime, Response};
 
+pub mod clients;
 pub mod projects;
 pub mod users;
 

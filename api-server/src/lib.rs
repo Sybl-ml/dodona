@@ -112,6 +112,9 @@ pub async fn build_server() -> tide::Server<State> {
         .at("/p/:project_id/process")
         .post(routes::projects::begin_processing);
 
+    let mut client_api = core_api.at("/clients");
+    client_api.at("/register").post(routes::clients::register);
+
     // CORS
     let headers = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
         .parse::<HeaderValue>()
