@@ -9,6 +9,10 @@ use crate::routes::response_from_json;
 
 use crate::State;
 
+/// Template for registering a new client
+///
+/// Will check the provided user_id matches with the
+/// provided email and password
 pub async fn register(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
     let state = req.state();
