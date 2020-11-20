@@ -23,7 +23,7 @@
         <b-dropdown-item disabled>{{email}}</b-dropdown-item>
         <b-dropdown-divider></b-dropdown-divider>
         <b-dropdown-item to="/dashboard">Dashboard</b-dropdown-item>
-        <b-dropdown-item to="#">Nodes</b-dropdown-item>
+        <b-dropdown-item to="/nodes">Nodes</b-dropdown-item>
         <b-dropdown-divider></b-dropdown-divider>
         <b-dropdown-item to="/settings">My Profile</b-dropdown-item>
         <b-dropdown-item to="#">Help</b-dropdown-item>
@@ -108,7 +108,7 @@ export default {
       let pageName = this.$route.name
       
       this.atLanding = (pageName == "Welcome") ? true : false;
-      this.atDashboard = (pageName === "Dashboard" || pageName === "Settings") ? true : false;
+      this.atDashboard = (pageName === "Dashboard" || pageName === "Settings" || pageName === "Nodes") ? true : false;
     },
   },
   async mounted() {
