@@ -69,6 +69,62 @@ pub async fn get_project(req: Request<State>) -> tide::Result {
     }
 }
 
+/// Patches a project with the provided data.
+///
+/// Given a project identifier, finds and updates the project in the database
+/// matching new data
+/// If project does not exist return a 404
+pub async fn patch_project(mut req: Request<State>) -> tide::Result {
+    let doc: Document = req.body_json().await?;
+    let database = req.state().client.database("sybl");
+    let projects = database.collection("projects");
+
+    let project_id: String = req.param("project_id")?;
+    let object_id = match ObjectId::with_string(&project_id) {
+        Ok(id) => id,
+        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
+    };
+
+    let filter = doc! { "_id": &object_id };
+    let update_doc = doc! { "$set": doc };
+    let update_id = projects
+        .find_one_and_update(filter, update_doc, None)
+        .await?;
+
+    if update_id.is_none() {
+        return Ok(Response::builder(404).body("project not found").build());
+    }
+
+    Ok(Response::builder(200).build())
+}
+
+/// Deletes a project provided a valid project id.
+///
+/// Given a project identifier, deletes a project from the database.
+/// If the project ID is invalid return a 422
+/// if project is not found return a 422
+///
+/// Will not currently authenticate the userid
+pub async fn delete_project(req: Request<State>) -> tide::Result {
+    let database = req.state().client.database("sybl");
+    let projects = database.collection("projects");
+
+    let project_id: String = req.param("project_id")?;
+    let object_id = match ObjectId::with_string(&project_id) {
+        Ok(id) => id,
+        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
+    };
+
+    let filter = doc! { "_id": &object_id };
+    let deleted_id = projects.find_one_and_delete(filter, None).await?;
+
+    if deleted_id.is_none() {
+        return Ok(Response::builder(404).body("project not found").build());
+    }
+
+    Ok(Response::builder(200).build())
+}
+
 /// Finds all the projects related to a given user.
 ///
 /// Given a user identifier, finds all the projects in the database that the user owns. If the user
