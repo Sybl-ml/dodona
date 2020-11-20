@@ -23,10 +23,10 @@
               </b-col>
               <b-col>
                 <b-card-body style="text-align:right">
-                  <b-card-subtitle>
+                  <b-card-text>
                     <b-icon-stop-fill style="color: #ff643d"></b-icon-stop-fill>
                     Stopped
-                  </b-card-subtitle>
+                  </b-card-text>
                   <b-card-text>
                     <b-icon-cash-stack></b-icon-cash-stack>
                     £12.50
@@ -64,10 +64,10 @@
             </b-col>
             <b-col>
               <b-card-body style="text-align:right">
-                <b-card-subtitle>
+                <b-card-text>
                   <b-spinner small style="color: #00bf26"></b-spinner>
                   Running
-                </b-card-subtitle>
+                </b-card-text>
                 <b-card-text>
                   <b-icon-cash-stack></b-icon-cash-stack>
                   £2.25
@@ -175,15 +175,16 @@
                   type="text"
                   required
                   placeholder="eg. ABC123"
-                  
                 ></b-form-input>
                 <b-form-invalid-feedback :state="validation">
                   Token did not match, try again
                 </b-form-invalid-feedback>
               </b-form-group>
-              <b-button variant="ready">
-                Generate
-              </b-button> 
+              <b-row class="justify-content-center">
+                <b-button variant="ready">
+                  Generate
+                </b-button> 
+              </b-row>
             </b-form>
           </b-card-body>
         </b-card>
@@ -204,6 +205,7 @@
 import axios from "axios";
 
 export default {
+  name: "Nodes",
   data() {
     return {
       user_data: {},
