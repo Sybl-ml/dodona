@@ -4,7 +4,7 @@
     <h5>{{ description }}</h5>
     <p>{{ getProjectDate }}</p>
     <b-tabs>
-      <b-tab title="Overview" active lazy>
+      <b-tab title="Overview" active lazy ref="overviewTab">
         <br />
         <project-overview
           :projectId="projectId"
@@ -15,12 +15,12 @@
           v-on:input-tab="viewInput"
         />
       </b-tab>
-      <b-tab title="Input" ref="dataTab">
+      <b-tab title="Input" ref="inputTab">
         <br />
         <project-input
           :projectId="projectId"
           :key="projectId"
-          v-on:get-data="fetchData"
+          @get-data="fetchData"
           :data="data"
           :loading="loading"
         />
@@ -28,6 +28,17 @@
       <b-tab title="Ouptut" lazy>
         <br />
         This will show the output from the machine learning methods
+      </b-tab>
+      <b-tab title="Settings" lazy>
+        <project-settings
+          :projectId="projectId"
+          :key="projectId"
+          :name="name"
+          :description="description"
+          @update:name="updateName"
+          @update:description="updateDescription"
+          @delete:project="$emit('delete:project', projectId)"
+        />
       </b-tab>
     </b-tabs>
   </b-container>
@@ -38,6 +49,7 @@ import axios from "axios";
 import Papa from "papaparse";
 import ProjectOverview from "@/components/ProjectOverview";
 import ProjectInput from "@/components/ProjectInput";
+import ProjectSettings from "@/components/ProjectSettings";
 
 export default {
   name: "ProjectView",
@@ -61,11 +73,13 @@ export default {
   components: {
     ProjectOverview,
     ProjectInput,
+    ProjectSettings,
   },
   watch: {
     projectId: function () {
       this.resetProject();
       this.fetchProject();
+      this.$refs.overviewTab.activate();
     },
   },
   async mounted() {
@@ -113,8 +127,16 @@ export default {
       this.loading = false;
     },
     viewInput() {
-      this.$refs.dataTab.activate();
+      this.$refs.inputTab.activate();
       this.fetchData();
+    },
+    updateName(newName) {
+      this.name = newName;
+      this.$emit("update:name", newName, this.projectId);
+    },
+    updateDescription(newDescription) {
+      this.description = newDescription;
+      this.$emit("update:description", newDescription, this.projectId);
     },
   },
   computed: {

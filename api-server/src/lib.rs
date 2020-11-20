@@ -21,6 +21,7 @@ use tide::http::headers::HeaderValue;
 use tide::security::{CorsMiddleware, Origin};
 
 pub mod config;
+pub mod crypto;
 pub mod models;
 pub mod routes;
 pub mod utils;
@@ -94,7 +95,9 @@ pub async fn build_server() -> tide::Server<State> {
     projects_api.at("/").get(routes::projects::get_all);
     projects_api
         .at("/p/:project_id")
-        .get(routes::projects::get_project);
+        .get(routes::projects::get_project)
+        .patch(routes::projects::patch_project)
+        .delete(routes::projects::delete_project);
     projects_api
         .at("/u/:user_id/new")
         .post(routes::projects::new);
@@ -105,9 +108,14 @@ pub async fn build_server() -> tide::Server<State> {
     projects_api
         .at("/p/:project_id/overview")
         .post(routes::projects::overview);
+    projects_api
+        .at("/p/:project_id/process")
+        .post(routes::projects::begin_processing);
 
     // CORS
-    let headers = "GET, POST, PUT, OPTIONS".parse::<HeaderValue>().unwrap();
+    let headers = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        .parse::<HeaderValue>()
+        .unwrap();
     let cors = CorsMiddleware::new()
         .allow_methods(headers)
         .allow_origin(Origin::from("*"))
