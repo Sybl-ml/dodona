@@ -23,7 +23,7 @@
         <b-dropdown-divider />
         <b-dropdown-item to="/dashboard">Dashboard</b-dropdown-item>
         <b-dropdown-item to="/nodes">{{
-          client ? "Nodes" : "Connect New Node"
+          client ? "Nodes" : "Register as Client"
         }}</b-dropdown-item>
         <b-dropdown-divider />
         <b-dropdown-item to="/settings">My Profile</b-dropdown-item>
