@@ -92,7 +92,7 @@ impl NodeInfo {
 #[derive(Debug)]
 pub struct NodePool {
     /// HashMap of Node objects with unique IDs
-    nodes: RwLock<HashMap<ObjectId, Node>>,
+    pub nodes: RwLock<HashMap<ObjectId, Node>>,
     /// HashMap of NodeInfo objects with unique IDs
     info: RwLock<HashMap<ObjectId, NodeInfo>>,
 }
@@ -146,17 +146,37 @@ impl NodePool {
         let mut info_write = self.info.write().await;
         info_write.get_mut(&key).unwrap().set_using(false);
     }
+
+    /// Updates a NodeInfo object
+    ///
+    /// Gets the correct NodeInfo struct and updates its alive
+    /// field by inverting what it currently is.
+    pub async fn update_node(&self, status: bool, oid: &ObjectId) {
+        let mut info_write = self.info.write().await;
+        let node_info = info_write.get_mut(&oid).unwrap();
+        node_info.set_alive(status);
+    }
+
+    /// Checks if a node is being used
+    ///
+    /// Passed the ObjectId of a node and it checks if it
+    /// is being used for a job, which implies it is alive.
+    pub async fn is_using(&self, oid: &ObjectId) -> bool {
+        let info_read = self.info.read().await;
+        let node_info = info_read.get(oid).unwrap();
+        node_info.get_using()
+    }
 }
 
 /// Run Node for DCNs to connect to
 ///
-/// Starts up Node which allows DCNs to register their connection. This will create a
+/// Starts up node end which allows DCNs to register their connection. This will create a
 /// Node object if given a correct API Key. This allows the job end to connect and
 /// communicate with the DCNs.
 pub async fn run(nodepool: Arc<NodePool>, socket: u16, db_conn: Arc<Database>) -> Result<()> {
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
     let mut listener = TcpListener::bind(&socket).await?;
-    log::info!("RUNNING NODE Node");
+    log::info!("RUNNING NODE END");
 
     while let Ok((inbound, _)) = listener.accept().await {
         log::info!("NODE CONNECTION");
