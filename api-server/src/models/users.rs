@@ -21,4 +21,6 @@ pub struct User {
     pub api_key: String,
     // The user's client status
     pub client: bool,
+    /// The user's credits
+    pub credits: i32,
 }

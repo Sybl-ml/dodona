@@ -1,5 +1,7 @@
 //! Defines the routes specific to project operations.
 
+use async_std::net::TcpStream;
+use async_std::prelude::*;
 use async_std::stream::StreamExt;
 use chrono::Utc;
 use mongodb::bson;
@@ -65,6 +67,62 @@ pub async fn get_project(req: Request<State>) -> tide::Result {
     } else {
         Ok(Response::builder(404).body("project id not found").build())
     }
+}
+
+/// Patches a project with the provided data.
+///
+/// Given a project identifier, finds and updates the project in the database
+/// matching new data
+/// If project does not exist return a 404
+pub async fn patch_project(mut req: Request<State>) -> tide::Result {
+    let doc: Document = req.body_json().await?;
+    let database = req.state().client.database("sybl");
+    let projects = database.collection("projects");
+
+    let project_id: String = req.param("project_id")?;
+    let object_id = match ObjectId::with_string(&project_id) {
+        Ok(id) => id,
+        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
+    };
+
+    let filter = doc! { "_id": &object_id };
+    let update_doc = doc! { "$set": doc };
+    let update_id = projects
+        .find_one_and_update(filter, update_doc, None)
+        .await?;
+
+    if update_id.is_none() {
+        return Ok(Response::builder(404).body("project not found").build());
+    }
+
+    Ok(Response::builder(200).build())
+}
+
+/// Deletes a project provided a valid project id.
+///
+/// Given a project identifier, deletes a project from the database.
+/// If the project ID is invalid return a 422
+/// if project is not found return a 422
+///
+/// Will not currently authenticate the userid
+pub async fn delete_project(req: Request<State>) -> tide::Result {
+    let database = req.state().client.database("sybl");
+    let projects = database.collection("projects");
+
+    let project_id: String = req.param("project_id")?;
+    let object_id = match ObjectId::with_string(&project_id) {
+        Ok(id) => id,
+        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
+    };
+
+    let filter = doc! { "_id": &object_id };
+    let deleted_id = projects.find_one_and_delete(filter, None).await?;
+
+    if deleted_id.is_none() {
+        return Ok(Response::builder(404).body("project not found").build());
+    }
+
+    Ok(Response::builder(200).build())
 }
 
 /// Finds all the projects related to a given user.
@@ -193,7 +251,6 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
             let dataset = Dataset {
                 id: Some(ObjectId::new()),
                 project_id: Some(project_id),
-                date_created: bson::DateTime(Utc::now()),
                 dataset: Some(Binary {
                     subtype: bson::spec::BinarySubtype::Generic,
                     bytes: compressed,
@@ -286,4 +343,54 @@ pub async fn get_data(req: Request<State>) -> tide::Result {
         }
         Err(_) => Ok(Response::builder(404).build()),
     }
+}
+
+/// Begins the processing of data associated with a project.
+///
+/// Checks that the project exists, before sending the identifier of its dataset to the interface
+/// layer, which will then forward it to the DCL for processing. Updates the project state to
+/// `State::Processing`.
+pub async fn begin_processing(req: Request<State>) -> tide::Result {
+    let state = req.state();
+    let database = state.client.database("sybl");
+
+    let projects = database.collection("projects");
+    let datasets = database.collection("datasets");
+
+    let project_id: String = req.param("project_id")?;
+
+    // Check the project ID to make sure it exists
+    let object_id = match ObjectId::with_string(&project_id) {
+        Ok(id) => id,
+        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
+    };
+
+    let project_query = doc! { "_id": &object_id};
+    let found_project = projects.find_one(project_query.clone(), None).await?;
+
+    if found_project.is_none() {
+        log::error!("Failed to find project with id: {}", &project_id);
+        return Ok(Response::builder(404).body("project not found").build());
+    }
+
+    let filter = doc! { "project_id": &object_id };
+    let dataset = datasets
+        .find_one(filter, None)
+        .await?
+        .map(|doc| mongodb::bson::de::from_document::<Dataset>(doc).unwrap())
+        .unwrap();
+
+    // Send a request to the interface layer
+    let hex = dataset.id.expect("Dataset with no identifier").to_hex();
+    log::info!("Forwarding dataset id: {} to the interface layer", &hex);
+
+    let mut stream = TcpStream::connect("127.0.0.1:5000").await?;
+    stream.write(hex.as_bytes()).await?;
+    stream.shutdown(std::net::Shutdown::Both)?;
+
+    // Mark the project as processing
+    let update = doc! { "$set": doc!{ "status": Status::Processing.to_string() } };
+    projects.update_one(project_query, update, None).await?;
+
+    Ok(response_from_json(doc! {"success": true}))
 }

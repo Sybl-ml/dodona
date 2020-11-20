@@ -13,14 +13,11 @@
     </b-navbar-nav>
 
     <b-navbar-nav class="ml-auto" v-if="loggedIn">
-      <b-nav-item disabled>Credits: £20.20</b-nav-item>
+      <b-nav-item disabled>{{credits}} Credits</b-nav-item>
       <b-nav-item-dropdown right>
         <template #button-content>
-          <img
-            src="https://www.w3schools.com/w3images/avatar6.png"
-            class="img-circle"
-          />
-          {{ name }}
+          <img :src="avatar" class="img-circle">
+          {{name}}
         </template>
         <b-dropdown-item disabled>{{ email }}</b-dropdown-item>
         <b-dropdown-divider />
@@ -63,11 +60,14 @@ export default {
     IconLogo,
   },
   data() {
+    let randNo = Math.floor(Math.random() * 6) + 1; 
     return {
       name: "",
       email: "",
       client: false,
       time: "",
+      credits: 0,
+      avatar: "https://www.w3schools.com/w3images/avatar" + randNo + ".png",
       loggedIn: false,
       logoRoute: "/",
       atDashboard: false,
@@ -91,6 +91,7 @@ export default {
         this.name = user_data.data.first_name + " " + user_data.data.last_name;
         this.email = user_data.data.email;
         this.client = user_data.client;
+        this.credits = user_data.data.credits;
       } catch (err) {
         console.log(err);
       }
