@@ -13,6 +13,7 @@ pub static NON_EXISTENT_USER_ID: &str = "5f8de85300eb281e00306b0b";
 pub static MAIN_PROJECT_ID: &str = "5f8ca1a80065f27c0089e8b5";
 pub static USERLESS_PROJECT_ID: &str = "5f8ca1a80065f27b0089e8b6";
 pub static NON_EXISTENT_PROJECT_ID: &str = "5f8ca1a80065f27b0089e8a5";
+pub static OVERWRITTEN_DATA_PROJECT_ID: &str = "5fb784e4ead1758e1ce67bcd";
 
 /// Allows for the setup of the database prior to testing.
 static INIT: std::sync::Once = std::sync::Once::new();
@@ -111,10 +112,19 @@ async fn insert_test_projects(database: &mongodb::Database) {
         "user_id": ObjectId::with_string(NON_EXISTENT_USER_ID).unwrap(),
         "status": "Ready"
     };
+    let overwritten_data = bson::doc! {
+        "_id": ObjectId::with_string(OVERWRITTEN_DATA_PROJECT_ID).unwrap(),
+        "name": "Test Project",
+        "description": "Test Description",
+        "date_created": bson::Bson::DateTime(chrono::Utc.timestamp_millis(0)),
+        "user_id": ObjectId::with_string(NON_EXISTENT_USER_ID).unwrap(),
+        "status": "Ready"
+    };
 
     let projects = database.collection("projects");
     projects.insert_one(project, None).await.unwrap();
     projects.insert_one(userless, None).await.unwrap();
+    projects.insert_one(overwritten_data, None).await.unwrap();
 }
 
 pub fn build_json_request(url: &str, body: &str) -> tide::http::Request {
