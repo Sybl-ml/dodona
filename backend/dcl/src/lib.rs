@@ -17,11 +17,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 
-<<<<<<< HEAD:backend/dcl/src/lib.rs
-=======
-pub mod config;
 pub mod health;
->>>>>>> health checking functionally there:dcl/src/lib.rs
 pub mod interface_end;
 pub mod job_end;
 pub mod node_end;
