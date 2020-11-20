@@ -43,7 +43,7 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
         // Entered and stored email and password match
         if verified && email == user.email {
             // generate public and private key pair
-            let (public_key, private_key) = encoded_key_pair();
+            let (private_key, public_key) = encoded_key_pair();
             // create a new client object
             users
                 .update_one(
@@ -72,6 +72,8 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
         }
     } else {
         println!("User ID does not exist");
-        Ok(response_from_json(doc! {"token": "null"}))
+        Ok(Response::builder(404)
+                .body("User not found")
+                .build())
     }
 }
