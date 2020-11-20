@@ -7,6 +7,7 @@ import Nodes from "../views/Nodes.vue";
 import Confirm from "../views/Confirm.vue";
 import Settings from "../views/Settings.vue";
 import Dashboard from "../views/Dashboard.vue";
+import KeyConfirmation from "../views/KeyConfirmation.vue";
 import ProjectView from "../components/ProjectView.vue";
 import AddProject from "../components/AddProject.vue";
 
@@ -32,6 +33,12 @@ const routes = [
     path: "/client/confirm",
     name: "Confirm",
     component: Confirm,
+  },
+  {
+    path: "/client/confirm/success",
+    name: "PrivateKey",
+    component: KeyConfirmation,
+    props: true
   },
   {
     path: "/dashboard",
