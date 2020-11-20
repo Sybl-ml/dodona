@@ -79,3 +79,7 @@ async fn process_connection(
 
     Ok(())
 }
+
+
+#[cfg(test)]
+mod tests;

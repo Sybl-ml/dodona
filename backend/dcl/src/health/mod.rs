@@ -75,3 +75,6 @@ pub async fn heartbeat(stream: Arc<RwLock<TcpStream>>) -> bool {
         _ => false,
     }
 }
+
+#[cfg(test)]
+mod tests;
