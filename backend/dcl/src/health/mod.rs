@@ -29,13 +29,15 @@ impl Health {
 ///
 /// Runs the health checking framework to go through
 /// each node that is not currently being used and makes
-/// sure it is still alive
+/// sure it is still alive. This will be run every <delay> seconds.
 pub async fn health_runner(nodepool: Arc<NodePool>, delay: u64) {
+    log::info!("HEALTH CHECKING UP");
     let mut interval = tokio::time::interval(Duration::from_secs(delay));
 
     loop {
         let np = nodepool.clone();
         check_health(np).await;
+        log::info!("HEALTH CHECKED");
         interval.tick().await;
     }
 }
