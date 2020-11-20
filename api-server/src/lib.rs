@@ -92,7 +92,6 @@ pub async fn build_server() -> tide::Server<State> {
     projects_api
         .at("/u/:user_id")
         .get(routes::projects::get_user_projects);
-    projects_api.at("/").get(routes::projects::get_all);
     projects_api
         .at("/p/:project_id")
         .get(routes::projects::get_project)
@@ -125,9 +124,6 @@ pub async fn build_server() -> tide::Server<State> {
         .allow_credentials(false);
 
     app.with(cors);
-
-    // Serving App
-    app.at("/").get(|_| async { Ok("Hello, world!") });
 
     app
 }

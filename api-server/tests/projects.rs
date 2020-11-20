@@ -127,25 +127,6 @@ async fn projects_cannot_be_found_with_invalid_identifiers() -> tide::Result<()>
 }
 
 #[async_std::test]
-async fn all_projects_can_be_fetched() -> tide::Result<()> {
-    common::initialise();
-    let app = dodona::build_server().await;
-
-    let url = Url::parse("localhost:/api/projects").unwrap();
-    let req = Request::new(tide::http::Method::Get, url);
-
-    let mut res: Response = app.respond(req).await?;
-    assert_eq!(tide::StatusCode::Ok, res.status());
-    assert_eq!(Some(tide::http::mime::JSON), res.content_type());
-
-    let projects: Vec<Project> = res.body_json().await?;
-
-    assert_eq!(projects.len(), 5);
-
-    Ok(())
-}
-
-#[async_std::test]
 async fn projects_cannot_be_created_for_non_existent_users() -> tide::Result<()> {
     common::initialise();
     let app = dodona::build_server().await;
