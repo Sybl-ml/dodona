@@ -1,5 +1,4 @@
 //! Defines routes specific to client operations
-//!
 use crate::State;
 use base64;
 use mongodb::bson::{self, doc, document::Document, oid::ObjectId, Binary};
@@ -41,7 +40,11 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
         // Entered and stored email and password match
         if verified && email == user.email {
             // generate public and private key pair
+<<<<<<< HEAD
             let (private_key, public_key) = crypto::encoded_key_pair();
+=======
+            let (public_key, private_key) = encoded_key_pair();
+>>>>>>> Added clients model which is updated on registration
             // create a new client object
             users
                 .update_one(
@@ -70,7 +73,11 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
         }
     } else {
         println!("User ID does not exist");
+<<<<<<< HEAD
         Ok(Response::builder(404).body("User not found").build())
+=======
+        Ok(response_from_json(doc! {"token": "null"}))
+>>>>>>> Added clients model which is updated on registration
     }
 }
 

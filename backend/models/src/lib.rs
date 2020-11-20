@@ -3,6 +3,7 @@
 #[macro_use]
 extern crate serde;
 
+pub mod clients;
 pub mod dataset_details;
 pub mod datasets;
 pub mod projects;
