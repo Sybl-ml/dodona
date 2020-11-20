@@ -26,7 +26,3 @@ pub async fn run(nodepool: Arc<NodePool>, mut rx: Receiver<String>) -> Result<()
     }
     Ok(())
 }
-
-
-#[cfg(test)]
-mod tests;

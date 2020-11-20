@@ -27,7 +27,7 @@ pub async fn run(socket: u16, db_conn: Arc<Database>, tx: Sender<String>) -> Res
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
     log::info!("Socket: {:?}", socket);
 
-    let mut listener = TcpListener::bind(&socket).await?;
+    let listener = TcpListener::bind(&socket).await?;
     log::info!("RUNNING INTERFACE SERVER");
     while let Ok((inbound, _)) = listener.accept().await {
         log::info!("INTERFACE CONNECTION");
@@ -45,7 +45,7 @@ pub async fn run(socket: u16, db_conn: Arc<Database>, tx: Sender<String>) -> Res
 async fn process_connection(
     mut stream: TcpStream,
     db_conn: Arc<Database>,
-    mut tx: Sender<String>,
+    tx: Sender<String>,
 ) -> Result<()> {
     let mut buffer: OId = [0_u8; 24];
     stream.read(&mut buffer).await?;
@@ -80,7 +80,3 @@ async fn process_connection(
 
     Ok(())
 }
-
-
-#[cfg(test)]
-mod tests;
