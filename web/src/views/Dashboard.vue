@@ -5,7 +5,7 @@
         <b-col xs="12" order-xs="2" lg="3">
           <b-row>
             <b-col class="mb-3">
-              <b-form-input  v-model="search" placeholder="Search" block />
+              <b-form-input v-model="search" placeholder="Search" block />
             </b-col>
           </b-row>
           <b-row class="text-left">
@@ -64,7 +64,11 @@
           </b-row>
         </b-col>
         <b-col lg="9">
-          <router-view></router-view>
+          <router-view
+            @update:description="updateDescription"
+            @update:name="updateName"
+            @delete:project="deleteProject"
+          ></router-view>
         </b-col>
       </b-row>
     </b-container>
@@ -93,6 +97,7 @@
 
 <script>
 import axios from "axios";
+import Vue from "vue";
 
 export default {
   name: "Dashboard",
@@ -120,14 +125,45 @@ export default {
       return y;
     });
   },
+  methods: {
+    updateName(newName, id) {
+      console.log(newName, id);
+      for (var i in this.projects) {
+        if (this.projects[i].id == id) {
+          Vue.set(this.projects[i], "name", newName);
+          break;
+        }
+      }
+    },
+    updateDescription(newDescription, id) {
+      console.log(newDescription, id);
+      for (var i in this.projects) {
+        if (this.projects[i].id == id) {
+          Vue.set(this.projects[i], "description", newDescription);
+          break;
+        }
+      }
+    },
+    deleteProject(id) {
+      let index = 0;
+      for (var i in this.projects) {
+        if (this.projects[i].id == id) {
+          index = i;
+          break;
+        }
+      }
+
+      this.projects.splice(index, 1);
+    },
+  },
   computed: {
-    filtered_projects: function() {
+    filtered_projects: function () {
       return this.projects.filter((x) => {
-        if (x['name'].includes(this.search)) {
+        if (x["name"].includes(this.search)) {
           return x;
         }
       });
-    }
+    },
   },
 };
 </script>
