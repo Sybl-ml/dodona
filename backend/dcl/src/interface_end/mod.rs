@@ -26,11 +26,11 @@ pub async fn run(socket: u16, db_conn: Arc<Database>, tx: Sender<String>) -> Res
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
     log::info!("Socket: {:?}", socket);
 
-    let mut listener = TcpListener::bind(&socket).await?;
+    let listener = TcpListener::bind(&socket).await?;
     log::info!("RUNNING INTERFACE SERVER");
     while let Ok((inbound, _)) = listener.accept().await {
         log::info!("INTERFACE CONNECTION");
-        let db_conn_clone = db_conn.clone();
+        let db_conn_clone = Arc::clone(&db_conn);
         let tx_clone = tx.clone();
         tokio::spawn(async move {
             process_connection(inbound, db_conn_clone, tx_clone)
@@ -44,7 +44,7 @@ pub async fn run(socket: u16, db_conn: Arc<Database>, tx: Sender<String>) -> Res
 async fn process_connection(
     mut stream: TcpStream,
     db_conn: Arc<Database>,
-    mut tx: Sender<String>,
+    tx: Sender<String>,
 ) -> Result<()> {
     let mut buffer: OId = [0_u8; 24];
     stream.read(&mut buffer).await?;
