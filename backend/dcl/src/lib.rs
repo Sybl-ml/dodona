@@ -69,7 +69,7 @@ pub async fn run() -> Result<()> {
 
     let nodepool_clone = Arc::clone(&nodepool);
     tokio::spawn(async move {
-        health::health_runner(nodepool_clone, 5).await;
+        health::health_runner(nodepool_clone, 600).await;
     })
     .await?;
 
