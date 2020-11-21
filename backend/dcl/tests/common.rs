@@ -9,7 +9,7 @@ pub struct Params {
 }
 
 pub fn initialise() -> Params {
-    let config = config::ConfigFile::from_file("config.toml");
+    let config = config::ConfigFile::from_filesystem();
     let resolved = config.resolve(Environment::Testing);
     resolved.populate_environment();
     let conn_str = env::var("CONN_STR").expect("CONN_STR must be set");

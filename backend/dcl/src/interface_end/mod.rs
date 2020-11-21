@@ -30,7 +30,7 @@ pub async fn run(socket: u16, db_conn: Arc<Database>, tx: Sender<String>) -> Res
     log::info!("RUNNING INTERFACE SERVER");
     while let Ok((inbound, _)) = listener.accept().await {
         log::info!("INTERFACE CONNECTION");
-        let db_conn_clone = db_conn.clone();
+        let db_conn_clone = Arc::clone(&db_conn);
         let tx_clone = tx.clone();
         tokio::spawn(async move {
             process_connection(inbound, db_conn_clone, tx_clone)

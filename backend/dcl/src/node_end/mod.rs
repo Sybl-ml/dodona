@@ -27,8 +27,8 @@ pub struct Node {
 // Node Methods
 impl Node {
     /// Creates a new Node object
-    pub fn new(conn: TcpStream, api_key: String) -> Node {
-        Node {
+    pub fn new(conn: TcpStream, api_key: String) -> Self {
+        Self {
             conn: Arc::new(RwLock::new(conn)),
             api_key,
         }
@@ -40,7 +40,7 @@ impl Node {
     /// access to the TcpStream can be acheived over multiple
     /// threads.
     pub fn get_tcp(&self) -> Arc<RwLock<TcpStream>> {
-        self.conn.clone()
+        Arc::clone(&self.conn)
     }
 
     /// Getter for API key
@@ -60,8 +60,8 @@ pub struct NodeInfo {
 
 impl NodeInfo {
     /// creates new NodeInfo instance
-    pub fn new() -> NodeInfo {
-        NodeInfo {
+    pub fn new() -> Self {
+        Self {
             alive: true,
             using: false,
         }
@@ -99,8 +99,8 @@ pub struct NodePool {
 // NodePool Methods
 impl NodePool {
     /// Returns a new NodePool instance
-    pub fn new() -> NodePool {
-        NodePool {
+    pub fn new() -> Self {
+        Self {
             nodes: RwLock::new(HashMap::new()),
             info: RwLock::new(HashMap::new()),
         }
@@ -180,8 +180,8 @@ pub async fn run(nodepool: Arc<NodePool>, socket: u16, db_conn: Arc<Database>) -
 
     while let Ok((inbound, _)) = listener.accept().await {
         log::info!("NODE CONNECTION");
-        let db_conn_clone = db_conn.clone();
-        let sp_clone = nodepool.clone();
+        let db_conn_clone = Arc::clone(&db_conn);
+        let sp_clone = Arc::clone(&nodepool);
         tokio::spawn(async move {
             process_connection(inbound, db_conn_clone, sp_clone)
                 .await

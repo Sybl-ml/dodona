@@ -21,8 +21,8 @@ struct Health {
 
 impl Health {
     /// Creates a new Health instance
-    pub fn new(alive: u8) -> Health {
-        Health { alive }
+    pub fn new(alive: u8) -> Self {
+        Self { alive }
     }
 }
 
@@ -36,7 +36,7 @@ pub async fn health_runner(nodepool: Arc<NodePool>, delay: u64) {
     let mut interval = tokio::time::interval(Duration::from_secs(delay));
 
     loop {
-        let np = nodepool.clone();
+        let np = Arc::clone(&nodepool);
         check_health(np).await;
         log::info!("HEALTH CHECKED");
         interval.tick().await;
@@ -75,10 +75,10 @@ pub async fn heartbeat(stream: Arc<RwLock<TcpStream>>) -> bool {
     }
 
     let mut buffer = vec![];
-    if let Err(_) = timeout(Duration::from_millis(100), stream_write.read(&mut buffer)).await {
-        return false;
-    } else {
+    if timeout(Duration::from_millis(100), stream_write.read(&mut buffer)).await.is_ok() {
         return true;
+    } else {
+        return false;
     }
 }
 
