@@ -1,5 +1,6 @@
 //! Defines routes specific to client operations
 
+<<<<<<< HEAD
 use base64;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
 use tide::{Request, Response};
@@ -9,6 +10,18 @@ use crypto::clean;
 use crypto::encoded_key_pair;
 use models::clients::Client;
 use models::users::User;
+=======
+use ammonia::clean_text;
+use base64;
+use mongodb::bson;
+use mongodb::bson::{doc, document::Document, oid::ObjectId, Binary};
+use tide::{Request, Response};
+
+use crate::routes::response_from_json;
+use crypto;
+use models::models::ClientModel;
+use models::users::{Client, User};
+>>>>>>> added docs to new_model
 
 use crate::routes::{get_from_doc, response_from_json, tide_err};
 use crate::State;
@@ -77,6 +90,11 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
     }
 }
 
+/// Route for registering a new model/node
+///
+/// provided an email check the user exists and is a client
+/// If validated generate a challenge and insert a new temp model
+/// Respond with the encoded challenge
 pub async fn new_model(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
     let state = req.state();
@@ -93,6 +111,12 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
     };
     let user_id = user.id.expect("ID is none");
 
+    if !user.client {
+        return Ok(Response::builder(403)
+            .body("User not a client found")
+            .build());
+    }
+
     // Generate challenge
     let challenge = crypto::generate_challenge();
     // Make new model
@@ -103,7 +127,10 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
         status: None,
         locked: true,
         authenticated: false,
-        challenge: challenge.clone(),
+        challenge: Binary {
+            subtype: bson::spec::BinarySubtype::Generic,
+            bytes: challenge.clone(),
+        },
     };
 
     // insert model into database
