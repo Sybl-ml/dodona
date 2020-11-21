@@ -3,7 +3,6 @@ use crate::State;
 use base64;
 use mongodb::bson::{self, doc, document::Document, oid::ObjectId, Binary};
 use tide::{Request, Response};
-use base64;
 
 use crate::routes::{get_from_doc, response_from_json, tide_err};
 use crypto;
@@ -71,6 +70,7 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
     } else {
         println!("User ID does not exist");
         Ok(Response::builder(404).body("User not found").build())
+<<<<<<< HEAD
 
     }
 }
@@ -153,6 +153,8 @@ pub async fn get_user_models(req: Request<State>) -> tide::Result {
                 .body("User not found")
                 .build())
 >>>>>>> corrected priv and pub keys
+=======
+>>>>>>> added docs to new_model
     }
 
     let filter = doc! { "user_id": &object_id };
@@ -162,6 +164,11 @@ pub async fn get_user_models(req: Request<State>) -> tide::Result {
     Ok(response_from_json(documents.unwrap()))
 }
 
+/// Route for registering a new model/node
+///
+/// provided an email check the user exists and is a client
+/// If validated generate a challenge and insert a new temp model
+/// Respond with the encoded challenge
 pub async fn new_model(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
     let state = req.state();
@@ -172,18 +179,20 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
     let email = clean_text(doc.get_str("email").unwrap());
 
     let filter = doc! { "email": &email };
-    
     let user = match users.find_one(filter, None).await? {
         Some(u) => mongodb::bson::de::from_document::<User>(u).unwrap(),
-        None => return Ok(Response::builder(404)
-        .body("User not found")
-        .build()),
+        None => return Ok(Response::builder(404).body("User not found").build()),
     };
     let user_id = user.id.expect("ID is none");
 
+    if !user.client {
+        return Ok(Response::builder(403)
+            .body("User not a client found")
+            .build());
+    }
+
     // Generate challenge
     let challenge = crypto::generate_challenge();
-    
     // Make new model
     let temp_model = ClientModel {
         id: Some(ObjectId::new()),
@@ -194,7 +203,7 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
         authenticated: false,
         challenge: Binary {
             subtype: bson::spec::BinarySubtype::Generic,
-            bytes: challenge.clone()
+            bytes: challenge.clone(),
         },
     };
 
@@ -203,5 +212,7 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
     models.insert_one(document, None).await?;
 
     // return challenge
-    Ok(response_from_json(doc! {"challenge": base64::encode(challenge)}))
+    Ok(response_from_json(
+        doc! {"challenge": base64::encode(challenge)},
+    ))
 }
