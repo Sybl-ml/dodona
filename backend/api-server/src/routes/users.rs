@@ -5,7 +5,7 @@ use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
 use tide::Request;
 
-use crate::routes::response_from_json;
+use crate::routes::{check_user_exists, response_from_json, tide_err};
 use crate::State;
 use crypto::generate_user_api_key;
 use models::users::User;
@@ -18,15 +18,13 @@ pub async fn get(req: Request<State>) -> tide::Result {
     let database = req.state().client.database("sybl");
     let users = database.collection("users");
 
-    let id: String = req.param("user_id")?;
-    let object_id = ObjectId::with_string(&id).unwrap();
+    let user_id: String = req.param("user_id")?;
+    let object_id = check_user_exists(&user_id, &users).await?;
 
     let filter = doc! { "_id": object_id };
-    // TODO: This can fail if the user does not exist
     let document = users.find_one(filter, None).await?.unwrap();
 
-    let json: User = mongodb::bson::de::from_document(document).unwrap();
-    Ok(response_from_json(json))
+    Ok(response_from_json(document))
 }
 
 /// Gets all users who match a filter.
@@ -90,17 +88,15 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     // Generate an API key for the user
     let api_key = generate_user_api_key();
 
-    let credits = 10;
-
     let user = User {
-        id: Some(ObjectId::new()),
+        id: None,
         email,
         password: pbkdf2_hash,
         first_name,
         last_name,
         api_key,
         client: false,
-        credits,
+        credits: 10,
     };
 
     let document = mongodb::bson::ser::to_document(&user).unwrap();
@@ -121,25 +117,22 @@ pub async fn edit(mut req: Request<State>) -> tide::Result {
     let users = database.collection("users");
 
     let doc: Document = req.body_json().await?;
-    let object_id = clean_text(doc.get_str("id").unwrap());
-    let id = ObjectId::with_string(&object_id).unwrap();
+    let user_id = doc.get_str("id").unwrap();
+    let object_id = check_user_exists(&user_id, &users).await?;
 
-    let filter = doc! {"_id": id};
-    let mut user = match users.find_one(filter.clone(), None).await? {
-        Some(u) => mongodb::bson::de::from_document::<User>(u).unwrap(),
-        None => return Ok(response_from_json(doc! {"status": "failed"})),
-    };
+    // Get the user from the database
+    let filter = doc! { "_id": &object_id };
+    let user_doc = users.find_one(filter.clone(), None).await?.unwrap();
 
-    for key in doc.keys() {
-        println!("{}", key);
+    let mut user: User = mongodb::bson::de::from_document(user_doc)
+        .map_err(|_| tide_err(422, "user failed to parse"))?;
 
-        if key == "email" {
-            user.email = clean_text(doc.get_str(key).unwrap());
-        }
+    if let Ok(email) = doc.get_str("email") {
+        user.email = clean_text(email);
     }
 
     let document = mongodb::bson::ser::to_document(&user).unwrap();
-    users.update_one(filter.clone(), document, None).await?;
+    users.update_one(filter, document, None).await?;
 
     Ok(response_from_json(doc! {"status": "changed"}))
 }
@@ -169,22 +162,17 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
         .await?
         .map(|doc| mongodb::bson::de::from_document::<User>(doc).unwrap());
 
-    if let Some(user) = user {
-        let peppered = format!("{}{}", password, pepper);
-        let verified = pbkdf2::pbkdf2_check(&peppered, &user.password).is_ok();
+    let user = user.ok_or_else(|| tide_err(404, "user not found"))?;
+    let peppered = format!("{}{}", password, pepper);
 
-        if verified {
-            println!("Logged in: {:?}", user);
-            let identifier = user.id.unwrap().to_string();
-            Ok(response_from_json(doc! {"token": identifier}))
-        } else {
-            println!("Failed login: wrong password");
-            Ok(response_from_json(doc! {"token": "null"}))
-        }
-    } else {
-        println!("Failed login: wrong email");
-        Ok(response_from_json(doc! {"token": "null"}))
-    }
+    // Check the user's password
+    pbkdf2::pbkdf2_check(&peppered, &user.password)
+        .map_err(|_| tide_err(401, "invalid password"))?;
+
+    log::info!("Logged in: {:?}", user);
+
+    let identifier = user.id.unwrap().to_string();
+    Ok(response_from_json(doc! {"token": identifier}))
 }
 
 /// Deletes a user from the database.

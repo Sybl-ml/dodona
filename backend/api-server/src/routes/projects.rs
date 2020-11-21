@@ -4,11 +4,10 @@ use async_std::net::TcpStream;
 use async_std::prelude::*;
 use async_std::stream::StreamExt;
 use chrono::Utc;
-use mongodb::bson;
-use mongodb::bson::{doc, document::Document, oid::ObjectId, Binary};
+use mongodb::bson::{self, doc, document::Document, Binary};
 use tide::{Request, Response};
 
-use crate::routes::response_from_json;
+use crate::routes::{check_project_exists, check_user_exists, response_from_json, tide_err};
 use crate::State;
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
@@ -24,34 +23,26 @@ pub async fn get_project(req: Request<State>) -> tide::Result {
     let details = database.collection("dataset_details");
 
     let project_id: String = req.param("project_id")?;
-    let object_id = match ObjectId::with_string(&project_id) {
-        Ok(id) => id,
-        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
-    };
+    let object_id = check_project_exists(&project_id, &projects).await?;
 
     let filter = doc! { "_id": &object_id };
-    let doc = projects.find_one(filter, None).await?;
+    // Unwrap is fine here as we already checked it exists
+    let doc = projects.find_one(filter, None).await?.unwrap();
 
-    // if project exists get project from projects collection and
-    // get dataset details from dataset_details collection
-    if let Some(doc) = doc {
-        // get that project from the projects collection
-        let filter = doc! { "project_id": &object_id };
-        let details_doc = details.find_one(filter, None).await?;
+    // get that project from the projects collection
+    let filter = doc! { "project_id": &object_id };
+    let details_doc = details.find_one(filter, None).await?;
 
-        let response = if let Some(details_doc) = details_doc {
-            log::info!("{:?}", &details_doc);
-            doc! {"project": &doc, "details": details_doc}
-        } else {
-            log::info!("{:?}", &details_doc);
-            doc! {"project": &doc, "details": {}}
-        };
-
-        log::info!("{:?}", &response);
-        Ok(response_from_json(response))
+    let response = if let Some(details_doc) = details_doc {
+        log::info!("{:?}", &details_doc);
+        doc! {"project": &doc, "details": details_doc}
     } else {
-        Ok(Response::builder(404).body("project id not found").build())
-    }
+        log::info!("{:?}", &details_doc);
+        doc! {"project": &doc, "details": {}}
+    };
+
+    log::info!("{:?}", &response);
+    Ok(response_from_json(response))
 }
 
 /// Patches a project with the provided data.
@@ -65,20 +56,11 @@ pub async fn patch_project(mut req: Request<State>) -> tide::Result {
     let projects = database.collection("projects");
 
     let project_id: String = req.param("project_id")?;
-    let object_id = match ObjectId::with_string(&project_id) {
-        Ok(id) => id,
-        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
-    };
+    let object_id = check_project_exists(&project_id, &projects).await?;
 
     let filter = doc! { "_id": &object_id };
     let update_doc = doc! { "$set": doc };
-    let update_id = projects
-        .find_one_and_update(filter, update_doc, None)
-        .await?;
-
-    if update_id.is_none() {
-        return Ok(Response::builder(404).body("project not found").build());
-    }
+    projects.update_one(filter, update_doc, None).await?;
 
     Ok(Response::builder(200).build())
 }
@@ -95,17 +77,10 @@ pub async fn delete_project(req: Request<State>) -> tide::Result {
     let projects = database.collection("projects");
 
     let project_id: String = req.param("project_id")?;
-    let object_id = match ObjectId::with_string(&project_id) {
-        Ok(id) => id,
-        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
-    };
+    let object_id = check_project_exists(&project_id, &projects).await?;
 
     let filter = doc! { "_id": &object_id };
-    let deleted_id = projects.find_one_and_delete(filter, None).await?;
-
-    if deleted_id.is_none() {
-        return Ok(Response::builder(404).body("project not found").build());
-    }
+    projects.delete_one(filter, None).await?;
 
     Ok(Response::builder(200).build())
 }
@@ -120,17 +95,7 @@ pub async fn get_user_projects(req: Request<State>) -> tide::Result {
     let users = database.collection("users");
 
     let user_id: String = req.param("user_id")?;
-
-    let object_id = match ObjectId::with_string(&user_id) {
-        Ok(id) => id,
-        Err(_) => return Ok(Response::builder(404).body("invalid user id").build()),
-    };
-
-    let found_user = users.find_one(doc! { "_id": &object_id}, None).await?;
-
-    if found_user.is_none() {
-        return Ok(Response::builder(404).body("user not found").build());
-    }
+    let object_id = check_user_exists(&user_id, &users).await?;
 
     let filter = doc! { "user_id": &object_id };
     let cursor = projects.find(filter, None).await?;
@@ -153,20 +118,14 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
 
     // get user ID
     let user_id: String = req.param("user_id")?;
-    let user_id: ObjectId = ObjectId::with_string(&user_id)?;
-
-    // Check user ID
-    let found_user = users.find_one(doc! { "_id": &user_id}, None).await?;
-    if found_user.is_none() {
-        return Ok(Response::builder(404).body("user not found").build());
-    }
+    let user_id = check_user_exists(&user_id, &users).await?;
 
     // get name
     let name = doc.get_str("name")?;
     let description = doc.get_str("description")?;
 
     let project = Project {
-        id: Some(ObjectId::new()),
+        id: None,
         name: String::from(name),
         description: String::from(description),
         date_created: bson::DateTime(Utc::now()),
@@ -192,31 +151,21 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
     let state = req.state();
     let database = state.client.database("sybl");
+
     let datasets = database.collection("datasets");
     let dataset_details = database.collection("dataset_details");
     let projects = database.collection("projects");
 
     let data = doc.get_str("content")?;
     let project_id: String = req.param("project_id")?;
-    let project_id: ObjectId = ObjectId::with_string(&project_id)?;
-
-    // check project exists
-    let found_project = projects
-        .find_one_and_update(
-            doc! { "_id": &project_id},
-            doc! {"$set": {"status": Status::Ready.to_string()}},
-            None,
-        )
-        .await?;
-    if found_project.is_none() {
-        return Ok(Response::builder(404).body("project not found").build());
-    }
+    let object_id = check_project_exists(&project_id, &projects).await?;
 
     // Check whether the project has data already
     let project_has_data = datasets
-        .find_one(doc! { "project_id": &project_id }, None)
+        .find_one(doc! { "project_id": &object_id }, None)
         .await?
         .is_some();
+
     log::info!("Project already has data: {}", project_has_data);
 
     let analysis = utils::analyse(&data);
@@ -225,15 +174,12 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
 
     log::info!("Dataset types: {:?}", &column_types);
 
-    // Compression
-    let compressed = match utils::compress_data(data) {
-        Ok(compressed) => compressed,
-        Err(_) => return Ok(Response::builder(422).build()),
-    };
+    // Compress the input data
+    let compressed = utils::compress_data(data).map_err(|_| tide_err(422, "failed compression"))?;
 
     let details = DatasetDetails {
         id: None,
-        project_id: Some(project_id.clone()),
+        project_id: Some(object_id.clone()),
         date_created: bson::DateTime(Utc::now()),
         head: Some(data_head),
         column_types,
@@ -241,7 +187,7 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
 
     let dataset = Dataset {
         id: None,
-        project_id: Some(project_id.clone()),
+        project_id: Some(object_id.clone()),
         dataset: Some(Binary {
             subtype: bson::spec::BinarySubtype::Generic,
             bytes: compressed,
@@ -250,9 +196,18 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
 
     // If the project has data, delete the existing information
     if project_has_data {
-        let query = doc! { "project_id": &project_id };
+        let query = doc! { "project_id": &object_id };
         datasets.delete_one(query.clone(), None).await?;
         dataset_details.delete_one(query, None).await?;
+    } else {
+        // Update the project status
+        projects
+            .update_one(
+                doc! { "_id": &object_id},
+                doc! {"$set": {"status": Status::Ready.to_string()}},
+                None,
+            )
+            .await?;
     }
 
     // Insert the dataset details and the dataset itself
@@ -274,18 +229,9 @@ pub async fn overview(req: Request<State>) -> tide::Result {
     let database = state.client.database("sybl");
     let dataset_details = database.collection("dataset_details");
     let projects = database.collection("projects");
+
     let project_id: String = req.param("project_id")?;
-
-    let object_id = match ObjectId::with_string(&project_id) {
-        Ok(id) => id,
-        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
-    };
-
-    let found_project = projects.find_one(doc! { "_id": &object_id}, None).await?;
-
-    if found_project.is_none() {
-        return Ok(Response::builder(404).body("project not found").build());
-    }
+    let object_id = check_project_exists(&project_id, &projects).await?;
 
     let filter = doc! { "project_id": &object_id };
     let cursor = dataset_details.find(filter, None).await?;
@@ -305,43 +251,28 @@ pub async fn get_data(req: Request<State>) -> tide::Result {
     let database = state.client.database("sybl");
     let datasets = database.collection("datasets");
     let projects = database.collection("projects");
+
     let project_id: String = req.param("project_id")?;
-
-    let object_id = match ObjectId::with_string(&project_id) {
-        Ok(id) => id,
-        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
-    };
-
-    log::info!("Project ID: {}", &project_id);
-
-    let found_project = projects.find_one(doc! { "_id": &object_id}, None).await?;
-
-    if found_project.is_none() {
-        return Ok(Response::builder(404).body("project not found").build());
-    }
-
+    let object_id = check_project_exists(&project_id, &projects).await?;
     let filter = doc! { "project_id": &object_id };
 
-    // 404 if no dataset
-    let dataset = match datasets
+    // Find the dataset in the database
+    let document = datasets
         .find_one(filter, None)
         .await?
-        .map(|doc| mongodb::bson::de::from_document::<Dataset>(doc).unwrap())
-    {
-        Some(x) => x,
-        None => return Ok(Response::builder(404).build()),
-    };
+        .ok_or_else(|| tide_err(404, "dataset not found"))?;
+
+    // Parse the dataset itself
+    let dataset = mongodb::bson::de::from_document::<Dataset>(document)
+        .map_err(|_| tide_err(422, "failed to parse dataset"))?;
 
     let comp_data = dataset.dataset.unwrap().bytes;
+    let decompressed =
+        utils::decompress_data(&comp_data).map_err(|_| tide_err(422, "failed decompression"))?;
+    let decomp_data = std::str::from_utf8(&decompressed)?;
 
-    match utils::decompress_data(&comp_data) {
-        Ok(decompressed) => {
-            let decomp_data = std::str::from_utf8(&decompressed)?;
-            log::info!("Decompressed data: {:?}", &decomp_data);
-            Ok(response_from_json(doc! {"dataset": decomp_data}))
-        }
-        Err(_) => Ok(Response::builder(404).build()),
-    }
+    log::info!("Decompressed data: {:?}", &decomp_data);
+    Ok(response_from_json(doc! {"dataset": decomp_data}))
 }
 
 /// Begins the processing of data associated with a project.
@@ -357,27 +288,18 @@ pub async fn begin_processing(req: Request<State>) -> tide::Result {
     let datasets = database.collection("datasets");
 
     let project_id: String = req.param("project_id")?;
+    let object_id = check_project_exists(&project_id, &projects).await?;
 
-    // Check the project ID to make sure it exists
-    let object_id = match ObjectId::with_string(&project_id) {
-        Ok(id) => id,
-        Err(_) => return Ok(Response::builder(422).body("invalid project id").build()),
-    };
-
-    let project_query = doc! { "_id": &object_id};
-    let found_project = projects.find_one(project_query.clone(), None).await?;
-
-    if found_project.is_none() {
-        log::error!("Failed to find project with id: {}", &project_id);
-        return Ok(Response::builder(404).body("project not found").build());
-    }
-
+    // Find the dataset in the database
     let filter = doc! { "project_id": &object_id };
-    let dataset = datasets
+    let document = datasets
         .find_one(filter, None)
         .await?
-        .map(|doc| mongodb::bson::de::from_document::<Dataset>(doc).unwrap())
-        .unwrap();
+        .ok_or_else(|| tide_err(404, "dataset not found"))?;
+
+    // Parse the dataset itself
+    let dataset = mongodb::bson::de::from_document::<Dataset>(document)
+        .map_err(|_| tide_err(422, "failed to parse dataset"))?;
 
     // Send a request to the interface layer
     let hex = dataset.id.expect("Dataset with no identifier").to_hex();
@@ -389,7 +311,9 @@ pub async fn begin_processing(req: Request<State>) -> tide::Result {
 
     // Mark the project as processing
     let update = doc! { "$set": doc!{ "status": Status::Processing.to_string() } };
-    projects.update_one(project_query, update, None).await?;
+    projects
+        .update_one(doc! { "_id": &object_id}, update, None)
+        .await?;
 
     Ok(response_from_json(doc! {"success": true}))
 }

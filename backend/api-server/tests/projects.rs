@@ -63,7 +63,7 @@ async fn projects_cannot_be_found_for_invalid_user_ids() -> tide::Result<()> {
     common::initialise();
     let app = api_server::build_server().await;
 
-    let url = Url::parse("localhost:/api/projects/u/invalid").unwrap();
+    let url = Url::parse("localhost:/api/projects/u/5fb91546de4ea43e91aaeede").unwrap();
     let req = Request::new(tide::http::Method::Get, url);
 
     let res: Response = app.respond(req).await?;
