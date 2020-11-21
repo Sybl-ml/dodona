@@ -1,5 +1,6 @@
 //! Defines the routes for the API server.
 
+use crypto::clean_json;
 use tide::{http::mime, Response};
 
 pub mod clients;
@@ -37,8 +38,9 @@ pub mod users;
 /// assert_eq!(body.unwrap(), expected);
 /// ```
 pub fn response_from_json<B: serde::Serialize>(body: B) -> Response {
+    let body = clean_json(json!(body));
     Response::builder(200)
-        .body(json!(body))
+        .body(body)
         .content_type(mime::JSON)
         .build()
 }

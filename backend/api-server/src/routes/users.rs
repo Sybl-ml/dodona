@@ -1,13 +1,12 @@
 //! Defines the routes specific to user operations.
 
-use ammonia::clean_text;
 use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
 use tide::Request;
 
 use crate::routes::response_from_json;
 use crate::State;
-use crypto::generate_user_api_key;
+use crypto::{clean, generate_user_api_key};
 use models::users::User;
 
 /// Gets a user given their database identifier.
@@ -64,9 +63,9 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     let users = database.collection("users");
 
     let password = doc.get_str("password").unwrap();
-    let email = clean_text(doc.get_str("email").unwrap());
-    let first_name = clean_text(doc.get_str("firstName").unwrap());
-    let last_name = clean_text(doc.get_str("lastName").unwrap());
+    let email = clean(doc.get_str("email").unwrap());
+    let first_name = clean(doc.get_str("firstName").unwrap());
+    let last_name = clean(doc.get_str("lastName").unwrap());
 
     log::info!("Email: {}, Password: {}", email, password);
     log::info!("Name: {} {}", first_name, last_name);
@@ -121,7 +120,7 @@ pub async fn edit(mut req: Request<State>) -> tide::Result {
     let users = database.collection("users");
 
     let doc: Document = req.body_json().await?;
-    let object_id = clean_text(doc.get_str("id").unwrap());
+    let object_id = clean(doc.get_str("id").unwrap());
     let id = ObjectId::with_string(&object_id).unwrap();
 
     let filter = doc! {"_id": id};
@@ -134,7 +133,7 @@ pub async fn edit(mut req: Request<State>) -> tide::Result {
         println!("{}", key);
 
         if key == "email" {
-            user.email = clean_text(doc.get_str(key).unwrap());
+            user.email = clean(doc.get_str(key).unwrap());
         }
     }
 
@@ -159,7 +158,7 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
     let users = database.collection("users");
 
     let password = doc.get_str("password").unwrap();
-    let email = clean_text(doc.get_str("email").unwrap());
+    let email = clean(doc.get_str("email").unwrap());
 
     println!("{}, {}", &email, &password);
 
@@ -197,7 +196,7 @@ pub async fn delete(mut req: Request<State>) -> tide::Result {
     let database = &state.client.database("sybl");
     let users = database.collection("users");
 
-    let object_id = clean_text(doc.get_str("id").unwrap());
+    let object_id = clean(doc.get_str("id").unwrap());
     let id = ObjectId::with_string(&object_id).unwrap();
     let filter = doc! {"_id": id};
 

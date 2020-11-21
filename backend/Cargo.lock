@@ -103,7 +103,6 @@ checksum = "bf8dcb5b4bbaa28653b647d8c77bd4ed40183b48882e130c1f1ffb73de069fd7"
 name = "api-server"
 version = "0.1.0"
 dependencies = [
- "ammonia",
  "async-std",
  "bzip2",
  "chrono",
@@ -752,9 +751,12 @@ dependencies = [
 name = "crypto"
 version = "0.1.0"
 dependencies = [
+ "ammonia",
  "base64 0.13.0",
+ "html-escape",
  "rand",
  "rsa",
+ "serde_json",
 ]
 
 [[package]]
@@ -1314,6 +1316,15 @@ dependencies = [
  "libc",
  "match_cfg",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "html-escape"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d348900ce941b7474395ba922ed3735a517df4546a2939ddb416ce85eeaa988e"
+dependencies = [
+ "utf8-width",
 ]
 
 [[package]]
@@ -3097,6 +3108,12 @@ name = "utf-8"
 version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05e42f7c18b8f902290b009cde6d651262f956c98bc51bca4cd1d511c9cd85c7"
+
+[[package]]
+name = "utf8-width"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9071ac216321a4470a69fb2b28cfc68dcd1a39acd877c8be8e014df6772d8efa"
 
 [[package]]
 name = "utils"
