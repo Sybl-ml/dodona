@@ -73,8 +73,10 @@ pub async fn heartbeat(stream: Arc<RwLock<TcpStream>>) -> bool {
     {
         return false;
     }
-    
-    timeout(Duration::from_millis(100), stream_write.read(&mut vec![])).await.is_ok()
+
+    timeout(Duration::from_millis(100), stream_write.read(&mut vec![]))
+        .await
+        .is_ok()
 }
 
 #[cfg(test)]

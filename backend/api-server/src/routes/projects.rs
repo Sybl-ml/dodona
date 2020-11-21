@@ -10,6 +10,7 @@ use tide::{Request, Response};
 
 use crate::routes::response_from_json;
 use crate::State;
+use crypto::clean;
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
 use models::projects::{Project, Status};
@@ -162,8 +163,8 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     }
 
     // get name
-    let name = doc.get_str("name")?;
-    let description = doc.get_str("description")?;
+    let name = clean(doc.get_str("name")?);
+    let description = clean(doc.get_str("description")?);
 
     let project = Project {
         id: Some(ObjectId::new()),
@@ -196,7 +197,7 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
     let dataset_details = database.collection("dataset_details");
     let projects = database.collection("projects");
 
-    let data = doc.get_str("content")?;
+    let data = clean(doc.get_str("content")?);
     let project_id: String = req.param("project_id")?;
     let project_id: ObjectId = ObjectId::with_string(&project_id)?;
 
@@ -226,7 +227,7 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
     log::info!("Dataset types: {:?}", &column_types);
 
     // Compression
-    let compressed = match utils::compress_data(data) {
+    let compressed = match utils::compress_data(&data) {
         Ok(compressed) => compressed,
         Err(_) => return Ok(Response::builder(422).build()),
     };
@@ -336,7 +337,7 @@ pub async fn get_data(req: Request<State>) -> tide::Result {
 
     match utils::decompress_data(&comp_data) {
         Ok(decompressed) => {
-            let decomp_data = std::str::from_utf8(&decompressed)?;
+            let decomp_data = clean(std::str::from_utf8(&decompressed)?);
             log::info!("Decompressed data: {:?}", &decomp_data);
             Ok(response_from_json(doc! {"dataset": decomp_data}))
         }
