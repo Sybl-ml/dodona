@@ -22,6 +22,7 @@ pub async fn run(nodepool: Arc<NodePool>, mut rx: Receiver<String>) -> Result<()
                 let mut dcn_write = dcn.write().await;
                 dcn_write.write(msg.as_bytes()).await.unwrap();
                 np_clone.end(key).await;
+                break;
             }
         });
     }

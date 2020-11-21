@@ -875,6 +875,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bzip2",
+ "chrono",
  "config",
  "csv",
  "futures",
@@ -883,6 +884,7 @@ dependencies = [
  "log",
  "models",
  "mongodb",
+ "pbkdf2 0.5.0",
  "pretty_env_logger",
  "serde",
  "serde_json",
