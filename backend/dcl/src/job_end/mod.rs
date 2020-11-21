@@ -1,12 +1,9 @@
 //! Part of DCL that takes a DCN and a dataset and comunicates with node
 
 use anyhow::Result;
-use mongodb::bson::oid::ObjectId;
 use std::sync::Arc;
-use tokio::net::TcpStream;
 use tokio::prelude::*;
 use tokio::sync::mpsc::Receiver;
-use tokio::sync::RwLock;
 
 use crate::node_end::NodePool;
 
@@ -18,11 +15,15 @@ use crate::node_end::NodePool;
 pub async fn run(nodepool: Arc<NodePool>, mut rx: Receiver<String>) -> Result<()> {
     log::info!("RUNNING JOB END");
     while let Some(msg) = rx.recv().await {
-        log::info!("Received: {}", msg);
-        let (key, dcn): (ObjectId, Arc<RwLock<TcpStream>>) = nodepool.get().await.unwrap();
-        let mut dcn_write = dcn.write().await;
-        dcn_write.write(msg.as_bytes()).await.unwrap();
-        nodepool.end(key).await;
+        log::info!("Received: {}", &msg);
+        let np_clone = Arc::clone(&nodepool);
+        tokio::spawn(async move {
+            while let Some((key, dcn)) = np_clone.get().await {
+                let mut dcn_write = dcn.write().await;
+                dcn_write.write(msg.as_bytes()).await.unwrap();
+                np_clone.end(key).await;
+            }
+        });
     }
     Ok(())
 }
