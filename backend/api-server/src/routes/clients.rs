@@ -1,15 +1,15 @@
 //! Defines routes specific to client operations
 
 use ammonia::clean_text;
+use base64;
 use mongodb::bson;
 use mongodb::bson::{doc, document::Document, oid::ObjectId, Binary};
 use tide::{Request, Response};
-use base64;
 
 use crate::routes::response_from_json;
 use crypto;
-use models::users::{Client, User};
 use models::models::ClientModel;
+use models::users::{Client, User};
 
 use crate::State;
 
@@ -72,12 +72,15 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
         }
     } else {
         println!("User ID does not exist");
-        Ok(Response::builder(404)
-                .body("User not found")
-                .build())
+        Ok(Response::builder(404).body("User not found").build())
     }
 }
 
+/// Route for registering a new model/node
+///
+/// provided an email check the user exists and is a client
+/// If validated generate a challenge and insert a new temp model
+/// Respond with the encoded challenge
 pub async fn new_model(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
     let state = req.state();
@@ -88,18 +91,20 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
     let email = clean_text(doc.get_str("email").unwrap());
 
     let filter = doc! { "email": &email };
-    
     let user = match users.find_one(filter, None).await? {
         Some(u) => mongodb::bson::de::from_document::<User>(u).unwrap(),
-        None => return Ok(Response::builder(404)
-        .body("User not found")
-        .build()),
+        None => return Ok(Response::builder(404).body("User not found").build()),
     };
     let user_id = user.id.expect("ID is none");
 
+    if !user.client {
+        return Ok(Response::builder(403)
+            .body("User not a client found")
+            .build());
+    }
+
     // Generate challenge
     let challenge = crypto::generate_challenge();
-    
     // Make new model
     let temp_model = ClientModel {
         id: Some(ObjectId::new()),
@@ -110,7 +115,7 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
         authenticated: false,
         challenge: Binary {
             subtype: bson::spec::BinarySubtype::Generic,
-            bytes: challenge.clone()
+            bytes: challenge.clone(),
         },
     };
 
@@ -119,5 +124,7 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
     models.insert_one(document, None).await?;
 
     // return challenge
-    Ok(response_from_json(doc! {"challenge": base64::encode(challenge)}))
+    Ok(response_from_json(
+        doc! {"challenge": base64::encode(challenge)},
+    ))
 }
