@@ -140,11 +140,7 @@
   </b-container>
 </template>
 
-<style>
-.nodeExpansion {
-  width: 100%;
-}
-</style>
+<style></style>
 
 <script>
 import axios from "axios";
@@ -164,6 +160,9 @@ export default {
       cli_code: "git clone www.sybl.com/cli",
       cli_setup: "sybl-cli new",
     };
+  },
+  components: {
+    ModelCard,
   },
   async mounted() {
     let user_id = $cookies.get("token");
