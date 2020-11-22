@@ -2,140 +2,18 @@
   <b-container fluid="md">
     <b-row>
       <b-col>
-        <h1>Nodes</h1>
+        <h1>Models</h1>
       </b-col>
     </b-row>
 
     <hr />
 
-    <b-row class="justify-content-center">
-      <b-col xs="12" lg="7">
-        <b-card
-          class="mb-4 shadow"
-          no-body
-          v-b-toggle.collapse-1
-          border-variant="warning"
-          style="border-width: 0.15rem"
-          onfocus="this.blur();"
-        >
-          <b-row no-gutter>
-            <b-col>
-              <b-card-body>
-                <b-card-title>Compute Node #72</b-card-title>
-                <b-card-text>
-                  <b-icon-clock-fill></b-icon-clock-fill>
-                  08:12:20
-                </b-card-text>
-              </b-card-body>
-            </b-col>
-            <b-col>
-              <b-card-body style="text-align: right">
-                <b-card-text>
-                  <b-icon-stop-fill style="color: #ff643d"></b-icon-stop-fill>
-                  Stopped
-                </b-card-text>
-                <b-card-text>
-                  <b-icon-cash-stack></b-icon-cash-stack>
-                  £12.50
-                </b-card-text>
-              </b-card-body>
-            </b-col>
-          </b-row>
-          <b-row no-gutter class="justify-content-center">
-            <b-icon-chevron-compact-down
-              font-scale="1.5"
-            ></b-icon-chevron-compact-down>
-          </b-row>
-        </b-card>
-      </b-col>
-    </b-row>
-    <b-row>
-      <b-collapse id="collapse-1" class="mb-4 nodeExpansion">
-        <b-card class="shadow">
-          <b>API Key:</b>
-          {{ user_data.api_key }}
-        </b-card>
-      </b-collapse>
-    </b-row>
-
-    <b-row class="justify-content-center">
-      <b-col xs="12" lg="7">
-        <b-card
-          class="mb-4 shadow"
-          no-body
-          v-b-toggle.collapse-2
-          border-variant="completed"
-          style="border-width: 0.15rem"
-          onfocus="this.blur();"
-        >
-          <b-row no-gutter>
-            <b-col>
-              <b-card-body>
-                <b-card-title>Compute Node #1001</b-card-title>
-                <b-card-text>
-                  <b-icon-clock-fill></b-icon-clock-fill>
-                  01:22:30
-                </b-card-text>
-              </b-card-body>
-            </b-col>
-            <b-col>
-              <b-card-body style="text-align: right">
-                <b-card-text>
-                  <b-spinner small style="color: #00bf26"></b-spinner>
-                  Running
-                </b-card-text>
-                <b-card-text>
-                  <b-icon-cash-stack></b-icon-cash-stack>
-                  £2.25
-                </b-card-text>
-              </b-card-body>
-            </b-col>
-          </b-row>
-          <b-row no-gutter class="justify-content-center">
-            <b-icon-chevron-compact-down
-              font-scale="1.5"
-            ></b-icon-chevron-compact-down>
-          </b-row>
-        </b-card>
-      </b-col>
-    </b-row>
-    <b-row>
-      <b-collapse id="collapse-2" class="mb-4 nodeExpansion">
-        <b-card class="shadow">
-          <b>API Key:</b>
-          {{ user_data.api_key }}
-        </b-card>
-      </b-collapse>
-    </b-row>
-
-    <b-row class="justify-content-center">
-      <b-col xs="12" lg="7">
-        <b-card
-          class="mb-4 shadow"
-          no-body
-          v-b-toggle.collapse-3
-          border-variant="primary"
-          style="border-width: 0.15rem"
-          onfocus="this.blur();"
-        >
-          <b-card-body title-tag="h5">
-            <b-card-title>Compute Node #4722</b-card-title>
-            <b-card-text>
-              <b-icon-wifi-off style="color: #fbb000"></b-icon-wifi-off>
-              Not Connected
-            </b-card-text>
-          </b-card-body>
-        </b-card>
-      </b-col>
-    </b-row>
-    <b-row>
-      <b-collapse id="collapse-3" class="mb-4 nodeExpansion">
-        <b-card class="shadow">
-          <b>API Key:</b>
-          {{ user_data.api_key }}
-        </b-card>
-      </b-collapse>
-    </b-row>
+    <model-card
+      v-for="(m, index) in model_data"
+      :key="index"
+      :data="m"
+      :i="index"
+    />
 
     <b-row class="justify-content-center">
       <b-col xs="12" lg="6">
@@ -263,24 +141,27 @@
 </template>
 
 <style>
-.nodeExpansion {
-  width: 100%;
-}
+
 </style>
 
 <script>
 import axios from "axios";
+import ModelCard from "@/components/ModelCard";
 
 export default {
   name: "Nodes",
   data() {
     return {
-      user_data: {},
+      user_data: [],
+      model_data: [{"title":"Model 1", "status":"Locked"},{"title":"Model 2", "status":"Available"}, {"title":"Model 3", "status":"Disabled"}],
       auth_token: "",
       error: false,
       cli_code: "git clone www.sybl.com/cli",
       cli_setup: "sybl-cli new",
     };
+  },
+  components: {
+    ModelCard,
   },
   async mounted() {
     let user_id = $cookies.get("token");
