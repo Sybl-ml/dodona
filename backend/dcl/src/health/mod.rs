@@ -11,7 +11,7 @@ use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
 use tokio::sync::RwLock;
-use tokio::time::timeout;
+use utils::read_stream;
 
 /// Helper struct to send data to a Node to check if it is alive
 #[derive(Serialize, Deserialize, Debug)]
@@ -74,7 +74,7 @@ pub async fn heartbeat(stream: Arc<RwLock<TcpStream>>) -> bool {
         return false;
     }
 
-    timeout(Duration::from_millis(100), stream_write.read(&mut vec![]))
+    read_stream(&mut stream_write, Duration::from_millis(100))
         .await
         .is_ok()
 }

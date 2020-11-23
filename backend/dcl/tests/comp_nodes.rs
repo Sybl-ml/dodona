@@ -41,7 +41,7 @@ async fn test_node_connect_and_hb() {
         let mut buffer = Vec::new();
         match stream.read(&mut buffer).await {
             Ok(_) => {
-                stream.write("1".as_bytes()).await.unwrap();
+                stream.write("{'alive': '1'}\0".as_bytes()).await.unwrap();
             }
             _ => (),
         };
@@ -91,7 +91,7 @@ async fn test_dcn_using() {
         let mut buffer = Vec::new();
         match stream.read(&mut buffer).await {
             Ok(_) => {
-                stream.write("1".as_bytes()).await.unwrap();
+                stream.write("{'alive': '1'}\0".as_bytes()).await.unwrap();
             }
             _ => (),
         };
@@ -105,7 +105,7 @@ async fn test_dcn_using() {
         let mut buffer = Vec::new();
         match stream.read(&mut buffer).await {
             Ok(_) => {
-                stream.write("1".as_bytes()).await.unwrap();
+                stream.write("{'alive': '1'}\0".as_bytes()).await.unwrap();
             }
             _ => (),
         };

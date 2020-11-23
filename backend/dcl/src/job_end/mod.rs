@@ -34,10 +34,11 @@ pub async fn run(
                 // This is temporary, planning on creating seperate place for defining messages
                 let check = "{'Dataset': 'here'}";
                 dcn_stream.write(check.as_bytes()).await.unwrap();
-                let check_res: Vec<u8> = read_stream(&mut dcn_stream, timeout.clone()).await;
+                let check_res: Vec<u8> =
+                    read_stream(&mut dcn_stream, timeout.clone()).await.unwrap();
                 log::info!("Check Result: {}", from_utf8(&check_res).unwrap());
                 dcn_stream.write(msg.as_bytes()).await.unwrap();
-                let dataset: Vec<u8> = read_stream(&mut dcn_stream, timeout.clone()).await;
+                let dataset: Vec<u8> = read_stream(&mut dcn_stream, timeout.clone()).await.unwrap();
                 log::info!("Computed Data: {}", from_utf8(&dataset).unwrap());
                 np_clone.end(key).await;
             }

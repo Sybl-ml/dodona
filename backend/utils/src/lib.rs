@@ -3,6 +3,7 @@
 #[macro_use]
 extern crate serde;
 
+use anyhow::{anyhow, Result};
 use bzip2::write::{BzDecoder, BzEncoder};
 use bzip2::Compression;
 use std::collections::HashMap;
@@ -222,19 +223,18 @@ pub fn decompress_data(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
 ///
 /// passing in TcpStream and timing information, and reading from the stream until an
 /// EOF is found on the stream. This will constitute a whole message.
-pub async fn read_stream(buffer: &mut TcpStream, length: Duration) -> Vec<u8> {
+pub async fn read_stream(buffer: &mut TcpStream, length: Duration) -> Result<Vec<u8>> {
     let (dcn_read, _) = buffer.split();
     let mut dcn_read = BufReader::new(dcn_read);
 
-    let mut dataset = vec![];
-    match timeout(length, dcn_read.read_until(0, &mut dataset)).await {
+    let mut data = vec![];
+    match timeout(length, dcn_read.read_until(0, &mut data)).await {
         Ok(f) => match f {
-            Ok(n) => log::info!("Received bytes: {}", n),
-            _ => panic!("Stream disrupted"),
+            Ok(_) => Ok(data),
+            _ => Err(anyhow!("TcpStream Disrupted")),
         },
-        _ => panic!("Timeout Reached"),
-    };
-    dataset
+        _ => Err(anyhow!("Timeout Failed")),
+    }
 }
 
 #[cfg(test)]
