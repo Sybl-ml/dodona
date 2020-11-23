@@ -69,7 +69,7 @@ async fn test_dcn_using() {
 
     let db_conn_node = Arc::clone(&client);
     let nodepool_clone = Arc::clone(&nodepool);
-    let ns_clone = params.node_socket.clone();
+    let ns_clone = params.node_socket.clone() + 2;
     // Start up node end
     tokio::spawn(async move {
         dcl::node_end::run(nodepool_clone, ns_clone, db_conn_node)
@@ -77,7 +77,10 @@ async fn test_dcn_using() {
             .unwrap();
     });
 
-    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), params.node_socket);
+    let socket = SocketAddr::new(
+        IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+        params.node_socket + 2,
+    );
     let sock_clone = socket.clone();
     // Create dummy nodes
     // Node 1
