@@ -37,6 +37,9 @@ pub async fn run() -> Result<()> {
             .unwrap();
     let node_socket =
         u16::from_str(&env::var("NODE_SOCKET").expect("NODE_SOCKET must be set")).unwrap();
+    let health = u64::from_str(&env::var("health").expect("HEALTH must be set")).unwrap();
+    let job_timeout =
+        u64::from_str(&env::var("job_timeout").expect("JOB_TIMEOUT must be set")).unwrap();
     let mut client_options = ClientOptions::parse(&conn_str).await.unwrap();
     client_options.app_name = Some(app_name);
     let client = Arc::new(
@@ -64,12 +67,12 @@ pub async fn run() -> Result<()> {
 
     let nodepool_clone = Arc::clone(&nodepool);
     tokio::spawn(async move {
-        job_end::run(nodepool_clone, rx).await.unwrap();
+        job_end::run(nodepool_clone, rx, job_timeout).await.unwrap();
     });
 
     let nodepool_clone = Arc::clone(&nodepool);
     tokio::spawn(async move {
-        health::health_runner(nodepool_clone, 5).await;
+        health::health_runner(nodepool_clone, health).await;
     })
     .await?;
 
