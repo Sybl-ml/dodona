@@ -15,8 +15,8 @@ async fn test_node_connect_and_hb() {
     let client = Arc::new(client.database("sybl"));
     let nodepool = Arc::new(dcl::node_end::NodePool::new());
 
-    let db_conn_node = client.clone();
-    let nodepool_clone = nodepool.clone();
+    let db_conn_node = Arc::clone(&client);
+    let nodepool_clone = Arc::clone(&nodepool);
     let ns_clone = params.node_socket.clone();
     // Start up node end
     tokio::spawn(async move {
@@ -26,7 +26,7 @@ async fn test_node_connect_and_hb() {
     });
 
     // Start up health checker
-    let nodepool_clone = nodepool.clone();
+    let nodepool_clone = Arc::clone(&nodepool);
     tokio::spawn(async move {
         dcl::health::health_runner(nodepool_clone, 5).await;
     });
@@ -67,8 +67,8 @@ async fn test_dcn_using() {
     let client = Arc::new(client.database("sybl"));
     let nodepool = Arc::new(dcl::node_end::NodePool::new());
 
-    let db_conn_node = client.clone();
-    let nodepool_clone = nodepool.clone();
+    let db_conn_node = Arc::clone(&client);
+    let nodepool_clone = Arc::clone(&nodepool);
     let ns_clone = params.node_socket.clone();
     // Start up node end
     tokio::spawn(async move {
