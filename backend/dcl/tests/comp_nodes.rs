@@ -114,9 +114,9 @@ async fn test_dcn_using() {
             assert_ne!(oid1, oid2);
             assert!(nodepool.is_using(&oid2).await);
         } else {
-            assert!(false);
+            unreachable!();
         }
     } else {
-        assert!(false);
+        unreachable!();
     }
 }
