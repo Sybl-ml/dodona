@@ -2,11 +2,11 @@
 
 use std::convert::TryFrom;
 
+use crypto::clean_json;
 use mongodb::{
     bson::{doc, oid::ObjectId},
     Collection,
 };
-use crypto::clean_json;
 use tide::{http::mime, Response};
 
 pub mod clients;
