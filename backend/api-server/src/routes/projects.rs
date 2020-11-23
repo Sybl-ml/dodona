@@ -176,7 +176,8 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
     log::info!("Dataset types: {:?}", &column_types);
 
     // Compress the input data
-    let compressed = utils::compress_data(data).map_err(|_| tide_err(422, "failed compression"))?;
+    let compressed =
+        utils::compress_data(&data).map_err(|_| tide_err(422, "failed compression"))?;
 
     let details = DatasetDetails {
         id: None,
