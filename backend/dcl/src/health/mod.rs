@@ -4,6 +4,7 @@
 //! each is alive and working. It will update its status in the
 //! NodeInfo object for the node.
 
+use crate::messages::heartbeat_msg;
 use crate::node_end::NodePool;
 use std::sync::Arc;
 use std::time::Duration;
@@ -51,8 +52,11 @@ pub async fn check_health(nodepool: Arc<NodePool>) {
 /// then it is treated as dead. If not then it is treated as alive.
 pub async fn heartbeat(stream: Arc<RwLock<TcpStream>>) -> bool {
     let mut stream_write = stream.write().await;
-    let check = "{'alive': '1'}\0";
-    if stream_write.write(check.as_bytes()).await.is_err() {
+    if stream_write
+        .write(heartbeat_msg().as_bytes())
+        .await
+        .is_err()
+    {
         return false;
     }
 

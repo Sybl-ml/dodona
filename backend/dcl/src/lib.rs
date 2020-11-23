@@ -20,6 +20,7 @@ use tokio::sync::mpsc::{self, Receiver, Sender};
 pub mod health;
 pub mod interface_end;
 pub mod job_end;
+pub mod messages;
 pub mod node_end;
 
 /// Main runner function for the DCL

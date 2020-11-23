@@ -1,3 +1,4 @@
+use dcl::messages::heartbeat_msg;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
@@ -41,7 +42,7 @@ async fn test_node_connect_and_hb() {
         let mut buffer = Vec::new();
         match stream.read(&mut buffer).await {
             Ok(_) => {
-                stream.write("{'alive': '1'}\0".as_bytes()).await.unwrap();
+                stream.write(heartbeat_msg().as_bytes()).await.unwrap();
             }
             _ => (),
         };
@@ -91,7 +92,7 @@ async fn test_dcn_using() {
         let mut buffer = Vec::new();
         match stream.read(&mut buffer).await {
             Ok(_) => {
-                stream.write("{'alive': '1'}\0".as_bytes()).await.unwrap();
+                stream.write(heartbeat_msg().as_bytes()).await.unwrap();
             }
             _ => (),
         };
@@ -105,7 +106,7 @@ async fn test_dcn_using() {
         let mut buffer = Vec::new();
         match stream.read(&mut buffer).await {
             Ok(_) => {
-                stream.write("{'alive': '1'}\0".as_bytes()).await.unwrap();
+                stream.write(heartbeat_msg().as_bytes()).await.unwrap();
             }
             _ => (),
         };

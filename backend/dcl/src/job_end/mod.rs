@@ -1,5 +1,6 @@
 //! Part of DCL that takes a DCN and a dataset and comunicates with node
 
+use crate::messages::job_config_msg;
 use anyhow::Result;
 use std::str::from_utf8;
 use std::sync::Arc;
@@ -32,8 +33,7 @@ pub async fn run(
             if let Some((key, dcn)) = np_clone.get().await {
                 let mut dcn_stream = dcn.write().await;
                 // This is temporary, planning on creating seperate place for defining messages
-                let check = "{'Dataset': 'here'}";
-                dcn_stream.write(check.as_bytes()).await.unwrap();
+                dcn_stream.write(job_config_msg().as_bytes()).await.unwrap();
                 let check_res: Vec<u8> =
                     read_stream(&mut dcn_stream, timeout.clone()).await.unwrap();
                 log::info!("Check Result: {}", from_utf8(&check_res).unwrap());
