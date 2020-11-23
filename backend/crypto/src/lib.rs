@@ -1,6 +1,8 @@
 //! Contains cryptographic functions used by the web server
 
+use ammonia::clean_text;
 use base64::decode;
+use html_escape::decode_html_entities;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use rsa::hash::Hash::SHA2_256;
@@ -8,6 +10,7 @@ use rsa::{
     PaddingScheme, PrivateKeyPemEncoding, PublicKey, PublicKeyPemEncoding, RSAPrivateKey,
     RSAPublicKey,
 };
+use serde_json::Value;
 
 const KEY_SIZE: usize = 1024;
 const CHALLENGE_SIZE: usize = 32;
@@ -91,4 +94,26 @@ pub fn verify_challenge(challenge: Vec<u8>, response: Vec<u8>, public_key: RSAPu
 /// Generates a user API key of `API_KEY_SIZE` alphanumeric characters.
 pub fn generate_user_api_key() -> String {
     generate_string(API_KEY_SIZE)
+}
+
+/// Sanitises user input to mitigate against XSS attacks, etc.
+///
+/// Cleans `s` by removing any unauthorised elements, such as `<script>`
+/// tags, then returns the HTML-decoded value of the sanitised string
+/// to ensure that valid characters, such as ' ' or '\n', are preserved
+pub fn clean(s: &str) -> String {
+    decode_html_entities(&clean_text(&s)).to_string()
+}
+
+/// Sanitises a JSON object to mitigate against XSS attacks, etc.
+///
+/// Recursively sanitises `json` by applying `clean` to any `String` values,
+/// and by mapping `clean` across any `Array` or `Object` data structures.
+pub fn clean_json(json: Value) -> Value {
+    match json {
+        Value::String(s) => Value::String(clean(&s)),
+        Value::Array(v) => Value::Array(v.into_iter().map(|i| clean_json(i)).collect()),
+        Value::Object(m) => Value::Object(m.into_iter().map(|(k, v)| (k, clean_json(v))).collect()),
+        _ => json,
+    }
 }

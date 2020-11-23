@@ -1,10 +1,10 @@
 //! Defines routes specific to client operations
 
-use ammonia::clean_text;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
 use tide::Request;
 
 use crate::routes::response_from_json;
+use crypto::clean;
 use models::users::User;
 
 use crate::State;
@@ -22,7 +22,7 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
     let users = database.collection("users");
 
     let password = doc.get_str("password").unwrap();
-    let email = clean_text(doc.get_str("email").unwrap());
+    let email = clean(doc.get_str("email").unwrap());
     let id = doc.get_str("id").unwrap();
     let object_id = ObjectId::with_string(&id).unwrap();
 
