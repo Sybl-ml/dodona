@@ -5,26 +5,12 @@
 //! NodeInfo object for the node.
 
 use crate::node_end::NodePool;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
 use tokio::sync::RwLock;
 use utils::read_stream;
-
-/// Helper struct to send data to a Node to check if it is alive
-#[derive(Serialize, Deserialize, Debug)]
-struct Health {
-    alive: u8,
-}
-
-impl Health {
-    /// Creates a new Health instance
-    pub fn new(alive: u8) -> Self {
-        Self { alive }
-    }
-}
 
 /// Runner for health checking
 ///
@@ -65,12 +51,8 @@ pub async fn check_health(nodepool: Arc<NodePool>) {
 /// then it is treated as dead. If not then it is treated as alive.
 pub async fn heartbeat(stream: Arc<RwLock<TcpStream>>) -> bool {
     let mut stream_write = stream.write().await;
-    let check = Health::new(1);
-    if stream_write
-        .write(serde_json::to_string(&check).unwrap().as_bytes())
-        .await
-        .is_err()
-    {
+    let check = "{'alive': '1'}\0";
+    if stream_write.write(check.as_bytes()).await.is_err() {
         return false;
     }
 
