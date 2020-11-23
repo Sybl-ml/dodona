@@ -109,8 +109,10 @@ async fn test_dcn_using() {
     });
     tokio::time::sleep(Duration::new(4, 0)).await;
     if let Some((oid1, _)) = nodepool.get().await {
+        assert!(nodepool.is_using(&oid1).await);
         if let Some((oid2, _)) = nodepool.get().await {
             assert_ne!(oid1, oid2);
+            assert!(nodepool.is_using(&oid2).await);
         } else {
             assert!(false);
         }
