@@ -3125,6 +3125,7 @@ dependencies = [
  "csv",
  "log",
  "serde",
+ "tokio 0.3.4",
 ]
 
 [[package]]

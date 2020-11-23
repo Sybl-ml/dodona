@@ -8,6 +8,11 @@ use bzip2::Compression;
 use std::collections::HashMap;
 use std::io::Write;
 use std::str::FromStr;
+use std::time::Duration;
+use tokio::io::BufReader;
+use tokio::net::TcpStream;
+use tokio::prelude::*;
+use tokio::time::timeout;
 
 /// Represents what is returned from Analysis function
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -211,6 +216,25 @@ pub fn decompress_data(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     let mut write_decompress = BzDecoder::new(vec![]);
     write_decompress.write_all(data).unwrap();
     write_decompress.finish()
+}
+
+/// Read from buffer abstraction
+///
+/// passing in TcpStream and timing information, and reading from the stream until an
+/// EOF is found on the stream. This will constitute a whole message.
+pub async fn read_stream(buffer: &mut TcpStream, length: Duration) -> Vec<u8> {
+    let (dcn_read, _) = buffer.split();
+    let mut dcn_read = BufReader::new(dcn_read);
+
+    let mut dataset = vec![];
+    match timeout(length, dcn_read.read_until(0, &mut dataset)).await {
+        Ok(f) => match f {
+            Ok(n) => log::info!("Received bytes: {}", n),
+            _ => panic!("Stream disrupted"),
+        },
+        _ => panic!("Timeout Reached"),
+    };
+    dataset
 }
 
 #[cfg(test)]

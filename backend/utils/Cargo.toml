@@ -10,6 +10,7 @@ edition = "2018"
 csv = "1.1.4"
 log = "0.4.11"
 bzip2 = "0.4.1"
+tokio = { version = "0.3.4", features = ["full"] }
 
 [dependencies.serde]
 version = "1"
