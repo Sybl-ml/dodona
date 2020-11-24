@@ -4,7 +4,7 @@ use async_std::net::TcpStream;
 use async_std::prelude::*;
 use async_std::stream::StreamExt;
 use chrono::Utc;
-use mongodb::bson::{self, doc, document::Document, Binary};
+use mongodb::bson::{self, doc, document::Document};
 use tide::{Request, Response};
 
 use crate::routes::{check_project_exists, check_user_exists, response_from_json, tide_err};
@@ -170,6 +170,7 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
     log::info!("Project already has data: {}", project_has_data);
 
     let analysis = utils::analyse(&data);
+    let (train, predict) = utils::infer_train_and_predict(&data);
     let column_types = analysis.types;
     let data_head = analysis.header;
 
@@ -177,7 +178,9 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
 
     // Compress the input data
     let compressed =
-        utils::compress_data(&data).map_err(|_| tide_err(422, "failed compression"))?;
+        utils::compress_vec(&train).map_err(|_| tide_err(422, "failed compression"))?;
+    let compressed_predict =
+        utils::compress_vec(&predict).map_err(|_| tide_err(422, "failed compression"))?;
 
     let details = DatasetDetails {
         id: None,
@@ -187,14 +190,7 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
         column_types,
     };
 
-    let dataset = Dataset {
-        id: None,
-        project_id: Some(object_id.clone()),
-        dataset: Some(Binary {
-            subtype: bson::spec::BinarySubtype::Generic,
-            bytes: compressed,
-        }),
-    };
+    let dataset = Dataset::new(object_id.clone(), compressed, compressed_predict);
 
     // If the project has data, delete the existing information
     if project_has_data {
@@ -268,13 +264,23 @@ pub async fn get_data(req: Request<State>) -> tide::Result {
     let dataset = mongodb::bson::de::from_document::<Dataset>(document)
         .map_err(|_| tide_err(422, "failed to parse dataset"))?;
 
-    let comp_data = dataset.dataset.unwrap().bytes;
-    let decompressed =
-        utils::decompress_data(&comp_data).map_err(|_| tide_err(422, "failed decompression"))?;
-    let decomp_data = clean(std::str::from_utf8(&decompressed)?);
+    let comp_train = dataset.dataset.unwrap().bytes;
+    let comp_predict = dataset.predict.unwrap().bytes;
 
-    log::info!("Decompressed data: {:?}", &decomp_data);
-    Ok(response_from_json(doc! {"dataset": decomp_data}))
+    let decomp_train =
+        utils::decompress_data(&comp_train).map_err(|_| tide_err(422, "failed decompression"))?;
+    let decomp_predict =
+        utils::decompress_data(&comp_predict).map_err(|_| tide_err(422, "failed decompression"))?;
+
+    let train = clean(std::str::from_utf8(&decomp_train)?);
+    let predict = clean(std::str::from_utf8(&decomp_predict)?);
+
+    log::info!("Training data: {:?}", &train);
+    log::info!("Prediction data: {:?}", &predict);
+
+    Ok(response_from_json(
+        doc! {"dataset": train, "predict": predict},
+    ))
 }
 
 /// Begins the processing of data associated with a project.
