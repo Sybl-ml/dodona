@@ -1,6 +1,8 @@
 //! Defines routes specific to client operations
 
+use crate::State;
 use ammonia::clean_text;
+use async_std::stream::StreamExt;
 use base64;
 use mongodb::bson;
 use mongodb::bson::{doc, document::Document, oid::ObjectId, Binary};
@@ -10,8 +12,6 @@ use crate::routes::response_from_json;
 use crypto;
 use models::models::ClientModel;
 use models::users::{Client, User};
-
-use crate::State;
 
 /// Template for registering a new client
 ///
@@ -127,4 +127,33 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
     Ok(response_from_json(
         doc! {"challenge": base64::encode(challenge)},
     ))
+}
+
+/// Finds all the models related to a given user.
+///
+/// Given a user identifier, finds all the models in the database that the user owns. If the user
+/// doesn't exist or an invalid identifier is given, returns a 404 response.
+pub async fn get_user_models(req: Request<State>) -> tide::Result {
+    let database = req.state().client.database("sybl");
+    let models = database.collection("models");
+    let users = database.collection("users");
+
+    let user_id: String = req.param("user_id")?;
+
+    let object_id = match ObjectId::with_string(&user_id) {
+        Ok(id) => id,
+        Err(_) => return Ok(Response::builder(404).body("invalid user id").build()),
+    };
+
+    let found_user = users.find_one(doc! { "_id": &object_id}, None).await?;
+
+    if found_user.is_none() {
+        return Ok(Response::builder(404).body("user not found").build());
+    }
+
+    let filter = doc! { "user_id": &object_id };
+    let cursor = models.find(filter, None).await?;
+    let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
+
+    Ok(response_from_json(documents.unwrap()))
 }
