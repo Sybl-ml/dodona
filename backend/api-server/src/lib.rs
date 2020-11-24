@@ -108,6 +108,9 @@ pub async fn build_server() -> tide::Server<State> {
 
     let mut client_api = core_api.at("/clients");
     client_api.at("/register").post(routes::clients::register);
+    client_api
+        .at("/u/:user_id")
+        .get(routes::clients::get_user_models);
     client_api.at("/m/new").post(routes::clients::new_model);
 
     // CORS
