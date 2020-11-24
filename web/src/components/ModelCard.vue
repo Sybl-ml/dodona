@@ -14,7 +14,7 @@
             <b-col>
               <b-card-body>
                 <b-card-title>
-                  {{data.title}}
+                  {{data.name}}
                 </b-card-title>
                 <b-card-text>
                   <b-icon-clock-fill></b-icon-clock-fill>
