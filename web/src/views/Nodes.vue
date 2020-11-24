@@ -152,7 +152,6 @@ export default {
   name: "Nodes",
   data() {
     return {
-      user_data: [],
       model_data: [{"title":"Model 1", "status":"Locked"},{"title":"Model 2", "status":"Available"}, {"title":"Model 3", "status":"Disabled"}],
       auth_token: "",
       error: false,
@@ -166,8 +165,8 @@ export default {
   async mounted() {
     let user_id = $cookies.get("token");
     try {
-      let data = await axios.get(`http://localhost:3001/api/users/${user_id}`);
-      this.user_data = data.data;
+      let data = await axios.get(`http://localhost:3001/api/clients/u/${user_id}`);
+      this.model_data = data.data;
     } catch (err) {
       console.log(err);
     }

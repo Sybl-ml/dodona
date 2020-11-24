@@ -1,30 +1,14 @@
 //! Defines routes specific to client operations
-
-<<<<<<< HEAD
+//!
+use crate::State;
 use base64;
-use mongodb::bson::{doc, document::Document, oid::ObjectId};
+use mongodb::bson::{self, doc, document::Document, oid::ObjectId, Binary};
 use tide::{Request, Response};
 
-use crate::routes::response_from_json;
-use crypto::clean;
-use crypto::encoded_key_pair;
-use models::clients::Client;
-use models::users::User;
-=======
-use ammonia::clean_text;
-use base64;
-use mongodb::bson;
-use mongodb::bson::{doc, document::Document, oid::ObjectId, Binary};
-use tide::{Request, Response};
-
-use crate::routes::response_from_json;
+use crate::routes::{get_from_doc, response_from_json, tide_err};
 use crypto;
 use models::models::ClientModel;
 use models::users::{Client, User};
->>>>>>> added docs to new_model
-
-use crate::routes::{get_from_doc, response_from_json, tide_err};
-use crate::State;
 
 /// Template for registering a new client
 ///
@@ -141,4 +125,33 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
     Ok(response_from_json(
         doc! {"challenge": base64::encode(challenge)},
     ))
+}
+
+/// Finds all the models related to a given user.
+///
+/// Given a user identifier, finds all the models in the database that the user owns. If the user
+/// doesn't exist or an invalid identifier is given, returns a 404 response.
+pub async fn get_user_models(req: Request<State>) -> tide::Result {
+    let database = req.state().client.database("sybl");
+    let models = database.collection("models");
+    let users = database.collection("users");
+
+    let user_id: String = req.param("user_id")?;
+
+    let object_id = match ObjectId::with_string(&user_id) {
+        Ok(id) => id,
+        Err(_) => return Ok(Response::builder(404).body("invalid user id").build()),
+    };
+
+    let found_user = users.find_one(doc! { "_id": &object_id}, None).await?;
+
+    if found_user.is_none() {
+        return Ok(Response::builder(404).body("user not found").build());
+    }
+
+    let filter = doc! { "user_id": &object_id };
+    let cursor = models.find(filter, None).await?;
+    let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
+
+    Ok(response_from_json(documents.unwrap()))
 }
