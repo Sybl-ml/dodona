@@ -34,7 +34,7 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
 
     if let Some(user) = user {
         let peppered = format!("{}{}", password, pepper);
-        let verified = pbkdf2::pbkdf2_check(&peppered, &user.password).is_ok();
+        let verified = pbkdf2::pbkdf2_check(&peppered, &user.hash).is_ok();
 
         if verified && email == user.email {
             println!("Logged in: {:?}", user);

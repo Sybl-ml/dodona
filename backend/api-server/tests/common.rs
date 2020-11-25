@@ -1,12 +1,14 @@
 use std::str::FromStr;
 
-use chrono::TimeZone;
 use mongodb::bson::{self, document::Document, oid::ObjectId};
 
 use config::Environment;
+use models::projects::Project;
+use models::users::User;
 
 // Hardcoded random identifiers for various tests
 pub static MAIN_USER_ID: &str = "5f8ca1a80065f27b0089e8b5";
+pub static DELETE_UID: &str = "5fbe3239ea6cfda08a459622";
 pub static CREATES_PROJECT_UID: &str = "5f8d7b4f0017036400d60cab";
 pub static NON_EXISTENT_USER_ID: &str = "5f8de85300eb281e00306b0b";
 pub static DELETES_PROJECT_UID: &str = "5fb2b3fa9d524e99ac7f1c40";
@@ -63,48 +65,55 @@ pub fn initialise() {
     });
 }
 
+fn create_user_with_id(
+    id: &str,
+    email: &str,
+    hash: &str,
+    first_name: &str,
+    last_name: &str,
+) -> bson::Document {
+    let mut user = User::new(email, hash, first_name, last_name);
+
+    user.id = Some(ObjectId::with_string(id).unwrap());
+
+    bson::ser::to_document(&user).unwrap()
+}
+
+fn create_project_with_id(id: &str, name: &str, desc: &str, uid: &str) -> bson::Document {
+    let mut project = Project::new(name, desc, ObjectId::with_string(uid).unwrap());
+
+    project.id = Some(ObjectId::with_string(id).unwrap());
+
+    bson::ser::to_document(&project).unwrap()
+}
+
 async fn insert_test_users(database: &mongodb::Database) {
     let peppered = format!("password{}", std::env::var("PEPPER").unwrap());
     let pbkdf2_iterations = u32::from_str(&std::env::var("PBKDF2_ITERATIONS").unwrap()).unwrap();
     let hash = pbkdf2::pbkdf2_simple(&peppered, pbkdf2_iterations).unwrap();
 
-    let matthew = bson::doc! {
-        "_id": ObjectId::with_string(MAIN_USER_ID).unwrap(),
-        "email": "matthewsmith@email.com",
-        "password": hash,
-        "first_name": "Matthew",
-        "last_name": "Smith",
-        "api_key": "",
-        "client": false,
-        "credits" : 100,
-    };
-    let delete = bson::doc! {
-        "email": "delete@me.com",
-        "password": "password",
-        "first_name": "Delete",
-        "last_name": "Me",
-        "api_key": "",
-        "client": false,
-        "credits" : 100,
-    };
-    let creates_project = bson::doc! {
-        "_id": ObjectId::with_string(CREATES_PROJECT_UID).unwrap(),
-        "email": "creates@projects.com",
-        "password": "password",
-        "first_name": "Create",
-        "last_name": "Project",
-        "api_key": "",
-        "client": false,
-        "credits" : 100,
-    };
-    let deletes_project = bson::doc! {
-        "_id": ObjectId::with_string(DELETES_PROJECT_UID).unwrap(),
-        "email": "deletes@projects.com",
-        "password": "password",
-        "first_name": "Delete",
-        "last_name": "Project",
-        "api_key": "",
-    };
+    let matthew = create_user_with_id(
+        MAIN_USER_ID,
+        "matthewsmith@email.com",
+        &hash,
+        "Matthew",
+        "Smith",
+    );
+    let delete = create_user_with_id(DELETE_UID, "delete@me.com", "password", "Delete", "Me");
+    let creates_project = create_user_with_id(
+        CREATES_PROJECT_UID,
+        "creates@projects.com",
+        "password",
+        "Create",
+        "Project",
+    );
+    let deletes_project = create_user_with_id(
+        DELETES_PROJECT_UID,
+        "deletes@projects.com",
+        "password",
+        "Delete",
+        "Project",
+    );
 
     let users = database.collection("users");
     users.insert_one(matthew, None).await.unwrap();
@@ -114,46 +123,32 @@ async fn insert_test_users(database: &mongodb::Database) {
 }
 
 async fn insert_test_projects(database: &mongodb::Database) {
-    let project = bson::doc! {
-        "_id": ObjectId::with_string(MAIN_PROJECT_ID).unwrap(),
-        "name": "Test Project",
-        "description": "Test Description",
-        "date_created": bson::Bson::DateTime(chrono::Utc.timestamp_millis(0)),
-        "user_id": ObjectId::with_string(MAIN_USER_ID).unwrap(),
-        "status": "Ready"
-    };
-    let userless = bson::doc! {
-        "_id": ObjectId::with_string(USERLESS_PROJECT_ID).unwrap(),
-        "name": "Test Project",
-        "description": "Test Description",
-        "date_created": bson::Bson::DateTime(chrono::Utc.timestamp_millis(0)),
-        "user_id": ObjectId::with_string(NON_EXISTENT_USER_ID).unwrap(),
-        "status": "Ready"
-    };
-    let overwritten_data = bson::doc! {
-        "_id": ObjectId::with_string(OVERWRITTEN_DATA_PROJECT_ID).unwrap(),
-        "name": "Test Project",
-        "description": "Test Description",
-        "date_created": bson::Bson::DateTime(chrono::Utc.timestamp_millis(0)),
-        "user_id": ObjectId::with_string(NON_EXISTENT_USER_ID).unwrap(),
-        "status": "Ready",
-    };
-    let deletable = bson::doc! {
-        "_id": ObjectId::with_string(DELETABLE_PROJECT_ID).unwrap(),
-        "name": "Delete Project",
-        "description": "Test Description",
-        "date_created": bson::Bson::DateTime(chrono::Utc.timestamp_millis(0)),
-        "user_id": ObjectId::with_string(DELETES_PROJECT_UID).unwrap(),
-        "status": "Ready"
-    };
-    let editable = bson::doc! {
-        "_id": ObjectId::with_string(EDITABLE_PROJECT_ID).unwrap(),
-        "name": "Edit Project",
-        "description": "edit me",
-        "date_created": bson::Bson::DateTime(chrono::Utc.timestamp_millis(0)),
-        "user_id": ObjectId::with_string(MAIN_USER_ID).unwrap(),
-        "status": "Ready"
-    };
+    let project = create_project_with_id(
+        MAIN_PROJECT_ID,
+        "Test Project",
+        "Test Description",
+        MAIN_USER_ID,
+    );
+    let userless = create_project_with_id(
+        USERLESS_PROJECT_ID,
+        "Test Project",
+        "userless",
+        NON_EXISTENT_USER_ID,
+    );
+    let overwritten_data = create_project_with_id(
+        OVERWRITTEN_DATA_PROJECT_ID,
+        "Test Project",
+        "Test Description",
+        NON_EXISTENT_USER_ID,
+    );
+    let deletable = create_project_with_id(
+        DELETABLE_PROJECT_ID,
+        "Delete Project",
+        "Test Description",
+        DELETES_PROJECT_UID,
+    );
+    let editable =
+        create_project_with_id(EDITABLE_PROJECT_ID, "Edit Project", "edit me", MAIN_USER_ID);
 
     let projects = database.collection("projects");
     projects.insert_one(project, None).await.unwrap();

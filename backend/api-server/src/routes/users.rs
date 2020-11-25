@@ -6,7 +6,7 @@ use tide::Request;
 
 use crate::routes::{check_user_exists, response_from_json, tide_err};
 use crate::State;
-use crypto::{clean, generate_user_api_key};
+use crypto::clean;
 use models::users::User;
 
 /// Gets a user given their database identifier.
@@ -80,23 +80,11 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     log::info!("User does not exist, registering them now");
 
     let peppered = format!("{}{}", &password, &pepper);
-    let pbkdf2_hash = pbkdf2::pbkdf2_simple(&peppered, state.pbkdf2_iterations).unwrap();
+    let hash = pbkdf2::pbkdf2_simple(&peppered, state.pbkdf2_iterations).unwrap();
 
-    log::info!("Hash: {:?}", pbkdf2_hash);
+    log::info!("Hash: {:?}", hash);
 
-    // Generate an API key for the user
-    let api_key = generate_user_api_key();
-
-    let user = User {
-        id: None,
-        email,
-        password: pbkdf2_hash,
-        first_name,
-        last_name,
-        api_key,
-        client: false,
-        credits: 10,
-    };
+    let user = User::new(email, hash, first_name, last_name);
 
     let document = mongodb::bson::ser::to_document(&user).unwrap();
     let id = users.insert_one(document, None).await?.inserted_id;
@@ -165,8 +153,7 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
     let peppered = format!("{}{}", password, pepper);
 
     // Check the user's password
-    pbkdf2::pbkdf2_check(&peppered, &user.password)
-        .map_err(|_| tide_err(401, "invalid password"))?;
+    pbkdf2::pbkdf2_check(&peppered, &user.hash).map_err(|_| tide_err(401, "invalid password"))?;
 
     log::info!("Logged in: {:?}", user);
 
