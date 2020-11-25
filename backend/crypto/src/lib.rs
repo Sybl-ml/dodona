@@ -2,10 +2,10 @@
 
 use ammonia::clean_text;
 use html_escape::decode_html_entities;
+use openssl::pkey::Private;
+use openssl::rsa::{Padding, Rsa};
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
-use openssl::pkey::Private;
-use openssl::rsa::{Rsa, Padding};
 use serde_json::Value;
 
 const KEY_SIZE: u32 = 1024;
@@ -27,12 +27,16 @@ pub fn generate_key_pair() -> Rsa<Private> {
 pub fn encoded_key_pair() -> (String, String) {
     let rsa = generate_key_pair();
     (
-        String::from_utf8(rsa
-            .private_key_to_pem()
-            .expect("Unable to PKCS1-encode private key")).unwrap(),
-        String::from_utf8(rsa
-            .public_key_to_pem()
-            .expect("Unable to PKCS1-encode public key")).unwrap(),
+        String::from_utf8(
+            rsa.private_key_to_pem()
+                .expect("Unable to PKCS1-encode private key"),
+        )
+        .unwrap(),
+        String::from_utf8(
+            rsa.public_key_to_pem()
+                .expect("Unable to PKCS1-encode public key"),
+        )
+        .unwrap(),
     )
 }
 
@@ -64,7 +68,8 @@ pub fn generate_challenge() -> Vec<u8> {
 pub fn verify_challenge(challenge: Vec<u8>, response: Vec<u8>, public_key: String) -> bool {
     let rsa = Rsa::public_key_from_pem(public_key.as_bytes()).expect("Unable to parse public key");
     let mut buf = vec![0; rsa.size() as usize];
-    rsa.public_decrypt(&response, &mut buf, Padding::PKCS1).expect("Unable to verify signature");
+    rsa.public_decrypt(&response, &mut buf, Padding::PKCS1)
+        .expect("Unable to verify signature");
     &buf[..CHALLENGE_SIZE] == challenge
 }
 
