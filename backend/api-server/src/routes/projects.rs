@@ -249,8 +249,8 @@ pub async fn get_data(req: Request<State>) -> tide::Result {
     let dataset = mongodb::bson::de::from_document::<Dataset>(document)
         .map_err(|_| tide_err(422, "failed to parse dataset"))?;
 
-    let comp_train = dataset.dataset.unwrap().bytes;
-    let comp_predict = dataset.predict.unwrap().bytes;
+    let comp_train = dataset.dataset.expect("missing training dataset").bytes;
+    let comp_predict = dataset.predict.expect("missing prediction dataset").bytes;
 
     let decomp_train =
         utils::decompress_data(&comp_train).map_err(|_| tide_err(422, "failed decompression"))?;
