@@ -38,5 +38,5 @@ pub struct ClientModel {
     /// false if model has not been authenticated with private key
     pub authenticated: bool,
     /// The most recent challenge sent to client
-    pub challenge: Binary
+    pub challenge: Binary,
 }
