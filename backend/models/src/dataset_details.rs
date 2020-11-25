@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use chrono::Utc;
 use mongodb::bson;
 use mongodb::bson::oid::ObjectId;
 
@@ -19,4 +20,21 @@ pub struct DatasetDetails {
     pub head: Option<String>,
     /// The types of each column
     pub column_types: HashMap<String, utils::DatasetType>,
+}
+
+impl DatasetDetails {
+    /// Creates a new instance of [`DatasetDetails`].
+    pub fn new(
+        project_id: ObjectId,
+        head: String,
+        column_types: HashMap<String, utils::DatasetType>,
+    ) -> Self {
+        Self {
+            id: None,
+            project_id: Some(project_id),
+            date_created: bson::DateTime(Utc::now()),
+            head: Some(head),
+            column_types,
+        }
+    }
 }

@@ -3,8 +3,7 @@
 use async_std::net::TcpStream;
 use async_std::prelude::*;
 use async_std::stream::StreamExt;
-use chrono::Utc;
-use mongodb::bson::{self, doc, document::Document};
+use mongodb::bson::{doc, document::Document};
 use tide::{Request, Response};
 
 use crate::routes::{check_project_exists, check_user_exists, response_from_json, tide_err};
@@ -125,14 +124,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     let name = clean(doc.get_str("name")?);
     let description = clean(doc.get_str("description")?);
 
-    let project = Project {
-        id: None,
-        name: String::from(name),
-        description: String::from(description),
-        date_created: bson::DateTime(Utc::now()),
-        user_id: Some(user_id),
-        status: Status::Unfinished,
-    };
+    let project = Project::new(&name, &description, user_id);
 
     let document = mongodb::bson::ser::to_document(&project)?;
     let id = projects.insert_one(document, None).await?.inserted_id;
@@ -182,14 +174,7 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
     let compressed_predict =
         utils::compress_vec(&predict).map_err(|_| tide_err(422, "failed compression"))?;
 
-    let details = DatasetDetails {
-        id: None,
-        project_id: Some(object_id.clone()),
-        date_created: bson::DateTime(Utc::now()),
-        head: Some(data_head),
-        column_types,
-    };
-
+    let details = DatasetDetails::new(object_id.clone(), data_head, column_types);
     let dataset = Dataset::new(object_id.clone(), compressed, compressed_predict);
 
     // If the project has data, delete the existing information

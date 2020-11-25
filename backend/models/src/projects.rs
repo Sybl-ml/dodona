@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+use chrono::Utc;
 use mongodb::bson;
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
@@ -45,4 +46,18 @@ pub struct Project {
     pub user_id: Option<ObjectId>,
     /// The status of the project
     pub status: Status,
+}
+
+impl Project {
+    /// Creates a new instance of [`Project`].
+    pub fn new<T: Into<String>>(name: T, description: T, user_id: ObjectId) -> Self {
+        Self {
+            id: None,
+            name: name.into(),
+            description: description.into(),
+            date_created: bson::DateTime(Utc::now()),
+            user_id: Some(user_id),
+            status: Status::Unfinished,
+        }
+    }
 }

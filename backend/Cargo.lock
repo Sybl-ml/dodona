@@ -105,7 +105,6 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "bzip2",
- "chrono",
  "config",
  "crypto",
  "csv",
@@ -1713,6 +1712,8 @@ dependencies = [
 name = "models"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "crypto",
  "mongodb",
  "serde",
  "serde_json",

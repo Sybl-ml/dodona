@@ -38,7 +38,6 @@ async fn projects_can_be_fetched_for_a_user() -> tide::Result<()> {
 
     assert_eq!("Test Project", found.name);
     assert_eq!("Test Description", found.description);
-    assert_eq!(0, found.date_created.timestamp_millis());
 
     Ok(())
 }
@@ -89,7 +88,6 @@ async fn projects_can_be_fetched_by_identifier() -> tide::Result<()> {
 
     assert_eq!("Test Project", project_response.project.name);
     assert_eq!("Test Description", project_response.project.description);
-    assert_eq!(0, project_response.project.date_created.timestamp_millis());
 
     Ok(())
 }
