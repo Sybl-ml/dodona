@@ -1,29 +1,28 @@
 use crypto::*;
-use rsa::hash::Hash::SHA2_256;
-use rsa::{PaddingScheme, RSAPrivateKey, RSAPublicKey};
+use openssl::rsa::{Rsa, Padding};
 
 #[test]
 fn key_generation() {
-    let (private, public) = generate_key_pair();
-    assert_eq!(private.to_public_key(), public);
+    generate_key_pair();
 }
 
 #[test]
 fn key_encoding() {
     let (prv_str, pub_str) = encoded_key_pair();
-    let private = RSAPrivateKey::from_pkcs1(&prepare_pkcs1(prv_str).unwrap())
+    let private = Rsa::private_key_from_pem(prv_str.as_bytes())
         .expect("Unable to parse private key");
-    let public = RSAPublicKey::from_pkcs1(&prepare_pkcs1(pub_str).unwrap())
+    let public = Rsa::public_key_from_pem(pub_str.as_bytes())
         .expect("Unable to parse public key");
-    assert_eq!(private.to_public_key(), public);
+    assert_eq!(private.private_key_to_pem().unwrap(), prv_str.as_bytes());
+    assert_eq!(public.public_key_to_pem().unwrap(), pub_str.as_bytes());
 }
 
 #[test]
 fn challenge_response_protocol() {
-    let (private, public) = generate_key_pair();
+    let rsa = generate_key_pair();
     let challenge = generate_challenge();
-    let response = private
-        .sign(PaddingScheme::new_pkcs1v15_sign(Some(SHA2_256)), &challenge)
-        .expect("Unable to decrypt challenge");
-    assert!(verify_challenge(challenge, response, public));
+    let mut response = vec![0; rsa.size() as usize];
+    rsa.private_encrypt(&challenge, &mut response, Padding::PKCS1)
+        .expect("Unable to encrypt challenge");
+    assert!(verify_challenge(challenge, response, String::from_utf8(rsa.public_key_to_pem().unwrap()).unwrap()));
 }
