@@ -150,15 +150,11 @@ export default {
   name: "Nodes",
   data() {
     return {
-<<<<<<< HEAD
       model_data: [
         { title: "Model 1", status: "Locked" },
         { title: "Model 2", status: "Available" },
         { title: "Model 3", status: "Disabled" },
       ],
-=======
-      model_data: [{"title":"Model 1", "status":"Locked"},{"title":"Model 2", "status":"Available"}, {"title":"Model 3", "status":"Disabled"}],
->>>>>>> Get all model route created and synced to frontend
       auth_token: "",
       error: false,
       cli_code: "git clone www.sybl.com/cli",
@@ -171,13 +167,9 @@ export default {
   async mounted() {
     let user_id = $cookies.get("token");
     try {
-<<<<<<< HEAD
       let data = await axios.get(
         `http://localhost:3001/api/clients/u/${user_id}`
       );
-=======
-      let data = await axios.get(`http://localhost:3001/api/clients/u/${user_id}`);
->>>>>>> Get all model route created and synced to frontend
       this.model_data = data.data;
     } catch (err) {
       console.log(err);

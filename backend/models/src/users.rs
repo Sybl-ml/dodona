@@ -39,6 +39,8 @@ impl User {
             credits: 10,
         }
     }
+}
+
 /// Defines the information that should be stored with a client in the database.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Client {

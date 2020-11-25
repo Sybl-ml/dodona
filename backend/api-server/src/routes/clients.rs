@@ -1,11 +1,9 @@
 //! Defines routes specific to client operations
 use crate::State;
-use base64;
 use mongodb::bson::{self, doc, document::Document, oid::ObjectId, Binary};
 use tide::{Request, Response};
 
 use crate::routes::{get_from_doc, response_from_json, tide_err};
-use crypto;
 use models::models::ClientModel;
 use models::users::{Client, User};
 
@@ -70,8 +68,6 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
     } else {
         println!("User ID does not exist");
         Ok(Response::builder(404).body("User not found").build())
-<<<<<<< HEAD
-
     }
 }
 
@@ -148,13 +144,7 @@ pub async fn get_user_models(req: Request<State>) -> tide::Result {
 
     if found_user.is_none() {
         return Ok(Response::builder(404).body("user not found").build());
-=======
-        Ok(Response::builder(404)
-                .body("User not found")
-                .build())
->>>>>>> corrected priv and pub keys
-=======
->>>>>>> added docs to new_model
+        Ok(Response::builder(404).body("User not found").build())
     }
 
     let filter = doc! { "user_id": &object_id };
