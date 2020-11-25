@@ -1,18 +1,14 @@
 //! Contains cryptographic functions used by the web server
 
 use ammonia::clean_text;
-use base64::decode;
 use html_escape::decode_html_entities;
+use openssl::pkey::Private;
+use openssl::rsa::{Padding, Rsa};
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
-use rsa::hash::Hash::SHA2_256;
-use rsa::{
-    PaddingScheme, PrivateKeyPemEncoding, PublicKey, PublicKeyPemEncoding, RSAPrivateKey,
-    RSAPublicKey,
-};
 use serde_json::Value;
 
-const KEY_SIZE: usize = 1024;
+const KEY_SIZE: u32 = 1024;
 const CHALLENGE_SIZE: usize = 32;
 const API_KEY_SIZE: usize = 32;
 
@@ -20,11 +16,8 @@ const API_KEY_SIZE: usize = 32;
 ///
 /// Generates a cryptographically secure random RSA private key of size `KEY_SIZE`,
 /// calculates its corresponding RSA public key and returns both values
-pub fn generate_key_pair() -> (RSAPrivateKey, RSAPublicKey) {
-    let mut r = thread_rng();
-    let private = RSAPrivateKey::new(&mut r, KEY_SIZE).expect("Unable to generate private key");
-    let public = RSAPublicKey::from(&private);
-    (private, public)
+pub fn generate_key_pair() -> Rsa<Private> {
+    Rsa::generate(KEY_SIZE).expect("Unable to generate private key")
 }
 
 /// Returns a PKCS1-encoded RSA key pair
@@ -32,28 +25,19 @@ pub fn generate_key_pair() -> (RSAPrivateKey, RSAPublicKey) {
 /// Generates a new RSA key pair and encodes key values into a tuple
 /// of strings using PKCS1 encoding
 pub fn encoded_key_pair() -> (String, String) {
-    let (private, public) = generate_key_pair();
+    let rsa = generate_key_pair();
     (
-        private
-            .to_pem_pkcs1()
-            .expect("Unable to PKCS1-encode private key"),
-        public
-            .to_pem_pkcs1()
-            .expect("Unable to PKCS1-encode public key"),
+        String::from_utf8(
+            rsa.private_key_to_pem()
+                .expect("Unable to PKCS1-encode private key"),
+        )
+        .unwrap(),
+        String::from_utf8(
+            rsa.public_key_to_pem()
+                .expect("Unable to PKCS1-encode public key"),
+        )
+        .unwrap(),
     )
-}
-
-/// Returns an encoded key with PKCS1 padding removed
-///
-/// Removes PKCS1 padding from `key` and decodes its value into
-/// a binary vector such that it can be parsed as an RSA key.
-/// Returns None if `key` cannot be decoded from Base64
-pub fn prepare_pkcs1(key: String) -> Option<Vec<u8>> {
-    let key_str = key
-        .lines()
-        .filter(|l| !l.starts_with("-"))
-        .collect::<String>();
-    decode(key_str.as_bytes()).ok()
 }
 
 /// Returns a random string of size `n`
@@ -81,14 +65,12 @@ pub fn generate_challenge() -> Vec<u8> {
 /// Given a `challenge`, a `response` and an associated `public_key`,
 /// verify the `challenge` by decrypting the `response` using the `public_key`
 /// and asserting that the `challenge` and the decrypted `response` match
-pub fn verify_challenge(challenge: Vec<u8>, response: Vec<u8>, public_key: RSAPublicKey) -> bool {
-    public_key
-        .verify(
-            PaddingScheme::new_pkcs1v15_sign(Some(SHA2_256)),
-            &challenge,
-            &response,
-        )
-        .is_ok()
+pub fn verify_challenge(challenge: Vec<u8>, response: Vec<u8>, public_key: String) -> bool {
+    let rsa = Rsa::public_key_from_pem(public_key.as_bytes()).expect("Unable to parse public key");
+    let mut buf = vec![0; rsa.size() as usize];
+    rsa.public_decrypt(&response, &mut buf, Padding::PKCS1)
+        .expect("Unable to verify signature");
+    &buf[..CHALLENGE_SIZE] == challenge
 }
 
 /// Generates a user API key of `API_KEY_SIZE` alphanumeric characters.
