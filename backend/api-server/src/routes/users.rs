@@ -173,7 +173,7 @@ pub async fn delete(mut req: Request<State>) -> tide::Result {
     let users = database.collection("users");
 
     let object_id = clean(get_from_doc(&doc, "id")?);
-    let id = ObjectId::with_string(&object_id).unwrap();
+    let id = ObjectId::with_string(&object_id).map_err(|_| tide_err(422, "invalid object id"))?;
     let filter = doc! {"_id": id};
 
     users.find_one_and_delete(filter, None).await.unwrap();
