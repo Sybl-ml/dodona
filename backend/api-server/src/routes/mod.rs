@@ -4,7 +4,7 @@ use std::convert::TryFrom;
 
 use crypto::clean_json;
 use mongodb::{
-    bson::{doc, oid::ObjectId},
+    bson::{doc, document::Document, oid::ObjectId},
     Collection,
 };
 use tide::{http::mime, Response};
@@ -86,4 +86,11 @@ pub async fn check_project_exists(
         .ok_or_else(|| tide_err(404, "project not found"))?;
 
     Ok(object_id)
+}
+
+/// Gets a key from a document, or returns a 422 error if it doesn't exist.
+pub fn get_from_doc<'a>(document: &'a Document, key: &'a str) -> Result<&'a str, tide::Error> {
+    document
+        .get_str(key)
+        .map_err(|_| tide_err(422, "missing key"))
 }

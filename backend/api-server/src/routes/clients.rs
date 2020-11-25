@@ -3,10 +3,10 @@
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
 use tide::Request;
 
-use crate::routes::response_from_json;
 use crypto::clean;
 use models::users::User;
 
+use crate::routes::{get_from_doc, response_from_json, tide_err};
 use crate::State;
 
 /// Template for registering a new client
@@ -21,10 +21,11 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
 
     let users = database.collection("users");
 
-    let password = doc.get_str("password").unwrap();
-    let email = clean(doc.get_str("email").unwrap());
-    let id = doc.get_str("id").unwrap();
-    let object_id = ObjectId::with_string(&id).unwrap();
+    let password = get_from_doc(&doc, "password")?;
+    let email = clean(get_from_doc(&doc, "email")?);
+    let id = get_from_doc(&doc, "id")?;
+
+    let object_id = ObjectId::with_string(&id).map_err(|_| tide_err(422, "invalid object id"))?;
 
     let filter = doc! { "_id": object_id };
     let user = users
