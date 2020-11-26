@@ -59,7 +59,6 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
             id: Some(ObjectId::new()),
             user_id: object_id,
             public_key,
-            private_key: private_key.clone(),
         };
         // store client object in db
         let document = mongodb::bson::ser::to_document(&client).unwrap();
@@ -171,10 +170,6 @@ pub async fn verify_challenge(mut req: Request<State>) -> tide::Result {
     // needs converting to Vec<u8>
     let challenge = new_model.challenge.bytes;
     println!("Challenge: {:?}", &challenge);
-
-    // Test sign
-    // let signature = crypto::sign_challenge(client.private_key, challenge);
-    // println!("signature: {:?}", &signature);
 
     // needs converting to Vec<u8>
     let challenge_response = base64::decode(get_from_doc(&doc, "challenge_response")?).unwrap();
