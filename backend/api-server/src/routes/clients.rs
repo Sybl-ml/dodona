@@ -108,7 +108,6 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
 
     // Generate challenge
     let challenge = crypto::generate_challenge();
-    println!("Generated challenge: {:?}", &challenge);
     // Make new model
     let temp_model = ClientModel {
         id: Some(ObjectId::new()),
@@ -133,6 +132,12 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
     ))
 }
 
+/// Verifies a challenge response from a model
+///
+/// Given a `new_model`, a `challenge_response` and a `challenge`, verifies that the
+/// `challenge_response` matches the `challenge` with respect to the `client`'s public key.
+/// Returns a new access token for the `new_model` if verification is successful.
+/// Returns a 404 error if the `client` or `model` is not found, or 401 if verification fails.
 pub async fn verify_challenge(mut req: Request<State>) -> tide::Result {
     let doc: Document = req.body_json().await?;
     let database = req.state().client.database("sybl");
@@ -169,17 +174,20 @@ pub async fn verify_challenge(mut req: Request<State>) -> tide::Result {
 
     // needs converting to Vec<u8>
     let challenge = new_model.challenge.bytes;
-    println!("Challenge: {:?}", &challenge);
 
     // needs converting to Vec<u8>
     let challenge_response = base64::decode(get_from_doc(&doc, "challenge_response")?).unwrap();
-    println!("{:?}", challenge_response);
 
-    if crypto::verify_challenge(challenge, challenge_response, public_key) {
-        println!("good");
-    } else {
-        println!("Bad");
+    if !crypto::verify_challenge(challenge, challenge_response, public_key) {
+        return Err(tide_err(
+            401,
+            "Invalid signature, please use OpenSSL to sign the provided challenge \
+            with your private key and the SHA256 message digest function",
+        ));
     }
+
+    // TODO: Set the model to authenticated in the database
+    // TODO: Return an authentication token for the model
 
     // get model with model name
     Ok(Response::builder(404).build())
