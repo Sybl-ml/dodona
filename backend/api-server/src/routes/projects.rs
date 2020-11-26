@@ -3,8 +3,7 @@
 use async_std::net::TcpStream;
 use async_std::prelude::*;
 use async_std::stream::StreamExt;
-use chrono::Utc;
-use mongodb::bson::{self, doc, document::Document, Binary};
+use mongodb::bson::{doc, document::Document};
 use tide::{Request, Response};
 
 use crate::routes::{check_project_exists, check_user_exists, response_from_json, tide_err};
@@ -125,14 +124,7 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     let name = clean(doc.get_str("name")?);
     let description = clean(doc.get_str("description")?);
 
-    let project = Project {
-        id: None,
-        name: String::from(name),
-        description: String::from(description),
-        date_created: bson::DateTime(Utc::now()),
-        user_id: Some(user_id),
-        status: Status::Unfinished,
-    };
+    let project = Project::new(&name, &description, user_id);
 
     let document = mongodb::bson::ser::to_document(&project)?;
     let id = projects.insert_one(document, None).await?.inserted_id;
@@ -170,6 +162,7 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
     log::info!("Project already has data: {}", project_has_data);
 
     let analysis = utils::analyse(&data);
+    let (train, predict) = utils::infer_train_and_predict(&data);
     let column_types = analysis.types;
     let data_head = analysis.header;
 
@@ -177,24 +170,12 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
 
     // Compress the input data
     let compressed =
-        utils::compress_data(&data).map_err(|_| tide_err(422, "failed compression"))?;
+        utils::compress_vec(&train).map_err(|_| tide_err(422, "failed compression"))?;
+    let compressed_predict =
+        utils::compress_vec(&predict).map_err(|_| tide_err(422, "failed compression"))?;
 
-    let details = DatasetDetails {
-        id: None,
-        project_id: Some(object_id.clone()),
-        date_created: bson::DateTime(Utc::now()),
-        head: Some(data_head),
-        column_types,
-    };
-
-    let dataset = Dataset {
-        id: None,
-        project_id: Some(object_id.clone()),
-        dataset: Some(Binary {
-            subtype: bson::spec::BinarySubtype::Generic,
-            bytes: compressed,
-        }),
-    };
+    let details = DatasetDetails::new(object_id.clone(), data_head, column_types);
+    let dataset = Dataset::new(object_id.clone(), compressed, compressed_predict);
 
     // If the project has data, delete the existing information
     if project_has_data {
@@ -268,13 +249,23 @@ pub async fn get_data(req: Request<State>) -> tide::Result {
     let dataset = mongodb::bson::de::from_document::<Dataset>(document)
         .map_err(|_| tide_err(422, "failed to parse dataset"))?;
 
-    let comp_data = dataset.dataset.unwrap().bytes;
-    let decompressed =
-        utils::decompress_data(&comp_data).map_err(|_| tide_err(422, "failed decompression"))?;
-    let decomp_data = clean(std::str::from_utf8(&decompressed)?);
+    let comp_train = dataset.dataset.expect("missing training dataset").bytes;
+    let comp_predict = dataset.predict.expect("missing prediction dataset").bytes;
 
-    log::info!("Decompressed data: {:?}", &decomp_data);
-    Ok(response_from_json(doc! {"dataset": decomp_data}))
+    let decomp_train =
+        utils::decompress_data(&comp_train).map_err(|_| tide_err(422, "failed decompression"))?;
+    let decomp_predict =
+        utils::decompress_data(&comp_predict).map_err(|_| tide_err(422, "failed decompression"))?;
+
+    let train = clean(std::str::from_utf8(&decomp_train)?);
+    let predict = clean(std::str::from_utf8(&decomp_predict)?);
+
+    log::info!("Training data: {:?}", &train);
+    log::info!("Prediction data: {:?}", &predict);
+
+    Ok(response_from_json(
+        doc! {"dataset": train, "predict": predict},
+    ))
 }
 
 /// Begins the processing of data associated with a project.

@@ -4,9 +4,9 @@ use async_std::stream::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
 use tide::Request;
 
-use crate::routes::{check_user_exists, response_from_json, tide_err};
+use crate::routes::{check_user_exists, get_from_doc, response_from_json, tide_err};
 use crate::State;
-use crypto::{clean, generate_user_api_key};
+use crypto::clean;
 use models::users::User;
 
 /// Gets a user given their database identifier.
@@ -60,10 +60,10 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     let database = state.client.database("sybl");
     let users = database.collection("users");
 
-    let password = doc.get_str("password").unwrap();
-    let email = clean(doc.get_str("email").unwrap());
-    let first_name = clean(doc.get_str("firstName").unwrap());
-    let last_name = clean(doc.get_str("lastName").unwrap());
+    let password = get_from_doc(&doc, "password")?;
+    let email = clean(get_from_doc(&doc, "email")?);
+    let first_name = clean(get_from_doc(&doc, "firstName")?);
+    let last_name = clean(get_from_doc(&doc, "lastName")?);
 
     log::info!("Email: {}, Password: {}", email, password);
     log::info!("Name: {} {}", first_name, last_name);
@@ -80,23 +80,12 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
     log::info!("User does not exist, registering them now");
 
     let peppered = format!("{}{}", &password, &pepper);
-    let pbkdf2_hash = pbkdf2::pbkdf2_simple(&peppered, state.pbkdf2_iterations).unwrap();
+    let hash = pbkdf2::pbkdf2_simple(&peppered, state.pbkdf2_iterations)
+        .map_err(|_| tide_err(500, "failed to get random bytes"))?;
 
-    log::info!("Hash: {:?}", pbkdf2_hash);
+    log::info!("Hash: {:?}", hash);
 
-    // Generate an API key for the user
-    let api_key = generate_user_api_key();
-
-    let user = User {
-        id: None,
-        email,
-        password: pbkdf2_hash,
-        first_name,
-        last_name,
-        api_key,
-        client: false,
-        credits: 10,
-    };
+    let user = User::new(email, hash, first_name, last_name);
 
     let document = mongodb::bson::ser::to_document(&user).unwrap();
     let id = users.insert_one(document, None).await?.inserted_id;
@@ -116,7 +105,7 @@ pub async fn edit(mut req: Request<State>) -> tide::Result {
     let users = database.collection("users");
 
     let doc: Document = req.body_json().await?;
-    let user_id = clean(doc.get_str("id").unwrap());
+    let user_id = clean(get_from_doc(&doc, "id")?);
     let object_id = check_user_exists(&user_id, &users).await?;
 
     // Get the user from the database
@@ -150,8 +139,8 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
 
     let users = database.collection("users");
 
-    let password = doc.get_str("password").unwrap();
-    let email = clean(doc.get_str("email").unwrap());
+    let password = get_from_doc(&doc, "password")?;
+    let email = clean(get_from_doc(&doc, "email")?);
 
     println!("{}, {}", &email, &password);
 
@@ -165,8 +154,7 @@ pub async fn login(mut req: Request<State>) -> tide::Result {
     let peppered = format!("{}{}", password, pepper);
 
     // Check the user's password
-    pbkdf2::pbkdf2_check(&peppered, &user.password)
-        .map_err(|_| tide_err(401, "invalid password"))?;
+    pbkdf2::pbkdf2_check(&peppered, &user.hash).map_err(|_| tide_err(401, "invalid password"))?;
 
     log::info!("Logged in: {:?}", user);
 
@@ -184,8 +172,8 @@ pub async fn delete(mut req: Request<State>) -> tide::Result {
     let database = &state.client.database("sybl");
     let users = database.collection("users");
 
-    let object_id = clean(doc.get_str("id").unwrap());
-    let id = ObjectId::with_string(&object_id).unwrap();
+    let object_id = clean(get_from_doc(&doc, "id")?);
+    let id = ObjectId::with_string(&object_id).map_err(|_| tide_err(422, "invalid object id"))?;
     let filter = doc! {"_id": id};
 
     users.find_one_and_delete(filter, None).await.unwrap();

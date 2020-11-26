@@ -3,6 +3,7 @@
 #[macro_use]
 extern crate serde;
 
+
 use anyhow::{anyhow, Result};
 use bzip2::write::{BzDecoder, BzEncoder};
 use bzip2::Compression;
@@ -14,6 +15,9 @@ use tokio::io::BufReader;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
 use tokio::time::timeout;
+
+use bzip2::write::{BzDecoder, BzEncoder};
+use bzip2::Compression;
 
 /// Represents what is returned from Analysis function
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -123,6 +127,31 @@ pub fn infer_dataset_types<R: std::io::Read>(
     Ok(types.into_iter().map(|(_, v)| (v.0, v.1)).collect())
 }
 
+/// Infers the training and prediction data based on whether the last column is empty.
+///
+/// This method will include the header of the data in both results, as this allows them to be used
+/// more easily later on. It does not allocate new strings either, meaning it should function well
+/// even with large datasets.
+pub fn infer_train_and_predict(data: &str) -> (Vec<&str>, Vec<&str>) {
+    let mut lines = data.split('\n');
+    let header = lines.next().unwrap();
+
+    // Include the header in both
+    let mut train = vec![header];
+    let mut predict = vec![header];
+
+    // Iterate the rest of the records
+    for record in lines {
+        if record.split(',').last().unwrap().is_empty() {
+            predict.push(record);
+        } else {
+            train.push(record);
+        }
+    }
+
+    (train, predict)
+}
+
 /// Returns a string containing CSV headers
 ///
 /// When a CSV dataset is being used, a user may want to form a string which
@@ -185,6 +214,22 @@ pub fn parse_body<R: std::io::Read>(reader: &mut csv::Reader<R>, n: usize) -> St
 pub fn compress_data(data: &str) -> Result<Vec<u8>, std::io::Error> {
     let mut write_compress = BzEncoder::new(vec![], Compression::best());
     write_compress.write(data.as_bytes()).unwrap();
+    write_compress.finish()
+}
+
+/// Compresses a vector of byte arrays into a single compression stream.
+pub fn compress_vec(data: &[&str]) -> Result<Vec<u8>, std::io::Error> {
+    let mut write_compress = BzEncoder::new(vec![], Compression::best());
+
+    for (i, e) in data.iter().enumerate() {
+        write_compress.write(e.as_bytes()).unwrap();
+
+        // Write newlines in for decompression
+        if i != data.len() - 1 {
+            write_compress.write(&[b'\n']).unwrap();
+        }
+    }
+
     write_compress.finish()
 }
 
@@ -254,11 +299,39 @@ mod tests {
     }
 
     #[test]
+    fn train_and_predict_data_can_be_inferred() {
+        let dataset = "age,location\n20,Coventry\n20,\n21,Leamington";
+        let (data, predict) = infer_train_and_predict(dataset);
+
+        assert_eq!(data, vec!["age,location", "20,Coventry", "21,Leamington"]);
+        assert_eq!(predict, vec!["age,location", "20,"])
+    }
+
+    #[test]
     fn compression_full_stack() {
         let data = "Hello World!";
         let comp_data: Vec<u8> = compress_data(data).unwrap();
         let decomp_vec = decompress_data(&comp_data).unwrap();
         let decomp_data = std::str::from_utf8(&decomp_vec).unwrap();
         assert_eq!(data, decomp_data);
+    }
+
+    #[test]
+    fn vectors_can_be_compressed() {
+        let dataset = "age,location\n20,Coventry\n20,\n21,Leamington";
+        let (data, predict) = infer_train_and_predict(dataset);
+
+        let comp = compress_vec(&data).unwrap();
+        let decomp = decompress_data(&comp).unwrap();
+
+        assert_eq!(
+            std::str::from_utf8(&decomp).unwrap(),
+            "age,location\n20,Coventry\n21,Leamington"
+        );
+
+        let comp = compress_vec(&predict).unwrap();
+        let decomp = decompress_data(&comp).unwrap();
+
+        assert_eq!(std::str::from_utf8(&decomp).unwrap(), "age,location\n20,");
     }
 }

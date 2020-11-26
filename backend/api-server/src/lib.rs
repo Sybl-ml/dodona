@@ -66,7 +66,8 @@ pub async fn build_server() -> tide::Server<State> {
         client: Arc::new(client),
         db_name: Arc::new(String::from("sybl")),
         pepper: Arc::new(pepper),
-        pbkdf2_iterations: u32::from_str(&pbkdf2_iterations).unwrap(),
+        pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)
+            .expect("PBKDF2_ITERATIONS must be parseable as an integer"),
     };
 
     let mut app = tide::with_state(engine);
