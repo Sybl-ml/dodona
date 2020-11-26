@@ -74,9 +74,6 @@ pub fn verify_challenge(challenge: Vec<u8>, response: Vec<u8>, public_key: Strin
     let rsa = Rsa::public_key_from_pem(public_key.as_bytes()).expect("Unable to parse public key");
     let keypair = PKey::from_rsa(rsa).unwrap();
     let mut verifier = Verifier::new(MessageDigest::sha256(), &keypair).unwrap();
-
-    // verifier.set_rsa_padding(Padding::PKCS1_PSS).unwrap();
-    // verifier.update(&challenge).unwrap();
     verifier.verify_oneshot(&response, &challenge).unwrap()
 }
 
