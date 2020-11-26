@@ -20,6 +20,7 @@ use tokio::sync::mpsc::{self, Receiver, Sender};
 pub mod health;
 pub mod interface_end;
 pub mod job_end;
+pub mod messages;
 pub mod node_end;
 
 /// Main runner function for the DCL
@@ -37,9 +38,9 @@ pub async fn run() -> Result<()> {
             .unwrap();
     let node_socket =
         u16::from_str(&env::var("NODE_SOCKET").expect("NODE_SOCKET must be set")).unwrap();
-    let health = u64::from_str(&env::var("health").expect("HEALTH must be set")).unwrap();
+    let health = u64::from_str(&env::var("HEALTH").expect("HEALTH must be set")).unwrap();
     let job_timeout =
-        u64::from_str(&env::var("job_timeout").expect("JOB_TIMEOUT must be set")).unwrap();
+        u64::from_str(&env::var("JOB_TIMEOUT").expect("JOB_TIMEOUT must be set")).unwrap();
     let mut client_options = ClientOptions::parse(&conn_str).await.unwrap();
     client_options.app_name = Some(app_name);
     let client = Arc::new(

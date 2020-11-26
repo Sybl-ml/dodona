@@ -1,3 +1,4 @@
+use dcl::messages::Message;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
@@ -41,7 +42,10 @@ async fn test_node_connect_and_hb() {
         let mut buffer = Vec::new();
         match stream.read(&mut buffer).await {
             Ok(_) => {
-                stream.write("1".as_bytes()).await.unwrap();
+                stream
+                    .write(Message::send(Message::Alive).as_bytes())
+                    .await
+                    .unwrap();
             }
             _ => (),
         };
@@ -91,7 +95,10 @@ async fn test_dcn_using() {
         let mut buffer = Vec::new();
         match stream.read(&mut buffer).await {
             Ok(_) => {
-                stream.write("1".as_bytes()).await.unwrap();
+                stream
+                    .write(Message::send(Message::Alive).as_bytes())
+                    .await
+                    .unwrap();
             }
             _ => (),
         };
@@ -105,7 +112,10 @@ async fn test_dcn_using() {
         let mut buffer = Vec::new();
         match stream.read(&mut buffer).await {
             Ok(_) => {
-                stream.write("1".as_bytes()).await.unwrap();
+                stream
+                    .write(Message::send(Message::Alive).as_bytes())
+                    .await
+                    .unwrap();
             }
             _ => (),
         };

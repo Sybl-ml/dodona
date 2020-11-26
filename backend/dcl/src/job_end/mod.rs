@@ -1,12 +1,13 @@
 //! Part of DCL that takes a DCN and a dataset and comunicates with node
 
+use crate::messages::Message;
 use anyhow::Result;
+use std::str::from_utf8;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::io::BufReader;
 use tokio::prelude::*;
 use tokio::sync::mpsc::Receiver;
-use tokio::time::Instant;
+use utils::read_stream;
 
 use crate::node_end::NodePool;
 
@@ -22,7 +23,6 @@ pub async fn run(
     job_timeout: u64,
 ) -> Result<()> {
     let timeout = Duration::from_secs(job_timeout);
-    let start = Instant::now();
     log::info!("RUNNING JOB END");
 
     while let Some(msg) = rx.recv().await {
@@ -32,30 +32,17 @@ pub async fn run(
         tokio::spawn(async move {
             if let Some((key, dcn)) = np_clone.get().await {
                 let mut dcn_stream = dcn.write().await;
-                let (dcn_read, mut dcn_write) = dcn_stream.split();
-
-                dcn_write.write(msg.as_bytes()).await.unwrap();
-                let mut dcn_read = BufReader::new(dcn_read);
-
-                let mut dataset: String = String::new();
-                loop {
-                    let result = dcn_read.read_line(&mut dataset).await;
-                    match result {
-                        Ok(0) => break,
-                        Ok(n) => {
-                            log::info!("Received {} bytes", n);
-                        }
-                        _ => {
-                            if Instant::now().duration_since(start) <= timeout {
-                                tokio::time::sleep(Duration::new(20, 0)).await;
-                            } else {
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                log::info!("Received Data: {}", &dataset);
+                // This is temporary, planning on creating seperate place for defining messages
+                dcn_stream
+                    .write(Message::send(Message::JobConfig).as_bytes())
+                    .await
+                    .unwrap();
+                let check_res: Vec<u8> =
+                    read_stream(&mut dcn_stream, timeout.clone()).await.unwrap();
+                log::info!("Check Result: {}", from_utf8(&check_res).unwrap());
+                dcn_stream.write(msg.as_bytes()).await.unwrap();
+                let dataset: Vec<u8> = read_stream(&mut dcn_stream, timeout.clone()).await.unwrap();
+                log::info!("Computed Data: {}", from_utf8(&dataset).unwrap());
                 np_clone.end(key).await;
             }
         });
