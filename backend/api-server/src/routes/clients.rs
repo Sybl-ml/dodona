@@ -32,43 +32,45 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
         .await?
         .map(|doc| mongodb::bson::de::from_document::<User>(doc).unwrap());
 
-    if let Some(user) = user {
-        let peppered = format!("{}{}", password, pepper);
-        let verified = pbkdf2::pbkdf2_check(&peppered, &user.hash).is_ok();
+    let user = user.ok_or_else(|| tide_err(404, "failed to find user"))?;
 
-        // Entered and stored email and password match
-        if verified && email == user.email {
-            // generate public and private key pair
-            let (private_key, public_key) = crypto::encoded_key_pair();
-            // create a new client object
-            users
-                .update_one(
-                    doc! { "_id": &object_id },
-                    doc! {"$set": {"client": true}},
-                    None,
-                )
-                .await?;
+    if user.client {
+        return Ok(response_from_json(doc! {"privKey": "null"}));
+    }
 
-            // update user as client
-            let client = Client {
-                id: Some(ObjectId::new()),
-                user_id: Some(object_id),
-                public_key,
-            };
-            // store client object in db
-            let document = mongodb::bson::ser::to_document(&client).unwrap();
-            clients.insert_one(document, None).await?;
+    let peppered = format!("{}{}", password, pepper);
+    let verified = pbkdf2::pbkdf2_check(&peppered, &user.hash).is_ok();
 
-            // reponse with private key
-            Ok(response_from_json(doc! {"privKey": private_key}))
-        } else {
-            Ok(Response::builder(403)
-                .body("email or password incorrect")
-                .build())
-        }
+    // Entered and stored email and password match
+    if verified && email == user.email {
+        // generate public and private key pair
+        let (private_key, public_key) = crypto::encoded_key_pair();
+        // create a new client object
+        users
+            .update_one(
+                doc! { "_id": &object_id },
+                doc! {"$set": {"client": true}},
+                None,
+            )
+            .await?;
+
+        // update user as client
+        let client = Client {
+            id: Some(ObjectId::new()),
+            user_id: object_id,
+            public_key,
+            private_key: private_key.clone(),
+        };
+        // store client object in db
+        let document = mongodb::bson::ser::to_document(&client).unwrap();
+        clients.insert_one(document, None).await?;
+
+        // reponse with private key
+        Ok(response_from_json(doc! {"privKey": private_key}))
     } else {
-        println!("User ID does not exist");
-        Ok(Response::builder(404).body("User not found").build())
+        Ok(Response::builder(403)
+            .body("email or password incorrect")
+            .build())
     }
 }
 
@@ -85,6 +87,7 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
     let models = database.collection("models");
 
     let email = crypto::clean(doc.get_str("email").unwrap());
+    let model_name = get_from_doc(&doc, "model_name")?.to_string();
 
     let filter = doc! { "email": &email };
     let user = match users.find_one(filter, None).await? {
@@ -99,13 +102,19 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
             .build());
     }
 
+    let filter = doc! { "user_id": &user_id, "name": &model_name };
+    if models.find_one(filter, None).await?.is_some() {
+        return Err(tide_err(409, "model with duplicate name"));
+    }
+
     // Generate challenge
     let challenge = crypto::generate_challenge();
+    println!("Generated challenge: {:?}", &challenge);
     // Make new model
     let temp_model = ClientModel {
         id: Some(ObjectId::new()),
         user_id: user_id.clone(),
-        name: None,
+        name: model_name,
         status: None,
         locked: true,
         authenticated: false,
@@ -123,6 +132,62 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
     Ok(response_from_json(
         doc! {"challenge": base64::encode(challenge)},
     ))
+}
+
+pub async fn verify_challenge(mut req: Request<State>) -> tide::Result {
+    let doc: Document = req.body_json().await?;
+    let database = req.state().client.database("sybl");
+    let users = database.collection("users");
+    let clients = database.collection("clients");
+    let models = database.collection("models");
+
+    let model_name = get_from_doc(&doc, "model_name")?.to_string();
+    let email = crypto::clean(doc.get_str("email").unwrap());
+    let filter = doc! { "email": &email };
+    let user = users
+        .find_one(filter, None)
+        .await?
+        .map(|doc| mongodb::bson::de::from_document::<User>(doc).unwrap());
+
+    let user = user.ok_or_else(|| tide_err(404, "failed to find user"))?;
+    let user_id = user.id.expect("User ID is none");
+    // get clients public key matching with that users id
+    let filter = doc! { "user_id": &user_id };
+    let client = clients
+        .find_one(filter, None)
+        .await?
+        .map(|doc| mongodb::bson::de::from_document::<Client>(doc).unwrap());
+    let client = client.ok_or_else(|| tide_err(404, "failed to find client"))?;
+
+    let filter = doc! { "user_id": &user_id, "name": model_name };
+    let new_model = models
+        .find_one(filter, None)
+        .await?
+        .map(|doc| mongodb::bson::de::from_document::<ClientModel>(doc).unwrap());
+    let new_model = new_model.ok_or_else(|| tide_err(404, "failed to find model"))?;
+
+    let public_key = client.public_key;
+
+    // needs converting to Vec<u8>
+    let challenge = new_model.challenge.bytes;
+    println!("Challenge: {:?}", &challenge);
+
+    // Test sign
+    // let signature = crypto::sign_challenge(client.private_key, challenge);
+    // println!("signature: {:?}", &signature);
+
+    // needs converting to Vec<u8>
+    let challenge_response = base64::decode(get_from_doc(&doc, "challenge_response")?).unwrap();
+    println!("{:?}", challenge_response);
+
+    if crypto::verify_challenge(challenge, challenge_response, public_key) {
+        println!("good");
+    } else {
+        println!("Bad");
+    }
+
+    // get model with model name
+    Ok(Response::builder(404).build())
 }
 
 /// Finds all the models related to a given user.
