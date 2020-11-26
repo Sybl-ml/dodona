@@ -1,19 +1,26 @@
 //! Contains the builder functions used to generate message for DCL-DCN protcol
 
-/// Builder for the hearbeat message
-pub fn heartbeat_msg() -> String {
-    String::from("{'alive': '1'}\0")
+use serde::{Deserialize, Serialize};
+
+/// Different messages to be passed between DCL and DCN
+#[derive(Debug, Serialize, Deserialize)]
+pub enum Message {
+    /// Hearbeat alive message
+    Alive,
+    /// Message to send Job Config
+    JobConfig,
+    /// Message to send datasets to DCN
+    Data {
+        /// Main dataset
+        dataset: String,
+        /// Prediction dataset
+        predict: String,
+    },
 }
 
-/// Builder for the job config message
-pub fn job_config_msg() -> String {
-    String::from("{'job_config': 'yes'}\0")
-}
-
-/// Builder for the dataset and predict message
-pub fn dataset_msg(dataset: String, predict: String) -> String {
-    String::from(format!(
-        "{{'dataset': '{}', 'predict': '{}' }}\0",
-        dataset, predict
-    ))
+impl Message {
+    /// Wrapper function to convert Message into other format
+    pub fn send(msg: Message) -> String {
+        serde_json::to_string(&msg).unwrap()
+    }
 }
