@@ -3,10 +3,7 @@
 #[macro_use]
 extern crate serde;
 
-
 use anyhow::{anyhow, Result};
-use bzip2::write::{BzDecoder, BzEncoder};
-use bzip2::Compression;
 use std::collections::HashMap;
 use std::io::Write;
 use std::str::FromStr;
