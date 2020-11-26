@@ -30,7 +30,7 @@ pub struct ClientModel {
     /// The user id which this models belongs to
     pub user_id: ObjectId,
     /// name provided for the model
-    pub name: Option<String>,
+    pub name: String,
     /// Status of the model
     pub status: Option<Status>,
     /// false if the model has been unlocked through web

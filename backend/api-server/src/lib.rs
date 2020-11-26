@@ -112,6 +112,9 @@ pub async fn build_server() -> tide::Server<State> {
         .at("/u/:user_id")
         .get(routes::clients::get_user_models);
     client_api.at("/m/new").post(routes::clients::new_model);
+    client_api
+        .at("/m/new/challenge_response")
+        .post(routes::clients::verify_challenge);
 
     // CORS
     let headers = "GET, POST, PUT, PATCH, DELETE, OPTIONS"

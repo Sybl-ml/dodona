@@ -48,7 +48,7 @@ pub struct Client {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id: Option<ObjectId>,
     /// The identifier of the user to which this client information belongs
-    pub user_id: Option<ObjectId>,
+    pub user_id: ObjectId,
     /// This clients public Key
     pub public_key: String,
 }
