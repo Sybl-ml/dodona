@@ -21,7 +21,7 @@ fn challenge_response_protocol() {
     let rsa = generate_key_pair();
     let challenge = generate_challenge();
     let mut response = vec![0; rsa.size() as usize];
-    rsa.private_encrypt(&challenge, &mut response, Padding::PKCS1)
+    rsa.private_encrypt(&challenge, &mut response, Padding::PKCS1_OAEP)
         .expect("Unable to encrypt challenge");
     assert!(verify_challenge(
         challenge,

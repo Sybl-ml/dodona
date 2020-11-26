@@ -2,11 +2,16 @@
 
 use ammonia::clean_text;
 use html_escape::decode_html_entities;
+use openssl::hash::MessageDigest;
+use openssl::pkey::PKey;
 use openssl::pkey::Private;
 use openssl::rsa::{Padding, Rsa};
+use openssl::sign::Verifier;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use serde_json::Value;
+
+use openssl::sign::Signer;
 
 const KEY_SIZE: u32 = 1024;
 const CHALLENGE_SIZE: usize = 32;
@@ -67,10 +72,21 @@ pub fn generate_challenge() -> Vec<u8> {
 /// and asserting that the `challenge` and the decrypted `response` match
 pub fn verify_challenge(challenge: Vec<u8>, response: Vec<u8>, public_key: String) -> bool {
     let rsa = Rsa::public_key_from_pem(public_key.as_bytes()).expect("Unable to parse public key");
-    let mut buf = vec![0; rsa.size() as usize];
-    rsa.public_decrypt(&response, &mut buf, Padding::PKCS1)
-        .expect("Unable to verify signature");
-    &buf[..CHALLENGE_SIZE] == challenge
+    let keypair = PKey::from_rsa(rsa).unwrap();
+    let mut verifier = Verifier::new(MessageDigest::sha256(), &keypair).unwrap();
+
+    // verifier.set_rsa_padding(Padding::PKCS1_PSS).unwrap();
+    // verifier.update(&challenge).unwrap();
+    verifier.verify_oneshot(&response, &challenge).unwrap()
+}
+
+pub fn sign_challenge(private_key: String, challenge: Vec<u8>) -> Vec<u8> {
+    let rsa =
+        Rsa::private_key_from_pem(private_key.as_bytes()).expect("Unable to parse private key");
+    let keypair = PKey::from_rsa(rsa).unwrap();
+    let mut signer = Signer::new(MessageDigest::sha256(), &keypair).unwrap();
+    signer.update(&challenge).unwrap();
+    signer.sign_to_vec().unwrap()
 }
 
 /// Generates a user API key of `API_KEY_SIZE` alphanumeric characters.
