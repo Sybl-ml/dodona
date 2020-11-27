@@ -5,6 +5,7 @@ use tide::{Request, Response};
 
 use crate::routes::{get_from_doc, response_from_json, tide_err};
 use crate::State;
+use chrono::Utc;
 use models::models::{AccessToken, ClientModel};
 use models::users::{Client, User};
 use mongodb::bson::de::from_document;
@@ -198,9 +199,63 @@ pub async fn verify_challenge(mut req: Request<State>) -> tide::Result {
 
     // return the access token to the model
     Ok(response_from_json(doc! {
+        "id": model.id.expect("Model ID is none"),
         "token": base64::encode(access_token.clone().token),
         "expires": access_token.expires.to_rfc3339(),
     }))
+}
+
+/// Authenticates a model using an access token
+///
+/// Given a model `id` and an access token `token` and a `challenge`, verifies that the
+/// model is not locked, has been authenticated and has a valid access token. If the token
+/// has expired, the model should be asked to reauthenticate using a challenge response.
+/// Returns 200 if authentication is successful and a new challenge if the token has expired.
+/// Returns a 401 error if the model is not found or if authentication fails.
+pub async fn authenticate_model(mut req: Request<State>) -> tide::Result {
+    let database = req.state().client.database("sybl");
+    let doc: Document = req.body_json().await?;
+    let models = database.collection("models");
+    let msg = "Model not found, not authenticated or locked";
+
+    let model_id = ObjectId::with_string(&get_from_doc(&doc, "id")?).map_err(|_| tide_err(401, &msg))?;
+    let filter = doc! { "_id": &model_id };
+    let model = models
+        .find_one(filter, None)
+        .await?
+        .map(|doc| from_document::<ClientModel>(doc).unwrap());
+    let mut model = model.ok_or_else(|| tide_err(401, &msg))?;
+
+    let token = base64::decode(get_from_doc(&doc, "token")?).unwrap();
+    if !model.authenticated
+        || model.locked
+        || model.access_token.is_none()
+        || model.access_token.clone().unwrap().token != token
+    {
+        return Err(tide_err(401, &msg));
+    }
+
+    if model.access_token.clone().unwrap().expires < Utc::now() {
+        let challenge = crypto::generate_challenge();
+        model.authenticated = false;
+        model.challenge = Binary {
+            subtype: bson::spec::BinarySubtype::Generic,
+            bytes: challenge.clone(),
+        };
+
+        let filter = doc! { "_id": &model_id };
+        let update = to_document(&model).unwrap();
+        models.find_one_and_update(filter, update, None).await?;
+
+        Ok(response_from_json(
+            doc! {"challenge": base64::encode(challenge)},
+        ))
+    } else {
+        // TODO: authenticate the model in the session
+        Ok(Response::builder(200)
+            .body("Authentication successful")
+            .build())
+    }
 }
 
 /// Finds all the models related to a given user.
