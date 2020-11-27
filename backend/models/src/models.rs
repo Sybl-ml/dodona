@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use chrono::{DateTime, Duration, Utc};
+use crypto::generate_access_token;
 use mongodb::bson::oid::ObjectId;
 use mongodb::bson::Binary;
 
@@ -21,6 +23,33 @@ impl fmt::Display for Status {
         }
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AccessToken {
+    pub token: Vec<u8>,
+    pub expires: DateTime<Utc>,
+}
+
+impl AccessToken {
+    pub fn new() -> AccessToken {
+        AccessToken {
+            token: generate_access_token(),
+            expires: Utc::now() + Duration::weeks(2),
+        }
+    }
+}
+
+impl fmt::Display for AccessToken {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} ({})",
+            String::from_utf8(self.token.clone()).unwrap(),
+            self.expires.to_rfc3339()
+        )
+    }
+}
+
 /// Defines the information that should be stored as details for a model
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClientModel {
@@ -33,6 +62,8 @@ pub struct ClientModel {
     pub name: String,
     /// Status of the model
     pub status: Option<Status>,
+    /// The access token for the model, if set
+    pub access_token: Option<AccessToken>,
     /// false if the model has been unlocked through web
     pub locked: bool,
     /// false if model has not been authenticated with private key
