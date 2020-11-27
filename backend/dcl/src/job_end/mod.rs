@@ -2,11 +2,14 @@
 
 use crate::messages::Message;
 use anyhow::Result;
+use mongodb::bson::oid::ObjectId;
 use std::str::from_utf8;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::net::TcpStream;
 use tokio::prelude::*;
 use tokio::sync::mpsc::Receiver;
+use tokio::sync::RwLock;
 use utils::read_stream;
 
 use crate::node_end::NodePool;
@@ -28,24 +31,37 @@ pub async fn run(
     while let Some(msg) = rx.recv().await {
         log::info!("Received: {}", &msg);
 
-        let np_clone = Arc::clone(&nodepool);
-        tokio::spawn(async move {
-            if let Some((key, dcn)) = np_clone.get().await {
-                let mut dcn_stream = dcn.write().await;
-                // This is temporary, planning on creating seperate place for defining messages
-                dcn_stream
-                    .write(Message::send(Message::JobConfig).as_bytes())
-                    .await
-                    .unwrap();
-                let check_res: Vec<u8> =
-                    read_stream(&mut dcn_stream, timeout.clone()).await.unwrap();
-                log::info!("Check Result: {}", from_utf8(&check_res).unwrap());
-                dcn_stream.write(msg.as_bytes()).await.unwrap();
-                let dataset: Vec<u8> = read_stream(&mut dcn_stream, timeout.clone()).await.unwrap();
-                log::info!("Computed Data: {}", from_utf8(&dataset).unwrap());
-                np_clone.end(key).await;
-            }
-        });
+        let cluster = nodepool.get_cluster(1).await.unwrap();
+        for (key, dcn) in cluster {
+            let np_clone = Arc::clone(&nodepool);
+            let msg_clone = msg.clone();
+            tokio::spawn(async move {
+                dcl_protcol(np_clone, timeout.clone(), key, dcn, msg_clone).await;
+            });
+        }
     }
     Ok(())
+}
+
+/// Function to execute DCL protocol
+pub async fn dcl_protcol(
+    nodepool: Arc<NodePool>,
+    timeout: Duration,
+    key: ObjectId,
+    stream: Arc<RwLock<TcpStream>>,
+    dataset: String,
+) -> String {
+    let mut dcn_stream = stream.write().await;
+    // This is temporary, planning on creating seperate place for defining messages
+    dcn_stream
+        .write(Message::send(Message::JobConfig).as_bytes())
+        .await
+        .unwrap();
+    let check_res: Vec<u8> = read_stream(&mut dcn_stream, timeout.clone()).await.unwrap();
+    log::info!("Check Result: {}", from_utf8(&check_res).unwrap());
+    dcn_stream.write(dataset.as_bytes()).await.unwrap();
+    let dataset: Vec<u8> = read_stream(&mut dcn_stream, timeout.clone()).await.unwrap();
+    log::info!("Computed Data: {}", from_utf8(&dataset).unwrap());
+    nodepool.end(key).await;
+    String::from(from_utf8(&dataset).unwrap())
 }
