@@ -21,6 +21,8 @@ pub enum Message {
 impl Message {
     /// Wrapper function to convert Message into other format
     pub fn send(msg: Message) -> String {
-        serde_json::to_string(&msg).unwrap()
+        let mut ret = String::from(serde_json::to_string(&msg).unwrap());
+        ret.push_str("\0");
+        ret
     }
 }

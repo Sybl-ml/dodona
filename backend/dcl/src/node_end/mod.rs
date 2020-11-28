@@ -134,7 +134,37 @@ impl NodePool {
                 return Some((key.clone(), nodes_read.get(key).unwrap().get_tcp()));
             }
         }
-        return None;
+        None
+    }
+
+    /// Creates a cluster of `size` nodes to use
+    ///
+    /// It is given a cluster size and searches the nodepool
+    /// for available clusters and builds the cluster as a hashmap.
+    /// When the size is reached, the cluster is output. If it is empty
+    /// then the None Option is returned. If it has nodes in it, but less
+    /// than the size of the cluster, it is still returned.
+    pub async fn get_cluster(
+        &self,
+        size: usize,
+    ) -> Option<HashMap<ObjectId, Arc<RwLock<TcpStream>>>> {
+        let nodes_read = self.nodes.read().await;
+        let mut cluster: HashMap<ObjectId, Arc<RwLock<TcpStream>>> = HashMap::new();
+        let mut info_write = self.info.write().await;
+        for (key, info) in info_write.iter_mut() {
+            if info.get_alive() && !info.get_using() {
+                info.set_using(true);
+                let stream = nodes_read.get(key).unwrap().get_tcp();
+                cluster.insert(key.clone(), stream);
+                if cluster.len() == size {
+                    return Some(cluster);
+                }
+            }
+        }
+        if cluster.len() == 0 {
+            return None;
+        }
+        Some(cluster)
     }
 
     /// Changes the `using` flag on a NodeInfo object
