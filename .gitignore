@@ -2,7 +2,7 @@
 **/.DS_Store
 
 config.toml
-**/config.toml
+backend/**/config.toml
 
 *.sh
 **/*.sh
