@@ -88,6 +88,7 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
     let email = crypto::clean(doc.get_str("email").unwrap());
     let model_name = get_from_doc(&doc, "model_name")?.to_string();
 
+
     let filter = doc! { "email": &email };
     let user = match users.find_one(filter, None).await? {
         Some(u) => mongodb::bson::de::from_document::<User>(u).unwrap(),
@@ -105,7 +106,6 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
     if models.find_one(filter, None).await?.is_some() {
         return Err(tide_err(409, "model with duplicate name"));
     }
-
     // Generate challenge
     let challenge = crypto::generate_challenge();
     // Make new model
@@ -193,6 +193,7 @@ pub async fn verify_challenge(mut req: Request<State>) -> tide::Result {
     Ok(Response::builder(404).build())
 }
 
+
 /// Finds all the models related to a given user.
 ///
 /// Given a user identifier, finds all the models in the database that the user owns. If the user
@@ -214,7 +215,6 @@ pub async fn get_user_models(req: Request<State>) -> tide::Result {
     if found_user.is_none() {
         return Ok(Response::builder(404).body("user not found").build());
     }
-
     let filter = doc! { "user_id": &object_id };
     let cursor = models.find(filter, None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
