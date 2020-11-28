@@ -66,7 +66,8 @@ pub async fn build_server() -> tide::Server<State> {
         client: Arc::new(client),
         db_name: Arc::new(String::from("sybl")),
         pepper: Arc::new(pepper),
-        pbkdf2_iterations: u32::from_str(&pbkdf2_iterations).unwrap(),
+        pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)
+            .expect("PBKDF2_ITERATIONS must be parseable as an integer"),
     };
 
     let mut app = tide::with_state(engine);
@@ -111,6 +112,9 @@ pub async fn build_server() -> tide::Server<State> {
         .at("/u/:user_id")
         .get(routes::clients::get_user_models);
     client_api.at("/m/new").post(routes::clients::new_model);
+    client_api
+        .at("/m/new/challenge_response")
+        .post(routes::clients::verify_challenge);
 
     // CORS
     let headers = "GET, POST, PUT, PATCH, DELETE, OPTIONS"

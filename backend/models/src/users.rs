@@ -12,7 +12,7 @@ pub struct User {
     /// The user's email
     pub email: String,
     /// The peppered and hashed version of the user's password
-    pub password: String,
+    pub hash: String,
     /// The user's first name
     pub first_name: String,
     /// The user's last name
@@ -25,6 +25,22 @@ pub struct User {
     pub credits: i32,
 }
 
+impl User {
+    /// Creates a new instance of [`User`].
+    pub fn new<T: Into<String>>(email: T, hash: T, first_name: T, last_name: T) -> Self {
+        Self {
+            id: None,
+            email: email.into(),
+            hash: hash.into(),
+            first_name: first_name.into(),
+            last_name: last_name.into(),
+            api_key: crypto::generate_user_api_key(),
+            client: false,
+            credits: 10,
+        }
+    }
+}
+
 /// Defines the information that should be stored with a client in the database.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Client {
@@ -32,7 +48,7 @@ pub struct Client {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id: Option<ObjectId>,
     /// The identifier of the user to which this client information belongs
-    pub user_id: Option<ObjectId>,
+    pub user_id: ObjectId,
     /// This clients public Key
     pub public_key: String,
 }

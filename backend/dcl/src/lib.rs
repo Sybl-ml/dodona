@@ -17,6 +17,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 
+pub mod health;
 pub mod interface_end;
 pub mod job_end;
 pub mod node_end;
@@ -36,6 +37,9 @@ pub async fn run() -> Result<()> {
             .unwrap();
     let node_socket =
         u16::from_str(&env::var("NODE_SOCKET").expect("NODE_SOCKET must be set")).unwrap();
+    let health = u64::from_str(&env::var("health").expect("HEALTH must be set")).unwrap();
+    let job_timeout =
+        u64::from_str(&env::var("job_timeout").expect("JOB_TIMEOUT must be set")).unwrap();
     let mut client_options = ClientOptions::parse(&conn_str).await.unwrap();
     client_options.app_name = Some(app_name);
     let client = Arc::new(
@@ -44,7 +48,7 @@ pub async fn run() -> Result<()> {
             .database("sybl"),
     );
     let db_conn_interface = client.clone();
-    let serverpool = Arc::new(node_end::ServerPool::new());
+    let nodepool = Arc::new(node_end::NodePool::new());
     let (tx, rx): (Sender<String>, Receiver<String>) = mpsc::channel(20);
 
     tokio::spawn(async move {
@@ -53,17 +57,22 @@ pub async fn run() -> Result<()> {
             .unwrap();
     });
 
-    let db_conn_node = client.clone();
-    let serverpool_clone = serverpool.clone();
+    let db_conn_node = Arc::clone(&client);
+    let nodepool_clone = Arc::clone(&nodepool);
     tokio::spawn(async move {
-        node_end::run(serverpool_clone, node_socket, db_conn_node)
+        node_end::run(nodepool_clone, node_socket, db_conn_node)
             .await
             .unwrap();
     });
 
-    let serverpool_clone = serverpool.clone();
+    let nodepool_clone = Arc::clone(&nodepool);
     tokio::spawn(async move {
-        job_end::run(serverpool_clone, rx).await.unwrap();
+        job_end::run(nodepool_clone, rx, job_timeout).await.unwrap();
+    });
+
+    let nodepool_clone = Arc::clone(&nodepool);
+    tokio::spawn(async move {
+        health::health_runner(nodepool_clone, health).await;
     })
     .await?;
 

@@ -5,7 +5,7 @@
         <b-card
           class="mb-4 shadow"
           no-body
-          v-b-toggle="'collapse-'+String(this.i)"
+          v-b-toggle="'collapse-' + String(this.i)"
           :border-variant="status_variant"
           style="border-width: 0.15rem"
           onfocus="this.blur();"
@@ -14,7 +14,7 @@
             <b-col>
               <b-card-body>
                 <b-card-title>
-                  {{data.name}}
+                  {{ data.name }}
                 </b-card-title>
                 <b-card-text>
                   <b-icon-clock-fill></b-icon-clock-fill>
@@ -25,11 +25,16 @@
             <b-col>
               <b-card-body style="text-align: right">
                 <b-card-text v-if="data.status == 'Available'">
-                  <b-icon-check-circle-fill small style="color: #00bf26"></b-icon-check-circle-fill>
+                  <b-icon-check-circle-fill
+                    small
+                    style="color: #00bf26"
+                  ></b-icon-check-circle-fill>
                   Available
                 </b-card-text>
                 <b-card-text v-else-if="data.status == 'Disabled'">
-                  <b-icon-x-octagon-fill style="color: #ff643d"></b-icon-x-octagon-fill>
+                  <b-icon-x-octagon-fill
+                    style="color: #ff643d"
+                  ></b-icon-x-octagon-fill>
                   Disabled
                 </b-card-text>
                 <b-card-text v-else-if="data.status == 'Locked'">
@@ -52,7 +57,7 @@
       </b-col>
     </b-row>
     <b-row>
-      <b-collapse :id="'collapse-'+String(this.i)" class="mb-4 nodeExpansion">
+      <b-collapse :id="'collapse-' + String(this.i)" class="mb-4 nodeExpansion">
         <b-card class="shadow">
           <b>API Key</b>
         </b-card>
@@ -68,7 +73,6 @@
 </style>
 
 <script>
-
 export default {
   name: "ModelCard",
   props: {
@@ -76,20 +80,16 @@ export default {
     i: Number,
   },
   computed: {
-    status_variant(){
-      if (this.data.status === "Locked"){
-        return "primary"
+    status_variant() {
+      if (this.data.status === "Locked") {
+        return "primary";
+      } else if (this.data.status === "Available") {
+        return "completed";
+      } else if (this.data.status === "Disabled") {
+        return "warning";
       }
-      else if (this.data.status === "Available"){
-        return "completed"
-      }
-      else if (this.data.status === "Disabled"){
-        return "warning"
-      }
-    }
+    },
   },
-  methods: {
-    
-  }
+  methods: {},
 };
 </script>

@@ -1,0 +1,19 @@
+name: cargo test
+
+on:
+  pull_request:
+    branches: [ master, develop ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Start MongoDB
+      uses: supercharge/mongodb-github-action@1.3.0
+      with:
+        mongodb-version: 4.4
+
+    - name: cargo test
+      uses: actions/checkout@v2
+
+    - run: "cd backend && cargo test"

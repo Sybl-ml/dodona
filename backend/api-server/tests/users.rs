@@ -90,13 +90,8 @@ async fn users_cannot_login_without_correct_password() -> tide::Result<()> {
     }"#;
     let req = common::build_json_request("/api/users/login", body);
 
-    let mut res: Response = app.respond(req).await?;
-    assert_eq!(tide::StatusCode::Ok, res.status());
-    assert_eq!(Some(tide::http::mime::JSON), res.content_type());
-
-    let body: AuthResponse = res.body_json().await?;
-
-    assert_eq!(body.token, "null");
+    let res: Response = app.respond(req).await?;
+    assert_eq!(tide::StatusCode::Unauthorized, res.status());
 
     Ok(())
 }
@@ -112,13 +107,8 @@ async fn users_cannot_login_without_correct_email() -> tide::Result<()> {
     }"#;
     let req = common::build_json_request("/api/users/login", body);
 
-    let mut res: Response = app.respond(req).await?;
-    assert_eq!(tide::StatusCode::Ok, res.status());
-    assert_eq!(Some(tide::http::mime::JSON), res.content_type());
-
-    let body: AuthResponse = res.body_json().await?;
-
-    assert_eq!(body.token, "null");
+    let res: Response = app.respond(req).await?;
+    assert_eq!(tide::StatusCode::NotFound, res.status());
 
     Ok(())
 }
