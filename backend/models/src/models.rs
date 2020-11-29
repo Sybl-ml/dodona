@@ -73,3 +73,18 @@ pub struct ClientModel {
     /// The most recent challenge sent to client
     pub challenge: Option<Binary>,
 }
+
+impl ClientModel {
+    pub fn is_authenticated(&self, token: &[u8]) -> bool {
+        // Check the easy conditions
+        if !self.authenticated || self.locked {
+            return false;
+        }
+
+        // Check the user's token
+        match &self.access_token {
+            Some(x) if x.token.bytes == token => true,
+            _ => false,
+        }
+    }
+}
