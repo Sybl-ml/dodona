@@ -13,6 +13,7 @@ use serde_json::Value;
 const KEY_SIZE: u32 = 1024;
 const CHALLENGE_SIZE: usize = 32;
 const API_KEY_SIZE: usize = 32;
+const ACCESS_TOKEN_SIZE: usize = 32;
 
 /// Returns a new, random RSA key pair
 ///
@@ -77,6 +78,11 @@ pub fn verify_challenge(challenge: Vec<u8>, response: Vec<u8>, public_key: Strin
 /// Generates a user API key of `API_KEY_SIZE` alphanumeric characters.
 pub fn generate_user_api_key() -> String {
     generate_string(API_KEY_SIZE)
+}
+
+/// Generates a model access token of `ACCESS_TOKEN_SIZE` alphanumeric characters.
+pub fn generate_access_token() -> Vec<u8> {
+    generate_string(ACCESS_TOKEN_SIZE).as_bytes().to_vec()
 }
 
 /// Sanitises user input to mitigate against XSS attacks, etc.
