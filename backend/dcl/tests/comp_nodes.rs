@@ -62,7 +62,7 @@ async fn test_node_connect_and_hb() {
 
     let info_read = nodepool.info.read().await;
     for (_, info) in info_read.iter() {
-        assert!(info.get_alive());
+        assert!(info.alive);
     }
 }
 
