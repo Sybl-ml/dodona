@@ -16,9 +16,6 @@ use tokio::time::timeout;
 use bzip2::write::{BzDecoder, BzEncoder};
 use bzip2::Compression;
 
-use bzip2::write::{BzDecoder, BzEncoder};
-use bzip2::Compression;
-
 /// Represents what is returned from Analysis function
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Analysis {

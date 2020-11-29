@@ -75,7 +75,6 @@ pub fn verify_challenge(challenge: Vec<u8>, response: Vec<u8>, public_key: Strin
     let keypair = PKey::from_rsa(rsa).unwrap();
     let mut verifier = Verifier::new(MD::sha256(), &keypair).unwrap();
     verifier.verify_oneshot(&response, &challenge).unwrap()
-
 }
 
 /// Generates a user API key of `API_KEY_SIZE` alphanumeric characters.

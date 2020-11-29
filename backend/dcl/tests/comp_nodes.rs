@@ -8,7 +8,6 @@ use tokio::prelude::*;
 
 use utils::read_stream;
 
-
 mod common;
 
 #[tokio::test]
