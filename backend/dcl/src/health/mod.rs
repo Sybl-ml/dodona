@@ -4,27 +4,15 @@
 //! each is alive and working. It will update its status in the
 //! NodeInfo object for the node.
 
+use crate::messages::Message;
 use crate::node_end::NodePool;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
 use tokio::sync::RwLock;
-use tokio::time::timeout;
 
-/// Helper struct to send data to a Node to check if it is alive
-#[derive(Serialize, Deserialize, Debug)]
-struct Health {
-    alive: u8,
-}
-
-impl Health {
-    /// Creates a new Health instance
-    pub fn new(alive: u8) -> Self {
-        Self { alive }
-    }
-}
+use utils::read_stream;
 
 /// Runner for health checking
 ///
@@ -65,9 +53,9 @@ pub async fn check_health(nodepool: Arc<NodePool>) {
 /// then it is treated as dead. If not then it is treated as alive.
 pub async fn heartbeat(stream: Arc<RwLock<TcpStream>>) -> bool {
     let mut stream_write = stream.write().await;
-    let check = Health::new(1);
+
     if stream_write
-        .write(serde_json::to_string(&check).unwrap().as_bytes())
+        .write(Message::send(Message::Alive).as_bytes())
         .await
         .is_err()
     {
@@ -75,6 +63,7 @@ pub async fn heartbeat(stream: Arc<RwLock<TcpStream>>) -> bool {
     }
 
     timeout(Duration::from_millis(100), stream_write.read(&mut vec![]))
+    read_stream(&mut stream_write, Duration::from_millis(100))
         .await
         .is_ok()
 }

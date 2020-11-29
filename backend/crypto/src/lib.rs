@@ -2,10 +2,12 @@
 
 use ammonia::clean_text;
 use html_escape::decode_html_entities;
+
 use openssl::hash::MessageDigest as MD;
 use openssl::pkey::{PKey, Private};
 use openssl::rsa::Rsa;
 use openssl::sign::Verifier;
+
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use serde_json::Value;
@@ -73,6 +75,7 @@ pub fn verify_challenge(challenge: Vec<u8>, response: Vec<u8>, public_key: Strin
     let keypair = PKey::from_rsa(rsa).unwrap();
     let mut verifier = Verifier::new(MD::sha256(), &keypair).unwrap();
     verifier.verify_oneshot(&response, &challenge).unwrap()
+
 }
 
 /// Generates a user API key of `API_KEY_SIZE` alphanumeric characters.

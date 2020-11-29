@@ -3,7 +3,7 @@
 
 FROM rust:latest
 
-RUN rustup default nightly
+RUN rustup default stable
 RUN cargo install cargo-watch
 RUN rustc --version
 

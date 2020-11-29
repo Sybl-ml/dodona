@@ -1,8 +1,13 @@
+use dcl::messages::Message;
+
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
+
+use utils::read_stream;
+
 
 mod common;
 
@@ -28,7 +33,7 @@ async fn test_node_connect_and_hb() {
     // Start up health checker
     let nodepool_clone = Arc::clone(&nodepool);
     tokio::spawn(async move {
-        dcl::health::health_runner(nodepool_clone, 5).await;
+        dcl::health::health_runner(nodepool_clone, 3).await;
     });
 
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), params.node_socket);
@@ -38,23 +43,27 @@ async fn test_node_connect_and_hb() {
         let mut stream = TcpStream::connect(socket.to_string()).await.unwrap();
         let key = "507f1f77bcf86cd799439011";
         stream.write(key.as_bytes()).await.unwrap();
-        let mut buffer = Vec::new();
-        match stream.read(&mut buffer).await {
-            Ok(_) => {
-                stream.write("1".as_bytes()).await.unwrap();
-            }
-            _ => (),
-        };
+        loop {
+            match read_stream(&mut stream, Duration::from_secs(5)).await {
+                Ok(_) => {
+                    stream
+                        .write(Message::send(Message::Alive).as_bytes())
+                        .await
+                        .unwrap();
+                }
+                _ => (),
+            };
+        }
     });
 
-    tokio::time::sleep(Duration::new(3, 0)).await;
+    tokio::time::sleep(Duration::new(4, 0)).await;
 
     let nodes_read = nodepool.nodes.read().await;
     assert!(nodes_read.len() > 0);
 
     let info_read = nodepool.info.read().await;
     for (_, info) in info_read.iter() {
-        assert_eq!(info.get_alive(), true);
+        assert!(info.get_alive());
     }
 }
 
@@ -91,7 +100,10 @@ async fn test_dcn_using() {
         let mut buffer = Vec::new();
         match stream.read(&mut buffer).await {
             Ok(_) => {
-                stream.write("1".as_bytes()).await.unwrap();
+                stream
+                    .write(Message::send(Message::Alive).as_bytes())
+                    .await
+                    .unwrap();
             }
             _ => (),
         };
@@ -105,17 +117,25 @@ async fn test_dcn_using() {
         let mut buffer = Vec::new();
         match stream.read(&mut buffer).await {
             Ok(_) => {
-                stream.write("1".as_bytes()).await.unwrap();
+                stream
+                    .write(Message::send(Message::Alive).as_bytes())
+                    .await
+                    .unwrap();
             }
             _ => (),
         };
     });
     tokio::time::sleep(Duration::new(4, 0)).await;
-    if let Some((oid1, _)) = nodepool.get().await {
-        assert!(nodepool.is_using(&oid1).await);
-        if let Some((oid2, _)) = nodepool.get().await {
-            assert_ne!(oid1, oid2);
-            assert!(nodepool.is_using(&oid2).await);
+
+    if let Some(map1) = nodepool.get_cluster(1).await {
+        if let Some(map2) = nodepool.get_cluster(1).await {
+            for key in map1.keys() {
+                assert!(nodepool.is_using(&key).await);
+                assert!(map2.get(&key).is_none());
+            }
+            for key in map2.keys() {
+                assert!(nodepool.is_using(&key).await);
+            }
         } else {
             unreachable!();
         }

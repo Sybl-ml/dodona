@@ -26,6 +26,7 @@ fn challenge_response_protocol() {
     let keypair = PKey::from_rsa(rsa.clone()).unwrap();
     let mut signer = Signer::new(MD::sha256(), &keypair).unwrap();
     let response = signer.sign_oneshot_to_vec(&challenge).unwrap();
+
     assert!(verify_challenge(
         challenge,
         response,

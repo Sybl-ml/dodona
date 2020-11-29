@@ -136,6 +136,7 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
     ))
 }
 
+
 /// Verifies a challenge response from a model
 ///
 /// Given a `new_model`, a `challenge_response` and a `challenge`, verifies that the
