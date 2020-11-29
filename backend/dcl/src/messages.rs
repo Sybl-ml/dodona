@@ -1,7 +1,5 @@
 //! Contains the builder functions used to generate message for DCL-DCN protcol
 
-use serde::{Deserialize, Serialize};
-
 /// Different messages to be passed between DCL and DCN
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Message {
