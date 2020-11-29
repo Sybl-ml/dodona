@@ -13,7 +13,6 @@ use tokio::sync::mpsc::Receiver;
 use tokio::sync::RwLock;
 use utils::read_stream;
 
-
 use crate::node_end::NodePool;
 
 /// Starts up and runs the job end

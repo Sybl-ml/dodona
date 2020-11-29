@@ -137,7 +137,6 @@ impl NodePool {
         None
     }
 
-
     /// Creates a cluster of `size` nodes to use
     ///
     /// It is given a cluster size and searches the nodepool
