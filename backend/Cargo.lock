@@ -104,7 +104,9 @@ name = "api-server"
 version = "0.1.0"
 dependencies = [
  "async-std",
+ "base64 0.13.0",
  "bzip2",
+ "chrono",
  "config",
  "crypto",
  "csv",

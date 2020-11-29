@@ -1,9 +1,11 @@
 use dcl::messages::Message;
+
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
+
 use utils::read_stream;
 
 mod common;
@@ -123,6 +125,7 @@ async fn test_dcn_using() {
         };
     });
     tokio::time::sleep(Duration::new(4, 0)).await;
+
     if let Some(map1) = nodepool.get_cluster(1).await {
         if let Some(map2) = nodepool.get_cluster(1).await {
             for key in map1.keys() {

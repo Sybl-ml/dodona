@@ -13,18 +13,19 @@
     </b-navbar-nav>
 
     <b-navbar-nav class="ml-auto" v-if="loggedIn">
-      <b-nav-item disabled>{{credits}} Credits</b-nav-item>
+      <b-nav-item disabled>{{ credits }} Credits</b-nav-item>
       <b-nav-item-dropdown right>
         <template #button-content>
-          <img :src="avatar" class="img-circle">
-          {{name}}
+          <img :src="avatar" class="img-circle" />
+          {{ name }}
         </template>
         <b-dropdown-item disabled>{{ email }}</b-dropdown-item>
         <b-dropdown-divider />
         <b-dropdown-item to="/dashboard">Dashboard</b-dropdown-item>
-        <b-dropdown-item to="/nodes">{{
-          client ? "Nodes" : "Register as Client"
-        }}</b-dropdown-item>
+        <b-dropdown-item v-if="client" to="/nodes">Nodes</b-dropdown-item>
+        <b-dropdown-item v-else to="/client/confirm">
+          Register as Client
+        </b-dropdown-item>
         <b-dropdown-divider />
         <b-dropdown-item to="/settings">My Profile</b-dropdown-item>
         <b-dropdown-item to="#">Help</b-dropdown-item>
@@ -60,7 +61,7 @@ export default {
     IconLogo,
   },
   data() {
-    let randNo = Math.floor(Math.random() * 6) + 1; 
+    let randNo = Math.floor(Math.random() * 6) + 1;
     return {
       name: "",
       email: "",
@@ -90,7 +91,7 @@ export default {
         );
         this.name = user_data.data.first_name + " " + user_data.data.last_name;
         this.email = user_data.data.email;
-        this.client = user_data.client;
+        this.client = user_data.data.client;
         this.credits = user_data.data.credits;
       } catch (err) {
         console.log(err);
@@ -101,13 +102,18 @@ export default {
 
       this.getUserData();
 
-      let pageName = this.$route.name
-      
+      let pageName = this.$route.name;
+
       this.loggedIn = user_id ? true : false;
       this.logoRoute = user_id ? "/dashboard" : "/";
-      
-      this.atLanding = (pageName == "Welcome") ? true : false;
-      this.atDashboard = (pageName === "Dashboard" || pageName === "Settings" || pageName === "Nodes") ? true : false;
+
+      this.atLanding = pageName == "Welcome" ? true : false;
+      this.atDashboard =
+        pageName === "Dashboard" ||
+        pageName === "Settings" ||
+        pageName === "Nodes"
+          ? true
+          : false;
     },
   },
   async mounted() {

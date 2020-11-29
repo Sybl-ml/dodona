@@ -2,6 +2,7 @@
 
 use crate::messages::Message;
 use anyhow::Result;
+
 use mongodb::bson::oid::ObjectId;
 use std::str::from_utf8;
 use std::sync::Arc;
@@ -26,6 +27,7 @@ pub async fn run(
     job_timeout: u64,
 ) -> Result<()> {
     let timeout = Duration::from_secs(job_timeout);
+
     log::info!("RUNNING JOB END");
 
     while let Some(msg) = rx.recv().await {

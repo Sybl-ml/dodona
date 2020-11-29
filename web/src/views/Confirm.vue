@@ -37,8 +37,6 @@ export default {
     return {
       email: "",
       password: "",
-      remember_password: false,
-
       valid_credentials: true,
     };
   },
@@ -56,16 +54,14 @@ export default {
         }
       );
 
-      response = response.data;
-
-      if (response.token === "null") {
-        this.authenticated = false;
-      } else {
+      if (response.status === 200) {
         this.authenticated = true;
         this.$router.push({
-          name: "ClientDashboard",
-          params: { privkey: response.privKey },
+          name: "PrivateKey",
+          params: { private_key: response.data.privKey },
         });
+      } else {
+        this.authenticated = false;
       }
     },
   },

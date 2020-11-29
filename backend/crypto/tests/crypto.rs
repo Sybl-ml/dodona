@@ -1,5 +1,8 @@
 use crypto::*;
-use openssl::rsa::{Padding, Rsa};
+use openssl::hash::MessageDigest as MD;
+use openssl::pkey::PKey;
+use openssl::rsa::Rsa;
+use openssl::sign::Signer;
 
 #[test]
 fn key_generation() {
@@ -20,9 +23,10 @@ fn key_encoding() {
 fn challenge_response_protocol() {
     let rsa = generate_key_pair();
     let challenge = generate_challenge();
-    let mut response = vec![0; rsa.size() as usize];
-    rsa.private_encrypt(&challenge, &mut response, Padding::PKCS1)
-        .expect("Unable to encrypt challenge");
+    let keypair = PKey::from_rsa(rsa.clone()).unwrap();
+    let mut signer = Signer::new(MD::sha256(), &keypair).unwrap();
+    let response = signer.sign_oneshot_to_vec(&challenge).unwrap();
+
     assert!(verify_challenge(
         challenge,
         response,

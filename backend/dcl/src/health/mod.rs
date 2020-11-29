@@ -11,6 +11,7 @@ use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
 use tokio::sync::RwLock;
+
 use utils::read_stream;
 
 /// Runner for health checking
@@ -52,6 +53,7 @@ pub async fn check_health(nodepool: Arc<NodePool>) {
 /// then it is treated as dead. If not then it is treated as alive.
 pub async fn heartbeat(stream: Arc<RwLock<TcpStream>>) -> bool {
     let mut stream_write = stream.write().await;
+
     if stream_write
         .write(Message::send(Message::Alive).as_bytes())
         .await
