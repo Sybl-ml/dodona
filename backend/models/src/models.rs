@@ -4,8 +4,7 @@ use std::fmt;
 
 use chrono::{DateTime, Duration, Utc};
 use crypto::generate_access_token;
-use mongodb::bson::oid::ObjectId;
-use mongodb::bson::Binary;
+use mongodb::bson::{self, oid::ObjectId, Binary};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Status {
@@ -26,14 +25,17 @@ impl fmt::Display for Status {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AccessToken {
-    pub token: Vec<u8>,
+    pub token: Binary,
     pub expires: DateTime<Utc>,
 }
 
 impl AccessToken {
     pub fn new() -> AccessToken {
         AccessToken {
-            token: generate_access_token(),
+            token: Binary {
+                subtype: bson::spec::BinarySubtype::Generic,
+                bytes: generate_access_token(),
+            },
             expires: Utc::now() + Duration::weeks(2),
         }
     }
@@ -44,7 +46,7 @@ impl fmt::Display for AccessToken {
         write!(
             f,
             "{} ({})",
-            String::from_utf8(self.token.clone()).unwrap(),
+            String::from_utf8(self.token.clone().bytes).unwrap(),
             self.expires.to_rfc3339()
         )
     }
@@ -69,5 +71,5 @@ pub struct ClientModel {
     /// false if model has not been authenticated with private key
     pub authenticated: bool,
     /// The most recent challenge sent to client
-    pub challenge: Binary,
+    pub challenge: Option<Binary>,
 }

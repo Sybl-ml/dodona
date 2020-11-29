@@ -120,10 +120,10 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
         access_token: None,
         locked: true,
         authenticated: false,
-        challenge: Binary {
+        challenge: Some(Binary {
             subtype: bson::spec::BinarySubtype::Generic,
             bytes: challenge.clone(),
-        },
+        }),
     };
 
     // insert model into database
@@ -176,7 +176,10 @@ pub async fn verify_challenge(mut req: Request<State>) -> tide::Result {
 
     let public_key = client.public_key;
 
-    let challenge = &model.challenge.bytes;
+    let challenge = &model
+        .challenge
+        .ok_or_else(|| tide_err(401, "No challenge set"))?
+        .bytes;
 
     // needs converting to Vec<u8>
     let challenge_response = base64::decode(get_from_doc(&doc, "challenge_response")?).unwrap();
@@ -192,15 +195,16 @@ pub async fn verify_challenge(mut req: Request<State>) -> tide::Result {
     let access_token = AccessToken::new();
     model.authenticated = true;
     model.access_token = Some(access_token.clone());
+    model.challenge = None;
 
     let filter = doc! { "user_id": &user_id, "name": &model_name };
-    let update = to_document(&model).unwrap();
+    let update = doc! { "$set": to_document(&model).unwrap() };
     models.find_one_and_update(filter, update, None).await?;
 
     // return the access token to the model
     Ok(response_from_json(doc! {
-        "id": model.id.expect("Model ID is none"),
-        "token": base64::encode(access_token.clone().token),
+        "id": model.id.expect("Model ID is none").to_string(),
+        "token": base64::encode(access_token.clone().token.bytes),
         "expires": access_token.expires.to_rfc3339(),
     }))
 }
@@ -218,7 +222,8 @@ pub async fn authenticate_model(mut req: Request<State>) -> tide::Result {
     let models = database.collection("models");
     let msg = "Model not found, not authenticated or locked";
 
-    let model_id = ObjectId::with_string(&get_from_doc(&doc, "id")?).map_err(|_| tide_err(401, &msg))?;
+    let model_id =
+        ObjectId::with_string(&get_from_doc(&doc, "id")?).map_err(|_| tide_err(401, &msg))?;
     let filter = doc! { "_id": &model_id };
     let model = models
         .find_one(filter, None)
@@ -230,7 +235,7 @@ pub async fn authenticate_model(mut req: Request<State>) -> tide::Result {
     if !model.authenticated
         || model.locked
         || model.access_token.is_none()
-        || model.access_token.clone().unwrap().token != token
+        || model.access_token.clone().unwrap().token.bytes != token
     {
         return Err(tide_err(401, &msg));
     }
@@ -238,13 +243,13 @@ pub async fn authenticate_model(mut req: Request<State>) -> tide::Result {
     if model.access_token.clone().unwrap().expires < Utc::now() {
         let challenge = crypto::generate_challenge();
         model.authenticated = false;
-        model.challenge = Binary {
+        model.challenge = Some(Binary {
             subtype: bson::spec::BinarySubtype::Generic,
             bytes: challenge.clone(),
-        };
+        });
 
         let filter = doc! { "_id": &model_id };
-        let update = to_document(&model).unwrap();
+        let update = doc! { "$set": to_document(&model).unwrap() };
         models.find_one_and_update(filter, update, None).await?;
 
         Ok(response_from_json(
