@@ -118,6 +118,9 @@ pub async fn build_server() -> tide::Server<State> {
     client_api
         .at("/m/authenticate")
         .post(routes::clients::authenticate_model);
+    client_api
+        .at("/m/unlock")
+        .post(routes::clients::unlock_model);
 
     // CORS
     let headers = "GET, POST, PUT, PATCH, DELETE, OPTIONS"

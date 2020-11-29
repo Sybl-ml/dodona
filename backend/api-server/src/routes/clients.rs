@@ -209,6 +209,40 @@ pub async fn verify_challenge(mut req: Request<State>) -> tide::Result {
     }))
 }
 
+/// Unlocks a model using MFA
+///
+/// When MFA is used such that a client approves a model for use on their dashboard,
+/// then given a model `id`, unlocks the model for authentication and use by the DCL.
+/// TODO: implement safeguards, such as a OTP request parameter, to prevent clients
+/// (or mailicious actors) contacting this endpoint from outside of the dashboard.
+pub async fn unlock_model(mut req: Request<State>) -> tide::Result {
+    let database = req.state().client.database("sybl");
+    let doc: Document = req.body_json().await?;
+    let models = database.collection("models");
+    let msg = "Error unlocking model";
+
+    let model_id =
+        ObjectId::with_string(&get_from_doc(&doc, "id")?).map_err(|_| tide_err(401, &msg))?;
+    let filter = doc! { "_id": &model_id };
+    let model = models
+        .find_one(filter, None)
+        .await?
+        .map(|doc| from_document::<ClientModel>(doc).unwrap());
+    let mut model = model.ok_or_else(|| tide_err(401, &msg))?;
+
+    //TODO: implement additional safeguards to prevent arbitrary access and unlocking
+
+    model.locked = false;
+
+    let filter = doc! { "_id": &model_id };
+    let update = doc! { "$set": to_document(&model).unwrap() };
+    models.find_one_and_update(filter, update, None).await?;
+
+    Ok(Response::builder(200)
+        .body("Model successfully unlocked")
+        .build())
+}
+
 /// Authenticates a model using an access token
 ///
 /// Given a model `id` and an access token `token` and a `challenge`, verifies that the
