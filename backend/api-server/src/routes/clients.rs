@@ -288,9 +288,9 @@ pub async fn authenticate_model(mut req: Request<State>) -> tide::Result {
         ))
     } else {
         // TODO: authenticate the model in the session
-        Ok(Response::builder(200)
-            .body("Authentication successful")
-            .build())
+        Ok(response_from_json(
+            doc! {"message": "Authentication successful"},
+        ))
     }
 }
 

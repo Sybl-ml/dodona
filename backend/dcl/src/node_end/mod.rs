@@ -7,15 +7,19 @@
 //! and receive one for a DCN.
 
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
-use mongodb::{bson::oid::ObjectId, Database};
+use anyhow::Result;
+use mongodb::bson::{bson, oid::ObjectId};
+use serde::Serialize;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::prelude::*;
 use tokio::sync::RwLock;
+
+use crate::messages::Message;
 
 /// Defines information about a Node
 #[derive(Debug)]
@@ -196,7 +200,7 @@ impl NodePool {
 /// Starts up node end which allows DCNs to register their connection. This will create a
 /// Node object if given a correct API Key. This allows the job end to connect and
 /// communicate with the DCNs.
-pub async fn run(nodepool: Arc<NodePool>, socket: u16, db_conn: Arc<Database>) -> Result<()> {
+pub async fn run(nodepool: Arc<NodePool>, socket: u16) -> Result<()> {
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
     let listener = TcpListener::bind(&socket).await?;
 
@@ -205,38 +209,26 @@ pub async fn run(nodepool: Arc<NodePool>, socket: u16, db_conn: Arc<Database>) -
     while let Ok((inbound, _)) = listener.accept().await {
         log::info!("NODE CONNECTION");
 
-        let db_conn_clone = Arc::clone(&db_conn);
         let sp_clone = Arc::clone(&nodepool);
 
         tokio::spawn(async move {
-            process_connection(inbound, db_conn_clone, sp_clone)
-                .await
-                .unwrap();
+            process_connection(inbound, sp_clone).await.unwrap();
         });
     }
 
     Ok(())
 }
 
-async fn process_connection(
-    mut stream: TcpStream,
-    db_conn: Arc<Database>,
-    nodepool: Arc<NodePool>,
-) -> Result<()> {
+async fn process_connection(mut stream: TcpStream, nodepool: Arc<NodePool>) -> Result<()> {
     log::info!("PROCESSING");
 
-    let mut buffer: [u8; 24] = [0_u8; 24];
-    stream.read(&mut buffer).await?;
-    let api_key = str::from_utf8(&buffer).unwrap();
+    let (email, model_name) = register_new_model(&mut stream).await?;
+    authenticate_challenge_response(&mut stream, &email, &model_name).await?;
+    let token = verify_access_token(&mut stream).await?;
 
-    log::info!("API KEY: {}", api_key);
+    log::info!("Token: {}", token);
 
-    if !check_api_key(&db_conn, &api_key) {
-        log::error!("API KEY doesn't match a user");
-        return Err(anyhow!("API Key is not valid"));
-    }
-
-    let node = Node::new(stream, api_key);
+    let node = Node::new(stream, token);
     nodepool.add(node).await;
 
     log::info!("PROCESSED");
@@ -244,6 +236,116 @@ async fn process_connection(
     Ok(())
 }
 
-fn check_api_key(_db_conn: &Database, _api_key: &str) -> bool {
-    true
+/// Allows a user to register a new model through the DCL.
+///
+/// Expects the user to send a single request in JSON of the form `{"NewModel": {"model_name":
+/// <name>, "email": <email>}}` and forwards the request to the API server, forwarding the response
+/// back to the client. If the message is not a `NewModel` request, this will panic.
+pub async fn register_new_model(stream: &mut TcpStream) -> Result<(String, String)> {
+    let mut buffer = [0_u8; 1024];
+
+    // Read the user's email and model name
+    let size = stream.read(&mut buffer).await?;
+
+    let message = Message::from_slice(&buffer[..size]);
+    let (email, model_name) = match message {
+        Message::NewModel { email, model_name } => (email, model_name),
+        _ => unreachable!(),
+    };
+
+    log::info!("Setting up a new model '{}' for: {}", model_name, email);
+
+    // Query the API server
+    let body = bson!({
+        "model_name": &model_name,
+        "email": &email,
+    });
+
+    let text = get_response_text("http://localhost:3001/api/clients/m/new", body).await?;
+
+    // Send the response back to the client
+    stream.write(text.as_bytes()).await?;
+
+    Ok((email, model_name))
+}
+
+/// Allows a user to respond to a challenge request through the DCL.
+///
+/// Expects the user to send a single request in JSON of the form `{"ChallengeResponse":
+/// {"response": <response>,  "model_name": <name>, "email": <email>}}` and forwards the request to
+/// the API server, forwarding the response back to the client. If the message is not a
+/// `ChallengeResponse` request, this will panic.
+pub async fn authenticate_challenge_response(
+    stream: &mut TcpStream,
+    email: &str,
+    model_name: &str,
+) -> Result<()> {
+    let mut buffer = [0_u8; 1024];
+
+    // Read the user's challenge response
+    let size = stream.read(&mut buffer).await?;
+
+    let message = Message::from_slice(&buffer[..size]);
+    let response = match message {
+        Message::ChallengeResponse { response, .. } => response,
+        _ => unreachable!(),
+    };
+
+    log::info!("Sending challenge response: {}", response);
+
+    // Query the API server
+    let body = bson!({
+        "model_name": &model_name,
+        "email": &email,
+        "challenge_response": &response,
+    });
+
+    let text = get_response_text("http://localhost:3001/api/clients/m/verify", body).await?;
+
+    // Send the response back to the client
+    stream.write(text.as_bytes()).await?;
+
+    Ok(())
+}
+
+/// Reads an access token from the stream and checks it with the API server.
+pub async fn verify_access_token(stream: &mut TcpStream) -> Result<String> {
+    let mut buffer = [0_u8; 1024];
+
+    // Read the user's challenge response
+    let size = stream.read(&mut buffer).await?;
+
+    let message = Message::from_slice(&buffer[..size]);
+    let (id, token) = match message {
+        Message::AccessToken { id, token } => (id, token),
+        _ => unreachable!(),
+    };
+
+    // Query the API server
+    let body = bson!({
+        "id": &id,
+        "token": &token,
+    });
+
+    let text = get_response_text("http://localhost:3001/api/clients/m/authenticate", body).await?;
+
+    // Send the response back to the client
+    stream.write(text.as_bytes()).await?;
+
+    Ok(token)
+}
+
+/// Queries the API server and returns the response text.
+pub async fn get_response_text<S: Display + Serialize>(url: &str, body: S) -> Result<String> {
+    log::info!("Sending: {} to {}", &body, url);
+
+    let text = reqwest::blocking::Client::new()
+        .post(url)
+        .json(&body)
+        .send()?
+        .text()?;
+
+    log::info!("Response body: {:?}", text);
+
+    Ok(text)
 }
