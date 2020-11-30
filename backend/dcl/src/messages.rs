@@ -51,4 +51,9 @@ impl Message {
     pub fn from_slice(bytes: &[u8]) -> Self {
         serde_json::from_slice(&bytes).unwrap()
     }
+
+    /// Converts a [`Message`] into a vector of bytes.
+    pub fn as_bytes(&self) -> Vec<u8> {
+        serde_json::to_vec(&self).unwrap()
+    }
 }

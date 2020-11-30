@@ -13,20 +13,13 @@ mod common;
 #[tokio::test]
 async fn test_node_connect_and_hb() {
     let params = common::initialise();
-    let client = mongodb::Client::with_uri_str(&params.conn_str)
-        .await
-        .unwrap();
-    let client = Arc::new(client.database("sybl"));
     let nodepool = Arc::new(dcl::node_end::NodePool::new());
 
-    let db_conn_node = Arc::clone(&client);
     let nodepool_clone = Arc::clone(&nodepool);
     let ns_clone = params.node_socket.clone();
     // Start up node end
     tokio::spawn(async move {
-        dcl::node_end::run(nodepool_clone, ns_clone, db_conn_node)
-            .await
-            .unwrap();
+        dcl::node_end::run(nodepool_clone, ns_clone).await.unwrap();
     });
 
     // Start up health checker
@@ -69,20 +62,13 @@ async fn test_node_connect_and_hb() {
 #[tokio::test]
 async fn test_dcn_using() {
     let params = common::initialise();
-    let client = mongodb::Client::with_uri_str(&params.conn_str)
-        .await
-        .unwrap();
-    let client = Arc::new(client.database("sybl"));
     let nodepool = Arc::new(dcl::node_end::NodePool::new());
 
-    let db_conn_node = Arc::clone(&client);
     let nodepool_clone = Arc::clone(&nodepool);
     let ns_clone = params.node_socket.clone() + 2;
     // Start up node end
     tokio::spawn(async move {
-        dcl::node_end::run(nodepool_clone, ns_clone, db_conn_node)
-            .await
-            .unwrap();
+        dcl::node_end::run(nodepool_clone, ns_clone).await.unwrap();
     });
 
     let socket = SocketAddr::new(

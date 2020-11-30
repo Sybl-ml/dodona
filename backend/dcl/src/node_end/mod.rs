@@ -94,13 +94,13 @@ impl NodePool {
     /// to also be stored under the same ID. These are then stored in
     /// their respective HashMaps
     pub async fn add(&self, node: Node) {
-        let oid: ObjectId = ObjectId::new();
+        let id: ObjectId = ObjectId::new();
 
         let mut node_vec = self.nodes.write().await;
         let mut info_vec = self.info.write().await;
 
-        node_vec.insert(oid.clone(), node);
-        info_vec.insert(oid.clone(), NodeInfo::new());
+        node_vec.insert(id.clone(), node);
+        info_vec.insert(id.clone(), NodeInfo::new());
     }
 
     /// Gets TcpStream reference and its ObjectId
@@ -173,9 +173,9 @@ impl NodePool {
     ///
     /// Gets the correct NodeInfo struct and updates its alive
     /// field by inverting what it currently is.
-    pub async fn update_node(&self, status: bool, oid: &ObjectId) {
+    pub async fn update_node(&self, id: &ObjectId, status: bool) {
         let mut info_write = self.info.write().await;
-        let node_info = info_write.get_mut(&oid).unwrap();
+        let node_info = info_write.get_mut(&id).unwrap();
 
         node_info.alive = status;
     }
@@ -184,9 +184,9 @@ impl NodePool {
     ///
     /// Passed the ObjectId of a node and it checks if it
     /// is being used for a job, which implies it is alive.
-    pub async fn is_using(&self, oid: &ObjectId) -> bool {
+    pub async fn is_using(&self, id: &ObjectId) -> bool {
         let info_read = self.info.read().await;
-        let node_info = info_read.get(oid).unwrap();
+        let node_info = info_read.get(id).unwrap();
 
         node_info.using
     }
