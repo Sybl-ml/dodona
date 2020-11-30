@@ -1,5 +1,6 @@
 use dcl::messages::Message;
 
+use mockito::mock;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
@@ -12,11 +13,18 @@ mod common;
 
 #[tokio::test]
 async fn test_node_connect_and_hb() {
+    // Setup the HTTP mocking
+    let _m = mock("POST", "/api/clients/m/authenticate")
+        .with_status(200)
+        .with_body(r#"{"message": "Authentication successful"}"#)
+        .create();
+
     let params = common::initialise();
     let nodepool = Arc::new(dcl::node_end::NodePool::new());
 
     let nodepool_clone = Arc::clone(&nodepool);
     let ns_clone = params.node_socket.clone();
+
     // Start up node end
     tokio::spawn(async move {
         dcl::node_end::run(nodepool_clone, ns_clone).await.unwrap();
@@ -33,39 +41,42 @@ async fn test_node_connect_and_hb() {
     // Create dummy node
     tokio::spawn(async move {
         let mut stream = TcpStream::connect(socket.to_string()).await.unwrap();
-        let key = "507f1f77bcf86cd799439011";
+        let key = r#"{"AccessToken": {"id": "507f1f77bcf86cd799439011", "token": ""}}"#;
         stream.write(key.as_bytes()).await.unwrap();
+
+        let mut buffer = [0_u8; 64];
+
         loop {
-            match read_stream(&mut stream, Duration::from_secs(5)).await {
-                Ok(_) => {
-                    stream
-                        .write(Message::send(Message::Alive).as_bytes())
-                        .await
-                        .unwrap();
-                }
-                _ => (),
-            };
+            let size = stream.read(&mut buffer).await.unwrap();
+            stream.write(&buffer[..size]).await.unwrap();
         }
     });
 
     tokio::time::sleep(Duration::new(4, 0)).await;
 
-    let nodes_read = nodepool.nodes.read().await;
-    assert!(nodes_read.len() > 0);
+    let nodes = nodepool.nodes.read().await;
+    assert!(nodes.len() > 0);
 
-    let info_read = nodepool.info.read().await;
-    for (_, info) in info_read.iter() {
+    let node_info = nodepool.info.read().await;
+    for (_, info) in node_info.iter() {
         assert!(info.alive);
     }
 }
 
 #[tokio::test]
 async fn test_dcn_using() {
+    // Setup the HTTP mocking
+    let _m = mock("POST", "/api/clients/m/authenticate")
+        .with_status(200)
+        .with_body(r#"{"message": "Authentication successful"}"#)
+        .create();
+
     let params = common::initialise();
     let nodepool = Arc::new(dcl::node_end::NodePool::new());
 
     let nodepool_clone = Arc::clone(&nodepool);
     let ns_clone = params.node_socket.clone() + 2;
+
     // Start up node end
     tokio::spawn(async move {
         dcl::node_end::run(nodepool_clone, ns_clone).await.unwrap();
@@ -75,41 +86,35 @@ async fn test_dcn_using() {
         IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
         params.node_socket + 2,
     );
+
     let sock_clone = socket.clone();
+
     // Create dummy nodes
     // Node 1
     tokio::spawn(async move {
         let mut stream = TcpStream::connect(sock_clone.to_string()).await.unwrap();
-        let key = "507f1f77bcf86cd799439011";
-        stream.write(key.as_bytes()).await.unwrap();
         let mut buffer = Vec::new();
-        match stream.read(&mut buffer).await {
-            Ok(_) => {
-                stream
-                    .write(Message::send(Message::Alive).as_bytes())
-                    .await
-                    .unwrap();
-            }
-            _ => (),
-        };
+
+        let key = r#"{"AccessToken": {"id": "507f1f77bcf86cd799439011", "token": ""}}"#;
+        stream.write(key.as_bytes()).await.unwrap();
+
+        let size = stream.read(&mut buffer).await.unwrap();
+        stream.write(&buffer[..size]).await.unwrap();
     });
+
     // Node 2
     let sock_clone = socket.clone();
     tokio::spawn(async move {
         let mut stream = TcpStream::connect(sock_clone.to_string()).await.unwrap();
-        let key = "507f1f77bcf86cd799439012";
-        stream.write(key.as_bytes()).await.unwrap();
         let mut buffer = Vec::new();
-        match stream.read(&mut buffer).await {
-            Ok(_) => {
-                stream
-                    .write(Message::send(Message::Alive).as_bytes())
-                    .await
-                    .unwrap();
-            }
-            _ => (),
-        };
+
+        let key = r#"{"AccessToken": {"id": "507f1f77bcf86cd799439011", "token": ""}}"#;
+        stream.write(key.as_bytes()).await.unwrap();
+
+        let size = stream.read(&mut buffer).await.unwrap();
+        stream.write(&buffer[..size]).await.unwrap();
     });
+
     tokio::time::sleep(Duration::new(4, 0)).await;
 
     if let Some(map1) = nodepool.get_cluster(1).await {

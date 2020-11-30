@@ -88,8 +88,8 @@ impl<'a> Handler<'a> {
             "email": &email,
         });
 
-        let url = "http://localhost:3001/api/clients/m/new";
-        let text = get_response_text(url, body).await?;
+        let endpoint = "/api/clients/m/new";
+        let text = get_response_text(endpoint, body).await?;
 
         self.respond(text.as_bytes()).await?;
 
@@ -116,8 +116,8 @@ impl<'a> Handler<'a> {
             "challenge_response": &response,
         });
 
-        let url = "http://localhost:3001/api/clients/m/verify";
-        let text = get_response_text(url, body).await?;
+        let endpoint = "/api/clients/m/verify";
+        let text = get_response_text(endpoint, body).await?;
 
         // Send the response back to the client
         self.respond(text.as_bytes()).await?;
@@ -140,8 +140,8 @@ impl<'a> Handler<'a> {
             "token": &token,
         });
 
-        let url = "http://localhost:3001/api/clients/m/authenticate";
-        let text = get_response_text(url, body).await?;
+        let endpoint = "/api/clients/m/authenticate";
+        let text = get_response_text(endpoint, body).await?;
 
         // Send the response back to the client
         self.stream.write(text.as_bytes()).await?;
@@ -151,11 +151,19 @@ impl<'a> Handler<'a> {
 }
 
 /// Queries the API server and returns the response text.
-pub async fn get_response_text<S: Display + Serialize>(url: &str, body: S) -> Result<String> {
-    log::debug!("Sending: {} to {}", &body, url);
+pub async fn get_response_text<S: Display + Serialize>(endpoint: &str, body: S) -> Result<String> {
+    #[cfg(test)]
+    let base = &mockito::server_url();
+
+    #[cfg(not(test))]
+    let base = "http://localhost:3001";
+
+    let url = format!("{}{}", base, endpoint);
+
+    log::debug!("Sending: {} to {}", &body, &url);
 
     let text = reqwest::blocking::Client::new()
-        .post(url)
+        .post(&url)
         .json(&body)
         .send()?
         .text()?;
