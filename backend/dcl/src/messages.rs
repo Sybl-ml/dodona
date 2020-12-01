@@ -4,9 +4,9 @@
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Message {
     /// Hearbeat alive message
-    Alive,
+    Alive { timestamp: u64 },
     /// Message to send Job Config
-    JobConfig,
+    JobConfig { config: String },
     /// Message to send datasets to DCN
     Data {
         /// Main dataset

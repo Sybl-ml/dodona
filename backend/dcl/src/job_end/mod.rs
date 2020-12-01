@@ -54,16 +54,27 @@ pub async fn dcl_protcol(
     dataset: String,
 ) -> String {
     let mut dcn_stream = stream.write().await;
+
+    let mut buffer = [0_u8; 1024];
+
     // This is temporary, planning on creating seperate place for defining messages
-    dcn_stream
-        .write(Message::send(Message::JobConfig).as_bytes())
-        .await
-        .unwrap();
-    let check_res: Vec<u8> = read_stream(&mut dcn_stream, timeout.clone()).await.unwrap();
-    log::info!("Check Result: {}", from_utf8(&check_res).unwrap());
+
+    let config = Message::JobConfig { config: "".into() }.as_bytes();
+    dcn_stream.write(&config).await.unwrap();
+
+    let size = dcn_stream.read(&mut buffer).await.unwrap();
+    let config_response = std::str::from_utf8(&buffer[..size]).unwrap();
+
+    log::info!("Config response: {}", config_response);
+
     dcn_stream.write(dataset.as_bytes()).await.unwrap();
-    let dataset: Vec<u8> = read_stream(&mut dcn_stream, timeout.clone()).await.unwrap();
-    log::info!("Computed Data: {}", from_utf8(&dataset).unwrap());
+
+    let size = dcn_stream.read(&mut buffer).await.unwrap();
+    let dataset = std::str::from_utf8(&buffer[..size]).unwrap();
+
+    log::info!("Computed Data: {}", dataset);
+
     nodepool.end(key).await;
-    String::from(from_utf8(&dataset).unwrap())
+
+    String::from(dataset)
 }

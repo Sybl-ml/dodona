@@ -4,14 +4,16 @@
 //! each is alive and working. It will update its status in the
 //! NodeInfo object for the node.
 
-use crate::messages::Message;
-use crate::node_end::NodePool;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
+
 use tokio::net::TcpStream;
 use tokio::prelude::*;
 use tokio::sync::RwLock;
 use tokio::time::timeout;
+
+use crate::messages::Message;
+use crate::node_end::NodePool;
 
 /// Runner for health checking
 ///
@@ -52,7 +54,13 @@ pub async fn check_health(nodepool: Arc<NodePool>) {
 /// then it is treated as dead. If not then it is treated as alive.
 pub async fn heartbeat(stream_lock: Arc<RwLock<TcpStream>>) -> bool {
     let mut stream = stream_lock.write().await;
-    let message = Message::Alive.as_bytes();
+
+    let timestamp = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    let message = Message::Alive { timestamp }.as_bytes();
 
     if stream.write(&message).await.is_err() {
         return false;
