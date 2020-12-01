@@ -1,19 +1,17 @@
 //! Part of DCL that takes a DCN and a dataset and comunicates with node
 
-use crate::messages::Message;
 use anyhow::Result;
 
-use mongodb::bson::oid::ObjectId;
-use std::str::from_utf8;
+use mongodb::{bson::oid::ObjectId, Database};
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::RwLock;
-use utils::read_stream;
 
+use crate::messages::Message;
 use crate::node_end::NodePool;
+use models::predictions::Prediction;
 
 /// Starts up and runs the job end
 ///
@@ -23,22 +21,25 @@ use crate::node_end::NodePool;
 /// on that dataset and will read in information from comp node.
 pub async fn run(
     nodepool: Arc<NodePool>,
-    mut rx: Receiver<String>,
-    job_timeout: u64,
+    database: Arc<Database>,
+    mut rx: Receiver<(ObjectId, String)>,
 ) -> Result<()> {
-    let timeout = Duration::from_secs(job_timeout);
-
     log::info!("RUNNING JOB END");
 
-    while let Some(msg) = rx.recv().await {
+    while let Some((id, msg)) = rx.recv().await {
         log::info!("Received: {}", &msg);
 
         let cluster = nodepool.get_cluster(1).await.unwrap();
+
         for (key, dcn) in cluster {
             let np_clone = Arc::clone(&nodepool);
-            let msg_clone = msg.clone();
+            let database_clone = Arc::clone(&database);
+
+            let identifier = id.clone();
+            let dataset = msg.clone();
+
             tokio::spawn(async move {
-                dcl_protcol(np_clone, timeout.clone(), key, dcn, msg_clone).await;
+                dcl_protcol(np_clone, database_clone, key, dcn, identifier, dataset).await;
             });
         }
     }
@@ -48,9 +49,10 @@ pub async fn run(
 /// Function to execute DCL protocol
 pub async fn dcl_protcol(
     nodepool: Arc<NodePool>,
-    timeout: Duration,
+    database: Arc<Database>,
     key: ObjectId,
     stream: Arc<RwLock<TcpStream>>,
+    id: ObjectId,
     dataset: String,
 ) -> String {
     let mut dcn_stream = stream.write().await;
@@ -70,11 +72,31 @@ pub async fn dcl_protcol(
     dcn_stream.write(dataset.as_bytes()).await.unwrap();
 
     let size = dcn_stream.read(&mut buffer).await.unwrap();
-    let dataset = std::str::from_utf8(&buffer[..size]).unwrap();
+    let predictions = &buffer[..size];
+    let pred_str = std::str::from_utf8(predictions).unwrap();
 
-    log::info!("Computed Data: {}", dataset);
+    // Write the predictions back to the database
+    write_predictions(database, id, predictions).await.unwrap();
+
+    log::info!("Computed Data: {}", pred_str);
 
     nodepool.end(key).await;
 
-    String::from(dataset)
+    String::from(pred_str)
+}
+
+/// Writes predictions back to the Mongo database for long term storage.
+pub async fn write_predictions(
+    database: Arc<Database>,
+    id: ObjectId,
+    dataset: &[u8],
+) -> Result<()> {
+    let predictions = database.collection("predictions");
+
+    let prediction = Prediction::new(id, dataset.to_vec());
+    let document = mongodb::bson::ser::to_document(&prediction).unwrap();
+
+    predictions.insert_one(document, None).await?;
+
+    Ok(())
 }

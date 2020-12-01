@@ -22,7 +22,11 @@ type OId = [u8; 24];
 /// read in data from an interface. Messages read over this are taken and the
 /// corresponding dataset is found and decompressed before being passed to the
 /// job end to be sent to a compute node.
-pub async fn run(socket: u16, db_conn: Arc<Database>, tx: Sender<String>) -> Result<()> {
+pub async fn run(
+    socket: u16,
+    db_conn: Arc<Database>,
+    tx: Sender<(ObjectId, String)>,
+) -> Result<()> {
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
     log::info!("Socket: {:?}", socket);
 
@@ -44,7 +48,7 @@ pub async fn run(socket: u16, db_conn: Arc<Database>, tx: Sender<String>) -> Res
 async fn process_connection(
     mut stream: TcpStream,
     db_conn: Arc<Database>,
-    tx: Sender<String>,
+    tx: Sender<(ObjectId, String)>,
 ) -> Result<()> {
     let mut buffer: OId = [0_u8; 24];
     stream.read(&mut buffer).await?;
@@ -69,7 +73,10 @@ async fn process_connection(
         Ok(decompressed) => {
             let decomp_data = std::str::from_utf8(&decompressed)?;
             log::info!("Decompressed data: {:?}", &decomp_data);
-            tx.send(String::from(decomp_data)).await.unwrap();
+
+            tx.send((dataset.project_id.unwrap(), decomp_data.into()))
+                .await
+                .unwrap();
         }
         Err(_) => {
             log::error!("Bad dataset id received");
