@@ -209,8 +209,13 @@ pub fn parse_body<R: std::io::Read>(reader: &mut csv::Reader<R>, n: usize) -> St
 /// }
 /// ```
 pub fn compress_data(data: &str) -> Result<Vec<u8>, std::io::Error> {
+    compress_bytes(data.as_bytes())
+}
+
+/// Compresses a vector of raw bytes.
+pub fn compress_bytes(bytes: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     let mut write_compress = BzEncoder::new(vec![], Compression::best());
-    write_compress.write(data.as_bytes()).unwrap();
+    write_compress.write(bytes).unwrap();
     write_compress.finish()
 }
 

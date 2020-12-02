@@ -93,9 +93,12 @@ pub async fn write_predictions(
 ) -> Result<()> {
     let predictions = database.collection("predictions");
 
-    let prediction = Prediction::new(id, dataset.to_vec());
-    let document = mongodb::bson::ser::to_document(&prediction).unwrap();
+    // Compress the data and make a new struct instance
+    let compressed = utils::compress_bytes(dataset)?;
+    let prediction = Prediction::new(id, compressed);
 
+    // Convert to a document and insert it
+    let document = mongodb::bson::ser::to_document(&prediction)?;
     predictions.insert_one(document, None).await?;
 
     Ok(())
