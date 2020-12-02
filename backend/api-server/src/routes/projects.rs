@@ -11,6 +11,7 @@ use crate::State;
 use crypto::clean;
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
+use models::predictions::Prediction;
 use models::projects::{Project, Status};
 
 /// Finds a project in the database given an identifier.
@@ -309,4 +310,39 @@ pub async fn begin_processing(req: Request<State>) -> tide::Result {
         .await?;
 
     Ok(response_from_json(doc! {"success": true}))
+}
+
+/// Gets the predicted data for a project.
+///
+/// Queries the database for all [`Prediction`] instances for a given project identifier, before
+/// decompressing each and returning them.
+pub async fn get_predictions(req: Request<State>) -> tide::Result {
+    // Get the database instance
+    let database = req.state().client.database("sybl");
+
+    // Get the projects and the predictions collections
+    let projects = database.collection("projects");
+    let predictions = database.collection("predictions");
+
+    // Get the project identifier and check it exists
+    let project_id: String = req.param("project_id")?;
+    let object_id = check_project_exists(&project_id, &projects).await?;
+
+    // Find the predictions for the given project
+    let filter = doc! { "project_id": &object_id };
+    let cursor = predictions.find(filter, None).await?;
+
+    // Decompress the predictions for each instance found
+    let decompressed: Vec<_> = cursor
+        .filter_map(Result::ok)
+        .map(|document| {
+            let prediction: Prediction = mongodb::bson::de::from_document(document).unwrap();
+            let decompressed = utils::decompress_data(&prediction.predictions.bytes).unwrap();
+
+            String::from_utf8(decompressed).unwrap()
+        })
+        .collect()
+        .await;
+
+    Ok(response_from_json(doc! {"predictions": decompressed}))
 }

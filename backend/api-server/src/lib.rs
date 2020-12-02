@@ -105,6 +105,9 @@ pub async fn build_server() -> tide::Server<State> {
     projects_api
         .at("/p/:project_id/process")
         .post(routes::projects::begin_processing);
+    projects_api
+        .at("/p/:project_id/predictions")
+        .get(routes::projects::get_predictions);
 
     let mut client_api = core_api.at("/clients");
     client_api.at("/register").post(routes::clients::register);
