@@ -11,7 +11,7 @@ pub struct Prediction {
     /// Unique identifier for the associated project
     pub project_id: ObjectId,
     /// Dataset predicted by the model
-    pub predictions: Option<Binary>,
+    pub predictions: Binary,
 }
 
 impl Prediction {
@@ -20,10 +20,10 @@ impl Prediction {
         Self {
             id: None,
             project_id: project_id,
-            predictions: Some(Binary {
+            predictions: Binary {
                 subtype: bson::spec::BinarySubtype::Generic,
                 bytes: predictions,
-            }),
+            },
         }
     }
 }
