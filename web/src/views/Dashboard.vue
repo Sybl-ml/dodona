@@ -4,14 +4,14 @@
       <b-row>
         <b-col xs="12" order-xs="2" lg="3">
           <b-row>
-            <b-col class="mb-3">
-              <b-form-input  v-model="search" placeholder="Search" block />
+            <b-col class="mb-2">
+              <b-form-input class="shadow-sm" v-model="search" placeholder="Search" block />
             </b-col>
           </b-row>
           <b-row class="text-left">
             <b-col>
               <router-link :to="{ name: 'AddProject' }">
-                <b-button variant="primary" class="mb-1 add-new" block
+                <b-button variant="primary" class="mb-2 shadow-sm add-new" block
                   ><b-row
                     ><b-col class="text-left">Add new project</b-col
                     ><b-col class="ml-auto text-right">
@@ -27,31 +27,31 @@
                   },
                 }"
               >
-                <b-card class="mb-1" no-body :class="p.status.toLowerCase()">
+                <b-card class="mb-2 shadow-sm" no-body :class="p.status.toLowerCase()" style="border: none">
                   <b-row
                     no-gutters
                     class="ml-2"
                     style="background-color: white"
                   >
                     <b-col>
-                      <b-card-body :title="p.name">
+                      <b-card-body :title="p.name" title-tag="h5">
                         <b-card-text>
                           <b-icon-play-fill
                             v-if="p.status == 'Unfinished'"
-                            style="color: red"
+                            style="color: #ff643d"
                           />
                           <b-icon-play-fill
                             v-else-if="p.status == 'Ready'"
-                            style="color: blue"
+                            style="color: #6391ff"
                           />
                           <b-icon-hourglass-split
                             v-if="p.status == 'Processing'"
                             animation="fade"
-                            variant="primary"
+                            style="color: #FFC12F"
                           />
                           <b-icon-check2-circle
                             v-else-if="p.status == 'Completed'"
-                            style="color: green"
+                            style="color: #00bf26"
                           />
                           {{ p.status }}
                         </b-card-text>
@@ -64,7 +64,11 @@
           </b-row>
         </b-col>
         <b-col lg="9">
-          <router-view></router-view>
+          <router-view
+            @update:description="updateDescription"
+            @update:name="updateName"
+            @delete:project="deleteProject"
+          ></router-view>
         </b-col>
       </b-row>
     </b-container>
@@ -78,21 +82,22 @@
 }
 
 .unfinished {
-  background-color: red !important;
+  background-color: #ff643d !important;
 }
 .ready {
-  background-color: blue !important;
+  background-color: #6391ff !important;
 }
 .processing {
-  background-color: var(--primary) !important;
+  background-color: #FFC12F !important;
 }
 .completed {
-  background-color: green !important;
+  background-color: #00bf26 !important;
 }
 </style>
 
 <script>
 import axios from "axios";
+import Vue from "vue";
 
 export default {
   name: "Dashboard",
@@ -120,14 +125,45 @@ export default {
       return y;
     });
   },
+  methods: {
+    updateName(newName, id) {
+      console.log(newName, id);
+      for (var i in this.projects) {
+        if (this.projects[i].id == id) {
+          Vue.set(this.projects[i], "name", newName);
+          break;
+        }
+      }
+    },
+    updateDescription(newDescription, id) {
+      console.log(newDescription, id);
+      for (var i in this.projects) {
+        if (this.projects[i].id == id) {
+          Vue.set(this.projects[i], "description", newDescription);
+          break;
+        }
+      }
+    },
+    deleteProject(id) {
+      let index = 0;
+      for (var i in this.projects) {
+        if (this.projects[i].id == id) {
+          index = i;
+          break;
+        }
+      }
+
+      this.projects.splice(index, 1);
+    },
+  },
   computed: {
-    filtered_projects: function() {
+    filtered_projects: function () {
       return this.projects.filter((x) => {
-        if (x['name'].includes(this.search)) {
+        if (x["name"].includes(this.search)) {
           return x;
         }
       });
-    }
+    },
   },
 };
 </script>

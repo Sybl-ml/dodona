@@ -1,0 +1,7 @@
+[global]
+app_name = "Dodona"
+pepper = "default"
+pbkdf2_iterations = "100"
+conn_str = "mongodb://localhost:27017"
+interface_socket = "6000"
+node_socket = "7000"
