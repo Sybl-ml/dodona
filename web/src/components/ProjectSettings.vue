@@ -28,7 +28,7 @@
         ><b-icon-pen /> Edit</b-button
       >
     </b-form-group>
-    <b-card border-variant="secondary" class="mt-3">
+    <b-card border-variant="secondary" class="mt-3 shadow">
       <b-form-group
         label="Delete Project"
         description="WARNING: This is permanent all data and analysis will be deleted"
