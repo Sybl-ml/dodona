@@ -103,7 +103,7 @@ export default {
       this.getUserData();
 
       let pageName = this.$route.name;
-
+      
       this.loggedIn = user_id ? true : false;
       this.logoRoute = user_id ? "/dashboard" : "/";
 
@@ -111,6 +111,7 @@ export default {
       this.atDashboard =
         pageName === "Dashboard" ||
         pageName === "Settings" ||
+        pageName === "ProjectView" ||
         pageName === "Nodes"
           ? true
           : false;

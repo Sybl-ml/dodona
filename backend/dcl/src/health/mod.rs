@@ -42,6 +42,11 @@ pub async fn check_health(nodepool: Arc<NodePool>) {
     for (id, node) in nodes.iter() {
         if !nodepool.is_using(&id).await {
             let alive = heartbeat(node.get_tcp()).await;
+
+            if !alive {
+                log::warn!("Node: {} is presumed dead", node.get_api_key());
+            }
+
             nodepool.update_node(&id, alive).await;
         }
     }
