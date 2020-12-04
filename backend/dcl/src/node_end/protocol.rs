@@ -5,7 +5,7 @@ use std::fmt::Display;
 use anyhow::Result;
 use mongodb::bson::bson;
 use serde::Serialize;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
 use crate::messages::Message;
@@ -50,8 +50,7 @@ impl<'a> Handler<'a> {
 
     /// Reads a [`Message`] from the TCP stream.
     async fn read_message(&mut self) -> Result<Message> {
-        let size = self.stream.read(&mut self.buffer).await?;
-        Ok(Message::from_slice(&self.buffer[..size]))
+        Message::from_stream(&mut self.stream, &mut self.buffer).await
     }
 
     /// Gets the access token for the user.
@@ -91,7 +90,10 @@ impl<'a> Handler<'a> {
         let endpoint = "/api/clients/m/new";
         let text = get_response_text(endpoint, body).await?;
 
-        self.respond(text.as_bytes()).await?;
+        let message = Message::RawJSON { content: text };
+
+        // Send the response back to the client
+        self.respond(&message.as_bytes()).await?;
 
         Ok(())
     }
@@ -119,8 +121,10 @@ impl<'a> Handler<'a> {
         let endpoint = "/api/clients/m/verify";
         let text = get_response_text(endpoint, body).await?;
 
+        let message = Message::RawJSON { content: text };
+
         // Send the response back to the client
-        self.respond(text.as_bytes()).await?;
+        self.respond(&message.as_bytes()).await?;
 
         Ok(())
     }
@@ -143,8 +147,10 @@ impl<'a> Handler<'a> {
         let endpoint = "/api/clients/m/authenticate";
         let text = get_response_text(endpoint, body).await?;
 
+        let message = Message::RawJSON { content: text };
+
         // Send the response back to the client
-        self.stream.write(text.as_bytes()).await?;
+        self.stream.write(&message.as_bytes()).await?;
 
         Ok(String::from(token))
     }

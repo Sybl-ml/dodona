@@ -1,5 +1,11 @@
 //! Contains the builder functions used to generate message for DCL-DCN protcol
 
+use std::convert::TryInto;
+
+use anyhow::Result;
+use tokio::io::AsyncReadExt;
+use tokio::net::TcpStream;
+
 /// Different messages to be passed between DCL and DCN
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Message {
@@ -43,6 +49,16 @@ pub enum Message {
         /// The access token itself
         token: String,
     },
+    /// A dataset for the node to process
+    Dataset {
+        /// The dataset itself
+        content: String,
+    },
+    /// A raw JSON message, usually from the API server
+    RawJSON {
+        /// The raw JSON contents
+        content: String,
+    },
 }
 
 impl Message {
@@ -53,13 +69,56 @@ impl Message {
         ret
     }
 
-    /// Interprets a [`Message`] from a slice of bytes.
-    pub fn from_slice(bytes: &[u8]) -> Self {
-        serde_json::from_slice(&bytes).unwrap()
+    /// Reads a [`Message`] from a raw stream of bytes, dealing with length prefixing.
+    pub async fn from_stream(stream: &mut TcpStream, mut buffer: &mut [u8]) -> Result<Self> {
+        log::info!("Reading a message");
+
+        // Read the size of the message
+        let mut size_buffer = [0_u8; 4];
+        stream.read_exact(&mut size_buffer).await?;
+
+        // Convert it to a u32
+        let message_size = u32::from_be_bytes(size_buffer);
+        log::debug!("Received message length prefix: {}", message_size);
+
+        // Read again from the stream, extending the vector if needed
+        let mut bytes = Vec::new();
+
+        while buffer.len() < message_size.try_into().unwrap() {
+            stream.read(&mut buffer).await?;
+            bytes.extend_from_slice(buffer);
+        }
+
+        // Calculate the remaining number of bytes
+        let remaining = (message_size as usize) % buffer.len();
+
+        // Enforce reading only `remaining` bytes
+        let mut truncated = stream.take(remaining as u64);
+        truncated.read(&mut buffer).await?;
+
+        bytes.extend_from_slice(&buffer[..remaining]);
+
+        Ok(serde_json::from_slice(&bytes)?)
     }
 
     /// Converts a [`Message`] into a vector of bytes.
     pub fn as_bytes(&self) -> Vec<u8> {
-        serde_json::to_vec(&self).unwrap()
+        log::info!("Writing a message");
+
+        // Convert the message to bytes
+        let bytes = match self {
+            Message::RawJSON { content } => content.as_bytes().to_vec(),
+            _ => serde_json::to_vec(&self).unwrap(),
+        };
+
+        // Prepend with the length
+        let length = bytes.len() as u32;
+        log::debug!("Sending message length prefix: {}", length);
+
+        let mut message = length.to_be_bytes().to_vec();
+        log::debug!("Message prefix: {:?}", message);
+        message.extend(bytes);
+
+        message
     }
 }

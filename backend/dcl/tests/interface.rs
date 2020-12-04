@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
-use tokio::sync::mpsc::{self, Receiver, Sender};
+use tokio::sync::mpsc;
 
 mod common;
 
@@ -14,7 +14,7 @@ async fn test_interface_end() {
     let database = Arc::new(database);
     let is_clone = params.interface_socket.clone();
     // Start up interface end
-    let (tx, mut rx): (Sender<String>, Receiver<String>) = mpsc::channel(20);
+    let (tx, mut rx) = mpsc::channel(20);
     let db_clone = Arc::clone(&database);
     tokio::spawn(async move {
         dcl::interface_end::run(is_clone, db_clone, tx)
@@ -33,7 +33,7 @@ async fn test_interface_end() {
     tokio::time::sleep(Duration::new(1, 0)).await;
     // assert on receive end of mpsc
     if let Some(msg) = rx.recv().await {
-        println!("Received: {}", &msg);
-        assert_eq!(&msg, common::DATASET);
+        println!("Received: {}", &msg.1);
+        assert_eq!(&msg.1, common::DATASET);
     }
 }

@@ -2,9 +2,7 @@ use config::Environment;
 use dcl::run;
 
 fn main() {
-    pretty_env_logger::formatted_timed_builder()
-        .filter_level(log::LevelFilter::Info)
-        .init();
+    env_logger::init();
 
     let environment = if cfg!(debug_assertions) {
         Environment::Development

@@ -3,15 +3,10 @@
 #[macro_use]
 extern crate serde;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use std::collections::HashMap;
 use std::io::Write;
 use std::str::FromStr;
-use std::time::Duration;
-use tokio::io::BufReader;
-use tokio::net::TcpStream;
-use tokio::prelude::*;
-use tokio::time::timeout;
 
 use bzip2::write::{BzDecoder, BzEncoder};
 use bzip2::Compression;
@@ -264,24 +259,6 @@ pub fn decompress_data(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     let mut write_decompress = BzDecoder::new(vec![]);
     write_decompress.write_all(data).unwrap();
     write_decompress.finish()
-}
-
-/// Read from buffer abstraction
-///
-/// passing in TcpStream and timing information, and reading from the stream until an
-/// EOF is found on the stream. This will constitute a whole message.
-pub async fn read_stream(buffer: &mut TcpStream, length: Duration) -> Result<Vec<u8>> {
-    let (dcn_read, _) = buffer.split();
-    let mut dcn_read = BufReader::new(dcn_read);
-
-    let mut data = vec![];
-    match timeout(length, dcn_read.read_until(0, &mut data)).await {
-        Ok(f) => match f {
-            Ok(_) => Ok(data),
-            _ => Err(anyhow!("TcpStream Disrupted")),
-        },
-        _ => Err(anyhow!("Timeout Failed")),
-    }
 }
 
 #[cfg(test)]

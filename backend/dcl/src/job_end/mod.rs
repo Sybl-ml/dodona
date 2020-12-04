@@ -69,7 +69,8 @@ pub async fn dcl_protcol(
 
     log::info!("Config response: {}", config_response);
 
-    dcn_stream.write(dataset.as_bytes()).await.unwrap();
+    let dataset_message = Message::Dataset { content: dataset };
+    dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
     let size = dcn_stream.read(&mut buffer).await.unwrap();
     let predictions = &buffer[..size];

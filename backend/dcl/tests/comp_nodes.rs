@@ -1,13 +1,12 @@
-use dcl::messages::Message;
-
-use mockito::mock;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
+
+use mockito::mock;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
 
-use utils::read_stream;
+use dcl::messages::Message;
 
 mod common;
 
@@ -41,8 +40,11 @@ async fn test_node_connect_and_hb() {
     // Create dummy node
     tokio::spawn(async move {
         let mut stream = TcpStream::connect(socket.to_string()).await.unwrap();
-        let key = r#"{"AccessToken": {"id": "507f1f77bcf86cd799439011", "token": ""}}"#;
-        stream.write(key.as_bytes()).await.unwrap();
+        let key = Message::AccessToken {
+            id: "507f1f77bcf86cd799439011".into(),
+            token: "".into(),
+        };
+        stream.write(&key.as_bytes()).await.unwrap();
 
         let mut buffer = [0_u8; 64];
 
@@ -95,8 +97,11 @@ async fn test_dcn_using() {
         let mut stream = TcpStream::connect(sock_clone.to_string()).await.unwrap();
         let mut buffer = Vec::new();
 
-        let key = r#"{"AccessToken": {"id": "507f1f77bcf86cd799439011", "token": ""}}"#;
-        stream.write(key.as_bytes()).await.unwrap();
+        let key = Message::AccessToken {
+            id: "507f1f77bcf86cd799439011".into(),
+            token: "".into(),
+        };
+        stream.write(&key.as_bytes()).await.unwrap();
 
         let size = stream.read(&mut buffer).await.unwrap();
         stream.write(&buffer[..size]).await.unwrap();
@@ -108,8 +113,11 @@ async fn test_dcn_using() {
         let mut stream = TcpStream::connect(sock_clone.to_string()).await.unwrap();
         let mut buffer = Vec::new();
 
-        let key = r#"{"AccessToken": {"id": "507f1f77bcf86cd799439011", "token": ""}}"#;
-        stream.write(key.as_bytes()).await.unwrap();
+        let key = Message::AccessToken {
+            id: "507f1f77bcf86cd799439011".into(),
+            token: "".into(),
+        };
+        stream.write(&key.as_bytes()).await.unwrap();
 
         let size = stream.read(&mut buffer).await.unwrap();
         stream.write(&buffer[..size]).await.unwrap();
