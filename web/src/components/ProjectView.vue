@@ -12,6 +12,7 @@
           :dataHead="dataHead"
           :dataDate="datasetDate"
           :dataTypes="dataTypes"
+          :ready="status=='Ready'"
           v-on:input-tab="viewInput"
         />
       </b-tab>
@@ -63,6 +64,7 @@ export default {
     return {
       name: "",
       description: "",
+      status: "",
       dateCreated: new Date(),
 
       datasetDate: new Date(),
@@ -103,11 +105,11 @@ export default {
 
       let project_details = project_response.data.details;
       let project_info = project_response.data.project;
-
+      console.log(project_info)
       this.name = project_info.name;
       this.description = project_info.description;
       this.dateCreated = new Date(project_info.date_created.$date);
-console.log(project_details.head)
+      this.status = project_info.status;
       this.dataHead = Papa.parse(project_details.head, { header: true });
       this.datasetDate = new Date(project_details.date_created.$date);
       this.dataTypes = project_details.column_types;
