@@ -99,6 +99,8 @@ impl NodePool {
         let mut node_vec = self.nodes.write().await;
         let mut info_vec = self.info.write().await;
 
+        log::info!("Adding node to the pool with id: {}", id);
+
         node_vec.insert(id.clone(), node);
         info_vec.insert(id.clone(), NodeInfo::new());
     }
@@ -204,9 +206,8 @@ pub async fn run(nodepool: Arc<NodePool>, socket: u16) -> Result<()> {
     log::info!("RUNNING NODE END");
 
     while let Ok((inbound, _)) = listener.accept().await {
-        log::info!("NODE CONNECTION");
-
         let sp_clone = Arc::clone(&nodepool);
+        log::info!("NODE CONNECTION");
 
         tokio::spawn(async move {
             process_connection(inbound, sp_clone).await.unwrap();
