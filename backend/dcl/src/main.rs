@@ -2,7 +2,7 @@ use config::Environment;
 use dcl::run;
 
 fn main() {
-    pretty_env_logger::init();
+    env_logger::init();
 
     let environment = if cfg!(debug_assertions) {
         Environment::Development
