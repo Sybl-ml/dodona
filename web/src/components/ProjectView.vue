@@ -3,9 +3,9 @@
     <h2>{{ name }}</h2>
     <h5>{{ description }}</h5>
     <p>{{ getProjectDate }}</p>
-    <b-tabs>
+    <b-card no-body class="shadow">
+    <b-tabs pills card>
       <b-tab title="Overview" active lazy ref="overviewTab">
-        <br />
         <project-overview
           :projectId="projectId"
           :key="projectId"
@@ -16,7 +16,6 @@
         />
       </b-tab>
       <b-tab title="Input" ref="inputTab">
-        <br />
         <project-input
           :projectId="projectId"
           :key="projectId"
@@ -26,8 +25,13 @@
         />
       </b-tab>
       <b-tab title="Ouptut" lazy>
-        <br />
-        This will show the output from the machine learning methods
+        <project-output
+          :projectId="projectId"
+          :key="projectId"
+          @get-results="fetchResults"
+          :results="results"
+          :loading="results_loading"
+        />
       </b-tab>
       <b-tab title="Settings" lazy>
         <project-settings
@@ -41,6 +45,7 @@
         />
       </b-tab>
     </b-tabs>
+    </b-card>
   </b-container>
 </template>
 
@@ -49,6 +54,7 @@ import axios from "axios";
 import Papa from "papaparse";
 import ProjectOverview from "@/components/ProjectOverview";
 import ProjectInput from "@/components/ProjectInput";
+import ProjectOutput from "@/components/ProjectOutput";
 import ProjectSettings from "@/components/ProjectSettings";
 
 export default {
@@ -65,6 +71,9 @@ export default {
 
       data: null,
       loading: false,
+
+      results: null,
+      results_loading: false,
     };
   },
   props: {
@@ -73,6 +82,7 @@ export default {
   components: {
     ProjectOverview,
     ProjectInput,
+    ProjectOutput,
     ProjectSettings,
   },
   watch: {
@@ -97,7 +107,7 @@ export default {
       this.name = project_info.name;
       this.description = project_info.description;
       this.dateCreated = new Date(project_info.date_created.$date);
-
+console.log(project_details.head)
       this.dataHead = Papa.parse(project_details.head, { header: true });
       this.datasetDate = new Date(project_details.date_created.$date);
       this.dataTypes = project_details.column_types;
@@ -113,6 +123,15 @@ export default {
 
       this.data = Papa.parse(project_data, { header: true });
       this.loading = false;
+    },
+    async fetchResults() {
+      this.results_loading = true;
+
+      let project_predictions = await axios.get(
+        `http://localhost:3001/api/projects/p/${this.projectId}/predictions`
+      );
+      this.results = project_predictions.data['predictions'];
+      this.results_loading = false;
     },
     resetProject() {
       this.name = "";
