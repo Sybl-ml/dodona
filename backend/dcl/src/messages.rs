@@ -51,8 +51,10 @@ pub enum Message {
     },
     /// A dataset for the node to process
     Dataset {
-        /// The dataset itself
-        content: String,
+        /// The dataset to train on
+        train: String,
+        /// The dataset to predict on
+        predict: String,
     },
     /// A raw JSON message, usually from the API server
     RawJSON {

@@ -23,6 +23,15 @@ pub mod job_end;
 pub mod messages;
 pub mod node_end;
 
+/// A pair of datasets, one for training and one for predicting.
+#[derive(Debug)]
+pub struct DatasetPair {
+    /// The training dataset
+    pub train: String,
+    /// The prediction dataset
+    pub predict: String,
+}
+
 /// Main runner function for the DCL
 ///
 /// This function is called when starting up the DCL. It starts the

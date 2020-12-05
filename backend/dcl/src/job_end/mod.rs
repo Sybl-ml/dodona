@@ -11,6 +11,7 @@ use tokio::sync::RwLock;
 
 use crate::messages::Message;
 use crate::node_end::NodePool;
+use crate::DatasetPair;
 use models::predictions::Prediction;
 
 /// Starts up and runs the job end
@@ -22,12 +23,13 @@ use models::predictions::Prediction;
 pub async fn run(
     nodepool: Arc<NodePool>,
     database: Arc<Database>,
-    mut rx: Receiver<(ObjectId, String)>,
+    mut rx: Receiver<(ObjectId, DatasetPair)>,
 ) -> Result<()> {
     log::info!("RUNNING JOB END");
 
     while let Some((id, msg)) = rx.recv().await {
-        log::info!("Received: {}", &msg);
+        log::info!("Train: {}", &msg.train);
+        log::info!("Predict: {}", &msg.predict);
 
         let cluster = nodepool.get_cluster(1).await.unwrap();
 
@@ -36,10 +38,20 @@ pub async fn run(
             let database_clone = Arc::clone(&database);
 
             let identifier = id.clone();
-            let dataset = msg.clone();
+            let train = msg.train.clone();
+            let predict = msg.predict.clone();
 
             tokio::spawn(async move {
-                dcl_protcol(np_clone, database_clone, key, dcn, identifier, dataset).await;
+                dcl_protcol(
+                    np_clone,
+                    database_clone,
+                    key,
+                    dcn,
+                    identifier,
+                    train,
+                    predict,
+                )
+                .await;
             });
         }
     }
@@ -53,7 +65,8 @@ pub async fn dcl_protcol(
     key: ObjectId,
     stream: Arc<RwLock<TcpStream>>,
     id: ObjectId,
-    dataset: String,
+    train: String,
+    predict: String,
 ) -> String {
     let mut dcn_stream = stream.write().await;
 
@@ -69,7 +82,7 @@ pub async fn dcl_protcol(
 
     log::info!("Config response: {}", config_response);
 
-    let dataset_message = Message::Dataset { content: dataset };
+    let dataset_message = Message::Dataset { train, predict };
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
     let size = dcn_stream.read(&mut buffer).await.unwrap();

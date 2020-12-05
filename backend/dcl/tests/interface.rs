@@ -33,7 +33,7 @@ async fn test_interface_end() {
     tokio::time::sleep(Duration::new(1, 0)).await;
     // assert on receive end of mpsc
     if let Some(msg) = rx.recv().await {
-        println!("Received: {}", &msg.1);
-        assert_eq!(&msg.1, common::DATASET);
+        println!("Received: {:?}", &msg.1);
+        assert_eq!(&msg.1.train, common::DATASET);
     }
 }
