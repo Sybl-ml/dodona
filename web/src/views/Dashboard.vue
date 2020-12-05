@@ -68,7 +68,8 @@
             @update:description="updateDescription"
             @update:name="updateName"
             @delete:project="deleteProject"
-            @update:add="addProject"
+            @insert:project="addProject"
+            @update:project="updateProject"
           ></router-view>
         </b-col>
       </b-row>
@@ -171,6 +172,14 @@ export default {
       }
 
       this.projects.splice(index, 1);
+    },
+    updateProject(id) {
+      let index = 0;
+      for (var i in this.projects) {
+        if (this.projects[i].id == id) {
+          this.projects[i].status = "Processing";
+        }
+      }
     },
   },
   computed: {

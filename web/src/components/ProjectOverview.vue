@@ -67,6 +67,9 @@ export default {
       } catch (err) {
         console.log(err);
       }
+      
+      // this.$router.replace("/dashboard/"+this.projectId);
+      this.$emit("update:project", this.projectId);
     },
   }
 };

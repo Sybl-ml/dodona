@@ -13,6 +13,7 @@
           :dataDate="datasetDate"
           :dataTypes="dataTypes"
           :ready="status=='Ready'"
+          @update:project="updateProject"
           v-on:input-tab="viewInput"
         />
       </b-tab>
@@ -105,7 +106,7 @@ export default {
 
       let project_details = project_response.data.details;
       let project_info = project_response.data.project;
-      console.log(project_info)
+      
       this.name = project_info.name;
       this.description = project_info.description;
       this.dateCreated = new Date(project_info.date_created.$date);
@@ -158,6 +159,10 @@ export default {
     updateDescription(newDescription) {
       this.description = newDescription;
       this.$emit("update:description", newDescription, this.projectId);
+    },
+    updateProject(id) {
+      console.log("hi2")
+      this.$emit("update:project", id);
     },
   },
   computed: {
