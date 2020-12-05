@@ -85,18 +85,25 @@ pub async fn dcl_protcol(
     let dataset_message = Message::Dataset { train, predict };
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
-    let size = dcn_stream.read(&mut buffer).await.unwrap();
-    let predictions = &buffer[..size];
-    let pred_str = std::str::from_utf8(predictions).unwrap();
+    let prediction_message = Message::from_stream(&mut dcn_stream, &mut buffer)
+        .await
+        .unwrap();
+
+    let predictions = match prediction_message {
+        Message::Predictions(s) => s,
+        _ => unreachable!(),
+    };
 
     // Write the predictions back to the database
-    write_predictions(database, id, predictions).await.unwrap();
+    write_predictions(database, id, predictions.as_bytes())
+        .await
+        .unwrap();
 
-    log::info!("Computed Data: {}", pred_str);
+    log::info!("Computed Data: {}", predictions);
 
     nodepool.end(key).await;
 
-    String::from(pred_str)
+    predictions
 }
 
 /// Writes predictions back to the Mongo database for long term storage.

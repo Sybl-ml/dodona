@@ -49,6 +49,8 @@ pub enum Message {
         /// The dataset to predict on
         predict: String,
     },
+    /// Prediction data from a node after computation
+    Predictions(String),
     /// A raw JSON message, usually from the API server
     RawJSON {
         /// The raw JSON contents
