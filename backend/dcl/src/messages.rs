@@ -19,13 +19,6 @@ pub enum Message {
         /// The configuration itself
         config: String,
     },
-    /// Message to send datasets to DCN
-    Data {
-        /// Main dataset
-        dataset: String,
-        /// Prediction dataset
-        predict: String,
-    },
     /// A request to setup a new model
     NewModel {
         /// The client's email address
