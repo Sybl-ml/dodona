@@ -2,7 +2,10 @@
 
 use anyhow::Result;
 
-use mongodb::{bson::oid::ObjectId, Database};
+use mongodb::{
+    bson::{doc, oid::ObjectId},
+    Database,
+};
 use std::sync::Arc;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
@@ -31,7 +34,7 @@ pub async fn run(
         log::info!("Train: {}", &msg.train);
         log::info!("Predict: {}", &msg.predict);
 
-        let cluster = nodepool.get_cluster(1).await.unwrap();
+        let cluster = nodepool.get_cluster(3).await.unwrap();
 
         for (key, dcn) in cluster {
             let np_clone = Arc::clone(&nodepool);
@@ -97,7 +100,7 @@ pub async fn dcl_protcol(
     };
 
     // Write the predictions back to the database
-    write_predictions(database, id, predictions.as_bytes())
+    write_predictions(database, id, &key, predictions.as_bytes())
         .await
         .unwrap();
 
@@ -112,6 +115,7 @@ pub async fn dcl_protcol(
 pub async fn write_predictions(
     database: Arc<Database>,
     id: ObjectId,
+    model_id: &str,
     dataset: &[u8],
 ) -> Result<()> {
     let predictions = database.collection("predictions");
@@ -123,6 +127,20 @@ pub async fn write_predictions(
     // Convert to a document and insert it
     let document = mongodb::bson::ser::to_document(&prediction)?;
     predictions.insert_one(document, None).await?;
+
+    increment_run_count(database, model_id).await?;
+
+    Ok(())
+}
+
+/// Increments the run count for the given model in the database.
+pub async fn increment_run_count(database: Arc<Database>, model_id: &str) -> Result<()> {
+    let models = database.collection("models");
+    let object_id = ObjectId::with_string(model_id)?;
+
+    let query = doc! {"_id": &object_id};
+    let update = doc! { "$inc": { "times_run": 1 } };
+    models.update_one(query, update, None).await?;
 
     Ok(())
 }

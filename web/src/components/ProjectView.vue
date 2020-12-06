@@ -27,7 +27,7 @@
           :loading="loading"
         />
       </b-tab>
-      <b-tab title="Ouptut" lazy>
+      <b-tab title="Output" lazy>
         <project-output
           :projectId="projectId"
           :key="projectId"

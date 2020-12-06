@@ -80,14 +80,20 @@ impl Message {
 
         // Read again from the stream, extending the vector if needed
         let mut bytes = Vec::new();
+        let mut remaining_size = message_size;
 
-        while buffer.len() < message_size.try_into().unwrap() {
+        log::info!("Buffer length: {}", buffer.len());
+
+        while buffer.len() < remaining_size.try_into().unwrap() {
+            log::info!("Reading {} bytes from the stream", buffer.len());
             stream.read(&mut buffer).await?;
             bytes.extend_from_slice(buffer);
+            remaining_size -= buffer.len() as u32;
         }
 
         // Calculate the remaining number of bytes
-        let remaining = (message_size as usize) % buffer.len();
+        let remaining = (remaining_size as usize) % buffer.len();
+        log::debug!("Remaining message size: {}", remaining_size);
 
         // Enforce reading only `remaining` bytes
         let mut truncated = stream.take(remaining as u64);

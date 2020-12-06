@@ -64,7 +64,7 @@
       <b-collapse :id="'collapse-' + String(this.i)" class="mb-4 nodeExpansion">
         <b-card class="shadow">
           <b-card-title>Model Analysis</b-card-title>
-          <b-card-text>Number of Uses: 2</b-card-text>
+          <b-card-text>Number of Uses: {{data.times_run}}</b-card-text>
         </b-card>
       </b-collapse>
     </b-row>

@@ -14,7 +14,7 @@ use crate::messages::Message;
 #[derive(Debug)]
 pub struct Handler<'a> {
     stream: &'a mut TcpStream,
-    buffer: [u8; 1024],
+    buffer: [u8; 4096],
     current_msg: Option<Message>,
 }
 
@@ -23,7 +23,7 @@ impl<'a> Handler<'a> {
     pub fn new(stream: &'a mut TcpStream) -> Self {
         Self {
             stream,
-            buffer: [0_u8; 1024],
+            buffer: [0_u8; 4096],
             current_msg: None,
         }
     }

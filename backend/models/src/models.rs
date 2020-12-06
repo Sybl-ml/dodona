@@ -72,6 +72,8 @@ pub struct ClientModel {
     pub authenticated: bool,
     /// The most recent challenge sent to client
     pub challenge: Option<Binary>,
+    /// The number of times the model has been run
+    pub times_run: i32,
 }
 
 impl ClientModel {
