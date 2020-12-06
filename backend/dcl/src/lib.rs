@@ -68,8 +68,11 @@ pub async fn run() -> Result<()> {
     });
 
     let nodepool_clone = Arc::clone(&nodepool);
+    let node_client = Arc::clone(&client);
     tokio::spawn(async move {
-        node_end::run(nodepool_clone, node_socket).await.unwrap();
+        node_end::run(nodepool_clone, node_client, node_socket)
+            .await
+            .unwrap();
     });
 
     let nodepool_clone = Arc::clone(&nodepool);
