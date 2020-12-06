@@ -150,11 +150,7 @@ export default {
   name: "Nodes",
   data() {
     return {
-      model_data: [
-        { title: "Model 1", status: "Locked" },
-        { title: "Model 2", status: "Available" },
-        { title: "Model 3", status: "Disabled" },
-      ],
+      model_data: [],
       auth_token: "",
       error: false,
       cli_code: "git clone www.sybl.com/cli",

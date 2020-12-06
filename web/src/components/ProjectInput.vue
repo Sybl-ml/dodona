@@ -2,9 +2,12 @@
   <b-container fluid class="mt-3">
     <b-row>
       <b-col v-if="!data && !loading" class="text-center">
-        <b-button @click="$emit('get-data')" variant="primary" class="px-5"
-          >Load Data</b-button
-        >
+        <b-row class="input-table">
+        <b-table hover striped :items="this.dataHead.data" />
+      </b-row>
+      <b-button @click="$emit('get-data')" variant="primary" class="px-5"
+        >Load Data</b-button
+      >
       </b-col>
       <b-col v-else-if="loading" class="text-center">
         <b-icon
@@ -14,7 +17,7 @@
         ></b-icon>
       </b-col>
       <b-col v-else class="input-table">
-        <b-table striped :items="this.data.data" />
+        <b-table hover striped :items="this.data.data" />
       </b-col>
     </b-row>
   </b-container>
@@ -36,6 +39,7 @@ export default {
   props: {
     projectId: String,
     data: Object,
+    dataHead: Object,
     loading: Boolean,
   },
   methods: {},

@@ -18,7 +18,7 @@
         </b-col>
       </b-row>
       <b-row class="input-table">
-        <b-table striped :items="this.dataHead.data" />
+        <b-table hover striped :items="this.dataHead.data" />
       </b-row>
       <b-row>
         <b-col class="text-center" style="color: #4650e8">

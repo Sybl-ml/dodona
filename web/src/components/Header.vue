@@ -22,7 +22,7 @@
         <b-dropdown-item disabled>{{ email }}</b-dropdown-item>
         <b-dropdown-divider />
         <b-dropdown-item to="/dashboard">Dashboard</b-dropdown-item>
-        <b-dropdown-item v-if="client" to="/nodes">Nodes</b-dropdown-item>
+        <b-dropdown-item v-if="client" to="/nodes">Models</b-dropdown-item>
         <b-dropdown-item v-else to="/client/confirm">
           Register as Client
         </b-dropdown-item>

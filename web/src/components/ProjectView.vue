@@ -21,6 +21,7 @@
         <project-input
           :projectId="projectId"
           :key="projectId"
+          :dataHead="dataHead"
           @get-data="fetchData"
           :data="data"
           :loading="loading"
