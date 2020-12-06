@@ -1,0 +1,3 @@
+[submodule "mallus"]
+	path = mallus
+	url = git@github.com:G-Kemp101/mallus.git
