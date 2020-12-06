@@ -22,7 +22,7 @@
         <b-dropdown-item disabled>{{ email }}</b-dropdown-item>
         <b-dropdown-divider />
         <b-dropdown-item to="/dashboard">Dashboard</b-dropdown-item>
-        <b-dropdown-item v-if="client" to="/nodes">Nodes</b-dropdown-item>
+        <b-dropdown-item v-if="client" to="/nodes">Models</b-dropdown-item>
         <b-dropdown-item v-else to="/client/confirm">
           Register as Client
         </b-dropdown-item>
@@ -103,7 +103,7 @@ export default {
       this.getUserData();
 
       let pageName = this.$route.name;
-
+      
       this.loggedIn = user_id ? true : false;
       this.logoRoute = user_id ? "/dashboard" : "/";
 
@@ -111,6 +111,7 @@ export default {
       this.atDashboard =
         pageName === "Dashboard" ||
         pageName === "Settings" ||
+        pageName === "ProjectView" ||
         pageName === "Nodes"
           ? true
           : false;

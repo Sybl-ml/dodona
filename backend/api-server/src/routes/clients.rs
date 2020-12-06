@@ -131,9 +131,11 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
     models.insert_one(document, None).await?;
 
     // return challenge
-    Ok(response_from_json(
-        doc! {"challenge": base64::encode(challenge)},
-    ))
+    Ok(response_from_json(doc! {
+        "Challenge": {
+            "challenge": base64::encode(challenge),
+        }
+    }))
 }
 
 /// Verifies a challenge response from a model
@@ -203,9 +205,11 @@ pub async fn verify_challenge(mut req: Request<State>) -> tide::Result {
 
     // return the access token to the model
     Ok(response_from_json(doc! {
-        "id": model.id.expect("Model ID is none").to_string(),
-        "token": base64::encode(access_token.clone().token.bytes),
-        "expires": access_token.expires.to_rfc3339(),
+        "AccessToken": {
+            "id": model.id.expect("Model ID is none").to_string(),
+            "token": base64::encode(access_token.clone().token.bytes),
+            "expires": access_token.expires.to_rfc3339()
+        }
     }))
 }
 
@@ -288,9 +292,9 @@ pub async fn authenticate_model(mut req: Request<State>) -> tide::Result {
         ))
     } else {
         // TODO: authenticate the model in the session
-        Ok(Response::builder(200)
-            .body("Authentication successful")
-            .build())
+        Ok(response_from_json(
+            doc! {"message": "Authentication successful"},
+        ))
     }
 }
 

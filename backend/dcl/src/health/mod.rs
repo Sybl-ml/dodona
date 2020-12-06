@@ -4,15 +4,16 @@
 //! each is alive and working. It will update its status in the
 //! NodeInfo object for the node.
 
-use crate::messages::Message;
-use crate::node_end::NodePool;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
+
 use tokio::net::TcpStream;
 use tokio::prelude::*;
 use tokio::sync::RwLock;
+use tokio::time::timeout;
 
-use utils::read_stream;
+use crate::messages::Message;
+use crate::node_end::NodePool;
 
 /// Runner for health checking
 ///
@@ -36,12 +37,17 @@ pub async fn health_runner(nodepool: Arc<NodePool>, delay: u64) {
 /// Loops through all nodes and checks to see if they are alive.
 /// This information is saved in NodeInfo.
 pub async fn check_health(nodepool: Arc<NodePool>) {
-    let nodes_read = nodepool.nodes.read().await;
+    let nodes = nodepool.nodes.read().await;
 
-    for (oid, node) in nodes_read.iter() {
-        if !nodepool.is_using(&oid).await {
-            let nd_hb = heartbeat(node.get_tcp()).await;
-            nodepool.update_node(nd_hb, &oid).await;
+    for (id, node) in nodes.iter() {
+        if !nodepool.is_using(&id).await {
+            let alive = heartbeat(node.get_tcp()).await;
+
+            if !alive {
+                log::warn!("Node: {} is presumed dead", node.get_model_id());
+            }
+
+            nodepool.update_node(&id, alive).await;
         }
     }
 }
@@ -51,20 +57,25 @@ pub async fn check_health(nodepool: Arc<NodePool>) {
 /// Checks to see if a node is still alive by sending it a
 /// small bit of JSON and it waits for its response. If it fails
 /// then it is treated as dead. If not then it is treated as alive.
-pub async fn heartbeat(stream: Arc<RwLock<TcpStream>>) -> bool {
-    let mut stream_write = stream.write().await;
+pub async fn heartbeat(stream_lock: Arc<RwLock<TcpStream>>) -> bool {
+    let mut stream = stream_lock.write().await;
 
-    if stream_write
-        .write(Message::send(Message::Alive).as_bytes())
-        .await
-        .is_err()
-    {
+    let timestamp = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    let message = Message::Alive { timestamp }.as_bytes();
+
+    if stream.write(&message).await.is_err() {
         return false;
     }
 
-    read_stream(&mut stream_write, Duration::from_millis(100))
-        .await
-        .is_ok()
+    let wait = Duration::from_millis(100);
+    let mut buffer = [0_u8; 64];
+    let future = stream.read(&mut buffer);
+
+    timeout(wait, future).await.is_ok()
 }
 
 #[cfg(test)]

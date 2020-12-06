@@ -15,13 +15,22 @@ use mongodb::Client;
 use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
-use tokio::sync::mpsc::{self, Receiver, Sender};
+use tokio::sync::mpsc;
 
 pub mod health;
 pub mod interface_end;
 pub mod job_end;
 pub mod messages;
 pub mod node_end;
+
+/// A pair of datasets, one for training and one for predicting.
+#[derive(Debug)]
+pub struct DatasetPair {
+    /// The training dataset
+    pub train: String,
+    /// The prediction dataset
+    pub predict: String,
+}
 
 /// Main runner function for the DCL
 ///
@@ -40,8 +49,6 @@ pub async fn run() -> Result<()> {
         u16::from_str(&env::var("NODE_SOCKET").expect("NODE_SOCKET must be set")).unwrap();
 
     let health = u64::from_str(&env::var("HEALTH").expect("HEALTH must be set")).unwrap();
-    let job_timeout =
-        u64::from_str(&env::var("JOB_TIMEOUT").expect("JOB_TIMEOUT must be set")).unwrap();
 
     let mut client_options = ClientOptions::parse(&conn_str).await.unwrap();
     client_options.app_name = Some(app_name);
@@ -50,9 +57,9 @@ pub async fn run() -> Result<()> {
             .unwrap()
             .database("sybl"),
     );
-    let db_conn_interface = client.clone();
+    let db_conn_interface = Arc::clone(&client);
     let nodepool = Arc::new(node_end::NodePool::new());
-    let (tx, rx): (Sender<String>, Receiver<String>) = mpsc::channel(20);
+    let (tx, rx) = mpsc::channel(20);
 
     tokio::spawn(async move {
         interface_end::run(interface_socket, db_conn_interface, tx)
@@ -60,17 +67,16 @@ pub async fn run() -> Result<()> {
             .unwrap();
     });
 
-    let db_conn_node = Arc::clone(&client);
     let nodepool_clone = Arc::clone(&nodepool);
     tokio::spawn(async move {
-        node_end::run(nodepool_clone, node_socket, db_conn_node)
-            .await
-            .unwrap();
+        node_end::run(nodepool_clone, node_socket).await.unwrap();
     });
 
     let nodepool_clone = Arc::clone(&nodepool);
+    let job_client = Arc::clone(&client);
+
     tokio::spawn(async move {
-        job_end::run(nodepool_clone, rx, job_timeout).await.unwrap();
+        job_end::run(nodepool_clone, job_client, rx).await.unwrap();
     });
 
     let nodepool_clone = Arc::clone(&nodepool);

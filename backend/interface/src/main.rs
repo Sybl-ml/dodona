@@ -2,15 +2,18 @@ use std::collections::VecDeque;
 use std::io::{Read, Write};
 use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
 const TIMEOUT_SECS: u64 = 1;
+const LISTEN_ADDR: &str = "127.0.0.1:5000";
 
 /// Listens for incoming messages from the API server and forwards them to the queue.
 fn listen(inner: &Arc<Inner>) -> std::io::Result<()> {
-    let listener = TcpListener::bind("127.0.0.1:5000")?;
+    let listener = TcpListener::bind(LISTEN_ADDR)?;
     let incoming = listener.incoming();
+
+    log::info!("Listening for connections on: {}", LISTEN_ADDR);
 
     for possible_stream in incoming {
         let mut stream = possible_stream?;
@@ -21,6 +24,10 @@ fn listen(inner: &Arc<Inner>) -> std::io::Result<()> {
 
         let mut queue = inner.queue.lock().unwrap();
         queue.push_back(buffer);
+
+        // Alert the other thread
+        drop(queue);
+        inner.available.notify_one();
     }
 
     Ok(())
@@ -51,10 +58,10 @@ fn receive(inner: &Arc<Inner>) -> std::io::Result<()> {
     let timeout = Duration::from_secs(TIMEOUT_SECS);
     let attempts = 3;
 
-    loop {
-        // Lock the queue so it cannot change
-        let mut queue = inner.queue.lock().unwrap();
+    // Lock the queue so it cannot change
+    let mut queue = inner.queue.lock().unwrap();
 
+    loop {
         // Try and send something onwards
         if let Some(element) = queue.pop_front() {
             if let Some(mut stream) = try_to_connect(&address, timeout, attempts) {
@@ -65,10 +72,14 @@ fn receive(inner: &Arc<Inner>) -> std::io::Result<()> {
             } else {
                 // Readd the element back to the queue at the front
                 queue.push_front(element);
-                // Manually release the mutex and wait before continuing
-                drop(queue);
-                std::thread::sleep(timeout);
             };
+        } else {
+            log::debug!("Found nothing in the queue");
+
+            // Manually release the mutex and wait before continuing
+            queue = inner.available.wait(queue).unwrap();
+
+            log::debug!("Wait on available finished");
         }
     }
 }
@@ -81,6 +92,8 @@ type ObjectId = [u8; 24];
 struct Inner {
     /// The internal queue of ObjectIds
     queue: Mutex<VecDeque<ObjectId>>,
+    /// The semaphore for alerting threads
+    available: Condvar,
 }
 
 fn main() -> std::io::Result<()> {

@@ -24,22 +24,26 @@
             </b-col>
             <b-col>
               <b-card-body style="text-align: right">
-                <b-card-text v-if="data.status == 'Available'">
+                <b-card-text v-if="data.status == 'Running'">
                   <b-icon-check-circle-fill
                     small
                     style="color: #00bf26"
                   ></b-icon-check-circle-fill>
-                  Available
+                  Running
                 </b-card-text>
-                <b-card-text v-else-if="data.status == 'Disabled'">
+                <b-card-text v-else-if="data.status == 'Stopped'">
                   <b-icon-x-octagon-fill
                     style="color: #ff643d"
                   ></b-icon-x-octagon-fill>
-                  Disabled
+                  Stopped
                 </b-card-text>
-                <b-card-text v-else-if="data.status == 'Locked'">
+                <b-card-text v-else-if="data.status == 'NotStarted'">
                   <b-icon-lock-fill style="color: #fbb000"></b-icon-lock-fill>
-                  Not Connected
+                  Not Started
+                </b-card-text>
+                <b-card-text v-else>
+                  <b-icon-exclamation-triangle-fill style="color: #ff1700"></b-icon-exclamation-triangle-fill>
+                  Error
                 </b-card-text>
                 <b-card-text>
                   <b-icon-cash-stack></b-icon-cash-stack>
@@ -59,7 +63,8 @@
     <b-row>
       <b-collapse :id="'collapse-' + String(this.i)" class="mb-4 nodeExpansion">
         <b-card class="shadow">
-          <b>API Key</b>
+          <b-card-title>Model Analysis</b-card-title>
+          <b-card-text>Number of Uses: 2</b-card-text>
         </b-card>
       </b-collapse>
     </b-row>
@@ -81,12 +86,14 @@ export default {
   },
   computed: {
     status_variant() {
-      if (this.data.status === "Locked") {
+      if (this.data.status === "NotStarted") {
         return "primary";
-      } else if (this.data.status === "Available") {
+      } else if (this.data.status === "Running") {
         return "completed";
-      } else if (this.data.status === "Disabled") {
+      } else if (this.data.status === "Stopped") {
         return "warning";
+      } else {
+        return "secondary";
       }
     },
   },
