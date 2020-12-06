@@ -6,7 +6,7 @@ use tide::{Request, Response};
 use crate::routes::{get_from_doc, response_from_json, tide_err};
 use crate::State;
 use chrono::Utc;
-use models::models::{AccessToken, ClientModel};
+use models::models::{AccessToken, ClientModel, Status};
 use models::users::{Client, User};
 use mongodb::bson::de::from_document;
 use mongodb::bson::ser::to_document;
@@ -116,7 +116,7 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
         id: Some(ObjectId::new()),
         user_id: user_id.clone(),
         name: model_name,
-        status: None,
+        status: Some(Status::NotStarted),
         access_token: None,
         locked: false,
         authenticated: false,

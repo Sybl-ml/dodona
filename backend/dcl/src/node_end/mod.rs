@@ -12,6 +12,10 @@ use std::str;
 use std::sync::Arc;
 
 use anyhow::Result;
+use mongodb::{
+    bson::{doc, oid::ObjectId},
+    Database,
+};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
 
@@ -198,7 +202,7 @@ impl NodePool {
 /// Starts up node end which allows DCNs to register their connection. This will create a
 /// Node object if given a correct API Key. This allows the job end to connect and
 /// communicate with the DCNs.
-pub async fn run(nodepool: Arc<NodePool>, socket: u16) -> Result<()> {
+pub async fn run(nodepool: Arc<NodePool>, database: Arc<Database>, socket: u16) -> Result<()> {
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
     let listener = TcpListener::bind(&socket).await?;
 
@@ -206,17 +210,25 @@ pub async fn run(nodepool: Arc<NodePool>, socket: u16) -> Result<()> {
 
     while let Ok((inbound, _)) = listener.accept().await {
         let sp_clone = Arc::clone(&nodepool);
+        let db_clone = Arc::clone(&database);
+
         log::info!("NODE CONNECTION");
 
         tokio::spawn(async move {
-            process_connection(inbound, sp_clone).await.unwrap();
+            process_connection(inbound, db_clone, sp_clone)
+                .await
+                .unwrap();
         });
     }
 
     Ok(())
 }
 
-async fn process_connection(mut stream: TcpStream, nodepool: Arc<NodePool>) -> Result<()> {
+async fn process_connection(
+    mut stream: TcpStream,
+    database: Arc<Database>,
+    nodepool: Arc<NodePool>,
+) -> Result<()> {
     log::info!("PROCESSING");
 
     let mut handler = protocol::Handler::new(&mut stream);
@@ -226,10 +238,28 @@ async fn process_connection(mut stream: TcpStream, nodepool: Arc<NodePool>) -> R
     log::info!("\tModel ID: {}", model_id);
     log::info!("\tToken: {}", token);
 
+    update_model_status(database, &model_id).await?;
+
     let node = Node::new(stream, model_id);
     nodepool.add(node).await;
 
     log::info!("PROCESSED");
+
+    Ok(())
+}
+
+/// Update the status of a model in the database.
+///
+/// When a model authenticates with the DCL correctly and is heartbeating, this will set the status
+/// in the database to `Running`. This can then be displayed on the frontend.
+pub async fn update_model_status(database: Arc<Database>, model_id: &str) -> Result<()> {
+    let models = database.collection("models");
+
+    let object_id = ObjectId::with_string(model_id)?;
+    let query = doc! {"_id": &object_id};
+    let update = doc! { "$set": { "status": "Running" } };
+
+    models.update_one(query, update, None).await?;
 
     Ok(())
 }
