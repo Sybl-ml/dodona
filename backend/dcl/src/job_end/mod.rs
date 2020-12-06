@@ -62,12 +62,14 @@ pub async fn run(
 pub async fn dcl_protcol(
     nodepool: Arc<NodePool>,
     database: Arc<Database>,
-    key: ObjectId,
+    key: String,
     stream: Arc<RwLock<TcpStream>>,
     id: ObjectId,
     train: String,
     predict: String,
 ) -> String {
+    log::info!("Sending a job to node with key: {}", key);
+
     let mut dcn_stream = stream.write().await;
 
     let mut buffer = [0_u8; 1024];
@@ -101,7 +103,7 @@ pub async fn dcl_protcol(
 
     log::info!("Computed Data: {}", predictions);
 
-    nodepool.end(key).await;
+    nodepool.end(&key).await;
 
     predictions
 }
