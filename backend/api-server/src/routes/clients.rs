@@ -118,7 +118,7 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
         name: model_name,
         status: None,
         access_token: None,
-        locked: true,
+        locked: false,
         authenticated: false,
         challenge: Some(Binary {
             subtype: bson::spec::BinarySubtype::Generic,
