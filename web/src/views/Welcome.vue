@@ -20,54 +20,51 @@
             EXAMPLE
           </b-button>
         </b-col>
-        <b-col md="6" sm="0" class="d-none d-lg-block main">
+        <b-col lg="6" sm="0" class="d-none d-lg-block main justify-content-center">
           <placeholder />
         </b-col>
       </b-row>
     </b-container>
     <div class="highlight">
-      <div class="quote">TRUSTED BY MANY ACROSS THE GLOBE</div>
+      <div class="quote">COMPLEX SYSTEM STACK LEADS TO A SIMPLISTIC USER JOURNEY</div>
       <b-row class="justify-content-center mr-0 ml-0">
         <b-col cols="auto">
           <b-card
-            title="Card Title"
+            title="Ensemble Learning"
             tag="article"
             style="max-width: 20rem"
             class="mb-2"
           >
-            <b-card-text>
-              Some quick example text to build on the card title and make up the
-              bulk of the card's content.
+            <b-card-text> 
+             Sybl is encourages developers to construct their models in isolation and utilises these models to solve data science problems
             </b-card-text>
-            <b-button href="#" variant="primary">Go somewhere</b-button>
+            <b-button href="#" variant="primary">Learn More</b-button>
           </b-card>
         </b-col>
         <b-col cols="auto">
           <b-card
-            title="Card Title"
+            title="Data Privacy"
             tag="article"
             style="max-width: 20rem"
             class="mb-2"
           >
             <b-card-text>
-              Some quick example text to build on the card title and make up the
-              bulk of the card's content.
+              We have actively considered relevant data protection legislation during the design of the Sybl platform, empoying the CASTLEGUARD algorithm
             </b-card-text>
-            <b-button href="#" variant="primary">Go somewhere</b-button>
+            <b-button href="#" variant="primary">Learn More</b-button>
           </b-card>
         </b-col>
         <b-col cols="auto">
           <b-card
-            title="Card Title"
+            title="Failure Detection"
             tag="article"
             style="max-width: 20rem"
             class="mb-2"
           >
             <b-card-text>
-              Some quick example text to build on the card title and make up the
-              bulk of the card's content.
+              To ensure complete processing we have built a perfect failure detector. As such you can be asured a complete result without any loss of data
             </b-card-text>
-            <b-button href="#" variant="primary">Go somewhere</b-button>
+            <b-button href="#" variant="primary">Learn More</b-button>
           </b-card>
         </b-col>
       </b-row>

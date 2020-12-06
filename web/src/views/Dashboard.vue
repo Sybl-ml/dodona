@@ -68,6 +68,8 @@
             @update:description="updateDescription"
             @update:name="updateName"
             @delete:project="deleteProject"
+            @insert:project="addProject"
+            @update:project="updateProject"
           ></router-view>
         </b-col>
       </b-row>
@@ -144,6 +146,22 @@ export default {
         }
       }
     },
+    async addProject(id) {
+      let project_response = await axios.get(
+        `http://localhost:3001/api/projects/p/${id}`
+      );
+
+      let x = project_response.data.project;
+      let y = {
+        ...x,
+        id: x._id.$oid,
+        user_id: x.user_id.$oid,
+        date_created: x.date_created.$date,
+      };
+      delete y._id;
+
+      this.projects.push(y)
+    },
     deleteProject(id) {
       let index = 0;
       for (var i in this.projects) {
@@ -154,6 +172,14 @@ export default {
       }
 
       this.projects.splice(index, 1);
+    },
+    updateProject(id) {
+      let index = 0;
+      for (var i in this.projects) {
+        if (this.projects[i].id == id) {
+          this.projects[i].status = "Processing";
+        }
+      }
     },
   },
   computed: {
