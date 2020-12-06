@@ -85,7 +85,11 @@ pub async fn initialise_with_db() -> (Database, Params) {
         "dataset": Binary {
             subtype: bson::spec::BinarySubtype::Generic,
             bytes: utils::compress_data(DATASET).unwrap(),
-        }
+        },
+        "predict": Binary {
+            subtype: bson::spec::BinarySubtype::Generic,
+            bytes: utils::compress_data(DATASET).unwrap(),
+        },
     };
 
     let datasets = database.collection("datasets");
