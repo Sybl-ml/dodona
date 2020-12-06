@@ -58,7 +58,7 @@ impl<'a> Handler<'a> {
     /// Begins the protocol either by getting a [`Message::NewModel`] and setting up the model for
     /// them along with the challenge response, or by instantly receiving a [`Message::AccessToken`]
     /// from the user.
-    pub async fn get_access_token(&mut self) -> Result<String> {
+    pub async fn get_access_token(&mut self) -> Result<(String, String)> {
         match self.peek_message().await? {
             Message::NewModel { .. } => {
                 self.register_new_model().await?;
@@ -67,9 +67,9 @@ impl<'a> Handler<'a> {
             _ => (),
         };
 
-        let token = self.verify_access_token().await?;
+        let (id, token) = self.verify_access_token().await?;
 
-        Ok(token)
+        Ok((id, token))
     }
 
     /// Registers a new model with the API server.
@@ -130,9 +130,9 @@ impl<'a> Handler<'a> {
     }
 
     /// Verifies a user's access token with the API server.
-    async fn verify_access_token(&mut self) -> Result<String> {
+    async fn verify_access_token(&mut self) -> Result<(String, String)> {
         let (id, token) = match self.peek_message().await? {
-            Message::AccessToken { id, token } => (id, String::from(token)),
+            Message::AccessToken { id, token } => (id.to_string(), token.to_string()),
             _ => unreachable!(),
         };
 
@@ -152,7 +152,7 @@ impl<'a> Handler<'a> {
         // Send the response back to the client
         self.stream.write(&message.as_bytes()).await?;
 
-        Ok(String::from(token))
+        Ok((id, token))
     }
 }
 

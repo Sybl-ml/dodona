@@ -12,7 +12,6 @@ use std::str;
 use std::sync::Arc;
 
 use anyhow::Result;
-use mongodb::bson::oid::ObjectId;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
 
@@ -22,16 +21,16 @@ pub mod protocol;
 #[derive(Debug)]
 pub struct Node {
     conn: Arc<RwLock<TcpStream>>,
-    api_key: String,
+    model_id: String,
 }
 
 // Node Methods
 impl Node {
     /// Creates a new Node object
-    pub fn new(conn: TcpStream, api_key: impl Into<String>) -> Self {
+    pub fn new(conn: TcpStream, model_id: impl Into<String>) -> Self {
         Self {
             conn: Arc::new(RwLock::new(conn)),
-            api_key: api_key.into(),
+            model_id: model_id.into(),
         }
     }
 
@@ -44,9 +43,9 @@ impl Node {
         Arc::clone(&self.conn)
     }
 
-    /// Getter for API key
-    pub fn get_api_key(&self) -> &String {
-        &self.api_key
+    /// Gets the model identifier for the node.
+    pub fn get_model_id(&self) -> &String {
+        &self.model_id
     }
 }
 
@@ -73,9 +72,9 @@ impl NodeInfo {
 #[derive(Debug)]
 pub struct NodePool {
     /// HashMap of Node objects with unique IDs
-    pub nodes: RwLock<HashMap<ObjectId, Node>>,
+    pub nodes: RwLock<HashMap<String, Node>>,
     /// HashMap of NodeInfo objects with unique IDs
-    pub info: RwLock<HashMap<ObjectId, NodeInfo>>,
+    pub info: RwLock<HashMap<String, NodeInfo>>,
 }
 
 impl NodePool {
@@ -94,7 +93,7 @@ impl NodePool {
     /// to also be stored under the same ID. These are then stored in
     /// their respective HashMaps
     pub async fn add(&self, node: Node) {
-        let id: ObjectId = ObjectId::new();
+        let id = node.get_model_id().to_string();
 
         let mut node_vec = self.nodes.write().await;
         let mut info_vec = self.info.write().await;
@@ -110,7 +109,7 @@ impl NodePool {
     /// Function is used to choose the next Node to use. When this
     /// is found, the TcpStream is cloned and the `using` flag is set
     /// in the NodeInfo instance for that Node.
-    pub async fn get(&self) -> Option<(ObjectId, Arc<RwLock<TcpStream>>)> {
+    pub async fn get(&self) -> Option<(String, Arc<RwLock<TcpStream>>)> {
         let nodes_read = self.nodes.read().await;
         let mut info_write = self.info.write().await;
 
@@ -138,15 +137,15 @@ impl NodePool {
     pub async fn get_cluster(
         &self,
         size: usize,
-    ) -> Option<HashMap<ObjectId, Arc<RwLock<TcpStream>>>> {
+    ) -> Option<HashMap<String, Arc<RwLock<TcpStream>>>> {
         let nodes_read = self.nodes.read().await;
-        let mut cluster: HashMap<ObjectId, Arc<RwLock<TcpStream>>> = HashMap::new();
+        let mut cluster: HashMap<String, Arc<RwLock<TcpStream>>> = HashMap::new();
         let mut info_write = self.info.write().await;
 
         for (key, info) in info_write.iter_mut() {
             if info.alive && !info.using {
                 info.using = true;
-                let stream = nodes_read.get(&key).unwrap().get_tcp();
+                let stream = nodes_read.get(key).unwrap().get_tcp();
                 cluster.insert(key.clone(), stream);
 
                 if cluster.len() == size {
@@ -166,18 +165,18 @@ impl NodePool {
     /// When passed an ObjectId, this function will find the
     /// NodeInfo instance for that ID and will set its `using`
     /// flag to be false, signifying the end of its use.
-    pub async fn end(&self, key: ObjectId) {
+    pub async fn end(&self, key: &str) {
         let mut info_write = self.info.write().await;
-        info_write.get_mut(&key).unwrap().using = false;
+        info_write.get_mut(key).unwrap().using = false;
     }
 
     /// Updates a NodeInfo object
     ///
     /// Gets the correct NodeInfo struct and updates its alive
     /// field by inverting what it currently is.
-    pub async fn update_node(&self, id: &ObjectId, status: bool) {
+    pub async fn update_node(&self, id: &str, status: bool) {
         let mut info_write = self.info.write().await;
-        let node_info = info_write.get_mut(&id).unwrap();
+        let node_info = info_write.get_mut(id).unwrap();
 
         node_info.alive = status;
     }
@@ -186,7 +185,7 @@ impl NodePool {
     ///
     /// Passed the ObjectId of a node and it checks if it
     /// is being used for a job, which implies it is alive.
-    pub async fn is_using(&self, id: &ObjectId) -> bool {
+    pub async fn is_using(&self, id: &str) -> bool {
         let info_read = self.info.read().await;
         let node_info = info_read.get(id).unwrap();
 
@@ -221,11 +220,13 @@ async fn process_connection(mut stream: TcpStream, nodepool: Arc<NodePool>) -> R
     log::info!("PROCESSING");
 
     let mut handler = protocol::Handler::new(&mut stream);
-    let token = handler.get_access_token().await?;
+    let (model_id, token) = handler.get_access_token().await?;
 
-    log::info!("Token: {}", token);
+    log::info!("New registered connection with:");
+    log::info!("\tModel ID: {}", model_id);
+    log::info!("\tToken: {}", token);
 
-    let node = Node::new(stream, token);
+    let node = Node::new(stream, model_id);
     nodepool.add(node).await;
 
     log::info!("PROCESSED");
