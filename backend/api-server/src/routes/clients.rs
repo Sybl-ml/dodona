@@ -124,6 +124,7 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
             subtype: bson::spec::BinarySubtype::Generic,
             bytes: challenge.clone(),
         }),
+        times_run: 0,
     };
 
     // insert model into database
