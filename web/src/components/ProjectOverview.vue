@@ -1,19 +1,31 @@
 <template>
   <b-container fluid>
-    <b-row>
-      <b-col>
-        <h4>&lt;Dataset Title&gt;</h4>
-        <p>{{ getDatasetDate }}</p>
-      </b-col>
-    </b-row>
-    <b-row class="input-table">
-      <b-table striped :items="this.dataHead.data" />
-    </b-row>
-    <b-row>
-      <b-col class="text-center" style="color: #4650e8">
-        <b-link @click="$emit('input-tab')">See More...</b-link></b-col
-      ></b-row
-    >
+    <b-container v-if="ready">
+      <h3>Almost Done!</h3>
+      <p>To start computation click the button below</p>
+      <br>
+      <p class="display-1 text-center">
+        <b-link @click="start">
+          <b-icon-play-fill variant="success"/>
+        </b-link>
+      </p>
+    </b-container>
+    <b-container v-else>
+      <b-row>
+        <b-col>
+          <h4>&lt;Dataset Title&gt;</h4>
+          <p>{{ getDatasetDate }}</p>
+        </b-col>
+      </b-row>
+      <b-row class="input-table">
+        <b-table hover striped :items="this.dataHead.data" />
+      </b-row>
+      <b-row>
+        <b-col class="text-center" style="color: #4650e8">
+          <b-link @click="$emit('input-tab')">See More...</b-link></b-col
+        ></b-row
+      >
+    </b-container>
   </b-container>
 </template>
 
@@ -34,6 +46,7 @@ export default {
     dataDate: Date,
     dataHead: Object,
     dataTypes: Object,
+    ready: Boolean,
   },
   computed: {
     getDatasetDate() {
@@ -44,5 +57,20 @@ export default {
       })}`;
     },
   },
+  methods: {
+    async start() {
+      let user_id = $cookies.get("token");
+      try {
+        await axios.post(
+          `http://localhost:3001/api/projects/p/${this.projectId}/process`
+        );
+      } catch (err) {
+        console.log(err);
+      }
+      
+      // this.$router.replace("/dashboard/"+this.projectId);
+      this.$emit("update:project", this.projectId);
+    },
+  }
 };
 </script>

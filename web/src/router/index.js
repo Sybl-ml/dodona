@@ -3,8 +3,11 @@ import VueRouter from "vue-router";
 import Welcome from "../views/Welcome.vue";
 import Login from "../views/Login.vue";
 import Register from "../views/Register.vue";
+import Nodes from "../views/Nodes.vue";
+import Confirm from "../views/Confirm.vue";
 import Settings from "../views/Settings.vue";
 import Dashboard from "../views/Dashboard.vue";
+import KeyConfirmation from "../views/KeyConfirmation.vue";
 import ProjectView from "../components/ProjectView.vue";
 import AddProject from "../components/AddProject.vue";
 
@@ -25,6 +28,17 @@ const routes = [
     path: "/register",
     name: "Register",
     component: Register,
+  },
+  {
+    path: "/client/confirm",
+    name: "Confirm",
+    component: Confirm,
+  },
+  {
+    path: "/client/confirm/success",
+    name: "PrivateKey",
+    component: KeyConfirmation,
+    props: true
   },
   {
     path: "/dashboard",
@@ -48,6 +62,11 @@ const routes = [
     path: "/settings",
     name: "Settings",
     component: Settings,
+  },
+  {
+    path: "/nodes",
+    name: "Nodes",
+    component: Nodes,
   },
 ];
 

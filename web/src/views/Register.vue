@@ -1,8 +1,8 @@
 <template>
-  <b-container fluid>
+  <b-container fluid class="d-flex flex-column flex-grow-1">
     <b-row class="justify-content-center text-center">
       <b-col lg="2" md="6" sm="8" xs="12">
-        <br/><br/>
+        <br /><br />
         <icon-logo height="5em" width="5em" :show_text="false" />
         <h1>New Sybl Account</h1>
         <b-form class="mt-5 mb-3" @submit.prevent="onSubmit">
@@ -55,6 +55,14 @@
         </b-form>
         <p v-show="!validRegistration">
           Something is wrong with your information
+        </p>
+      </b-col>
+    </b-row>
+    <b-row class="justify-content-center text-center" align-v="end">
+      <b-col>
+        <p>
+          Did you know? You can register as a client and provide models through
+          account settings
         </p>
       </b-col>
     </b-row>

@@ -86,6 +86,8 @@ export default {
       if (this.file) {
         this.readFile();
       }
+      this.$router.replace("/dashboard/"+this.project_id);
+      this.$emit("insert:project", this.project_id);
     },
     readFile() {
       this.file_reader = new FileReader();
