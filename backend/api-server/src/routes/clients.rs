@@ -27,9 +27,9 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
     let email = crypto::clean(get_from_doc(&doc, "email")?);
     let id = get_from_doc(&doc, "id")?;
 
-    let object_id = ObjectId::with_string(&id).map_err(|_| tide_err(422, "invalid object id"))?;
+    let user_id = ObjectId::with_string(&id).map_err(|_| tide_err(422, "invalid object id"))?;
 
-    let filter = doc! { "_id": &object_id };
+    let filter = doc! { "_id": &user_id };
     let user = users
         .find_one(filter, None)
         .await?
@@ -51,18 +51,15 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
         // create a new client object
         users
             .update_one(
-                doc! { "_id": &object_id },
+                doc! { "_id": &user_id },
                 doc! {"$set": {"client": true}},
                 None,
             )
             .await?;
 
-        // update user as client
-        let client = Client {
-            id: Some(ObjectId::new()),
-            user_id: object_id,
-            public_key,
-        };
+        // Update the user to be a client
+        let client = Client::new(user_id, public_key);
+
         // store client object in db
         let document = to_document(&client).unwrap();
         clients.insert_one(document, None).await?;
