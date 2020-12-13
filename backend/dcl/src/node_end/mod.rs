@@ -19,6 +19,8 @@ use mongodb::{
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
 
+use models::models::Status;
+
 pub mod protocol;
 
 /// Defines information about a Node
@@ -257,7 +259,7 @@ pub async fn update_model_status(database: Arc<Database>, model_id: &str) -> Res
 
     let object_id = ObjectId::with_string(model_id)?;
     let query = doc! {"_id": &object_id};
-    let update = doc! { "$set": { "status": "Running" } };
+    let update = doc! { "$set": { "status": Status::Running } };
     models.update_one(query, update, None).await?;
 
     Ok(())

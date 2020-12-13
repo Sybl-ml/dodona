@@ -1,10 +1,7 @@
 //! Defines the structure of projects in the MongoDB instance.
 
-use std::fmt;
-
 use chrono::Utc;
-use mongodb::bson;
-use mongodb::bson::oid::ObjectId;
+use mongodb::bson::{self, oid::ObjectId, Bson};
 use serde::{Deserialize, Serialize};
 
 #[allow(missing_docs)]
@@ -18,15 +15,15 @@ pub enum Status {
     Read,
 }
 
-impl fmt::Display for Status {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Status::Unfinished => write!(f, "Unfinished"),
-            Status::Ready => write!(f, "Ready"),
-            Status::Processing => write!(f, "Processing"),
-            Status::Complete => write!(f, "Complete"),
-            Status::Read => write!(f, "Read"),
-        }
+impl From<Status> for Bson {
+    fn from(status: Status) -> Self {
+        Self::from(match status {
+            Status::Unfinished => "Unfinished",
+            Status::Ready => "Ready",
+            Status::Processing => "Processing",
+            Status::Complete => "Complete",
+            Status::Read => "Read",
+        })
     }
 }
 

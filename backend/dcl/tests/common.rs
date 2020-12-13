@@ -6,6 +6,8 @@ use mongodb::Database;
 use std::env;
 use std::str::FromStr;
 
+use models::projects::Status;
+
 pub static USER_ID: &str = "5f8ca1a80065f27b0089e8b5";
 pub static PROJECT_ID: &str = "5f8ca1a80065f27c0089e8b5";
 pub static DATASET_ID: &str = "5f8ca1a80065f27b0089e8b6";
@@ -73,7 +75,7 @@ pub async fn initialise_with_db() -> (Database, Params) {
         "description": "Test Description",
         "date_created": bson::Bson::DateTime(chrono::Utc.timestamp_millis(0)),
         "user_id": ObjectId::with_string(USER_ID).unwrap(),
-        "status": "Ready"
+        "status": Status::Ready,
     };
 
     let projects = database.collection("projects");

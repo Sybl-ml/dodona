@@ -188,7 +188,7 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
         projects
             .update_one(
                 doc! { "_id": &object_id},
-                doc! {"$set": {"status": Status::Ready.to_string()}},
+                doc! {"$set": {"status": Status::Ready}},
                 None,
             )
             .await?;
@@ -304,7 +304,7 @@ pub async fn begin_processing(req: Request<State>) -> tide::Result {
     stream.shutdown(std::net::Shutdown::Both)?;
 
     // Mark the project as processing
-    let update = doc! { "$set": doc!{ "status": Status::Processing.to_string() } };
+    let update = doc! { "$set": doc!{ "status": Status::Processing } };
     projects
         .update_one(doc! { "_id": &object_id}, update, None)
         .await?;
