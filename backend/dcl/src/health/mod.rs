@@ -47,8 +47,10 @@ pub async fn check_health(nodepool: Arc<NodePool>) {
             if !alive {
                 log::warn!("Node: {} is presumed dead", node.get_model_id());
                 node.inc_counter().await;
+
                 if node.get_counter().await == 10 {
                     log::info!("Node: {} will be removed", node.get_model_id());
+
                     clean_list.push(id.clone());
                 }
             } else if node.get_counter().await > 0 {
