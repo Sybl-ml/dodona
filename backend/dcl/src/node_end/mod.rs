@@ -24,8 +24,12 @@ pub mod protocol;
 /// Defines information about a Node
 #[derive(Debug)]
 pub struct Node {
+    /// TCPStream for connection to node
     conn: Arc<RwLock<TcpStream>>,
+    /// ID for associated model in database
     model_id: String,
+    /// Counter used to determine if node is permanently dead
+    pub counter: RwLock<u8>,
 }
 
 // Node Methods
@@ -35,6 +39,7 @@ impl Node {
         Self {
             conn: Arc::new(RwLock::new(conn)),
             model_id: model_id.into(),
+            counter: RwLock::new(0),
         }
     }
 
@@ -50,6 +55,23 @@ impl Node {
     /// Gets the model identifier for the node.
     pub fn get_model_id(&self) -> &String {
         &self.model_id
+    }
+
+    /// Increment the dead counter for node
+    pub async fn inc_counter(&self) {
+        let mut counter = self.counter.write().await;
+        *counter += 1;
+    }
+
+    /// Reset the dead counter for node
+    pub async fn reset_counter(&self) {
+        let mut counter = self.counter.write().await;
+        *counter = 0;
+    }
+
+    /// Get the value for dead counter for node
+    pub async fn get_counter(&self) -> u8 {
+        *self.counter.read().await
     }
 }
 

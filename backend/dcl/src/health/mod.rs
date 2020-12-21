@@ -37,7 +37,8 @@ pub async fn health_runner(nodepool: Arc<NodePool>, delay: u64) {
 /// Loops through all nodes and checks to see if they are alive.
 /// This information is saved in NodeInfo.
 pub async fn check_health(nodepool: Arc<NodePool>) {
-    let nodes = nodepool.nodes.read().await;
+    let mut nodes = nodepool.nodes.write().await;
+    let mut clean_list: Vec<String> = vec![];
 
     for (id, node) in nodes.iter() {
         if !nodepool.is_using(&id).await {
@@ -45,10 +46,21 @@ pub async fn check_health(nodepool: Arc<NodePool>) {
 
             if !alive {
                 log::warn!("Node: {} is presumed dead", node.get_model_id());
+                node.inc_counter().await;
+                if node.get_counter().await == 10 {
+                    clean_list.push(id.clone());
+                }
+            } else if node.get_counter().await > 0 {
+                node.reset_counter().await;
             }
 
             nodepool.update_node(&id, alive).await;
         }
+    }
+
+    // clean dead nodes from nodepool
+    for id in clean_list {
+        nodes.remove(&id);
     }
 }
 
