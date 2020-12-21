@@ -52,3 +52,13 @@ pub struct Client {
     /// This clients public Key
     pub public_key: String,
 }
+
+impl Client {
+    pub fn new(user_id: ObjectId, public_key: String) -> Self {
+        Self {
+            id: None,
+            user_id,
+            public_key,
+        }
+    }
+}
