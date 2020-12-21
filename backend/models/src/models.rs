@@ -3,8 +3,9 @@
 use std::fmt;
 
 use chrono::{DateTime, Duration, Utc};
+use mongodb::bson::{self, oid::ObjectId, Binary, Bson};
+
 use crypto::generate_access_token;
-use mongodb::bson::{self, oid::ObjectId, Binary};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Status {
@@ -13,13 +14,13 @@ pub enum Status {
     NotStarted,
 }
 
-impl fmt::Display for Status {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Status::Running => write!(f, "Running"),
-            Status::Stopped => write!(f, "Stopped"),
-            Status::NotStarted => write!(f, "NotStarted"),
-        }
+impl From<Status> for Bson {
+    fn from(status: Status) -> Self {
+        Self::from(match status {
+            Status::Running => "Running",
+            Status::Stopped => "Stopped",
+            Status::NotStarted => "NotStarted",
+        })
     }
 }
 
