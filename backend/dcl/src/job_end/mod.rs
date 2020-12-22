@@ -34,7 +34,7 @@ pub async fn run(
         log::info!("Train: {}", &msg.train);
         log::info!("Predict: {}", &msg.predict);
 
-        let cluster = nodepool.get_cluster(3).await.unwrap();
+        let cluster = nodepool.get_cluster(1).await.unwrap();
 
         for (key, dcn) in cluster {
             let np_clone = Arc::clone(&nodepool);
@@ -54,7 +54,8 @@ pub async fn run(
                     train,
                     predict,
                 )
-                .await;
+                .await
+                .unwrap();
             });
         }
     }
@@ -70,7 +71,7 @@ pub async fn dcl_protcol(
     id: ObjectId,
     train: String,
     predict: String,
-) -> String {
+) -> Result<()> {
     log::info!("Sending a job to node with key: {}", key);
 
     let mut dcn_stream = stream.write().await;
@@ -90,9 +91,18 @@ pub async fn dcl_protcol(
     let dataset_message = Message::Dataset { train, predict };
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
-    let prediction_message = Message::from_stream(&mut dcn_stream, &mut buffer)
-        .await
-        .unwrap();
+    let prediction_message = match Message::from_stream(&mut dcn_stream, &mut buffer).await {
+        Ok(pm) => pm,
+        Err(error) => {
+            nodepool.update_node(&key, false).await;
+            log::error!(
+                "(Node {}) Error dealing with node predictions: {}",
+                &key,
+                error
+            );
+            return Ok(());
+        }
+    };
 
     let predictions = match prediction_message {
         Message::Predictions(s) => s,
@@ -102,13 +112,19 @@ pub async fn dcl_protcol(
     // Write the predictions back to the database
     write_predictions(database, id, &key, predictions.as_bytes())
         .await
-        .unwrap();
+        .unwrap_or_else(|error| {
+            log::error!(
+                "(Node: {}) Error writing predictions to DB: {}",
+                &key,
+                error
+            )
+        });
 
     log::info!("Computed Data: {}", predictions);
 
     nodepool.end(&key).await;
 
-    predictions
+    Ok(())
 }
 
 /// Writes predictions back to the Mongo database for long term storage.
