@@ -100,7 +100,7 @@ struct Inner {
 
 fn main() -> std::io::Result<()> {
     // Setup logging
-    setup_logger(String::from("interface"));
+    setup_logger("interface");
 
     let inner = Arc::new(Inner::default());
 

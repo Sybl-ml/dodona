@@ -3,7 +3,7 @@ use dcl::run;
 use utils::setup_logger;
 
 fn main() {
-    setup_logger(String::from("dcl"));
+    setup_logger("dcl");
 
     let environment = if cfg!(debug_assertions) {
         Environment::Development
