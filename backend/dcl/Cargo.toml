@@ -37,7 +37,3 @@ features = ["async-std-runtime"]
 [dependencies.reqwest]
 version = "0.10"
 features = ["blocking", "json"]
-
-[dependencies.fern]
-version = "0.5"
-features = ["colored"]
