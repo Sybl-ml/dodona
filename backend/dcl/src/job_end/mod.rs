@@ -28,7 +28,7 @@ pub async fn run(
     database: Arc<Database>,
     mut rx: Receiver<(ObjectId, DatasetPair)>,
 ) -> Result<()> {
-    log::info!("RUNNING JOB END");
+    log::info!("Job End Running");
 
     while let Some((id, msg)) = rx.recv().await {
         log::info!("Train: {}", &msg.train);
@@ -86,7 +86,7 @@ pub async fn dcl_protcol(
     let size = dcn_stream.read(&mut buffer).await.unwrap();
     let config_response = std::str::from_utf8(&buffer[..size]).unwrap();
 
-    log::info!("Config response: {}", config_response);
+    log::info!("(Node {}) Config response: {}", &key, config_response);
 
     let dataset_message = Message::Dataset { train, predict };
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
@@ -96,11 +96,13 @@ pub async fn dcl_protcol(
         Ok(pm) => pm,
         Err(error) => {
             nodepool.update_node(&key, false).await?;
+
             log::error!(
                 "(Node {}) Error dealing with node predictions: {}",
                 &key,
                 error
             );
+
             return Ok(());
         }
     };
@@ -121,7 +123,7 @@ pub async fn dcl_protcol(
             )
         });
 
-    log::info!("Computed Data: {}", predictions);
+    log::info!("(Node: {}) Computed Data: {}", &key, predictions);
 
     nodepool.end(&key).await?;
 

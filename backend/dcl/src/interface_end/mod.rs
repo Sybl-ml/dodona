@@ -31,10 +31,13 @@ pub async fn run(
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
     log::info!("Interface Socket: {:?}", socket);
     let listener = TcpListener::bind(&socket).await?;
+
     while let Ok((inbound, _)) = listener.accept().await {
-        log::info!("Interface Connection Up: {}", inbound.peer_addr()?);
+        log::info!("Interface Connection: {}", inbound.peer_addr()?);
+
         let db_conn_clone = Arc::clone(&db_conn);
         let tx_clone = tx.clone();
+
         tokio::spawn(async move {
             process_connection(inbound, db_conn_clone, tx_clone)
                 .await

@@ -230,15 +230,14 @@ impl NodePool {
 /// communicate with the DCNs.
 pub async fn run(nodepool: Arc<NodePool>, database: Arc<Database>, socket: u16) -> Result<()> {
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
+    log::info!("Node Socket: {:?}", socket);
     let listener = TcpListener::bind(&socket).await?;
-
-    log::info!("RUNNING NODE END");
 
     while let Ok((inbound, _)) = listener.accept().await {
         let sp_clone = Arc::clone(&nodepool);
         let db_clone = Arc::clone(&database);
 
-        log::info!("NODE CONNECTION");
+        log::info!("Node Connection: {}", inbound.peer_addr()?);
 
         tokio::spawn(async move {
             process_connection(inbound, db_clone, sp_clone)
@@ -255,8 +254,6 @@ async fn process_connection(
     database: Arc<Database>,
     nodepool: Arc<NodePool>,
 ) -> Result<()> {
-    log::info!("PROCESSING");
-
     let mut handler = protocol::Handler::new(&mut stream);
     let (model_id, token) = handler.get_access_token().await?;
 
@@ -268,8 +265,6 @@ async fn process_connection(
 
     let node = Node::new(stream, model_id);
     nodepool.add(node).await;
-
-    log::info!("PROCESSED");
 
     Ok(())
 }
