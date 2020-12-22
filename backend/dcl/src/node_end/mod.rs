@@ -191,20 +191,24 @@ impl NodePool {
     /// When passed an ObjectId, this function will find the
     /// NodeInfo instance for that ID and will set its `using`
     /// flag to be false, signifying the end of its use.
-    pub async fn end(&self, key: &str) {
+    pub async fn end(&self, key: &str) -> Result<()> {
         let mut info_write = self.info.write().await;
         info_write.get_mut(key).unwrap().using = false;
+
+        Ok(())
     }
 
     /// Updates a NodeInfo object
     ///
     /// Gets the correct NodeInfo struct and updates its alive
     /// field by inverting what it currently is.
-    pub async fn update_node(&self, id: &str, status: bool) {
+    pub async fn update_node(&self, id: &str, status: bool) -> Result<()> {
         let mut info_write = self.info.write().await;
         let node_info = info_write.get_mut(id).unwrap();
 
         node_info.alive = status;
+
+        Ok(())
     }
 
     /// Checks if a node is being used

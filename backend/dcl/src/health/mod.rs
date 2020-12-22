@@ -12,6 +12,8 @@ use tokio::prelude::*;
 use tokio::sync::RwLock;
 use tokio::time::timeout;
 
+use anyhow::Result;
+
 use crate::messages::Message;
 use crate::node_end::NodePool;
 
@@ -26,7 +28,7 @@ pub async fn health_runner(nodepool: Arc<NodePool>, delay: u64) {
 
     loop {
         let np = Arc::clone(&nodepool);
-        check_health(np).await;
+        check_health(np).await.unwrap();
         log::info!("HEALTH CHECKED");
         interval.tick().await;
     }
@@ -36,7 +38,7 @@ pub async fn health_runner(nodepool: Arc<NodePool>, delay: u64) {
 ///
 /// Loops through all nodes and checks to see if they are alive.
 /// This information is saved in NodeInfo.
-pub async fn check_health(nodepool: Arc<NodePool>) {
+pub async fn check_health(nodepool: Arc<NodePool>) -> Result<()> {
     let mut nodes = nodepool.nodes.write().await;
     let mut clean_list: Vec<String> = vec![];
 
@@ -57,7 +59,7 @@ pub async fn check_health(nodepool: Arc<NodePool>) {
                 node.reset_counter().await;
             }
 
-            nodepool.update_node(&id, alive).await;
+            nodepool.update_node(&id, alive).await?;
         }
     }
 
@@ -65,6 +67,8 @@ pub async fn check_health(nodepool: Arc<NodePool>) {
     for id in clean_list {
         nodes.remove(&id);
     }
+
+    Ok(())
 }
 
 /// Checks to see if a Node is still alive

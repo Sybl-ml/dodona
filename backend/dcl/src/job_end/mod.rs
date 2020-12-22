@@ -91,10 +91,11 @@ pub async fn dcl_protcol(
     let dataset_message = Message::Dataset { train, predict };
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
+    // TODO: Propagate this error forward to the frontend so that it can say a node has failed
     let prediction_message = match Message::from_stream(&mut dcn_stream, &mut buffer).await {
         Ok(pm) => pm,
         Err(error) => {
-            nodepool.update_node(&key, false).await;
+            nodepool.update_node(&key, false).await?;
             log::error!(
                 "(Node {}) Error dealing with node predictions: {}",
                 &key,
@@ -122,7 +123,7 @@ pub async fn dcl_protcol(
 
     log::info!("Computed Data: {}", predictions);
 
-    nodepool.end(&key).await;
+    nodepool.end(&key).await?;
 
     Ok(())
 }
