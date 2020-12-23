@@ -5,13 +5,14 @@ extern crate serde;
 
 use anyhow::Result;
 use csv::StringRecord;
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::io::Write;
 use std::str::FromStr;
 
 use bzip2::write::{BzDecoder, BzEncoder};
 use bzip2::Compression;
-use pbkdf2::pbkdf2_simple;
 
 /// Represents what is returned from Analysis function
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -35,7 +36,9 @@ impl ColumnType {
     pub fn anonymise(&self, value: String) -> String {
         match self {
             ColumnType::Categorical(mapping) => mapping.get(&value).unwrap().to_string(),
-            ColumnType::Numerical(min, max) => ColumnType::normalise(f64::from_str(&value).unwrap(), *min, *max).to_string(),
+            ColumnType::Numerical(min, max) => {
+                ColumnType::normalise(f64::from_str(&value).unwrap(), *min, *max).to_string()
+            }
         }
     }
 
@@ -47,8 +50,11 @@ impl ColumnType {
         }
     }
 
-    pub fn obfuscate(value: String) -> String {
-        pbkdf2_simple(&value, 10).unwrap()
+    pub fn obfuscate(value: String, salt: &String) -> String {
+        let mut hasher = DefaultHasher::new();
+        value.hash(&mut hasher);
+        salt.hash(&mut hasher);
+        hasher.finish().to_string()
     }
 
     pub fn is_categorical(&self) -> bool {
@@ -61,18 +67,37 @@ impl ColumnType {
     pub fn is_numerical(&self) -> bool {
         match self {
             ColumnType::Numerical(_, _) => true,
-            _ => false
+            _ => false,
         }
     }
 }
 
-impl From<Vec<String>> for ColumnType {
-    fn from(values: Vec<String>) -> ColumnType {
+impl From<(Vec<String>, &String)> for ColumnType {
+    fn from((values, salt): (Vec<String>, &String)) -> ColumnType {
         if values.iter().all(|v| f64::from_str(v).is_ok()) {
             let numerical: Vec<f64> = values.iter().map(|v| f64::from_str(v).unwrap()).collect();
-            ColumnType::Numerical(*numerical.iter().min_by(|x, y| x.partial_cmp(&y).unwrap()).unwrap(), *numerical.iter().max_by(|x, y| x.partial_cmp(&y).unwrap()).unwrap())
+            ColumnType::Numerical(
+                *numerical
+                    .iter()
+                    .min_by(|x, y| x.partial_cmp(&y).unwrap())
+                    .unwrap(),
+                *numerical
+                    .iter()
+                    .max_by(|x, y| x.partial_cmp(&y).unwrap())
+                    .unwrap(),
+            )
         } else {
-            ColumnType::Categorical(values.iter().zip(values.iter().map(|v| ColumnType::obfuscate(v.to_string()))).map(|(v, o)| (v.to_string(), o)).collect())
+            ColumnType::Categorical(
+                values
+                    .iter()
+                    .zip(
+                        values
+                            .iter()
+                            .map(|v| ColumnType::obfuscate(v.to_string(), salt)),
+                    )
+                    .map(|(v, o)| (v.to_string(), o))
+                    .collect(),
+            )
         }
     }
 }
@@ -84,7 +109,7 @@ impl From<Vec<String>> for ColumnType {
 /// combined into a struct which returns the data together.
 pub fn analyse(dataset: &str) -> Analysis {
     let mut reader = csv::Reader::from_reader(std::io::Cursor::new(dataset));
-    let types = infer_dataset_types(&mut reader).unwrap();
+    let types = infer_dataset_types(&mut reader, "".to_string()).unwrap();
     reader.seek(csv::Position::new()).unwrap();
     let header: String = parse_body(&mut reader, 6);
     log::info!("Header: {}", header);
@@ -108,13 +133,14 @@ pub fn analyse(dataset: &str) -> Analysis {
 /// Coventry,24
 /// "#;
 /// let mut reader = csv::Reader::from_reader(std::io::Cursor::new(dataset));
-/// let types = infer_dataset_types(&mut reader).unwrap();
+/// let types = infer_dataset_types(&mut reader, "test dataset".to_string()).unwrap();
 ///
 /// assert!(types.get(&"education".to_string()).unwrap().is_categorical());
 /// assert!(types.get(&"age".to_string()).unwrap().is_numerical());
 /// ```
 pub fn infer_dataset_types<R: std::io::Read>(
     reader: &mut csv::Reader<R>,
+    salt: String,
 ) -> csv::Result<HashMap<String, ColumnType>> {
     // Get the headers
     let headers = reader.headers()?.to_owned();
@@ -126,12 +152,20 @@ pub fn infer_dataset_types<R: std::io::Read>(
     Ok(headers
         .into_iter()
         .enumerate()
-        .map(|(i, h)| (h.to_string(), ColumnType::from(column_values(&records, i))))
+        .map(|(i, h)| {
+            (
+                h.to_string(),
+                ColumnType::from((column_values(&records, i), &salt)),
+            )
+        })
         .collect())
 }
 
 pub fn column_values(records: &Vec<StringRecord>, col: usize) -> Vec<String> {
-    records.iter().map(|r| r.iter().enumerate().nth(col).unwrap().1.to_string()).collect()
+    records
+        .iter()
+        .map(|r| r.iter().enumerate().nth(col).unwrap().1.to_string())
+        .collect()
 }
 
 /// Infers the training and prediction data based on whether the last column is empty.
@@ -281,12 +315,44 @@ mod tests {
     use super::*;
 
     #[test]
-    fn categorical_cannot_be_overwritten() {
+    fn categorical_data_can_be_inferred() {
         let dataset = "age\n21\nTwenty\n20";
         let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types = infer_dataset_types(&mut reader).unwrap();
+        let types = infer_dataset_types(&mut reader, "test dataset".to_string()).unwrap();
 
         assert!(types.get(&"age".to_string()).unwrap().is_categorical());
+    }
+
+    #[test]
+    fn categorical_data_is_salted() {
+        let dataset = "age\n21\nTwenty\n20";
+        let mut reader = csv::Reader::from_reader(dataset.as_bytes());
+        let types_salted = infer_dataset_types(&mut reader, "test dataset".to_string()).unwrap();
+        let mut reader = csv::Reader::from_reader(dataset.as_bytes());
+        let types_resalted = infer_dataset_types(&mut reader, "test dataset again".to_string()).unwrap();
+
+        assert_ne!(
+            types_salted.get(&"age".to_string()),
+            types_resalted.get(&"age".to_string()),
+        );
+    }
+
+    #[test]
+    fn numerical_data_can_be_inferred() {
+        let dataset = "age\n21\n21.564\n20";
+        let mut reader = csv::Reader::from_reader(dataset.as_bytes());
+        let types = infer_dataset_types(&mut reader, "test dataset".to_string()).unwrap();
+
+        assert!(types.get(&"age".to_string()).unwrap().is_numerical());
+    }
+
+    #[test]
+    fn data_types_can_be_inferred() {
+        let dataset = "age,location\n20,Coventry\n20,\n21,Leamington";
+        let mut reader = csv::Reader::from_reader(dataset.as_bytes());
+        let types = infer_dataset_types(&mut reader, "test dataset".to_string()).unwrap();
+        assert!(types.get(&"age".to_string()).unwrap().is_numerical());
+        assert!(types.get(&"location".to_string()).unwrap().is_categorical());
     }
 
     #[test]
