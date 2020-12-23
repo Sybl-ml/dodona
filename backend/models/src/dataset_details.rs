@@ -19,7 +19,7 @@ pub struct DatasetDetails {
     /// Head of the dataset
     pub head: Option<String>,
     /// The types of each column
-    pub column_types: HashMap<String, utils::DatasetType>,
+    pub column_types: HashMap<String, utils::ColumnType>,
 }
 
 impl DatasetDetails {
@@ -27,7 +27,7 @@ impl DatasetDetails {
     pub fn new(
         project_id: ObjectId,
         head: String,
-        column_types: HashMap<String, utils::DatasetType>,
+        column_types: HashMap<String, utils::ColumnType>,
     ) -> Self {
         Self {
             id: None,

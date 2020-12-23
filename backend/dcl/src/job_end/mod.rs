@@ -1,7 +1,7 @@
 //! Part of DCL that takes a DCN and a dataset and comunicates with node
 
 use anyhow::Result;
-
+use csv::{Reader, StringRecord};
 use mongodb::{
     bson::{doc, oid::ObjectId},
     Database,
@@ -33,6 +33,17 @@ pub async fn run(
     while let Some((id, msg)) = rx.recv().await {
         log::info!("Train: {}", &msg.train);
         log::info!("Predict: {}", &msg.predict);
+
+        let mut train_csv = Reader::from_reader(msg.train.as_bytes());
+        let mut predict_csv = Reader::from_reader(msg.predict.as_bytes());
+
+        let mut train = train_csv.records();
+        let mut predict = predict_csv.records();
+
+        let header: StringRecord = train.next().unwrap()?;
+        assert_eq!(header, predict.next().unwrap()?);
+
+
 
         let cluster = nodepool.get_cluster(3).await.unwrap();
 

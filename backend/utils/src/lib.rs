@@ -4,45 +4,75 @@
 extern crate serde;
 
 use anyhow::Result;
+use csv::StringRecord;
 use std::collections::HashMap;
 use std::io::Write;
 use std::str::FromStr;
 
 use bzip2::write::{BzDecoder, BzEncoder};
 use bzip2::Compression;
+use pbkdf2::pbkdf2_simple;
 
 /// Represents what is returned from Analysis function
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Analysis {
     /// HashMap of the datatypes of columns
-    pub types: HashMap<String, DatasetType>,
+    pub types: HashMap<String, ColumnType>,
     /// First 5 rows and dataset headers
     pub header: String,
 }
 
 /// Represents the types that a CSV column could have.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum DatasetType {
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum ColumnType {
     /// String-like data, such as University.
-    Categorical,
+    Categorical(HashMap<String, String>),
     /// Numerical data, such as Age.
-    Numerical,
+    Numerical(f64, f64),
 }
 
-impl DatasetType {
-    /// Infers the type of a string based on whether it is numerical or not.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use utils::DatasetType;
-    /// assert_eq!(DatasetType::infer("Warwick"), DatasetType::Categorical);
-    /// assert_eq!(DatasetType::infer("22"), DatasetType::Numerical);
-    /// ```
-    pub fn infer(value: &str) -> Self {
-        match f64::from_str(value) {
-            Ok(_) => Self::Numerical,
-            Err(_) => Self::Categorical,
+impl ColumnType {
+    pub fn anonymise(&self, value: String) -> String {
+        match self {
+            ColumnType::Categorical(mapping) => mapping.get(&value).unwrap().to_string(),
+            ColumnType::Numerical(min, max) => ColumnType::normalise(f64::from_str(&value).unwrap(), *min, *max).to_string(),
+        }
+    }
+
+    pub fn normalise(value: f64, min: f64, max: f64) -> f64 {
+        if max - min == 0.0 {
+            0.0
+        } else {
+            (value - min) / (max - min)
+        }
+    }
+
+    pub fn obfuscate(value: String) -> String {
+        pbkdf2_simple(&value, 10).unwrap()
+    }
+
+    pub fn is_categorical(&self) -> bool {
+        match self {
+            ColumnType::Categorical(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_numerical(&self) -> bool {
+        match self {
+            ColumnType::Numerical(_, _) => true,
+            _ => false
+        }
+    }
+}
+
+impl From<Vec<String>> for ColumnType {
+    fn from(values: Vec<String>) -> ColumnType {
+        if values.iter().all(|v| f64::from_str(v).is_ok()) {
+            let numerical: Vec<f64> = values.iter().map(|v| f64::from_str(v).unwrap()).collect();
+            ColumnType::Numerical(*numerical.iter().min_by(|x, y| x.partial_cmp(&y).unwrap()).unwrap(), *numerical.iter().max_by(|x, y| x.partial_cmp(&y).unwrap()).unwrap())
+        } else {
+            ColumnType::Categorical(values.iter().zip(values.iter().map(|v| ColumnType::obfuscate(v.to_string()))).map(|(v, o)| (v.to_string(), o)).collect())
         }
     }
 }
@@ -64,14 +94,14 @@ pub fn analyse(dataset: &str) -> Analysis {
 /// Infers the types of each column given a dataset.
 ///
 /// Iterates through the rows of a dataset and decides the type of data in each column, which is
-/// one of [`DatasetType`]. The dataset is expected to be valid CSV data, with headers as the first
+/// one of [`ColumnType`]. The dataset is expected to be valid CSV data, with headers as the first
 /// row.
 ///
 /// # Examples
 ///
 /// ```
 /// # use std::collections::HashMap;
-/// # use utils::{DatasetType, infer_dataset_types};
+/// # use utils::{ColumnType, infer_dataset_types};
 /// let dataset = r#"
 /// education,age
 /// Warwick,22
@@ -80,43 +110,28 @@ pub fn analyse(dataset: &str) -> Analysis {
 /// let mut reader = csv::Reader::from_reader(std::io::Cursor::new(dataset));
 /// let types = infer_dataset_types(&mut reader).unwrap();
 ///
-/// let mut expected = HashMap::new();
-/// expected.insert(String::from("education"), DatasetType::Categorical);
-/// expected.insert(String::from("age"), DatasetType::Numerical);
-///
-/// assert_eq!(types, expected);
+/// assert!(types.get(&"education".to_string()).unwrap().is_categorical());
+/// assert!(types.get(&"age".to_string()).unwrap().is_numerical());
 /// ```
 pub fn infer_dataset_types<R: std::io::Read>(
     reader: &mut csv::Reader<R>,
-) -> csv::Result<HashMap<String, DatasetType>> {
+) -> csv::Result<HashMap<String, ColumnType>> {
     // Get the headers
-    let headers = reader.headers()?;
-
-    // Insert name and unknown type for each header
-    let mut types: HashMap<_, _> = headers
-        .into_iter()
-        .enumerate()
-        .map(|(i, h)| (i, (h.to_string(), DatasetType::Numerical)))
-        .collect();
+    let headers = reader.headers()?.to_owned();
 
     // Ignore rows that fail to parse
-    let records = reader.records().filter_map(Result::ok);
+    let records: Vec<StringRecord> = reader.records().filter_map(Result::ok).collect();
 
-    // Update the types based on each row
-    for row in records {
-        for (i, v) in row.into_iter().enumerate() {
-            let inferred = DatasetType::infer(v);
-            let current = types.get_mut(&i).unwrap();
+    // Insert name and unknown type for each header
+    Ok(headers
+        .into_iter()
+        .enumerate()
+        .map(|(i, h)| (h.to_string(), ColumnType::from(column_values(&records, i))))
+        .collect())
+}
 
-            // Only overwrite if we are changing from Numerical
-            if let DatasetType::Numerical = current.1 {
-                current.1 = inferred;
-            }
-        }
-    }
-
-    // Pivot `types` to go from k => (n, t) to n => t
-    Ok(types.into_iter().map(|(_, v)| (v.0, v.1)).collect())
+pub fn column_values(records: &Vec<StringRecord>, col: usize) -> Vec<String> {
+    records.iter().map(|r| r.iter().enumerate().nth(col).unwrap().1.to_string()).collect()
 }
 
 /// Infers the training and prediction data based on whether the last column is empty.
@@ -271,10 +286,7 @@ mod tests {
         let mut reader = csv::Reader::from_reader(dataset.as_bytes());
         let types = infer_dataset_types(&mut reader).unwrap();
 
-        let mut expected = HashMap::new();
-        expected.insert(String::from("age"), DatasetType::Categorical);
-
-        assert_eq!(types, expected);
+        assert!(types.get(&"age".to_string()).unwrap().is_categorical());
     }
 
     #[test]
