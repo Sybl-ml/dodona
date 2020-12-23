@@ -4,7 +4,7 @@
 extern crate serde;
 
 use anyhow::Result;
-use csv::StringRecord;
+use csv::{StringRecord, Writer};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -40,10 +40,14 @@ pub struct Column {
 
 impl Column {
     pub fn anonymise(&self, value: String) -> String {
-        match &self.column_type {
-            ColumnType::Categorical(mapping) => mapping.get(&value).unwrap().to_string(),
-            ColumnType::Numerical(min, max) => {
-                Column::normalise(f64::from_str(&value).unwrap(), *min, *max).to_string()
+        if value.len() == 0 {
+            "".to_string()
+        } else {
+            match &self.column_type {
+                ColumnType::Categorical(mapping) => mapping.get(&value).unwrap().to_string(),
+                ColumnType::Numerical(min, max) => {
+                    Column::normalise(f64::from_str(&value).unwrap(), *min, *max).to_string()
+                }
             }
         }
     }
@@ -92,7 +96,10 @@ impl From<(Vec<String>, &String)> for Column {
                     .max_by(|x, y| x.partial_cmp(&y).unwrap())
                     .unwrap(),
             );
-            Column { column_type: column_type, salt: salt.to_string() }
+            Column {
+                column_type: column_type,
+                salt: salt.to_string(),
+            }
         } else {
             let column_type = ColumnType::Categorical(
                 values
@@ -105,7 +112,10 @@ impl From<(Vec<String>, &String)> for Column {
                     .map(|(v, o)| (v.to_string(), o))
                     .collect(),
             );
-            Column { column_type: column_type, salt: salt.to_string() }
+            Column {
+                column_type: column_type,
+                salt: salt.to_string(),
+            }
         }
     }
 }
@@ -117,7 +127,7 @@ impl From<(Vec<String>, &String)> for Column {
 /// combined into a struct which returns the data together.
 pub fn analyse(dataset: &str) -> Analysis {
     let mut reader = csv::Reader::from_reader(std::io::Cursor::new(dataset));
-    let types = infer_dataset_types(&mut reader, "".to_string()).unwrap();
+    let types = infer_columns(&mut reader, "".to_string()).unwrap();
     reader.seek(csv::Position::new()).unwrap();
     let header: String = parse_body(&mut reader, 6);
     log::info!("Header: {}", header);
@@ -134,19 +144,19 @@ pub fn analyse(dataset: &str) -> Analysis {
 ///
 /// ```
 /// # use std::collections::HashMap;
-/// # use utils::{ColumnType, infer_dataset_types};
+/// # use utils::{ColumnType, infer_columns};
 /// let dataset = r#"
 /// education,age
 /// Warwick,22
 /// Coventry,24
 /// "#;
 /// let mut reader = csv::Reader::from_reader(std::io::Cursor::new(dataset));
-/// let types = infer_dataset_types(&mut reader, "test dataset".to_string()).unwrap();
+/// let types = infer_columns(&mut reader, "test dataset".to_string()).unwrap();
 ///
 /// assert!(types.get(&"education".to_string()).unwrap().is_categorical());
 /// assert!(types.get(&"age".to_string()).unwrap().is_numerical());
 /// ```
-pub fn infer_dataset_types<R: std::io::Read>(
+pub fn infer_columns<R: std::io::Read>(
     reader: &mut csv::Reader<R>,
     salt: String,
 ) -> csv::Result<HashMap<String, Column>> {
@@ -174,6 +184,28 @@ pub fn column_values(records: &Vec<StringRecord>, col: usize) -> Vec<String> {
         .iter()
         .map(|r| r.iter().enumerate().nth(col).unwrap().1.to_string())
         .collect()
+}
+
+pub fn anonymise_dataset(dataset: String, salt: String) -> String {
+    let mut reader = csv::Reader::from_reader(dataset.as_bytes());
+    let types: HashMap<String, Column> = infer_columns(&mut reader, salt).unwrap();
+    let mut reader = csv::Reader::from_reader(dataset.as_bytes());
+    let headers = reader.headers().unwrap().to_owned();
+    let mut writer = Writer::from_writer(vec![]);
+    let records: Vec<StringRecord> = reader.records().filter_map(Result::ok).collect();
+    let anonymised = records
+        .iter()
+        .map(|r| {
+            r.iter()
+                .zip(&headers)
+                .map(|(v, c)| types.get(&c.to_string()).unwrap().anonymise(v.to_string()))
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    anonymised.iter().for_each(|v| {
+        writer.write_record(v).unwrap();
+    });
+    String::from_utf8(writer.into_inner().unwrap()).unwrap()
 }
 
 /// Infers the training and prediction data based on whether the last column is empty.
@@ -326,7 +358,7 @@ mod tests {
     fn categorical_data_can_be_inferred() {
         let dataset = "age\n21\nTwenty\n20";
         let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types = infer_dataset_types(&mut reader, "test dataset".to_string()).unwrap();
+        let types = infer_columns(&mut reader, "test dataset".to_string()).unwrap();
 
         assert!(types.get(&"age".to_string()).unwrap().is_categorical());
     }
@@ -335,9 +367,9 @@ mod tests {
     fn categorical_data_is_salted() {
         let dataset = "age\n21\nTwenty\n20";
         let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types_salted = infer_dataset_types(&mut reader, "test dataset".to_string()).unwrap();
+        let types_salted = infer_columns(&mut reader, "test dataset".to_string()).unwrap();
         let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types_resalted = infer_dataset_types(&mut reader, "test dataset again".to_string()).unwrap();
+        let types_resalted = infer_columns(&mut reader, "test dataset 2".to_string()).unwrap();
 
         assert_ne!(
             types_salted.get(&"age".to_string()),
@@ -349,7 +381,7 @@ mod tests {
     fn numerical_data_can_be_inferred() {
         let dataset = "age\n21\n21.564\n20";
         let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types = infer_dataset_types(&mut reader, "test dataset".to_string()).unwrap();
+        let types = infer_columns(&mut reader, "test dataset".to_string()).unwrap();
 
         assert!(types.get(&"age".to_string()).unwrap().is_numerical());
     }
@@ -358,23 +390,38 @@ mod tests {
     fn data_types_can_be_inferred() {
         let dataset = "age,location\n20,Coventry\n20,\n21,Leamington";
         let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types = infer_dataset_types(&mut reader, "test dataset".to_string()).unwrap();
+        let types = infer_columns(&mut reader, "test dataset".to_string()).unwrap();
         assert!(types.get(&"age".to_string()).unwrap().is_numerical());
         assert!(types.get(&"location".to_string()).unwrap().is_categorical());
     }
 
     #[test]
-    fn data_can_be_anonymised() {
+    fn columns_can_be_anonymised() {
         let dataset = "age,location\n20,Coventry\n20,\n21,Leamington";
         let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types = infer_dataset_types(&mut reader, "test dataset".to_string()).unwrap();
+        let types = infer_columns(&mut reader, "test dataset".to_string()).unwrap();
         let age = types.get(&"age".to_string()).unwrap();
         let loc = types.get(&"location".to_string()).unwrap();
         assert_eq!(age.anonymise("20.0".to_string()), "0".to_string());
         assert_eq!(age.anonymise("20.5".to_string()), "0.5".to_string());
         assert_eq!(age.anonymise("21.0".to_string()), "1".to_string());
-        assert_eq!(loc.anonymise("Coventry".to_string()), "8353961209842263722".to_string());
-        assert_eq!(loc.anonymise("Leamington".to_string()), "17454252554614539637".to_string());
+        assert_eq!(
+            loc.anonymise("Coventry".to_string()),
+            "8353961209842263722".to_string()
+        );
+        assert_eq!(
+            loc.anonymise("Leamington".to_string()),
+            "17454252554614539637".to_string()
+        );
+    }
+
+    #[test]
+    fn datasets_can_be_anonymised() {
+        let dataset = "age,location\n20,Coventry\n20,\n21,Leamington".to_string();
+        assert_eq!(
+            anonymise_dataset(dataset, "test dataset".to_string()),
+            "0,8353961209842263722\n0,\n1,17454252554614539637\n"
+        );
     }
 
     #[test]
