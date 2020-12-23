@@ -364,6 +364,20 @@ mod tests {
     }
 
     #[test]
+    fn data_can_be_anonymised() {
+        let dataset = "age,location\n20,Coventry\n20,\n21,Leamington";
+        let mut reader = csv::Reader::from_reader(dataset.as_bytes());
+        let types = infer_dataset_types(&mut reader, "test dataset".to_string()).unwrap();
+        let age = types.get(&"age".to_string()).unwrap();
+        let loc = types.get(&"location".to_string()).unwrap();
+        assert_eq!(age.anonymise("20.0".to_string()), "0".to_string());
+        assert_eq!(age.anonymise("20.5".to_string()), "0.5".to_string());
+        assert_eq!(age.anonymise("21.0".to_string()), "1".to_string());
+        assert_eq!(loc.anonymise("Coventry".to_string()), "8353961209842263722".to_string());
+        assert_eq!(loc.anonymise("Leamington".to_string()), "17454252554614539637".to_string());
+    }
+
+    #[test]
     fn train_and_predict_data_can_be_inferred() {
         let dataset = "age,location\n20,Coventry\n20,\n21,Leamington";
         let (data, predict) = infer_train_and_predict(dataset);
