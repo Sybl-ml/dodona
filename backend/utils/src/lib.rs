@@ -18,7 +18,7 @@ use bzip2::Compression;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Analysis {
     /// HashMap of the datatypes of columns
-    pub types: HashMap<String, ColumnType>,
+    pub types: HashMap<String, Column>,
     /// First 5 rows and dataset headers
     pub header: String,
 }
@@ -32,12 +32,18 @@ pub enum ColumnType {
     Numerical(f64, f64),
 }
 
-impl ColumnType {
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Column {
+    pub column_type: ColumnType,
+    pub salt: String,
+}
+
+impl Column {
     pub fn anonymise(&self, value: String) -> String {
-        match self {
+        match &self.column_type {
             ColumnType::Categorical(mapping) => mapping.get(&value).unwrap().to_string(),
             ColumnType::Numerical(min, max) => {
-                ColumnType::normalise(f64::from_str(&value).unwrap(), *min, *max).to_string()
+                Column::normalise(f64::from_str(&value).unwrap(), *min, *max).to_string()
             }
         }
     }
@@ -58,25 +64,25 @@ impl ColumnType {
     }
 
     pub fn is_categorical(&self) -> bool {
-        match self {
+        match self.column_type {
             ColumnType::Categorical(_) => true,
             _ => false,
         }
     }
 
     pub fn is_numerical(&self) -> bool {
-        match self {
+        match self.column_type {
             ColumnType::Numerical(_, _) => true,
             _ => false,
         }
     }
 }
 
-impl From<(Vec<String>, &String)> for ColumnType {
-    fn from((values, salt): (Vec<String>, &String)) -> ColumnType {
+impl From<(Vec<String>, &String)> for Column {
+    fn from((values, salt): (Vec<String>, &String)) -> Column {
         if values.iter().all(|v| f64::from_str(v).is_ok()) {
             let numerical: Vec<f64> = values.iter().map(|v| f64::from_str(v).unwrap()).collect();
-            ColumnType::Numerical(
+            let column_type = ColumnType::Numerical(
                 *numerical
                     .iter()
                     .min_by(|x, y| x.partial_cmp(&y).unwrap())
@@ -85,19 +91,21 @@ impl From<(Vec<String>, &String)> for ColumnType {
                     .iter()
                     .max_by(|x, y| x.partial_cmp(&y).unwrap())
                     .unwrap(),
-            )
+            );
+            Column { column_type: column_type, salt: salt.to_string() }
         } else {
-            ColumnType::Categorical(
+            let column_type = ColumnType::Categorical(
                 values
                     .iter()
                     .zip(
                         values
                             .iter()
-                            .map(|v| ColumnType::obfuscate(v.to_string(), salt)),
+                            .map(|v| Column::obfuscate(v.to_string(), salt)),
                     )
                     .map(|(v, o)| (v.to_string(), o))
                     .collect(),
-            )
+            );
+            Column { column_type: column_type, salt: salt.to_string() }
         }
     }
 }
@@ -141,7 +149,7 @@ pub fn analyse(dataset: &str) -> Analysis {
 pub fn infer_dataset_types<R: std::io::Read>(
     reader: &mut csv::Reader<R>,
     salt: String,
-) -> csv::Result<HashMap<String, ColumnType>> {
+) -> csv::Result<HashMap<String, Column>> {
     // Get the headers
     let headers = reader.headers()?.to_owned();
 
@@ -155,7 +163,7 @@ pub fn infer_dataset_types<R: std::io::Read>(
         .map(|(i, h)| {
             (
                 h.to_string(),
-                ColumnType::from((column_values(&records, i), &salt)),
+                Column::from((column_values(&records, i), &salt)),
             )
         })
         .collect())
