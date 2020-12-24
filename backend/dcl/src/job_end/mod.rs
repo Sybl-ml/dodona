@@ -1,7 +1,6 @@
 //! Part of DCL that takes a DCN and a dataset and comunicates with node
 
 use anyhow::Result;
-use csv::{Reader, StringRecord};
 use mongodb::{
     bson::{doc, oid::ObjectId},
     Database,
@@ -16,6 +15,9 @@ use crate::messages::Message;
 use crate::node_end::NodePool;
 use crate::DatasetPair;
 use models::predictions::Prediction;
+
+use utils::Columns;
+use utils::{anonymise_dataset, deanonymise_dataset, infer_train_and_predict};
 
 /// Starts up and runs the job end
 ///
@@ -34,16 +36,11 @@ pub async fn run(
         log::info!("Train: {}", &msg.train);
         log::info!("Predict: {}", &msg.predict);
 
-        let mut train_csv = Reader::from_reader(msg.train.as_bytes());
-        let mut predict_csv = Reader::from_reader(msg.predict.as_bytes());
-
-        let mut train = train_csv.records();
-        let mut predict = predict_csv.records();
-
-        let header: StringRecord = train.next().unwrap()?;
-        assert_eq!(header, predict.next().unwrap()?);
-
-
+        let data = msg.train.split("\n").chain(msg.predict.split("\n").skip(1)).collect::<Vec<_>>().join("\n");
+        let (anon, columns) = anonymise_dataset(data);
+        let (anon_train, anon_predict) = infer_train_and_predict(&anon);
+        let anon_train_csv = anon_train.join("\n");
+        let anon_predict_csv = anon_predict.join("\n");
 
         let cluster = nodepool.get_cluster(3).await.unwrap();
 
@@ -52,8 +49,9 @@ pub async fn run(
             let database_clone = Arc::clone(&database);
 
             let identifier = id.clone();
-            let train = msg.train.clone();
-            let predict = msg.predict.clone();
+            let train = anon_train_csv.clone();
+            let predict = anon_predict_csv.clone();
+            let cols = columns.clone();
 
             tokio::spawn(async move {
                 dcl_protcol(
@@ -64,6 +62,7 @@ pub async fn run(
                     identifier,
                     train,
                     predict,
+                    cols,
                 )
                 .await;
             });
@@ -81,6 +80,7 @@ pub async fn dcl_protcol(
     id: ObjectId,
     train: String,
     predict: String,
+    columns: Columns,
 ) -> String {
     log::info!("Sending a job to node with key: {}", key);
 
@@ -105,10 +105,12 @@ pub async fn dcl_protcol(
         .await
         .unwrap();
 
-    let predictions = match prediction_message {
+    let anonymised_predictions = match prediction_message {
         Message::Predictions(s) => s,
         _ => unreachable!(),
     };
+
+    let predictions = deanonymise_dataset(anonymised_predictions, columns);
 
     // Write the predictions back to the database
     write_predictions(database, id, &key, predictions.as_bytes())

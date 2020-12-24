@@ -1,10 +1,9 @@
 //! Defines the dataset details for a given dataset and project in the MongoDB instance.
 
-use std::collections::HashMap;
-
 use chrono::Utc;
 use mongodb::bson;
 use mongodb::bson::oid::ObjectId;
+use utils::Columns;
 
 /// Defines the information that should be stored as details for a project
 #[derive(Debug, Serialize, Deserialize)]
@@ -19,7 +18,7 @@ pub struct DatasetDetails {
     /// Head of the dataset
     pub head: Option<String>,
     /// The types of each column
-    pub column_types: HashMap<String, utils::ColumnType>,
+    pub column_types: Columns,
 }
 
 impl DatasetDetails {
@@ -27,7 +26,7 @@ impl DatasetDetails {
     pub fn new(
         project_id: ObjectId,
         head: String,
-        column_types: HashMap<String, utils::ColumnType>,
+        column_types: Columns,
     ) -> Self {
         Self {
             id: None,

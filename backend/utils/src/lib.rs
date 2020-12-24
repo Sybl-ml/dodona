@@ -40,7 +40,7 @@ pub type ColumnValues = (String, Vec<String>);
 pub struct Column {
     pub name: String,
     pub pseudonym: String,
-    pub column_type: ColumnType
+    pub column_type: ColumnType,
 }
 
 pub type Columns = HashMap<String, Column>;
@@ -133,24 +133,20 @@ impl From<ColumnValues> for Column {
             Column {
                 name: name,
                 pseudonym: generate_string(16),
-                column_type: column_type
+                column_type: column_type,
             }
         } else {
             let column_type = ColumnType::Categorical(
                 values
                     .iter()
-                    .zip(
-                        values
-                            .iter()
-                            .map(|v| Column::obfuscate(v.to_string())),
-                    )
+                    .zip(values.iter().map(|v| Column::obfuscate(v.to_string())))
                     .map(|(v, o)| (v.to_string(), o))
                     .collect(),
             );
             Column {
                 name: name,
                 pseudonym: generate_string(16),
-                column_type: column_type
+                column_type: column_type,
             }
         }
     }
@@ -192,9 +188,7 @@ pub fn analyse(dataset: &str) -> Analysis {
 /// assert!(types.get(&"education".to_string()).unwrap().is_categorical());
 /// assert!(types.get(&"age".to_string()).unwrap().is_numerical());
 /// ```
-pub fn infer_columns<R: std::io::Read>(
-    reader: &mut csv::Reader<R>
-) -> csv::Result<Columns> {
+pub fn infer_columns<R: std::io::Read>(reader: &mut csv::Reader<R>) -> csv::Result<Columns> {
     // Get the headers
     let headers = reader.headers()?.to_owned();
 
@@ -215,10 +209,13 @@ pub fn infer_columns<R: std::io::Read>(
 }
 
 pub fn column_values(name: String, records: &Vec<StringRecord>, col: usize) -> ColumnValues {
-    (name, records
-        .iter()
-        .map(|r| r.iter().enumerate().nth(col).unwrap().1.to_string())
-        .collect())
+    (
+        name,
+        records
+            .iter()
+            .map(|r| r.iter().enumerate().nth(col).unwrap().1.to_string())
+            .collect(),
+    )
 }
 
 pub fn anonymise_dataset(dataset: String) -> (String, Columns) {
@@ -237,7 +234,13 @@ pub fn anonymise_dataset(dataset: String) -> (String, Columns) {
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
-    writer.write_record(headers.iter().map(|c| &types.get(&c.to_string()).unwrap().pseudonym)).unwrap();
+    writer
+        .write_record(
+            headers
+                .iter()
+                .map(|c| &types.get(&c.to_string()).unwrap().pseudonym),
+        )
+        .unwrap();
     anonymised.iter().for_each(|v| {
         writer.write_record(v).unwrap();
     });
@@ -252,7 +255,17 @@ pub fn deanonymise_dataset(dataset: String, columns: Columns) -> String {
     let pseudonyms = reader.headers().unwrap().to_owned();
     let mut writer = Writer::from_writer(vec![]);
     let records: Vec<StringRecord> = reader.records().filter_map(Result::ok).collect();
-    let headers: Vec<_> = pseudonyms.iter().map(|p| &columns.values().filter(|c| c.pseudonym == p).next().unwrap().name).collect();
+    let headers: Vec<_> = pseudonyms
+        .iter()
+        .map(|p| {
+            &columns
+                .values()
+                .filter(|c| c.pseudonym == p)
+                .next()
+                .unwrap()
+                .name
+        })
+        .collect();
     let deanonymised = records
         .iter()
         .map(|r| {
@@ -437,10 +450,7 @@ mod tests {
         let mut reader = csv::Reader::from_reader(dataset.as_bytes());
         let types_resalted = infer_columns(&mut reader).unwrap();
 
-        assert_ne!(
-            types_salted,
-            types_resalted,
-        );
+        assert_ne!(types_salted, types_resalted,);
     }
 
     #[test]
@@ -491,10 +501,7 @@ mod tests {
     #[test]
     fn datasets_can_be_anonymised() {
         let dataset = "age,location\n20,Coventry\n20,\n21,Leamington".to_string();
-        assert_ne!(
-            anonymise_dataset(dataset.clone()).0,
-            dataset
-        );
+        assert_ne!(anonymise_dataset(dataset.clone()).0, dataset);
     }
 
     #[test]
