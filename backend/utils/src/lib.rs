@@ -52,11 +52,38 @@ impl Column {
         }
     }
 
+    pub fn deanonymise(&self, value: String) -> String {
+        if value.len() == 0 {
+            "".to_string()
+        } else {
+            match &self.column_type {
+                ColumnType::Categorical(mapping) => mapping
+                    .iter()
+                    .filter(|(_, v)| **v == value)
+                    .next()
+                    .unwrap()
+                    .0
+                    .to_string(),
+                ColumnType::Numerical(min, max) => {
+                    Column::denormalise(f64::from_str(&value).unwrap(), *min, *max).to_string()
+                }
+            }
+        }
+    }
+
     pub fn normalise(value: f64, min: f64, max: f64) -> f64 {
         if max - min == 0.0 {
             0.0
         } else {
             (value - min) / (max - min)
+        }
+    }
+
+    pub fn denormalise(value: f64, min: f64, max: f64) -> f64 {
+        if max - min == 0.0 {
+            0.0
+        } else {
+            value * (max - min) + min
         }
     }
 
@@ -186,7 +213,7 @@ pub fn column_values(records: &Vec<StringRecord>, col: usize) -> Vec<String> {
         .collect()
 }
 
-pub fn anonymise_dataset(dataset: String, salt: String) -> String {
+pub fn anonymise_dataset(dataset: String, salt: String) -> (String, HashMap<String, Column>) {
     let mut reader = csv::Reader::from_reader(dataset.as_bytes());
     let types: HashMap<String, Column> = infer_columns(&mut reader, salt).unwrap();
     let mut reader = csv::Reader::from_reader(dataset.as_bytes());
@@ -202,7 +229,37 @@ pub fn anonymise_dataset(dataset: String, salt: String) -> String {
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
+    writer.write_record(&headers).unwrap();
     anonymised.iter().for_each(|v| {
+        writer.write_record(v).unwrap();
+    });
+    (
+        String::from_utf8(writer.into_inner().unwrap()).unwrap(),
+        types,
+    )
+}
+
+pub fn deanonymise_dataset(dataset: String, columns: HashMap<String, Column>) -> String {
+    let mut reader = csv::Reader::from_reader(dataset.as_bytes());
+    let headers = reader.headers().unwrap().to_owned();
+    let mut writer = Writer::from_writer(vec![]);
+    let records: Vec<StringRecord> = reader.records().filter_map(Result::ok).collect();
+    let deanonymised = records
+        .iter()
+        .map(|r| {
+            r.iter()
+                .zip(&headers)
+                .map(|(v, c)| {
+                    columns
+                        .get(&c.to_string())
+                        .unwrap()
+                        .deanonymise(v.to_string())
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    writer.write_record(&headers).unwrap();
+    deanonymised.iter().for_each(|v| {
         writer.write_record(v).unwrap();
     });
     String::from_utf8(writer.into_inner().unwrap()).unwrap()
@@ -419,9 +476,16 @@ mod tests {
     fn datasets_can_be_anonymised() {
         let dataset = "age,location\n20,Coventry\n20,\n21,Leamington".to_string();
         assert_eq!(
-            anonymise_dataset(dataset, "test dataset".to_string()),
-            "0,8353961209842263722\n0,\n1,17454252554614539637\n"
+            anonymise_dataset(dataset, "test dataset".to_string()).0,
+            "age,location\n0,8353961209842263722\n0,\n1,17454252554614539637\n"
         );
+    }
+
+    #[test]
+    fn datasets_can_be_deanonymised() {
+        let dataset = "age,location\n20,Coventry\n20,\n21,Leamington\n".to_string();
+        let (anonymised, columns) = anonymise_dataset(dataset.clone(), "test dataset".to_string());
+        assert_eq!(deanonymise_dataset(anonymised, columns), dataset);
     }
 
     #[test]
