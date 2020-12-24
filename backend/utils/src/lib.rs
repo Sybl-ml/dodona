@@ -19,30 +19,46 @@ pub mod compress;
 /// Represents the types that a CSV column could have.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ColumnType {
-    /// String-like data, such as University.
+    /// Categorical data, with a mapping from original values to pseudonymised values
     Categorical(HashMap<String, String>),
-    /// Numerical data, such as Age.
+    /// Numerical data, with a minimum and maximum value
     Numerical(f64, f64),
 }
 
+/// Represents the name of a column and its associated `String` values in a dataset
 pub type ColumnValues = (String, Vec<String>);
 
+/// Represents a `Column` in a dataset, including its name, its random pseudonym, and
+/// the ColumnType used to anonymise any data in the column
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Column {
+    // The name of the column
     pub name: String,
+    // The randomly generated pseudonym of the column
     pub pseudonym: String,
+    // The type of the column, as well as any values needed to anonymise column values
     pub column_type: ColumnType,
 }
 
+/// Represents the `Columns` of a dataset, mapping from their original name to a
+/// corresponding `Column` object
 pub type Columns = HashMap<String, Column>;
 
 impl Column {
+    /// Given a `value` for this `Column`, anonymise it based on this `Column`'s `column_type`
+    ///
+    /// Once a `Column` has been constructed, it is simple to anonymise data from the same domain
+    /// as the column. For example, if the `Column` is categorical then the associated pseudonym
+    /// for `value` is returned. Alternatively, if the `Column` is numerical then the `value`
+    /// is normalised to the range `[0, 1]` based on the minimum and maximum values of `Column`
     pub fn anonymise(&self, value: String) -> String {
         if value.len() == 0 {
             value
         } else {
             match &self.column_type {
+                // if this `Column` holds categorical data, find the pseudonym for `value`
                 ColumnType::Categorical(mapping) => mapping.get(&value).unwrap().to_string(),
+                // if this `Column` holds numerical data, normalise `value` to the standard range
                 ColumnType::Numerical(min, max) => {
                     Column::normalise(f64::from_str(&value).unwrap(), *min, *max).to_string()
                 }
@@ -50,11 +66,18 @@ impl Column {
         }
     }
 
+    /// Given an anonymised `value`, deanonymise it based on this `Column`'s `column_type`
+    ///
+    /// Deanonymises a `value` by finding the original value based on its anonymised value. For
+    /// example, if the `Column` is categorical then the original value associated with the
+    /// pseudonym `value` is returned. Alternatively, if the `Column` is numerical, then the scaled
+    /// number `value` is denormalised back to its true range and returned
     pub fn deanonymise(&self, value: String) -> String {
         if value.len() == 0 {
             value
         } else {
             match &self.column_type {
+                // if this `Column` holds categorical data, find the original name for this `value`
                 ColumnType::Categorical(mapping) => mapping
                     .iter()
                     .filter(|(_, v)| **v == value)
@@ -62,6 +85,7 @@ impl Column {
                     .unwrap()
                     .0
                     .to_string(),
+                // if this `Column` holds numerical data, denormalise `value` to its true range
                 ColumnType::Numerical(min, max) => {
                     Column::denormalise(f64::from_str(&value).unwrap(), *min, *max).to_string()
                 }
@@ -69,6 +93,8 @@ impl Column {
         }
     }
 
+    /// Given a `value` and a range defined by `min` and `max`, normalises `value` to the
+    /// range `[0, 1]` and returns the scaled value
     pub fn normalise(value: f64, min: f64, max: f64) -> f64 {
         if max - min == 0.0 {
             0.0
@@ -77,6 +103,8 @@ impl Column {
         }
     }
 
+    /// Given a `value` in the range `[0, 1]` and a range defined by `min` and `max`, normalises
+    /// `value` to its original range and returns its true value
     pub fn denormalise(value: f64, min: f64, max: f64) -> f64 {
         if max - min == 0.0 {
             0.0
@@ -85,6 +113,7 @@ impl Column {
         }
     }
 
+    // Given a `value`, create a random pseudonym for this value
     pub fn obfuscate(value: String) -> String {
         let mut hasher = DefaultHasher::new();
         value.hash(&mut hasher);
@@ -92,6 +121,7 @@ impl Column {
         hasher.finish().to_string()
     }
 
+    // Returns true if and only if this `Column` represents categorical data
     pub fn is_categorical(&self) -> bool {
         match self.column_type {
             ColumnType::Categorical(_) => true,
@@ -99,6 +129,7 @@ impl Column {
         }
     }
 
+    // Returns true if and only if this `Column` represents numerical data
     pub fn is_numerical(&self) -> bool {
         match self.column_type {
             ColumnType::Numerical(_, _) => true,
@@ -108,19 +139,25 @@ impl Column {
 }
 
 impl From<ColumnValues> for Column {
+    // Creates a new `Column` object based on its `name` and `values`
     fn from((name, values): ColumnValues) -> Column {
+        // check if all values in the column are numerical
         if values.iter().all(|v| f64::from_str(v).is_ok()) {
+            // translate the data to a numerical form
             let numerical: Vec<f64> = values.iter().map(|v| f64::from_str(v).unwrap()).collect();
             let column_type = ColumnType::Numerical(
+                // identify the minimum value of the column
                 *numerical
                     .iter()
                     .min_by(|x, y| x.partial_cmp(&y).unwrap())
                     .unwrap(),
+                // identify the maximum value of the column
                 *numerical
                     .iter()
                     .max_by(|x, y| x.partial_cmp(&y).unwrap())
                     .unwrap(),
             );
+            // return a `Column` with a `name`, a random `pseudonym` and numerical `column_type`
             Column {
                 name: name,
                 pseudonym: generate_string(16),
@@ -130,10 +167,14 @@ impl From<ColumnValues> for Column {
             let column_type = ColumnType::Categorical(
                 values
                     .iter()
+                    // obfuscate each value in the column with a random pseudonym
                     .zip(values.iter().map(|v| Column::obfuscate(v.to_string())))
                     .map(|(v, o)| (v.to_string(), o))
+                    // when collected into a `HashMap`, conflicting pseudonyms for
+                    // the same unique value are automatically resolved
                     .collect(),
             );
+            // return a `Column` with a `name`, a random `pseudonym` and categorical `column_type`
             Column {
                 name: name,
                 pseudonym: generate_string(16),
@@ -186,6 +227,8 @@ pub fn infer_columns<R: std::io::Read>(reader: &mut Reader<R>) -> csv::Result<Co
         .collect())
 }
 
+/// Given a column's `name`, its index `col` the `records` from a CSV, return the `ColumnValues`
+/// associated with this column in `records`
 pub fn column_values(name: String, records: &Vec<StringRecord>, col: usize) -> ColumnValues {
     (
         name,
@@ -195,7 +238,6 @@ pub fn column_values(name: String, records: &Vec<StringRecord>, col: usize) -> C
             .collect(),
     )
 }
-
 
 /// Infers the training and prediction data based on whether the last column is empty.
 ///
