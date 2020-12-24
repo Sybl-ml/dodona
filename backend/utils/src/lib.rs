@@ -14,6 +14,8 @@ use std::str::FromStr;
 use bzip2::write::{BzDecoder, BzEncoder};
 use bzip2::Compression;
 
+use crypto::generate_string;
+
 /// Represents what is returned from Analysis function
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Analysis {
@@ -32,16 +34,21 @@ pub enum ColumnType {
     Numerical(f64, f64),
 }
 
+pub type ColumnValues = (String, Vec<String>);
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Column {
-    pub column_type: ColumnType,
-    pub salt: String,
+    pub name: String,
+    pub pseudonym: String,
+    pub column_type: ColumnType
 }
+
+pub type Columns = HashMap<String, Column>;
 
 impl Column {
     pub fn anonymise(&self, value: String) -> String {
         if value.len() == 0 {
-            "".to_string()
+            value
         } else {
             match &self.column_type {
                 ColumnType::Categorical(mapping) => mapping.get(&value).unwrap().to_string(),
@@ -54,7 +61,7 @@ impl Column {
 
     pub fn deanonymise(&self, value: String) -> String {
         if value.len() == 0 {
-            "".to_string()
+            value
         } else {
             match &self.column_type {
                 ColumnType::Categorical(mapping) => mapping
@@ -87,10 +94,10 @@ impl Column {
         }
     }
 
-    pub fn obfuscate(value: String, salt: &String) -> String {
+    pub fn obfuscate(value: String) -> String {
         let mut hasher = DefaultHasher::new();
         value.hash(&mut hasher);
-        salt.hash(&mut hasher);
+        generate_string(64).hash(&mut hasher);
         hasher.finish().to_string()
     }
 
@@ -109,8 +116,8 @@ impl Column {
     }
 }
 
-impl From<(Vec<String>, &String)> for Column {
-    fn from((values, salt): (Vec<String>, &String)) -> Column {
+impl From<ColumnValues> for Column {
+    fn from((name, values): ColumnValues) -> Column {
         if values.iter().all(|v| f64::from_str(v).is_ok()) {
             let numerical: Vec<f64> = values.iter().map(|v| f64::from_str(v).unwrap()).collect();
             let column_type = ColumnType::Numerical(
@@ -124,8 +131,9 @@ impl From<(Vec<String>, &String)> for Column {
                     .unwrap(),
             );
             Column {
-                column_type: column_type,
-                salt: salt.to_string(),
+                name: name,
+                pseudonym: generate_string(16),
+                column_type: column_type
             }
         } else {
             let column_type = ColumnType::Categorical(
@@ -134,14 +142,15 @@ impl From<(Vec<String>, &String)> for Column {
                     .zip(
                         values
                             .iter()
-                            .map(|v| Column::obfuscate(v.to_string(), salt)),
+                            .map(|v| Column::obfuscate(v.to_string())),
                     )
                     .map(|(v, o)| (v.to_string(), o))
                     .collect(),
             );
             Column {
-                column_type: column_type,
-                salt: salt.to_string(),
+                name: name,
+                pseudonym: generate_string(16),
+                column_type: column_type
             }
         }
     }
@@ -154,7 +163,7 @@ impl From<(Vec<String>, &String)> for Column {
 /// combined into a struct which returns the data together.
 pub fn analyse(dataset: &str) -> Analysis {
     let mut reader = csv::Reader::from_reader(std::io::Cursor::new(dataset));
-    let types = infer_columns(&mut reader, "".to_string()).unwrap();
+    let types = infer_columns(&mut reader).unwrap();
     reader.seek(csv::Position::new()).unwrap();
     let header: String = parse_body(&mut reader, 6);
     log::info!("Header: {}", header);
@@ -178,15 +187,14 @@ pub fn analyse(dataset: &str) -> Analysis {
 /// Coventry,24
 /// "#;
 /// let mut reader = csv::Reader::from_reader(std::io::Cursor::new(dataset));
-/// let types = infer_columns(&mut reader, "test dataset".to_string()).unwrap();
+/// let types = infer_columns(&mut reader).unwrap();
 ///
 /// assert!(types.get(&"education".to_string()).unwrap().is_categorical());
 /// assert!(types.get(&"age".to_string()).unwrap().is_numerical());
 /// ```
 pub fn infer_columns<R: std::io::Read>(
-    reader: &mut csv::Reader<R>,
-    salt: String,
-) -> csv::Result<HashMap<String, Column>> {
+    reader: &mut csv::Reader<R>
+) -> csv::Result<Columns> {
     // Get the headers
     let headers = reader.headers()?.to_owned();
 
@@ -200,22 +208,22 @@ pub fn infer_columns<R: std::io::Read>(
         .map(|(i, h)| {
             (
                 h.to_string(),
-                Column::from((column_values(&records, i), &salt)),
+                Column::from(column_values(h.to_string(), &records, i)),
             )
         })
         .collect())
 }
 
-pub fn column_values(records: &Vec<StringRecord>, col: usize) -> Vec<String> {
-    records
+pub fn column_values(name: String, records: &Vec<StringRecord>, col: usize) -> ColumnValues {
+    (name, records
         .iter()
         .map(|r| r.iter().enumerate().nth(col).unwrap().1.to_string())
-        .collect()
+        .collect())
 }
 
-pub fn anonymise_dataset(dataset: String, salt: String) -> (String, HashMap<String, Column>) {
+pub fn anonymise_dataset(dataset: String) -> (String, Columns) {
     let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-    let types: HashMap<String, Column> = infer_columns(&mut reader, salt).unwrap();
+    let types: Columns = infer_columns(&mut reader).unwrap();
     let mut reader = csv::Reader::from_reader(dataset.as_bytes());
     let headers = reader.headers().unwrap().to_owned();
     let mut writer = Writer::from_writer(vec![]);
@@ -229,7 +237,7 @@ pub fn anonymise_dataset(dataset: String, salt: String) -> (String, HashMap<Stri
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
-    writer.write_record(&headers).unwrap();
+    writer.write_record(headers.iter().map(|c| &types.get(&c.to_string()).unwrap().pseudonym)).unwrap();
     anonymised.iter().for_each(|v| {
         writer.write_record(v).unwrap();
     });
@@ -239,16 +247,17 @@ pub fn anonymise_dataset(dataset: String, salt: String) -> (String, HashMap<Stri
     )
 }
 
-pub fn deanonymise_dataset(dataset: String, columns: HashMap<String, Column>) -> String {
+pub fn deanonymise_dataset(dataset: String, columns: Columns) -> String {
     let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-    let headers = reader.headers().unwrap().to_owned();
+    let pseudonyms = reader.headers().unwrap().to_owned();
     let mut writer = Writer::from_writer(vec![]);
     let records: Vec<StringRecord> = reader.records().filter_map(Result::ok).collect();
+    let headers: Vec<_> = pseudonyms.iter().map(|p| &columns.values().filter(|c| c.pseudonym == p).next().unwrap().name).collect();
     let deanonymised = records
         .iter()
         .map(|r| {
             r.iter()
-                .zip(&headers)
+                .zip(headers.iter())
                 .map(|(v, c)| {
                     columns
                         .get(&c.to_string())
@@ -258,7 +267,7 @@ pub fn deanonymise_dataset(dataset: String, columns: HashMap<String, Column>) ->
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
-    writer.write_record(&headers).unwrap();
+    writer.write_record(headers.iter()).unwrap();
     deanonymised.iter().for_each(|v| {
         writer.write_record(v).unwrap();
     });
@@ -415,7 +424,7 @@ mod tests {
     fn categorical_data_can_be_inferred() {
         let dataset = "age\n21\nTwenty\n20";
         let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types = infer_columns(&mut reader, "test dataset".to_string()).unwrap();
+        let types = infer_columns(&mut reader).unwrap();
 
         assert!(types.get(&"age".to_string()).unwrap().is_categorical());
     }
@@ -424,13 +433,13 @@ mod tests {
     fn categorical_data_is_salted() {
         let dataset = "age\n21\nTwenty\n20";
         let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types_salted = infer_columns(&mut reader, "test dataset".to_string()).unwrap();
+        let types_salted = infer_columns(&mut reader).unwrap();
         let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types_resalted = infer_columns(&mut reader, "test dataset 2".to_string()).unwrap();
+        let types_resalted = infer_columns(&mut reader).unwrap();
 
         assert_ne!(
-            types_salted.get(&"age".to_string()),
-            types_resalted.get(&"age".to_string()),
+            types_salted,
+            types_resalted,
         );
     }
 
@@ -438,7 +447,7 @@ mod tests {
     fn numerical_data_can_be_inferred() {
         let dataset = "age\n21\n21.564\n20";
         let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types = infer_columns(&mut reader, "test dataset".to_string()).unwrap();
+        let types = infer_columns(&mut reader).unwrap();
 
         assert!(types.get(&"age".to_string()).unwrap().is_numerical());
     }
@@ -447,7 +456,7 @@ mod tests {
     fn data_types_can_be_inferred() {
         let dataset = "age,location\n20,Coventry\n20,\n21,Leamington";
         let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types = infer_columns(&mut reader, "test dataset".to_string()).unwrap();
+        let types = infer_columns(&mut reader).unwrap();
         assert!(types.get(&"age".to_string()).unwrap().is_numerical());
         assert!(types.get(&"location".to_string()).unwrap().is_categorical());
     }
@@ -456,35 +465,42 @@ mod tests {
     fn columns_can_be_anonymised() {
         let dataset = "age,location\n20,Coventry\n20,\n21,Leamington";
         let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types = infer_columns(&mut reader, "test dataset".to_string()).unwrap();
+        let types = infer_columns(&mut reader).unwrap();
         let age = types.get(&"age".to_string()).unwrap();
         let loc = types.get(&"location".to_string()).unwrap();
         assert_eq!(age.anonymise("20.0".to_string()), "0".to_string());
         assert_eq!(age.anonymise("20.5".to_string()), "0.5".to_string());
         assert_eq!(age.anonymise("21.0".to_string()), "1".to_string());
-        assert_eq!(
+        assert_ne!(
             loc.anonymise("Coventry".to_string()),
-            "8353961209842263722".to_string()
+            "Coventry".to_string()
         );
-        assert_eq!(
+        assert_ne!(
             loc.anonymise("Leamington".to_string()),
-            "17454252554614539637".to_string()
+            "Leamington".to_string()
         );
+    }
+
+    #[test]
+    fn headers_can_be_anonymised() {
+        let dataset = "age,location\n20,Coventry\n20,\n21,Leamington".to_string();
+        let anonymised = anonymise_dataset(dataset).0;
+        assert!(!anonymised.contains("age") && !anonymised.contains("location"));
     }
 
     #[test]
     fn datasets_can_be_anonymised() {
         let dataset = "age,location\n20,Coventry\n20,\n21,Leamington".to_string();
-        assert_eq!(
-            anonymise_dataset(dataset, "test dataset".to_string()).0,
-            "age,location\n0,8353961209842263722\n0,\n1,17454252554614539637\n"
+        assert_ne!(
+            anonymise_dataset(dataset.clone()).0,
+            dataset
         );
     }
 
     #[test]
     fn datasets_can_be_deanonymised() {
         let dataset = "age,location\n20,Coventry\n20,\n21,Leamington\n".to_string();
-        let (anonymised, columns) = anonymise_dataset(dataset.clone(), "test dataset".to_string());
+        let (anonymised, columns) = anonymise_dataset(dataset.clone());
         assert_eq!(deanonymise_dataset(anonymised, columns), dataset);
     }
 

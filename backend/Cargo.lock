@@ -3416,6 +3416,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bzip2",
+ "crypto",
  "csv",
  "log",
  "pbkdf2 0.5.0",
