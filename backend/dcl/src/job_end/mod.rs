@@ -16,8 +16,9 @@ use crate::node_end::NodePool;
 use crate::DatasetPair;
 use models::predictions::Prediction;
 
-use utils::Columns;
-use utils::{anonymise_dataset, deanonymise_dataset, infer_train_and_predict};
+use utils::{Columns, infer_train_and_predict};
+use utils::anon::{anonymise_dataset, deanonymise_dataset};
+use utils::compress::compress_bytes;
 
 /// Starts up and runs the job end
 ///
@@ -39,8 +40,7 @@ pub async fn run(
         let data = msg.train.split("\n").chain(msg.predict.split("\n").skip(1)).collect::<Vec<_>>().join("\n");
         let (anon, columns) = anonymise_dataset(data);
         let (anon_train, anon_predict) = infer_train_and_predict(&anon);
-        let anon_train_csv = anon_train.join("\n");
-        let anon_predict_csv = anon_predict.join("\n");
+        let (anon_train_csv, anon_predict_csv) = (anon_train.join("\n"), anon_predict.join("\n"));
 
         let cluster = nodepool.get_cluster(3).await.unwrap();
 
@@ -134,7 +134,7 @@ pub async fn write_predictions(
     let predictions = database.collection("predictions");
 
     // Compress the data and make a new struct instance
-    let compressed = utils::compress_bytes(dataset)?;
+    let compressed = compress_bytes(dataset)?;
     let prediction = Prediction::new(id, compressed);
 
     // Convert to a document and insert it

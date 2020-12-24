@@ -4,26 +4,17 @@
 extern crate serde;
 
 use anyhow::Result;
-use csv::{StringRecord, Writer};
+use csv::{Reader, StringRecord};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::io::Write;
 use std::str::FromStr;
-
-use bzip2::write::{BzDecoder, BzEncoder};
-use bzip2::Compression;
 
 use crypto::generate_string;
 
-/// Represents what is returned from Analysis function
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Analysis {
-    /// HashMap of the datatypes of columns
-    pub types: HashMap<String, Column>,
-    /// First 5 rows and dataset headers
-    pub header: String,
-}
+pub mod analysis;
+pub mod anon;
+pub mod compress;
 
 /// Represents the types that a CSV column could have.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -152,20 +143,6 @@ impl From<ColumnValues> for Column {
     }
 }
 
-/// Analyses given dataset and extracts important information
-///
-/// Declares a reader for the dataset and gets the column types
-/// and the first 5 rows and headers of the dataset. These are then
-/// combined into a struct which returns the data together.
-pub fn analyse(dataset: &str) -> Analysis {
-    let mut reader = csv::Reader::from_reader(std::io::Cursor::new(dataset));
-    let types = infer_columns(&mut reader).unwrap();
-    reader.seek(csv::Position::new()).unwrap();
-    let header: String = parse_body(&mut reader, 6);
-    log::info!("Header: {}", header);
-    Analysis { types, header }
-}
-
 /// Infers the types of each column given a dataset.
 ///
 /// Iterates through the rows of a dataset and decides the type of data in each column, which is
@@ -176,19 +153,20 @@ pub fn analyse(dataset: &str) -> Analysis {
 ///
 /// ```
 /// # use std::collections::HashMap;
+/// # use csv::Reader;
 /// # use utils::{ColumnType, infer_columns};
 /// let dataset = r#"
 /// education,age
 /// Warwick,22
 /// Coventry,24
 /// "#;
-/// let mut reader = csv::Reader::from_reader(std::io::Cursor::new(dataset));
+/// let mut reader = Reader::from_reader(std::io::Cursor::new(dataset));
 /// let types = infer_columns(&mut reader).unwrap();
 ///
 /// assert!(types.get(&"education".to_string()).unwrap().is_categorical());
 /// assert!(types.get(&"age".to_string()).unwrap().is_numerical());
 /// ```
-pub fn infer_columns<R: std::io::Read>(reader: &mut csv::Reader<R>) -> csv::Result<Columns> {
+pub fn infer_columns<R: std::io::Read>(reader: &mut Reader<R>) -> csv::Result<Columns> {
     // Get the headers
     let headers = reader.headers()?.to_owned();
 
@@ -218,74 +196,6 @@ pub fn column_values(name: String, records: &Vec<StringRecord>, col: usize) -> C
     )
 }
 
-pub fn anonymise_dataset(dataset: String) -> (String, Columns) {
-    let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-    let types: Columns = infer_columns(&mut reader).unwrap();
-    let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-    let headers = reader.headers().unwrap().to_owned();
-    let mut writer = Writer::from_writer(vec![]);
-    let records: Vec<StringRecord> = reader.records().filter_map(Result::ok).collect();
-    let anonymised = records
-        .iter()
-        .map(|r| {
-            r.iter()
-                .zip(&headers)
-                .map(|(v, c)| types.get(&c.to_string()).unwrap().anonymise(v.to_string()))
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
-    writer
-        .write_record(
-            headers
-                .iter()
-                .map(|c| &types.get(&c.to_string()).unwrap().pseudonym),
-        )
-        .unwrap();
-    anonymised.iter().for_each(|v| {
-        writer.write_record(v).unwrap();
-    });
-    (
-        String::from_utf8(writer.into_inner().unwrap()).unwrap(),
-        types,
-    )
-}
-
-pub fn deanonymise_dataset(dataset: String, columns: Columns) -> String {
-    let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-    let pseudonyms = reader.headers().unwrap().to_owned();
-    let mut writer = Writer::from_writer(vec![]);
-    let records: Vec<StringRecord> = reader.records().filter_map(Result::ok).collect();
-    let headers: Vec<_> = pseudonyms
-        .iter()
-        .map(|p| {
-            &columns
-                .values()
-                .filter(|c| c.pseudonym == p)
-                .next()
-                .unwrap()
-                .name
-        })
-        .collect();
-    let deanonymised = records
-        .iter()
-        .map(|r| {
-            r.iter()
-                .zip(headers.iter())
-                .map(|(v, c)| {
-                    columns
-                        .get(&c.to_string())
-                        .unwrap()
-                        .deanonymise(v.to_string())
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
-    writer.write_record(headers.iter()).unwrap();
-    deanonymised.iter().for_each(|v| {
-        writer.write_record(v).unwrap();
-    });
-    String::from_utf8(writer.into_inner().unwrap()).unwrap()
-}
 
 /// Infers the training and prediction data based on whether the last column is empty.
 ///
@@ -318,7 +228,7 @@ pub fn infer_train_and_predict(data: &str) -> (Vec<&str>, Vec<&str>) {
 /// contains the headers of the dataset. When passed a `csv::Reader`, this
 /// function will join together the header into a single `String` and it will
 /// return it.
-pub fn parse_header<R: std::io::Read>(reader: &mut csv::Reader<R>) -> String {
+pub fn parse_header<R: std::io::Read>(reader: &mut Reader<R>) -> String {
     reader
         .headers()
         .unwrap()
@@ -333,7 +243,7 @@ pub fn parse_header<R: std::io::Read>(reader: &mut csv::Reader<R>) -> String {
 /// contains the first n rows of the dataset. When passed a `csv::Reader`, this
 /// function will join together the header into a single `String` and it will
 /// return it.
-pub fn parse_body<R: std::io::Read>(reader: &mut csv::Reader<R>, n: usize) -> String {
+pub fn parse_body<R: std::io::Read>(reader: &mut Reader<R>, n: usize) -> String {
     reader
         .records()
         .take(n)
@@ -346,205 +256,4 @@ pub fn parse_body<R: std::io::Read>(reader: &mut csv::Reader<R>, n: usize) -> St
         })
         .collect::<Vec<String>>()
         .join("\n")
-}
-
-/// Compresses data and returns result about compression process
-///
-/// Takes in a dataset as a string slice and will convert it into a byte representation
-/// of the string. Then it will be compressed using BZip2 using an io stream. This write
-/// stream is then finished and the Result is returned.
-///
-/// # Examples
-///
-/// ```no_run
-/// # use utils::compress_data;
-/// let dataset = r#"
-/// education,age
-/// Warwick,22
-/// Coventry,24
-/// "#;
-///
-/// match compress_data(dataset) {
-///     Ok(compressed) => {
-///         log::info!("Compressed data: {:?}", &compressed);
-///     }
-///     Err(_) => log::error!("Compression failed"),
-/// }
-/// ```
-pub fn compress_data(data: &str) -> Result<Vec<u8>, std::io::Error> {
-    compress_bytes(data.as_bytes())
-}
-
-/// Compresses a vector of raw bytes.
-pub fn compress_bytes(bytes: &[u8]) -> Result<Vec<u8>, std::io::Error> {
-    let mut write_compress = BzEncoder::new(vec![], Compression::best());
-    write_compress.write(bytes).unwrap();
-    write_compress.finish()
-}
-
-/// Compresses a vector of byte arrays into a single compression stream.
-pub fn compress_vec(data: &[&str]) -> Result<Vec<u8>, std::io::Error> {
-    let mut write_compress = BzEncoder::new(vec![], Compression::best());
-
-    for (i, e) in data.iter().enumerate() {
-        write_compress.write(e.as_bytes()).unwrap();
-
-        // Write newlines in for decompression
-        if i != data.len() - 1 {
-            write_compress.write(&[b'\n']).unwrap();
-        }
-    }
-
-    write_compress.finish()
-}
-
-/// Decompresses data and returns a result about the compression process
-///
-/// Takes in compressed data as an array slice and writes it to the decompresssion
-/// stream. Here the data is decompressed and the write stream is finished. A result
-/// is then returned displaying the status of the decompression.
-///
-/// # Examples
-///
-/// ```no_run
-/// # use utils::{decompress_data, compress_data};
-/// let dataset = r#"
-/// education,age
-/// Warwick,22
-/// Coventry,24
-/// "#;
-///
-/// let compressed = compress_data(dataset).unwrap();
-///
-/// match decompress_data(&compressed) {
-///     Ok(decompressed) => {
-///         log::info!("Decompressed data: {:?}", &decompressed);
-///     }
-///     Err(_) => log::error!("Decompression failed"),
-/// }
-/// ```
-pub fn decompress_data(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
-    let mut write_decompress = BzDecoder::new(vec![]);
-    write_decompress.write_all(data).unwrap();
-    write_decompress.finish()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn categorical_data_can_be_inferred() {
-        let dataset = "age\n21\nTwenty\n20";
-        let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types = infer_columns(&mut reader).unwrap();
-
-        assert!(types.get(&"age".to_string()).unwrap().is_categorical());
-    }
-
-    #[test]
-    fn categorical_data_is_salted() {
-        let dataset = "age\n21\nTwenty\n20";
-        let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types_salted = infer_columns(&mut reader).unwrap();
-        let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types_resalted = infer_columns(&mut reader).unwrap();
-
-        assert_ne!(types_salted, types_resalted,);
-    }
-
-    #[test]
-    fn numerical_data_can_be_inferred() {
-        let dataset = "age\n21\n21.564\n20";
-        let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types = infer_columns(&mut reader).unwrap();
-
-        assert!(types.get(&"age".to_string()).unwrap().is_numerical());
-    }
-
-    #[test]
-    fn data_types_can_be_inferred() {
-        let dataset = "age,location\n20,Coventry\n20,\n21,Leamington";
-        let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types = infer_columns(&mut reader).unwrap();
-        assert!(types.get(&"age".to_string()).unwrap().is_numerical());
-        assert!(types.get(&"location".to_string()).unwrap().is_categorical());
-    }
-
-    #[test]
-    fn columns_can_be_anonymised() {
-        let dataset = "age,location\n20,Coventry\n20,\n21,Leamington";
-        let mut reader = csv::Reader::from_reader(dataset.as_bytes());
-        let types = infer_columns(&mut reader).unwrap();
-        let age = types.get(&"age".to_string()).unwrap();
-        let loc = types.get(&"location".to_string()).unwrap();
-        assert_eq!(age.anonymise("20.0".to_string()), "0".to_string());
-        assert_eq!(age.anonymise("20.5".to_string()), "0.5".to_string());
-        assert_eq!(age.anonymise("21.0".to_string()), "1".to_string());
-        assert_ne!(
-            loc.anonymise("Coventry".to_string()),
-            "Coventry".to_string()
-        );
-        assert_ne!(
-            loc.anonymise("Leamington".to_string()),
-            "Leamington".to_string()
-        );
-    }
-
-    #[test]
-    fn headers_can_be_anonymised() {
-        let dataset = "age,location\n20,Coventry\n20,\n21,Leamington".to_string();
-        let anonymised = anonymise_dataset(dataset).0;
-        assert!(!anonymised.contains("age") && !anonymised.contains("location"));
-    }
-
-    #[test]
-    fn datasets_can_be_anonymised() {
-        let dataset = "age,location\n20,Coventry\n20,\n21,Leamington".to_string();
-        assert_ne!(anonymise_dataset(dataset.clone()).0, dataset);
-    }
-
-    #[test]
-    fn datasets_can_be_deanonymised() {
-        let dataset = "age,location\n20,Coventry\n20,\n21,Leamington\n".to_string();
-        let (anonymised, columns) = anonymise_dataset(dataset.clone());
-        assert_eq!(deanonymise_dataset(anonymised, columns), dataset);
-    }
-
-    #[test]
-    fn train_and_predict_data_can_be_inferred() {
-        let dataset = "age,location\n20,Coventry\n20,\n21,Leamington";
-        let (data, predict) = infer_train_and_predict(dataset);
-
-        assert_eq!(data, vec!["age,location", "20,Coventry", "21,Leamington"]);
-        assert_eq!(predict, vec!["age,location", "20,"])
-    }
-
-    #[test]
-    fn compression_full_stack() {
-        let data = "Hello World!";
-        let comp_data: Vec<u8> = compress_data(data).unwrap();
-        let decomp_vec = decompress_data(&comp_data).unwrap();
-        let decomp_data = std::str::from_utf8(&decomp_vec).unwrap();
-        assert_eq!(data, decomp_data);
-    }
-
-    #[test]
-    fn vectors_can_be_compressed() {
-        let dataset = "age,location\n20,Coventry\n20,\n21,Leamington";
-        let (data, predict) = infer_train_and_predict(dataset);
-
-        let comp = compress_vec(&data).unwrap();
-        let decomp = decompress_data(&comp).unwrap();
-
-        assert_eq!(
-            std::str::from_utf8(&decomp).unwrap(),
-            "age,location\n20,Coventry\n21,Leamington"
-        );
-
-        let comp = compress_vec(&predict).unwrap();
-        let decomp = decompress_data(&comp).unwrap();
-
-        assert_eq!(std::str::from_utf8(&decomp).unwrap(), "age,location\n20,");
-    }
 }
