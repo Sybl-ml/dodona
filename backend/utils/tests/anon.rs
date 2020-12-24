@@ -1,5 +1,5 @@
-use utils::infer_columns;
 use utils::anon::{anonymise_dataset, deanonymise_dataset};
+use utils::infer_columns;
 
 #[test]
 fn columns_can_be_anonymised() {

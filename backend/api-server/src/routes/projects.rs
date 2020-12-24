@@ -172,7 +172,8 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
 
     // Compress the input data
     let compressed = compress_vec(&train).map_err(|_| tide_err(422, "failed compression"))?;
-    let compressed_predict = compress_vec(&predict).map_err(|_| tide_err(422, "failed compression"))?;
+    let compressed_predict =
+        compress_vec(&predict).map_err(|_| tide_err(422, "failed compression"))?;
 
     let details = DatasetDetails::new(object_id.clone(), data_head, column_types);
     let dataset = Dataset::new(object_id.clone(), compressed, compressed_predict);
@@ -252,8 +253,10 @@ pub async fn get_data(req: Request<State>) -> tide::Result {
     let comp_train = dataset.dataset.expect("missing training dataset").bytes;
     let comp_predict = dataset.predict.expect("missing prediction dataset").bytes;
 
-    let decomp_train = decompress_data(&comp_train).map_err(|_| tide_err(422, "failed decompression"))?;
-    let decomp_predict = decompress_data(&comp_predict).map_err(|_| tide_err(422, "failed decompression"))?;
+    let decomp_train =
+        decompress_data(&comp_train).map_err(|_| tide_err(422, "failed decompression"))?;
+    let decomp_predict =
+        decompress_data(&comp_predict).map_err(|_| tide_err(422, "failed decompression"))?;
 
     let train = clean(std::str::from_utf8(&decomp_train)?);
     let predict = clean(std::str::from_utf8(&decomp_predict)?);

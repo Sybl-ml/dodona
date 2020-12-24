@@ -1,5 +1,5 @@
-use utils::infer_train_and_predict;
 use utils::compress::{compress_data, compress_vec, decompress_data};
+use utils::infer_train_and_predict;
 
 #[test]
 fn compression_full_stack() {

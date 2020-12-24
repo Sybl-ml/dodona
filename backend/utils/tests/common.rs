@@ -38,7 +38,6 @@ fn data_types_can_be_inferred() {
     assert!(types.get(&"location".to_string()).unwrap().is_categorical());
 }
 
-
 #[test]
 fn train_and_predict_data_can_be_inferred() {
     let dataset = "age,location\n20,Coventry\n20,\n21,Leamington";

@@ -1,8 +1,8 @@
 //! Defines data set analysis utilities for project data
 
-use csv::{Reader, Position};
-use std::collections::HashMap;
 use crate::{infer_columns, parse_body, Column};
+use csv::{Position, Reader};
+use std::collections::HashMap;
 
 /// Represents what is returned from Analysis function
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

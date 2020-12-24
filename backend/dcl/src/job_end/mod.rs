@@ -16,9 +16,9 @@ use crate::node_end::NodePool;
 use crate::DatasetPair;
 use models::predictions::Prediction;
 
-use utils::{Columns, infer_train_and_predict};
 use utils::anon::{anonymise_dataset, deanonymise_dataset};
 use utils::compress::compress_bytes;
+use utils::{infer_train_and_predict, Columns};
 
 /// Starts up and runs the job end
 ///
@@ -37,7 +37,12 @@ pub async fn run(
         log::info!("Train: {}", &msg.train);
         log::info!("Predict: {}", &msg.predict);
 
-        let data = msg.train.split("\n").chain(msg.predict.split("\n").skip(1)).collect::<Vec<_>>().join("\n");
+        let data = msg
+            .train
+            .split("\n")
+            .chain(msg.predict.split("\n").skip(1))
+            .collect::<Vec<_>>()
+            .join("\n");
         let (anon, columns) = anonymise_dataset(data);
         let (anon_train, anon_predict) = infer_train_and_predict(&anon);
         let (anon_train_csv, anon_predict_csv) = (anon_train.join("\n"), anon_predict.join("\n"));
