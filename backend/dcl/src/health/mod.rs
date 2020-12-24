@@ -40,7 +40,7 @@ pub async fn health_runner(nodepool: Arc<NodePool>, delay: u64) {
 /// This information is saved in NodeInfo.
 pub async fn check_health(nodepool: Arc<NodePool>) -> Result<u8> {
     let mut nodes = nodepool.nodes.write().await;
-    let mut clean_list: Vec<String> = vec![];
+    let mut clean_list: Vec<String> = Vec::new();
     let mut total: u8 = 0;
 
     for (id, node) in nodes.iter() {
