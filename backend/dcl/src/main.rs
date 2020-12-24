@@ -1,8 +1,9 @@
 use config::Environment;
 use dcl::run;
+use utils::setup_logger;
 
 fn main() {
-    env_logger::init();
+    setup_logger("dcl");
 
     let environment = if cfg!(debug_assertions) {
         Environment::Development
