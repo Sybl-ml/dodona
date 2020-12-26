@@ -11,8 +11,6 @@ use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 
 use crypto::generate_string;
-use bzip2::write::{BzDecoder, BzEncoder};
-use bzip2::Compression;
 use fern::colors::{Color, ColoredLevelConfig};
 
 pub mod analysis;
