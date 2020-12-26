@@ -12,6 +12,8 @@ use tokio::prelude::*;
 use tokio::sync::RwLock;
 use tokio::time::timeout;
 
+use anyhow::Result;
+
 use crate::messages::Message;
 use crate::node_end::NodePool;
 
@@ -21,13 +23,13 @@ use crate::node_end::NodePool;
 /// each node that is not currently being used and makes
 /// sure it is still alive. This will be run every <delay> seconds.
 pub async fn health_runner(nodepool: Arc<NodePool>, delay: u64) {
-    log::info!("HEALTH CHECKING UP");
+    log::info!("Health Checking Running");
     let mut interval = tokio::time::interval(Duration::from_secs(delay));
 
     loop {
         let np = Arc::clone(&nodepool);
-        check_health(np).await;
-        log::info!("HEALTH CHECKED");
+        let total = check_health(np).await.unwrap();
+        log::info!("Checked {} nodes", total);
         interval.tick().await;
     }
 }
@@ -36,20 +38,39 @@ pub async fn health_runner(nodepool: Arc<NodePool>, delay: u64) {
 ///
 /// Loops through all nodes and checks to see if they are alive.
 /// This information is saved in NodeInfo.
-pub async fn check_health(nodepool: Arc<NodePool>) {
-    let nodes = nodepool.nodes.read().await;
+pub async fn check_health(nodepool: Arc<NodePool>) -> Result<u8> {
+    let mut nodes = nodepool.nodes.write().await;
+    let mut clean_list: Vec<String> = Vec::new();
+    let mut total: u8 = 0;
 
     for (id, node) in nodes.iter() {
+        total += 1;
         if !nodepool.is_using(&id).await {
             let alive = heartbeat(node.get_tcp()).await;
 
             if !alive {
-                log::warn!("Node: {} is presumed dead", node.get_model_id());
+                log::warn!("(Node {}) Presumed dead", node.get_model_id());
+                node.inc_counter().await;
+
+                if node.get_counter().await == 10 {
+                    log::info!("(Node {}) Removing", node.get_model_id());
+
+                    clean_list.push(id.clone());
+                }
+            } else if node.get_counter().await > 0 {
+                node.reset_counter().await;
             }
 
-            nodepool.update_node(&id, alive).await;
+            nodepool.update_node(&id, alive).await?;
         }
     }
+
+    // clean dead nodes from nodepool
+    for id in clean_list {
+        nodes.remove(&id);
+    }
+
+    Ok(total)
 }
 
 /// Checks to see if a Node is still alive

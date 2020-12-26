@@ -31,7 +31,7 @@ pub async fn run(
     database: Arc<Database>,
     mut rx: Receiver<(ObjectId, DatasetPair)>,
 ) -> Result<()> {
-    log::info!("RUNNING JOB END");
+    log::info!("Job End Running");
 
     while let Some((id, msg)) = rx.recv().await {
         log::info!("Train: {}", &msg.train);
@@ -47,7 +47,7 @@ pub async fn run(
         let (anon_train, anon_predict) = infer_train_and_predict(&anon);
         let (anon_train_csv, anon_predict_csv) = (anon_train.join("\n"), anon_predict.join("\n"));
 
-        let cluster = nodepool.get_cluster(3).await.unwrap();
+        let cluster = nodepool.get_cluster(1).await.unwrap();
 
         for (key, dcn) in cluster {
             let np_clone = Arc::clone(&nodepool);
@@ -69,7 +69,8 @@ pub async fn run(
                     predict,
                     cols,
                 )
-                .await;
+                .await
+                .unwrap();
             });
         }
     }
@@ -86,7 +87,7 @@ pub async fn dcl_protcol(
     train: String,
     predict: String,
     columns: Columns,
-) -> String {
+) -> Result<()> {
     log::info!("Sending a job to node with key: {}", key);
 
     let mut dcn_stream = stream.write().await;
@@ -101,14 +102,26 @@ pub async fn dcl_protcol(
     let size = dcn_stream.read(&mut buffer).await.unwrap();
     let config_response = std::str::from_utf8(&buffer[..size]).unwrap();
 
-    log::info!("Config response: {}", config_response);
+    log::info!("(Node {}) Config response: {}", &key, config_response);
 
     let dataset_message = Message::Dataset { train, predict };
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
-    let prediction_message = Message::from_stream(&mut dcn_stream, &mut buffer)
-        .await
-        .unwrap();
+    // TODO: Propagate this error forward to the frontend so that it can say a node has failed
+    let prediction_message = match Message::from_stream(&mut dcn_stream, &mut buffer).await {
+        Ok(pm) => pm,
+        Err(error) => {
+            nodepool.update_node(&key, false).await?;
+
+            log::error!(
+                "(Node {}) Error dealing with node predictions: {}",
+                &key,
+                error
+            );
+
+            return Ok(());
+        }
+    };
 
     let anonymised_predictions = match prediction_message {
         Message::Predictions(s) => s,
@@ -120,13 +133,19 @@ pub async fn dcl_protcol(
     // Write the predictions back to the database
     write_predictions(database, id, &key, predictions.as_bytes())
         .await
-        .unwrap();
+        .unwrap_or_else(|error| {
+            log::error!(
+                "(Node: {}) Error writing predictions to DB: {}",
+                &key,
+                error
+            )
+        });
 
-    log::info!("Computed Data: {}", predictions);
+    log::info!("(Node: {}) Computed Data: {}", &key, predictions);
 
-    nodepool.end(&key).await;
+    nodepool.end(&key).await?;
 
-    predictions
+    Ok(())
 }
 
 /// Writes predictions back to the Mongo database for long term storage.

@@ -5,6 +5,8 @@ use std::str::FromStr;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
+use utils::setup_logger;
+
 const TIMEOUT_SECS: u64 = 1;
 const LISTEN_ADDR: &str = "127.0.0.1:5000";
 
@@ -98,7 +100,7 @@ struct Inner {
 
 fn main() -> std::io::Result<()> {
     // Setup logging
-    pretty_env_logger::init();
+    setup_logger("interface");
 
     let inner = Arc::new(Inner::default());
 

@@ -30,14 +30,15 @@ pub async fn run(
     tx: Sender<(ObjectId, DatasetPair)>,
 ) -> Result<()> {
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
-    log::info!("Socket: {:?}", socket);
-
+    log::info!("Interface Socket: {:?}", socket);
     let listener = TcpListener::bind(&socket).await?;
-    log::info!("RUNNING INTERFACE SERVER");
+
     while let Ok((inbound, _)) = listener.accept().await {
-        log::info!("INTERFACE CONNECTION");
+        log::info!("Interface Connection: {}", inbound.peer_addr()?);
+
         let db_conn_clone = Arc::clone(&db_conn);
         let tx_clone = tx.clone();
+
         tokio::spawn(async move {
             process_connection(inbound, db_conn_clone, tx_clone)
                 .await
@@ -66,7 +67,7 @@ async fn process_connection(
     log::info!("{:?}", &filter);
 
     let doc = datasets.find_one(filter, None).await?.unwrap();
-    let dataset: Dataset = mongodb::bson::de::from_document(doc).unwrap();
+    let dataset: Dataset = mongodb::bson::de::from_document(doc)?;
 
     log::info!("{:?}", &dataset);
 
@@ -87,7 +88,7 @@ async fn process_connection(
 
     tx.send((dataset.project_id.unwrap(), DatasetPair { train, predict }))
         .await
-        .unwrap();
+        .unwrap_or_else(|error| log::error!("Error while sending over MPSC: {}", error));
 
     Ok(())
 }
