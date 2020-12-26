@@ -8,14 +8,14 @@ use csv::{Reader, StringRecord, Writer};
 /// numerical data and pseudonymisation for categorical data, anonymises header names with
 /// random pseudonyms and returns an anonymised `String`-encoded CSV dataset and the
 /// `Columns` object needed to de-anonymise data from the same domain.
-pub fn anonymise_dataset(dataset: String) -> (String, Columns) {
+pub fn anonymise_dataset(dataset: String) -> Option<(String, Columns)> {
     // identify the types and range (numerical) or unique values (categorical) of each column
     let mut reader = Reader::from_reader(dataset.as_bytes());
-    let types: Columns = infer_columns(&mut reader).unwrap();
+    let types: Columns = infer_columns(&mut reader).ok()?;
 
     // read each record of the data and anonymise each value based on its column
     let mut reader = Reader::from_reader(dataset.as_bytes());
-    let headers = reader.headers().unwrap().to_owned();
+    let headers = reader.headers().ok()?.to_owned();
     let mut writer = Writer::from_writer(vec![]);
     let records: Vec<StringRecord> = reader.records().filter_map(Result::ok).collect();
     let anonymised = records
@@ -23,7 +23,7 @@ pub fn anonymise_dataset(dataset: String) -> (String, Columns) {
         .map(|r| {
             r.iter()
                 .zip(&headers)
-                .map(|(v, c)| types.get(&c.to_string()).unwrap().anonymise(v.to_string()))
+                .filter_map(|(v, c)| types.get(&c.to_string()).and_then(|l| l.anonymise(v.to_string())))
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
@@ -43,20 +43,20 @@ pub fn anonymise_dataset(dataset: String) -> (String, Columns) {
     });
 
     // return the anonymised dataset as a `String` with the `Columns` used for anonymisation
-    (
-        String::from_utf8(writer.into_inner().unwrap()).unwrap(),
+    Some((
+        writer.into_inner().ok().and_then(|l| String::from_utf8(l).ok())?,
         types,
-    )
+    ))
 }
 
 /// Given an anonymised `dataset` represented in a `String`-encoded CSV format and the
 /// `columns` used to anonymise data, deanonymises the data in the `dataset` based on the values
 /// included in `columns`, decodes the pseudonymised headers and returns the deanonymised
 /// dataset in a `String`-encoded CSV format
-pub fn deanonymise_dataset(dataset: String, columns: Columns) -> String {
+pub fn deanonymise_dataset(dataset: String, columns: Columns) -> Option<String> {
     // identify the pseudonyms used to anonymise the data
     let mut reader = Reader::from_reader(dataset.as_bytes());
-    let pseudonyms = reader.headers().unwrap().to_owned();
+    let pseudonyms = reader.headers().ok()?.to_owned();
     let mut writer = Writer::from_writer(vec![]);
     let records: Vec<StringRecord> = reader.records().filter_map(Result::ok).collect();
 
@@ -79,11 +79,10 @@ pub fn deanonymise_dataset(dataset: String, columns: Columns) -> String {
         .map(|r| {
             r.iter()
                 .zip(headers.iter())
-                .map(|(v, c)| {
+                .filter_map(|(v, c)| {
                     columns
                         .get(&c.to_string())
-                        .unwrap()
-                        .deanonymise(v.to_string())
+                        .and_then(|r| r.deanonymise(v.to_string()))
                 })
                 .collect::<Vec<_>>()
         })
@@ -96,5 +95,5 @@ pub fn deanonymise_dataset(dataset: String, columns: Columns) -> String {
     });
 
     // return the deanonymised dataset as a `String`
-    String::from_utf8(writer.into_inner().unwrap()).unwrap()
+    writer.into_inner().ok().and_then(|l| String::from_utf8(l).ok())
 }

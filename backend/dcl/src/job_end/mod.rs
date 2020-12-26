@@ -43,7 +43,7 @@ pub async fn run(
             .chain(msg.predict.split("\n").skip(1))
             .collect::<Vec<_>>()
             .join("\n");
-        let (anon, columns) = anonymise_dataset(data);
+        let (anon, columns) = anonymise_dataset(data).unwrap();
         let (anon_train, anon_predict) = infer_train_and_predict(&anon);
         let (anon_train_csv, anon_predict_csv) = (anon_train.join("\n"), anon_predict.join("\n"));
 
@@ -115,7 +115,7 @@ pub async fn dcl_protcol(
         _ => unreachable!(),
     };
 
-    let predictions = deanonymise_dataset(anonymised_predictions, columns);
+    let predictions = deanonymise_dataset(anonymised_predictions, columns).unwrap();
 
     // Write the predictions back to the database
     write_predictions(database, id, &key, predictions.as_bytes())

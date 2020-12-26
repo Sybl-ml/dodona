@@ -51,16 +51,16 @@ impl Column {
     /// as the column. For example, if the `Column` is categorical then the associated pseudonym
     /// for `value` is returned. Alternatively, if the `Column` is numerical then the `value`
     /// is normalised to the range `[0, 1]` based on the minimum and maximum values of `Column`
-    pub fn anonymise(&self, value: String) -> String {
+    pub fn anonymise(&self, value: String) -> Option<String> {
         if value.len() == 0 {
-            value
+            Some(value)
         } else {
             match &self.column_type {
                 // if this `Column` holds categorical data, find the pseudonym for `value`
-                ColumnType::Categorical(mapping) => mapping.get(&value).unwrap().to_string(),
+                ColumnType::Categorical(mapping) => Some(mapping.get(&value)?.to_string()),
                 // if this `Column` holds numerical data, normalise `value` to the standard range
                 ColumnType::Numerical(min, max) => {
-                    Column::normalise(f64::from_str(&value).unwrap(), *min, *max).to_string()
+                    Some(Column::normalise(f64::from_str(&value).ok()?, *min, *max).to_string())
                 }
             }
         }
@@ -72,22 +72,21 @@ impl Column {
     /// example, if the `Column` is categorical then the original value associated with the
     /// pseudonym `value` is returned. Alternatively, if the `Column` is numerical, then the scaled
     /// number `value` is denormalised back to its true range and returned
-    pub fn deanonymise(&self, value: String) -> String {
+    pub fn deanonymise(&self, value: String) -> Option<String> {
         if value.len() == 0 {
-            value
+            Some(value)
         } else {
             match &self.column_type {
                 // if this `Column` holds categorical data, find the original name for this `value`
-                ColumnType::Categorical(mapping) => mapping
+                ColumnType::Categorical(mapping) => Some(mapping
                     .iter()
                     .filter(|(_, v)| **v == value)
-                    .next()
-                    .unwrap()
+                    .next()?
                     .0
-                    .to_string(),
+                    .to_string()),
                 // if this `Column` holds numerical data, denormalise `value` to its true range
                 ColumnType::Numerical(min, max) => {
-                    Column::denormalise(f64::from_str(&value).unwrap(), *min, *max).to_string()
+                    Some(Column::denormalise(f64::from_str(&value).ok()?, *min, *max).to_string())
                 }
             }
         }
