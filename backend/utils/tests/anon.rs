@@ -9,7 +9,10 @@ fn columns_can_be_anonymised() {
     let age = types.get(&"age".to_string()).unwrap();
     let loc = types.get(&"location".to_string()).unwrap();
     assert_eq!(age.anonymise("20.0".to_string()).unwrap(), "0".to_string());
-    assert_eq!(age.anonymise("20.5".to_string()).unwrap(), "0.5".to_string());
+    assert_eq!(
+        age.anonymise("20.5".to_string()).unwrap(),
+        "0.5".to_string()
+    );
     assert_eq!(age.anonymise("21.0".to_string()).unwrap(), "1".to_string());
     assert_ne!(
         loc.anonymise("Coventry".to_string()).unwrap(),

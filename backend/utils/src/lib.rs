@@ -51,6 +51,9 @@ impl Column {
     /// as the column. For example, if the `Column` is categorical then the associated pseudonym
     /// for `value` is returned. Alternatively, if the `Column` is numerical then the `value`
     /// is normalised to the range `[0, 1]` based on the minimum and maximum values of `Column`
+    ///
+    /// Returns None if the `value` is not in the domain of the `Column` (e.g. it is non-numerical
+    /// data in a numerical column or is an unrecognised value in a categorical column)
     pub fn anonymise(&self, value: String) -> Option<String> {
         if value.len() == 0 {
             Some(value)
@@ -72,18 +75,22 @@ impl Column {
     /// example, if the `Column` is categorical then the original value associated with the
     /// pseudonym `value` is returned. Alternatively, if the `Column` is numerical, then the scaled
     /// number `value` is denormalised back to its true range and returned
+    ///
+    /// Returns None if no match was found for the pseudonym `value` in the `Column`
     pub fn deanonymise(&self, value: String) -> Option<String> {
         if value.len() == 0 {
             Some(value)
         } else {
             match &self.column_type {
                 // if this `Column` holds categorical data, find the original name for this `value`
-                ColumnType::Categorical(mapping) => Some(mapping
-                    .iter()
-                    .filter(|(_, v)| **v == value)
-                    .next()?
-                    .0
-                    .to_string()),
+                ColumnType::Categorical(mapping) => Some(
+                    mapping
+                        .iter()
+                        .filter(|(_, v)| **v == value)
+                        .next()?
+                        .0
+                        .to_string(),
+                ),
                 // if this `Column` holds numerical data, denormalise `value` to its true range
                 ColumnType::Numerical(min, max) => {
                     Some(Column::denormalise(f64::from_str(&value).ok()?, *min, *max).to_string())
