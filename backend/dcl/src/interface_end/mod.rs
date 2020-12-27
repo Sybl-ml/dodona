@@ -12,6 +12,7 @@ use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::prelude::*;
 use tokio::sync::mpsc::Sender;
+use utils::compress::decompress_data;
 
 use crate::DatasetPair;
 use models::datasets::Dataset;
@@ -75,8 +76,8 @@ async fn process_connection(
     let comp_predict = dataset.predict.unwrap().bytes;
 
     // Decompress it
-    let train_bytes = utils::decompress_data(&comp_train)?;
-    let predict_bytes = utils::decompress_data(&comp_predict)?;
+    let train_bytes = decompress_data(&comp_train)?;
+    let predict_bytes = decompress_data(&comp_predict)?;
 
     // Convert it to a string
     let train = std::str::from_utf8(&train_bytes)?.to_string();
