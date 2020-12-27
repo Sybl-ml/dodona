@@ -17,7 +17,7 @@ fn categorical_data_is_salted() {
     let mut reader = csv::Reader::from_reader(dataset.as_bytes());
     let types_resalted = infer_columns(&mut reader).unwrap();
 
-    assert_ne!(types_salted, types_resalted,);
+    assert_ne!(types_salted, types_resalted);
 }
 
 #[test]

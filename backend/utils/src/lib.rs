@@ -149,43 +149,48 @@ impl From<ColumnValues> for Column {
     // Creates a new `Column` object based on its `name` and `values`
     fn from((name, values): ColumnValues) -> Column {
         // check if all values in the column are numerical
-        if values.iter().all(|v| f64::from_str(v).is_ok()) {
-            // translate the data to a numerical form
-            let numerical: Vec<f64> = values.iter().map(|v| f64::from_str(v).unwrap()).collect();
-            let column_type = ColumnType::Numerical(
-                // identify the minimum value of the column
-                *numerical
-                    .iter()
-                    .min_by(|x, y| x.partial_cmp(&y).unwrap())
-                    .unwrap(),
-                // identify the maximum value of the column
-                *numerical
-                    .iter()
-                    .max_by(|x, y| x.partial_cmp(&y).unwrap())
-                    .unwrap(),
-            );
-            // return a `Column` with a `name`, a random `pseudonym` and numerical `column_type`
-            Column {
-                name: name,
-                pseudonym: generate_string(16),
-                column_type: column_type,
+        match values
+            .iter()
+            .map(|v| f64::from_str(v))
+            .collect::<Result<Vec<_>, _>>()
+        {
+            Ok(numerical) => {
+                let column_type = ColumnType::Numerical(
+                    // identify the minimum value of the column
+                    *numerical
+                        .iter()
+                        .min_by(|x, y| x.partial_cmp(&y).unwrap())
+                        .unwrap(),
+                    // identify the maximum value of the column
+                    *numerical
+                        .iter()
+                        .max_by(|x, y| x.partial_cmp(&y).unwrap())
+                        .unwrap(),
+                );
+                // return a `Column` with a `name`, a random `pseudonym` and numerical `column_type`
+                Column {
+                    name: name,
+                    pseudonym: generate_string(16),
+                    column_type: column_type,
+                }
             }
-        } else {
-            let column_type = ColumnType::Categorical(
-                values
-                    .iter()
-                    // obfuscate each value in the column with a random pseudonym
-                    .zip(values.iter().map(|v| Column::obfuscate(v.to_string())))
-                    .map(|(v, o)| (v.to_string(), o))
-                    // when collected into a `HashMap`, conflicting pseudonyms for
-                    // the same unique value are automatically resolved
-                    .collect(),
-            );
-            // return a `Column` with a `name`, a random `pseudonym` and categorical `column_type`
-            Column {
-                name: name,
-                pseudonym: generate_string(16),
-                column_type: column_type,
+            Err(_) => {
+                let column_type = ColumnType::Categorical(
+                    values
+                        .iter()
+                        // obfuscate each value in the column with a random pseudonym
+                        .zip(values.iter().map(|v| Column::obfuscate(v.to_string())))
+                        .map(|(v, o)| (v.to_string(), o))
+                        // when collected into a `HashMap`, conflicting pseudonyms for
+                        // the same unique value are automatically resolved
+                        .collect(),
+                );
+                // return a `Column` with a `name`, a random `pseudonym` and categorical `column_type`
+                Column {
+                    name: name,
+                    pseudonym: generate_string(16),
+                    column_type: column_type,
+                }
             }
         }
     }
@@ -236,7 +241,7 @@ pub fn infer_columns<R: std::io::Read>(reader: &mut Reader<R>) -> csv::Result<Co
 
 /// Given a column's `name`, its index `col` the `records` from a CSV, return the `ColumnValues`
 /// associated with this column in `records`
-pub fn column_values(name: String, records: &Vec<StringRecord>, col: usize) -> ColumnValues {
+pub fn column_values(name: String, records: &[StringRecord], col: usize) -> ColumnValues {
     (
         name,
         records
