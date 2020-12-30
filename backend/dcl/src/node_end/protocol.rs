@@ -158,7 +158,12 @@ impl<'a> Handler<'a> {
 
 /// Queries the API server and returns the response text.
 pub async fn get_response_text<S: Display + Serialize>(endpoint: &str, body: S) -> Result<String> {
+    #[cfg(test)]
+    let base = mockito::server_url();
+
+    #[cfg(not(test))]
     let base = "http://localhost:3001";
+
     let url = format!("{}{}", base, endpoint);
 
     log::debug!("Sending: {} to {}", &body, &url);
