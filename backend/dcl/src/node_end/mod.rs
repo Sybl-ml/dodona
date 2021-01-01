@@ -23,9 +23,6 @@ use models::models::Status;
 
 pub mod protocol;
 
-#[cfg(test)]
-mod tests;
-
 /// Defines information about a Node
 #[derive(Debug)]
 pub struct Node {

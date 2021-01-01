@@ -10,6 +10,9 @@ use tokio::net::TcpStream;
 
 use crate::messages::Message;
 
+#[cfg(test)]
+mod tests;
+
 /// The internal state for the protocol.
 #[derive(Debug)]
 pub struct Handler<'a> {
