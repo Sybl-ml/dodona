@@ -59,13 +59,6 @@ pub enum Message {
 }
 
 impl Message {
-    /// Wrapper function to convert Message into other format
-    pub fn send(msg: Message) -> String {
-        let mut ret = String::from(serde_json::to_string(&msg).unwrap());
-        ret.push_str("\0");
-        ret
-    }
-
     /// Reads a [`Message`] from a raw stream of bytes, dealing with length prefixing.
     pub async fn from_stream(stream: &mut TcpStream, mut buffer: &mut [u8]) -> Result<Self> {
         log::info!("Reading a message");
