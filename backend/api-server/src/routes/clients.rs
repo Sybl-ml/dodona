@@ -115,7 +115,7 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
         name: model_name,
         status: Some(Status::NotStarted),
         access_token: None,
-        locked: false,
+        locked: true,
         authenticated: false,
         challenge: Some(Binary {
             subtype: bson::spec::BinarySubtype::Generic,
@@ -217,11 +217,17 @@ pub async fn verify_challenge(mut req: Request<State>) -> tide::Result {
 /// then given a model `id`, unlocks the model for authentication and use by the DCL.
 /// TODO: implement safeguards, such as a OTP request parameter, to prevent clients
 /// (or mailicious actors) contacting this endpoint from outside of the dashboard.
+///
+/// To unlock a model, the frontend must query this endpoint with a valid model id `id`
+/// and the password `password` of the user to whom the model is registered.
+/// The model must be authenticated using `verify_challenge` before being unlocked
 pub async fn unlock_model(mut req: Request<State>) -> tide::Result {
     let database = req.state().client.database("sybl");
     let doc: Document = req.body_json().await?;
     let models = database.collection("models");
+    let users = database.collection("users");
     let msg = "Error unlocking model";
+    let state = req.state();
 
     let model_id =
         ObjectId::with_string(&get_from_doc(&doc, "id")?).map_err(|_| tide_err(401, &msg))?;
@@ -232,7 +238,21 @@ pub async fn unlock_model(mut req: Request<State>) -> tide::Result {
         .map(|doc| from_document::<ClientModel>(doc).unwrap());
     let mut model = model.ok_or_else(|| tide_err(401, &msg))?;
 
-    //TODO: implement additional safeguards to prevent arbitrary access and unlocking
+    let password = get_from_doc(&doc, "password")?;
+    let pepper = &state.pepper;
+
+    let filter = doc! { "_id": &model.user_id };
+    let user = users
+        .find_one(filter, None)
+        .await?
+        .map(|doc| from_document::<User>(doc).unwrap());
+    let user = user.ok_or_else(|| tide_err(401, &msg))?;
+
+    let peppered = format!("{}{}", password, pepper);
+
+    if !model.authenticated || pbkdf2::pbkdf2_check(&peppered, &user.hash).is_err() {
+        return Err(tide_err(401, &msg));
+    }
 
     model.locked = false;
 
