@@ -5,6 +5,9 @@ use std::str::FromStr;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
+use async_std::stream::StreamExt;
+use async_std::task::block_on;
+
 use config::Environment;
 use models::jobs::Job;
 use utils::setup_logger;
@@ -114,24 +117,27 @@ impl Inner {
 fn get_job_queue() -> mongodb::error::Result<VecDeque<ObjectId>> {
     // Setup the MongoDB client
     let uri = std::env::var("CONN_STR").unwrap();
-    let client = mongodb::sync::Client::with_uri_str(&uri)?;
+    let client = block_on(async { mongodb::Client::with_uri_str(&uri).await })?;
 
     // Get the jobs collection
     let database = client.database("sybl");
     let jobs = database.collection("jobs");
 
     // Pull all the jobs and deserialize them
-    let cursor = jobs.find(None, None)?;
+    let cursor = block_on(async { jobs.find(None, None).await })?;
 
-    let queue = cursor
-        .filter_map(Result::ok)
-        .filter_map(|x| mongodb::bson::de::from_document::<Job>(x).ok())
-        .map(|job| {
-            let mut bytes = [0_u8; 24];
-            bytes.copy_from_slice(&job.dataset_id.to_hex().as_bytes()[..]);
-            bytes
-        })
-        .collect();
+    let queue = block_on(async {
+        cursor
+            .filter_map(Result::ok)
+            .filter_map(|x| mongodb::bson::de::from_document::<Job>(x).ok())
+            .map(|job| {
+                let mut bytes = [0_u8; 24];
+                bytes.copy_from_slice(&job.dataset_id.to_hex().as_bytes()[..]);
+                bytes
+            })
+            .collect()
+            .await
+    });
 
     Ok(queue)
 }

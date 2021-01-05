@@ -13,7 +13,11 @@ config = { path = "../config" }
 models = { path = "../models" }
 utils = { path = "../utils" }
 
+[dependencies.async-std]
+version = "1.8.0"
+features = ["unstable"]
+
 [dependencies.mongodb]
 version = "1.1.1"
 default-features = false
-features = ["sync"]
+features = ["async-std"]
