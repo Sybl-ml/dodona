@@ -11,9 +11,9 @@ use tokio::prelude::*;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::RwLock;
 
-use crate::messages::Message;
 use crate::node_end::NodePool;
 use crate::DatasetPair;
+use messages::client::ClientMessage;
 use models::predictions::Prediction;
 
 use utils::anon::{anonymise_dataset, deanonymise_dataset};
@@ -96,7 +96,7 @@ pub async fn dcl_protcol(
 
     // This is temporary, planning on creating seperate place for defining messages
 
-    let config = Message::JobConfig { config: "".into() }.as_bytes();
+    let config = ClientMessage::JobConfig { config: "".into() }.as_bytes();
     dcn_stream.write(&config).await.unwrap();
 
     let size = dcn_stream.read(&mut buffer).await.unwrap();
@@ -104,11 +104,11 @@ pub async fn dcl_protcol(
 
     log::info!("(Node {}) Config response: {}", &key, config_response);
 
-    let dataset_message = Message::Dataset { train, predict };
+    let dataset_message = ClientMessage::Dataset { train, predict };
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
     // TODO: Propagate this error forward to the frontend so that it can say a node has failed
-    let prediction_message = match Message::from_stream(&mut dcn_stream, &mut buffer).await {
+    let prediction_message = match ClientMessage::from_stream(&mut dcn_stream, &mut buffer).await {
         Ok(pm) => pm,
         Err(error) => {
             nodepool.update_node(&key, false).await?;
@@ -124,7 +124,7 @@ pub async fn dcl_protcol(
     };
 
     let anonymised_predictions = match prediction_message {
-        Message::Predictions(s) => s,
+        ClientMessage::Predictions(s) => s,
         _ => unreachable!(),
     };
 

@@ -8,7 +8,7 @@ use tokio::net::TcpStream;
 
 /// Different messages to be passed between DCL and DCN
 #[derive(Debug, Serialize, Deserialize)]
-pub enum Message {
+pub enum ClientMessage {
     /// Hearbeat alive message
     Alive {
         /// The current timestamp
@@ -58,7 +58,7 @@ pub enum Message {
     },
 }
 
-impl Message {
+impl ClientMessage {
     /// Reads a [`Message`] from a raw stream of bytes, dealing with length prefixing.
     pub async fn from_stream(stream: &mut TcpStream, mut buffer: &mut [u8]) -> Result<Self> {
         log::info!("Reading a message");
@@ -103,7 +103,7 @@ impl Message {
 
         // Convert the message to bytes
         let bytes = match self {
-            Message::RawJSON { content } => content.as_bytes().to_vec(),
+            ClientMessage::RawJSON { content } => content.as_bytes().to_vec(),
             _ => serde_json::to_vec(&self).unwrap(),
         };
 
