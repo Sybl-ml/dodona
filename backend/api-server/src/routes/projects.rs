@@ -297,11 +297,7 @@ pub async fn begin_processing(req: Request<State>) -> tide::Result {
 
     // Send a request to the interface layer
     let hex = dataset.id.expect("Dataset with no identifier").to_hex();
-    log::info!("Forwarding dataset id: {} to the interface layer", &hex);
-
-    let mut stream = TcpStream::connect("127.0.0.1:5000").await?;
-    stream.write(hex.as_bytes()).await?;
-    stream.shutdown(std::net::Shutdown::Both)?;
+    forward_to_interface(hex).await?;
 
     // Mark the project as processing
     let update = doc! { "$set": doc!{ "status": Status::Processing } };
@@ -345,4 +341,14 @@ pub async fn get_predictions(req: Request<State>) -> tide::Result {
         .await;
 
     Ok(response_from_json(doc! {"predictions": decompressed}))
+}
+
+async fn forward_to_interface(hex: String) -> async_std::io::Result<()> {
+    log::info!("Forwarding dataset id: {} to the interface layer", &hex);
+
+    let mut stream = TcpStream::connect("127.0.0.1:5000").await?;
+    stream.write(hex.as_bytes()).await?;
+    stream.shutdown(std::net::Shutdown::Both)?;
+
+    Ok(())
 }
