@@ -17,6 +17,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
+pub mod auth_end;
 pub mod health;
 pub mod interface_end;
 pub mod job_end;
@@ -46,6 +47,8 @@ pub async fn run() -> Result<()> {
     let interface_socket =
         u16::from_str(&env::var("INTERFACE_SOCKET").expect("INTERFACE_SOCKET must be set"))
             .unwrap();
+    let auth_socket =
+        u16::from_str(&env::var("AUTH_SOCKET").expect("AUTH_SOCKET must be set")).unwrap();
     let node_socket =
         u16::from_str(&env::var("NODE_SOCKET").expect("NODE_SOCKET must be set")).unwrap();
 
@@ -81,6 +84,10 @@ pub async fn run() -> Result<()> {
 
     tokio::spawn(async move {
         job_end::run(nodepool_clone, job_client, rx).await.unwrap();
+    });
+
+    tokio::spawn(async move {
+        auth_end::run(auth_socket).await.unwrap();
     });
 
     let nodepool_clone = Arc::clone(&nodepool);
