@@ -304,7 +304,7 @@ pub async fn begin_processing(req: Request<State>) -> tide::Result {
 
     if forward_to_interface(&identifier).await.is_err() {
         log::warn!("Failed to forward: {}", identifier);
-        insert_to_queue(&identifier, database.collection("processing_queue")).await?;
+        insert_to_queue(&identifier, database.collection("jobs")).await?;
     }
 
     // Mark the project as processing
