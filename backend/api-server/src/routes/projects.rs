@@ -300,12 +300,17 @@ pub async fn begin_processing(req: Request<State>) -> tide::Result {
         .map_err(|_| tide_err(422, "failed to parse dataset"))?;
 
     // Send a request to the interface layer
+<<<<<<< HEAD
     let identifier = dataset.id.expect("Dataset with no identifier");
 
     if forward_to_interface(&identifier).await.is_err() {
         log::warn!("Failed to forward: {}", identifier);
         insert_to_queue(&identifier, database.collection("jobs")).await?;
     }
+=======
+    let hex = dataset.id.expect("Dataset with no identifier").to_hex();
+    forward_to_interface(hex).await?;
+>>>>>>> Extract interface forwarding to separate function
 
     // Mark the project as processing
     let update = doc! { "$set": doc!{ "status": Status::Processing } };
