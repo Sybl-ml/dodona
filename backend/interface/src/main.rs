@@ -5,6 +5,8 @@ use std::str::FromStr;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
+use config::Environment;
+use models::jobs::Job;
 use utils::setup_logger;
 
 const TIMEOUT_SECS: u64 = 1;
@@ -98,11 +100,57 @@ struct Inner {
     available: Condvar,
 }
 
+impl Inner {
+    pub fn with_state(initial: VecDeque<ObjectId>) -> Self {
+        log::info!("Initialising the queue with {} elements", initial.len());
+
+        Self {
+            queue: Mutex::new(initial),
+            available: Default::default(),
+        }
+    }
+}
+
+fn get_job_queue() -> mongodb::error::Result<VecDeque<ObjectId>> {
+    // Setup the MongoDB client
+    let uri = std::env::var("CONN_STR").unwrap();
+    let client = mongodb::sync::Client::with_uri_str(&uri)?;
+
+    // Get the jobs collection
+    let database = client.database("sybl");
+    let jobs = database.collection("jobs");
+
+    // Pull all the jobs and deserialize them
+    let cursor = jobs.find(None, None)?;
+
+    let queue = cursor
+        .filter_map(Result::ok)
+        .filter_map(|x| mongodb::bson::de::from_document::<Job>(x).ok())
+        .map(|job| {
+            let mut bytes = [0_u8; 24];
+            bytes.copy_from_slice(&job.dataset_id.to_hex().as_bytes()[..]);
+            bytes
+        })
+        .collect();
+
+    Ok(queue)
+}
+
 fn main() -> std::io::Result<()> {
     // Setup logging
     setup_logger("interface");
 
-    let inner = Arc::new(Inner::default());
+    // Load the configuration variables
+    let environment = if cfg!(debug_assertions) {
+        Environment::Development
+    } else {
+        Environment::Production
+    };
+
+    config::load(environment);
+
+    let state = get_job_queue().expect("Failed to get the job queue");
+    let inner = Arc::new(Inner::with_state(state));
 
     log::info!("Beginning the thread execution");
     crossbeam::scope(|s| {
