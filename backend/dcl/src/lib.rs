@@ -22,6 +22,7 @@ pub mod interface_end;
 pub mod job_end;
 pub mod messages;
 pub mod node_end;
+pub mod protocol;
 
 /// A pair of datasets, one for training and one for predicting.
 #[derive(Debug)]
