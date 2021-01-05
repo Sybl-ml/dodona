@@ -21,7 +21,7 @@ use tokio::sync::RwLock;
 
 use models::models::Status;
 
-pub mod protocol;
+use crate::protocol;
 
 /// Defines information about a Node
 #[derive(Debug)]
@@ -257,7 +257,10 @@ async fn process_connection(
     nodepool: Arc<NodePool>,
 ) -> Result<()> {
     let mut handler = protocol::Handler::new(&mut stream);
-    let (model_id, token) = handler.get_access_token().await?;
+    let (model_id, token) = match handler.get_access_token().await? {
+        Some(t) => t,
+        None => return Ok(()),
+    };
 
     log::info!("New registered connection with:");
     log::info!("\tModel ID: {}", model_id);
