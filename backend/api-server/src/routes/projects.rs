@@ -3,7 +3,10 @@
 use async_std::net::TcpStream;
 use async_std::prelude::*;
 use async_std::stream::StreamExt;
-use mongodb::bson::{doc, document::Document};
+use mongodb::{
+    bson::{doc, document::Document},
+    Collection,
+};
 use tide::{Request, Response};
 
 use crate::routes::{check_project_exists, check_user_exists, response_from_json, tide_err};
@@ -297,7 +300,11 @@ pub async fn begin_processing(req: Request<State>) -> tide::Result {
 
     // Send a request to the interface layer
     let hex = dataset.id.expect("Dataset with no identifier").to_hex();
-    forward_to_interface(hex).await?;
+
+    if forward_to_interface(&hex).await.is_err() {
+        log::warn!("Failed to forward: {}", hex);
+        insert_to_queue(&hex, database.collection("processing_queue")).await?;
+    }
 
     // Mark the project as processing
     let update = doc! { "$set": doc!{ "status": Status::Processing } };
@@ -343,12 +350,27 @@ pub async fn get_predictions(req: Request<State>) -> tide::Result {
     Ok(response_from_json(doc! {"predictions": decompressed}))
 }
 
-async fn forward_to_interface(hex: String) -> async_std::io::Result<()> {
-    log::info!("Forwarding dataset id: {} to the interface layer", &hex);
+async fn forward_to_interface(identifier: &str) -> async_std::io::Result<()> {
+    log::debug!("Forwarding an identifier to the interface: {}", identifier);
 
     let mut stream = TcpStream::connect("127.0.0.1:5000").await?;
-    stream.write(hex.as_bytes()).await?;
+    stream.write(identifier.as_bytes()).await?;
     stream.shutdown(std::net::Shutdown::Both)?;
+
+    log::info!("Forwarded an identifier to the interface: {}", identifier);
+
+    Ok(())
+}
+
+async fn insert_to_queue(identifier: &str, collection: Collection) -> mongodb::error::Result<()> {
+    log::debug!("Inserting {} to the MongoDB interface queue", identifier);
+
+    let document = doc! { "identifier": identifier };
+
+    match collection.insert_one(document, None).await {
+        Ok(_) => log::info!("Inserted {} to the MongoDB queue", identifier),
+        Err(_) => log::error!("Failed to insert {} to the MongoDB queue", identifier),
+    }
 
     Ok(())
 }
