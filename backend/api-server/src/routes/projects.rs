@@ -4,7 +4,7 @@ use async_std::net::TcpStream;
 use async_std::prelude::*;
 use async_std::stream::StreamExt;
 use mongodb::{
-    bson::{doc, document::Document},
+    bson::{doc, document::Document, oid::ObjectId},
     Collection,
 };
 use tide::{Request, Response};
@@ -14,6 +14,7 @@ use crate::State;
 use crypto::clean;
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
+use models::jobs::Job;
 use models::predictions::Prediction;
 use models::projects::{Project, Status};
 use utils::compress::{compress_vec, decompress_data};
@@ -299,11 +300,11 @@ pub async fn begin_processing(req: Request<State>) -> tide::Result {
         .map_err(|_| tide_err(422, "failed to parse dataset"))?;
 
     // Send a request to the interface layer
-    let hex = dataset.id.expect("Dataset with no identifier").to_hex();
+    let identifier = dataset.id.expect("Dataset with no identifier");
 
-    if forward_to_interface(&hex).await.is_err() {
-        log::warn!("Failed to forward: {}", hex);
-        insert_to_queue(&hex, database.collection("processing_queue")).await?;
+    if forward_to_interface(&identifier).await.is_err() {
+        log::warn!("Failed to forward: {}", identifier);
+        insert_to_queue(&identifier, database.collection("processing_queue")).await?;
     }
 
     // Mark the project as processing
@@ -350,11 +351,11 @@ pub async fn get_predictions(req: Request<State>) -> tide::Result {
     Ok(response_from_json(doc! {"predictions": decompressed}))
 }
 
-async fn forward_to_interface(identifier: &str) -> async_std::io::Result<()> {
+async fn forward_to_interface(identifier: &ObjectId) -> async_std::io::Result<()> {
     log::debug!("Forwarding an identifier to the interface: {}", identifier);
 
     let mut stream = TcpStream::connect("127.0.0.1:5000").await?;
-    stream.write(identifier.as_bytes()).await?;
+    stream.write(identifier.to_hex().as_bytes()).await?;
     stream.shutdown(std::net::Shutdown::Both)?;
 
     log::info!("Forwarded an identifier to the interface: {}", identifier);
@@ -362,10 +363,14 @@ async fn forward_to_interface(identifier: &str) -> async_std::io::Result<()> {
     Ok(())
 }
 
-async fn insert_to_queue(identifier: &str, collection: Collection) -> mongodb::error::Result<()> {
+async fn insert_to_queue(
+    identifier: &ObjectId,
+    collection: Collection,
+) -> mongodb::error::Result<()> {
     log::debug!("Inserting {} to the MongoDB interface queue", identifier);
 
-    let document = doc! { "identifier": identifier };
+    let job = Job::new(identifier.clone());
+    let document = mongodb::bson::ser::to_document(&job).unwrap();
 
     match collection.insert_one(document, None).await {
         Ok(_) => log::info!("Inserted {} to the MongoDB queue", identifier),
