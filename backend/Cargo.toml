@@ -7,4 +7,5 @@ members = [
 	"interface",
 	"models",
 	"utils",
+	"messages"
 ]
