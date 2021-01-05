@@ -21,7 +21,7 @@ use tokio::sync::RwLock;
 
 use models::models::Status;
 
-pub mod protocol;
+use crate::protocol;
 
 /// Defines information about a Node
 #[derive(Debug)]
