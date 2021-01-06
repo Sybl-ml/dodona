@@ -1,4 +1,4 @@
-//! Contains the builder functions used to generate message for DCL-DCN protcol
+//! Contains the builder functions used to generate messages for Interface - DCL Communication
 
 use std::convert::TryInto;
 
@@ -7,13 +7,17 @@ use mongodb::bson::oid::ObjectId;
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 
-/// Different messages to be passed between DCL and DCN
+/// Different messages to be passed between Interface and DCL
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum InterfaceMessage {
+    /// Configuration message for Job
     Config {
+        /// ID of the dataset associated with Job
         id: ObjectId,
+        /// Job timeout
         timeout: u8,
     },
+    /// A raw JSON message, usually from the API server
     RawJSON {
         /// The raw JSON contents
         content: String,

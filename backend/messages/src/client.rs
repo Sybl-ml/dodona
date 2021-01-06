@@ -16,7 +16,7 @@ pub enum ClientMessage {
     },
     /// Message to send Job Config
     JobConfig {
-        /// The configuration itself
+        /// Job timeout
         timeout: u8,
     },
     /// A request to setup a new model
