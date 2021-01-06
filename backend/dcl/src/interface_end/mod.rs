@@ -13,6 +13,7 @@ use tokio::sync::mpsc::Sender;
 use utils::compress::decompress_data;
 
 use crate::DatasetPair;
+use messages::client::ClientMessage;
 use messages::interface::InterfaceMessage;
 use models::datasets::Dataset;
 
@@ -25,7 +26,7 @@ use models::datasets::Dataset;
 pub async fn run(
     socket: u16,
     db_conn: Arc<Database>,
-    tx: Sender<(ObjectId, DatasetPair)>,
+    tx: Sender<(ObjectId, DatasetPair, ClientMessage)>,
 ) -> Result<()> {
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
     log::info!("Interface Socket: {:?}", socket);
@@ -49,7 +50,7 @@ pub async fn run(
 async fn process_connection(
     mut stream: TcpStream,
     db_conn: Arc<Database>,
-    tx: Sender<(ObjectId, DatasetPair)>,
+    tx: Sender<(ObjectId, DatasetPair, ClientMessage)>,
 ) -> Result<()> {
     let mut buffer = [0_u8; 4096];
     let (object_id, timeout) = match InterfaceMessage::from_stream(&mut stream, &mut buffer).await?
@@ -88,9 +89,13 @@ async fn process_connection(
     log::info!("Decompressed train: {:?}", &train);
     log::info!("Decompressed predict: {:?}", &predict);
 
-    tx.send((dataset.project_id.unwrap(), DatasetPair { train, predict }))
-        .await
-        .unwrap_or_else(|error| log::error!("Error while sending over MPSC: {}", error));
+    tx.send((
+        dataset.project_id.unwrap(),
+        DatasetPair { train, predict },
+        ClientMessage::JobConfig { timeout },
+    ))
+    .await
+    .unwrap_or_else(|error| log::error!("Error while sending over MPSC: {}", error));
 
     Ok(())
 }

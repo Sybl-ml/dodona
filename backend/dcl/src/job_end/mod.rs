@@ -29,13 +29,14 @@ use utils::{infer_train_and_predict, Columns};
 pub async fn run(
     nodepool: Arc<NodePool>,
     database: Arc<Database>,
-    mut rx: Receiver<(ObjectId, DatasetPair)>,
+    mut rx: Receiver<(ObjectId, DatasetPair, ClientMessage)>,
 ) -> Result<()> {
     log::info!("Job End Running");
 
-    while let Some((id, msg)) = rx.recv().await {
+    while let Some((id, msg, config)) = rx.recv().await {
         log::info!("Train: {}", &msg.train);
         log::info!("Predict: {}", &msg.predict);
+        log::info!("Job Config: {:?}", &config);
 
         let data = msg
             .train
@@ -57,6 +58,7 @@ pub async fn run(
             let train = anon_train_csv.clone();
             let predict = anon_predict_csv.clone();
             let cols = columns.clone();
+            let config_clone = config.clone();
 
             tokio::spawn(async move {
                 dcl_protcol(
@@ -68,6 +70,7 @@ pub async fn run(
                     train,
                     predict,
                     cols,
+                    config_clone,
                 )
                 .await
                 .unwrap();
@@ -87,17 +90,17 @@ pub async fn dcl_protcol(
     train: String,
     predict: String,
     columns: Columns,
+    config: ClientMessage,
 ) -> Result<()> {
     log::info!("Sending a job to node with key: {}", key);
 
     let mut dcn_stream = stream.write().await;
 
     let mut buffer = [0_u8; 1024];
-
-    // This is temporary, planning on creating seperate place for defining messages
-
-    let config = ClientMessage::JobConfig { config: "".into() }.as_bytes();
-    dcn_stream.write(&config).await.unwrap();
+    match config {
+        ClientMessage::JobConfig { .. } => dcn_stream.write(&config.as_bytes()).await.unwrap(),
+        _ => unreachable!(),
+    };
 
     let size = dcn_stream.read(&mut buffer).await.unwrap();
     let config_response = std::str::from_utf8(&buffer[..size]).unwrap();
