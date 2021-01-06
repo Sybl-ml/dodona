@@ -6,8 +6,6 @@ use anyhow::Result;
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 
-use utils::ColumnType;
-
 /// Different messages to be passed between DCL and DCN
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum ClientMessage {
@@ -21,7 +19,7 @@ pub enum ClientMessage {
         /// Job timeout
         timeout: u8,
         /// Types of each column in dataset for job
-        column_types: Vec<ColumnType>,
+        column_types: Vec<String>,
     },
     /// A request to setup a new model
     NewModel {

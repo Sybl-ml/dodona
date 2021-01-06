@@ -7,8 +7,6 @@ use mongodb::bson::oid::ObjectId;
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 
-use utils::ColumnType;
-
 /// Different messages to be passed between Interface and DCL
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum InterfaceMessage {
@@ -19,7 +17,7 @@ pub enum InterfaceMessage {
         /// Job timeout
         timeout: u8,
         /// The columns in the dataset
-        column_types: Vec<ColumnType>,
+        column_types: Vec<String>,
     },
     /// A raw JSON message, usually from the API server
     RawJSON {

@@ -19,6 +19,7 @@ use models::jobs::Job;
 use models::predictions::Prediction;
 use models::projects::{Project, Status};
 use utils::compress::{compress_vec, decompress_data};
+use utils::ColumnType;
 
 /// Finds a project in the database given an identifier.
 ///
@@ -317,7 +318,10 @@ pub async fn begin_processing(req: Request<State>) -> tide::Result {
     let types = dataset_detail
         .column_types
         .values()
-        .map(|x| x.column_type.clone())
+        .map(|x| match x.column_type {
+            ColumnType::Categorical(..) => String::from("Categorical"),
+            ColumnType::Numerical(..) => String::from("Numerical"),
+        })
         .collect();
 
     let config = InterfaceMessage::Config {
