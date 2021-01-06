@@ -1,6 +1,9 @@
 //! Defines the routes specific to project operations.
 
-use async_std::net::TcpStream;
+use std::env;
+use std::str::FromStr;
+
+use async_std::net::{Ipv4Addr, SocketAddrV4, TcpStream};
 use async_std::prelude::*;
 use async_std::stream::StreamExt;
 use mongodb::{
@@ -354,7 +357,14 @@ pub async fn get_predictions(req: Request<State>) -> tide::Result {
 async fn forward_to_interface(identifier: &ObjectId) -> async_std::io::Result<()> {
     log::debug!("Forwarding an identifier to the interface: {}", identifier);
 
-    let mut stream = TcpStream::connect("127.0.0.1:5000").await?;
+    // Get the environment variable for the interface listener
+    let var = env::var("INTERFACE_LISTEN").expect("INTERFACE_LISTEN must be set");
+    let port = u16::from_str(&var).expect("INTERFACE_LISTEN must be a u16");
+
+    // Build the address to send to
+    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port);
+
+    let mut stream = TcpStream::connect(addr).await?;
     stream.write(identifier.to_hex().as_bytes()).await?;
     stream.shutdown(std::net::Shutdown::Both)?;
 

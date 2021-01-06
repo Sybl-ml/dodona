@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
+use std::env;
 use std::io::{Read, Write};
-use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
+use std::net::{Ipv4Addr, Shutdown, SocketAddrV4, TcpListener, TcpStream};
 use std::str::FromStr;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
@@ -13,14 +14,21 @@ use models::jobs::Job;
 use utils::setup_logger;
 
 const TIMEOUT_SECS: u64 = 1;
-const LISTEN_ADDR: &str = "127.0.0.1:5000";
 
 /// Listens for incoming messages from the API server and forwards them to the queue.
 fn listen(inner: &Arc<Inner>) -> std::io::Result<()> {
-    let listener = TcpListener::bind(LISTEN_ADDR)?;
+    // Get the environment variable for listening
+    let var = env::var("INTERFACE_LISTEN").expect("INTERFACE_LISTEN must be set");
+    let port = u16::from_str(&var).expect("INTERFACE_LISTEN must be a u16");
+
+    // Build the address to listen on
+    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port);
+
+    // Begin listening for messages
+    let listener = TcpListener::bind(addr)?;
     let incoming = listener.incoming();
 
-    log::info!("Listening for connections on: {}", LISTEN_ADDR);
+    log::info!("Listening for connections on: {}", addr);
 
     for possible_stream in incoming {
         let mut stream = possible_stream?;
@@ -41,7 +49,7 @@ fn listen(inner: &Arc<Inner>) -> std::io::Result<()> {
 }
 
 /// Continually tries to connect until a connection is achieved.
-fn try_to_connect(address: &SocketAddr, timeout: Duration, attempts: usize) -> Option<TcpStream> {
+fn try_to_connect(address: &SocketAddrV4, timeout: Duration, attempts: usize) -> Option<TcpStream> {
     for i in 0..attempts {
         log::debug!("Connection attempt: {}", i + 1);
 
@@ -61,7 +69,12 @@ fn try_to_connect(address: &SocketAddr, timeout: Duration, attempts: usize) -> O
 
 /// Receives messages from the frontend thread and communicates with the DCL.
 fn receive(inner: &Arc<Inner>) -> std::io::Result<()> {
-    let address = SocketAddr::from_str("127.0.0.1:6000").unwrap();
+    // Get the environment variable for sending
+    let var = env::var("INTERFACE_SOCKET").expect("INTERFACE_SOCKET must be set");
+    let port = u16::from_str(&var).expect("INTERFACE_SOCKET must be a u16");
+
+    // Build the address to send to
+    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port);
     let timeout = Duration::from_secs(TIMEOUT_SECS);
     let attempts = 3;
 
@@ -71,7 +84,7 @@ fn receive(inner: &Arc<Inner>) -> std::io::Result<()> {
     loop {
         // Try and send something onwards
         if let Some(element) = queue.pop_front() {
-            if let Some(mut stream) = try_to_connect(&address, timeout, attempts) {
+            if let Some(mut stream) = try_to_connect(&addr, timeout, attempts) {
                 // Send the element to the onward node that we connected to
                 stream.write_all(&element)?;
                 log::info!("Sent: {}", std::str::from_utf8(&element).unwrap());
