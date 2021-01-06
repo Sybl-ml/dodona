@@ -1,5 +1,6 @@
 //! Defines the structure of jobs in the MongoDB instance.
 
+use messages::interface::InterfaceMessage;
 use mongodb::bson::oid::ObjectId;
 
 /// Defines the information that should be stored with a job in the database.
@@ -9,15 +10,15 @@ pub struct Job {
     #[serde(rename = "_id")]
     pub id: ObjectId,
     /// The dataset identifier the job refers to
-    pub dataset_id: ObjectId,
+    pub msg: InterfaceMessage,
 }
 
 impl Job {
-    /// Creates a new [`Job`] with a given dataset identifier.
-    pub fn new(dataset_id: ObjectId) -> Self {
+    /// Creates a new [`Job`] with a given InterfaceMessage.
+    pub fn new(msg: InterfaceMessage) -> Self {
         Self {
             id: ObjectId::new(),
-            dataset_id,
+            msg,
         }
     }
 }

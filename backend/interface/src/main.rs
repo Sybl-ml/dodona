@@ -132,7 +132,7 @@ fn get_job_queue() -> mongodb::error::Result<VecDeque<ObjectId>> {
             .filter_map(|x| mongodb::bson::de::from_document::<Job>(x).ok())
             .map(|job| {
                 let mut bytes = [0_u8; 24];
-                bytes.copy_from_slice(&job.dataset_id.to_hex().as_bytes()[..]);
+                bytes.copy_from_slice(&job.msg.as_bytes()[..]);
                 bytes
             })
             .collect()

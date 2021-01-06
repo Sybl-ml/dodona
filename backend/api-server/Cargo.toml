@@ -19,6 +19,7 @@ csv = "1.1.3"
 chrono = "0.4"
 base64 = "0.13.0"
 config = { path = "../config" }
+messages = { path = "../messages" }
 crypto = { path = "../crypto" }
 models = { path = "../models" }
 utils = { path = "../utils" }

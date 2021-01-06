@@ -7,17 +7,15 @@ use anyhow::Result;
 use mongodb::bson::{doc, oid::ObjectId};
 use mongodb::Database;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::str::from_utf8;
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::prelude::*;
 use tokio::sync::mpsc::Sender;
 use utils::compress::decompress_data;
 
 use crate::DatasetPair;
+use messages::interface::InterfaceMessage;
 use models::datasets::Dataset;
 
-type OId = [u8; 24];
 /// Starts up interface server
 ///
 /// Takes in socket, db connection and transmitter end of mpsc chaneel and will
@@ -53,15 +51,19 @@ async fn process_connection(
     db_conn: Arc<Database>,
     tx: Sender<(ObjectId, DatasetPair)>,
 ) -> Result<()> {
-    let mut buffer: OId = [0_u8; 24];
-    stream.read(&mut buffer).await?;
-    let dataset_id = from_utf8(&buffer)?;
-
-    log::info!("Dataset identifier: {}", dataset_id);
-
+    let mut buffer = [0_u8; 4096];
+    let (object_id, timeout) = match InterfaceMessage::from_stream(&mut stream, &mut buffer).await?
+    {
+        InterfaceMessage::Config { id, timeout } => (id, timeout),
+        _ => unreachable!(),
+    };
+    log::info!(
+        "Received Information across the interface\n\tID: {}\n\tTimeout: {}",
+        &object_id,
+        &timeout
+    );
     let datasets = db_conn.collection("datasets");
 
-    let object_id = ObjectId::with_string(&dataset_id)?;
     let filter = doc! { "_id": object_id };
 
     log::info!("{:?}", &filter);

@@ -1,3 +1,5 @@
+use messages::interface::InterfaceMessage;
+use mongodb::bson::oid::ObjectId;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
@@ -36,7 +38,11 @@ async fn test_interface_end() {
     let mut stream = TcpStream::connect(socket.to_string()).await.unwrap();
 
     // write dataset id to interface end
-    stream.write(common::DATASET_ID.as_bytes()).await.unwrap();
+    let config = InterfaceMessage::Config {
+        id: ObjectId::with_string(common::DATASET_ID).unwrap(),
+        timeout: 10,
+    };
+    stream.write(&config.as_bytes()).await.unwrap();
     tokio::time::sleep(Duration::from_secs(1)).await;
 
     // assert on receive end of mpsc

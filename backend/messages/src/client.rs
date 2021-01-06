@@ -7,7 +7,7 @@ use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 
 /// Different messages to be passed between DCL and DCN
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum ClientMessage {
     /// Hearbeat alive message
     Alive {

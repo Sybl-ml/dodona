@@ -3,13 +3,17 @@
 use std::convert::TryInto;
 
 use anyhow::Result;
+use mongodb::bson::oid::ObjectId;
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 
 /// Different messages to be passed between DCL and DCN
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum InterfaceMessage {
-    Config,
+    Config {
+        id: ObjectId,
+        timeout: u8,
+    },
     RawJSON {
         /// The raw JSON contents
         content: String,

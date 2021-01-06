@@ -3,7 +3,7 @@ use std::net::{Ipv4Addr, Shutdown, SocketAddrV4};
 use std::time::Duration;
 
 use mockito::mock;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 
 use crate::protocol;

@@ -12,6 +12,7 @@ use tide::{Request, Response};
 use crate::routes::{check_project_exists, check_user_exists, response_from_json, tide_err};
 use crate::State;
 use crypto::clean;
+use messages::interface::InterfaceMessage;
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
 use models::jobs::Job;
@@ -302,9 +303,14 @@ pub async fn begin_processing(req: Request<State>) -> tide::Result {
     // Send a request to the interface layer
     let identifier = dataset.id.expect("Dataset with no identifier");
 
-    if forward_to_interface(&identifier).await.is_err() {
-        log::warn!("Failed to forward: {}", identifier);
-        insert_to_queue(&identifier, database.collection("jobs")).await?;
+    let config = InterfaceMessage::Config {
+        id: identifier.clone(),
+        timeout: 10,
+    };
+
+    if forward_to_interface(&config).await.is_err() {
+        log::warn!("Failed to forward: {:?}", config);
+        insert_to_queue(&config, database.collection("jobs")).await?;
     }
 
     // Mark the project as processing
@@ -351,30 +357,30 @@ pub async fn get_predictions(req: Request<State>) -> tide::Result {
     Ok(response_from_json(doc! {"predictions": decompressed}))
 }
 
-async fn forward_to_interface(identifier: &ObjectId) -> async_std::io::Result<()> {
-    log::debug!("Forwarding an identifier to the interface: {}", identifier);
+async fn forward_to_interface(msg: &InterfaceMessage) -> async_std::io::Result<()> {
+    log::debug!("Forwarding an message to the interface: {:?}", msg);
 
     let mut stream = TcpStream::connect("127.0.0.1:5000").await?;
-    stream.write(identifier.to_hex().as_bytes()).await?;
+    stream.write(&msg.as_bytes()).await?;
     stream.shutdown(std::net::Shutdown::Both)?;
 
-    log::info!("Forwarded an identifier to the interface: {}", identifier);
+    log::info!("Forwarded an message to the interface: {:?}", msg);
 
     Ok(())
 }
 
 async fn insert_to_queue(
-    identifier: &ObjectId,
+    msg: &InterfaceMessage,
     collection: Collection,
 ) -> mongodb::error::Result<()> {
-    log::debug!("Inserting {} to the MongoDB interface queue", identifier);
+    log::debug!("Inserting {:?} to the MongoDB interface queue", msg);
 
-    let job = Job::new(identifier.clone());
+    let job = Job::new(msg.clone());
     let document = mongodb::bson::ser::to_document(&job).unwrap();
 
     match collection.insert_one(document, None).await {
-        Ok(_) => log::info!("Inserted {} to the MongoDB queue", identifier),
-        Err(_) => log::error!("Failed to insert {} to the MongoDB queue", identifier),
+        Ok(_) => log::info!("Inserted {:?} to the MongoDB queue", msg),
+        Err(_) => log::error!("Failed to insert {:?} to the MongoDB queue", msg),
     }
 
     Ok(())
