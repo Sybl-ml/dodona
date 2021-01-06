@@ -1,15 +1,19 @@
 use super::*;
-use std::net::Shutdown;
-use std::net::SocketAddr;
+
+use std::error::Error;
+use std::net::{Ipv4Addr, Shutdown, SocketAddrV4};
 use std::time::Duration;
+
 use tokio::net::{TcpListener, TcpStream};
 
 #[tokio::test]
-async fn test_heartbeat() {
-    tokio::spawn(async move {
-        let socket: SocketAddr = "127.0.0.1:5002".parse().unwrap();
-        let listener = TcpListener::bind(&socket).await.unwrap();
+async fn test_heartbeat() -> Result<(), Box<dyn Error>> {
+    // Bind to a random unused TCP port
+    let socket = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0);
+    let listener = TcpListener::bind(socket).await?;
+    let addr = listener.local_addr()?;
 
+    tokio::spawn(async move {
         while let Ok((mut inbound, _)) = listener.accept().await {
             let mut buffer = [0_u8; 24];
             inbound.read(&mut buffer).await.unwrap();
@@ -18,18 +22,22 @@ async fn test_heartbeat() {
 
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    let stream = TcpStream::connect("127.0.0.1:5002").await.unwrap();
+    let stream = TcpStream::connect(addr).await.unwrap();
     let verdict = heartbeat(Arc::new(RwLock::new(stream))).await;
 
     assert_eq!(verdict, true);
+
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_heartbeat_fail() {
-    tokio::spawn(async move {
-        let socket: SocketAddr = "127.0.0.1:5003".parse().unwrap();
-        let listener = TcpListener::bind(&socket).await.unwrap();
+async fn test_heartbeat_fail() -> Result<(), Box<dyn Error>> {
+    // Bind to a random unused TCP port
+    let socket = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0);
+    let listener = TcpListener::bind(socket).await?;
+    let addr = listener.local_addr()?;
 
+    tokio::spawn(async move {
         while let Ok((mut inbound, _)) = listener.accept().await {
             let mut buffer = [0_u8; 24];
             inbound.read(&mut buffer).await.unwrap();
@@ -39,10 +47,12 @@ async fn test_heartbeat_fail() {
     });
 
     tokio::time::sleep(Duration::from_millis(100)).await;
-    let stream = TcpStream::connect("127.0.0.1:5003").await.unwrap();
+    let stream = TcpStream::connect(addr).await.unwrap();
 
     tokio::time::sleep(Duration::from_millis(300)).await;
     let verdict = heartbeat(Arc::new(RwLock::new(stream))).await;
 
     assert_eq!(verdict, false);
+
+    Ok(())
 }
