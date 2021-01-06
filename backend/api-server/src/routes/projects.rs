@@ -280,7 +280,8 @@ pub async fn get_data(req: Request<State>) -> tide::Result {
 /// Checks that the project exists, before sending the identifier of its dataset to the interface
 /// layer, which will then forward it to the DCL for processing. Updates the project state to
 /// `State::Processing`.
-pub async fn begin_processing(req: Request<State>) -> tide::Result {
+pub async fn begin_processing(mut req: Request<State>) -> tide::Result {
+    let doc: Document = req.body_json().await?;
     let state = req.state();
     let database = state.client.database("sybl");
 
@@ -288,6 +289,8 @@ pub async fn begin_processing(req: Request<State>) -> tide::Result {
     let datasets = database.collection("datasets");
     let dataset_details = database.collection("dataset_details");
 
+    let timeout: u8 = doc.get_str("timeout")?.parse()?;
+    log::info!("Timeout is here: {}", &timeout);
     let project_id: String = req.param("project_id")?;
     let object_id = check_project_exists(&project_id, &projects).await?;
 
@@ -326,7 +329,7 @@ pub async fn begin_processing(req: Request<State>) -> tide::Result {
 
     let config = InterfaceMessage::Config {
         id: identifier.clone(),
-        timeout: 10,
+        timeout,
         column_types: types,
     };
 
