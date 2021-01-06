@@ -4,7 +4,7 @@ use async_std::net::TcpStream;
 use async_std::prelude::*;
 use async_std::stream::StreamExt;
 use mongodb::{
-    bson::{doc, document::Document, oid::ObjectId},
+    bson::{doc, document::Document},
     Collection,
 };
 use tide::{Request, Response};
@@ -285,6 +285,7 @@ pub async fn begin_processing(req: Request<State>) -> tide::Result {
 
     let projects = database.collection("projects");
     let datasets = database.collection("datasets");
+    let dataset_details = database.collection("dataset_details");
 
     let project_id: String = req.param("project_id")?;
     let object_id = check_project_exists(&project_id, &projects).await?;
@@ -303,9 +304,26 @@ pub async fn begin_processing(req: Request<State>) -> tide::Result {
     // Send a request to the interface layer
     let identifier = dataset.id.expect("Dataset with no identifier");
 
+    let filter = doc! { "project_id": &object_id };
+    let document = dataset_details
+        .find_one(filter, None)
+        .await?
+        .ok_or_else(|| tide_err(404, "dataset not found"))?;
+
+    // Parse the dataset detail itself
+    let dataset_detail = mongodb::bson::de::from_document::<DatasetDetails>(document)
+        .map_err(|_| tide_err(422, "failed to parse dataset"))?;
+
+    let types = dataset_detail
+        .column_types
+        .values()
+        .map(|x| x.column_type.clone())
+        .collect();
+
     let config = InterfaceMessage::Config {
         id: identifier.clone(),
         timeout: 10,
+        column_types: types,
     };
 
     if forward_to_interface(&config).await.is_err() {

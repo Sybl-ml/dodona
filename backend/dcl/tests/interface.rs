@@ -41,6 +41,7 @@ async fn test_interface_end() {
     let config = InterfaceMessage::Config {
         id: ObjectId::with_string(common::DATASET_ID).unwrap(),
         timeout: 10,
+        column_types: Vec::new(),
     };
     stream.write(&config.as_bytes()).await.unwrap();
     tokio::time::sleep(Duration::from_secs(1)).await;

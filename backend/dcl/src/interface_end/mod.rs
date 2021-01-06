@@ -53,15 +53,20 @@ async fn process_connection(
     tx: Sender<(ObjectId, DatasetPair, ClientMessage)>,
 ) -> Result<()> {
     let mut buffer = [0_u8; 4096];
-    let (object_id, timeout) = match InterfaceMessage::from_stream(&mut stream, &mut buffer).await?
-    {
-        InterfaceMessage::Config { id, timeout } => (id, timeout),
-        _ => unreachable!(),
-    };
+    let (object_id, timeout, column_types) =
+        match InterfaceMessage::from_stream(&mut stream, &mut buffer).await? {
+            InterfaceMessage::Config {
+                id,
+                timeout,
+                column_types,
+            } => (id, timeout, column_types),
+            _ => unreachable!(),
+        };
     log::info!(
-        "Received Information across the interface\n\tID: {}\n\tTimeout: {}",
+        "Received Information across the interface\n\tID: {}\n\tTimeout: {}\n\tTypes: {:?}",
         &object_id,
-        &timeout
+        &timeout,
+        &column_types
     );
     let datasets = db_conn.collection("datasets");
 
@@ -92,7 +97,10 @@ async fn process_connection(
     tx.send((
         dataset.project_id.unwrap(),
         DatasetPair { train, predict },
-        ClientMessage::JobConfig { timeout },
+        ClientMessage::JobConfig {
+            timeout,
+            column_types,
+        },
     ))
     .await
     .unwrap_or_else(|error| log::error!("Error while sending over MPSC: {}", error));
