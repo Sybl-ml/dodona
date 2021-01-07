@@ -1634,12 +1634,15 @@ dependencies = [
 name = "interface"
 version = "0.1.0"
 dependencies = [
- "async-std",
+ "anyhow",
  "config",
  "crossbeam",
  "log",
+ "messages",
  "models",
- "mongodb 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mongodb 1.1.1 (git+https://github.com/alexander-jackson/mongo-rust-driver)",
+ "tokio 1.0.1",
+ "tokio-stream",
  "utils",
 ]
 
