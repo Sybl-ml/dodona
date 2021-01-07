@@ -21,6 +21,7 @@ toml = "0.5.7"
 config = { path = "../config" }
 models = { path = "../models" }
 utils = { path = "../utils" }
+messages = { path = "../messages" }
 chrono = "0.4.19"
 mongodb = { git = "https://github.com/alexander-jackson/mongo-rust-driver" }
 

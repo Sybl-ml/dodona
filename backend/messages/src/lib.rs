@@ -10,3 +10,6 @@ extern crate serde;
 
 pub mod client;
 pub mod interface;
+
+pub use client::ClientMessage;
+pub use interface::InterfaceMessage;

@@ -12,8 +12,8 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::Sender;
 use utils::compress::decompress_data;
 
-use crate::messages::{ClientMessage, InterfaceMessage};
 use crate::DatasetPair;
+use messages::{ClientMessage, InterfaceMessage};
 use models::datasets::Dataset;
 
 /// Starts up interface server

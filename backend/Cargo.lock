@@ -944,6 +944,7 @@ dependencies = [
  "http",
  "httparse",
  "log",
+ "messages",
  "mockito",
  "models",
  "mongodb 1.1.1 (git+https://github.com/alexander-jackson/mongo-rust-driver)",

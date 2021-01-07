@@ -14,8 +14,8 @@ use tokio::time::timeout;
 
 use anyhow::Result;
 
-use crate::messages::ClientMessage;
 use crate::node_end::NodePool;
+use messages::ClientMessage;
 
 /// Runner for health checking
 ///

@@ -12,9 +12,9 @@ use tokio::net::TcpStream;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::RwLock;
 
-use crate::messages::ClientMessage;
 use crate::node_end::NodePool;
 use crate::DatasetPair;
+use messages::ClientMessage;
 use models::predictions::Prediction;
 
 use utils::anon::{anonymise_dataset, deanonymise_dataset};
