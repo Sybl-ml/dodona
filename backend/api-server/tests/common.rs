@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use actix_web::test;
 use mongodb::bson::{self, document::Document, oid::ObjectId};
 
 use config::Environment;
@@ -20,9 +21,6 @@ pub static OVERWRITTEN_DATA_PROJECT_ID: &str = "5fb784e4ead1758e1ce67bcd";
 pub static DELETABLE_PROJECT_ID: &str = "5fb2b4049d524e99ac7f1c41";
 pub static EDITABLE_PROJECT_ID: &str = "5fb2c4e4b4b7becc1e81e278";
 
-/// Allows for the setup of the database prior to testing.
-static INIT: std::sync::Once = std::sync::Once::new();
-
 /// Defines the initialisation function for the tests.
 ///
 /// This will clean the database and insert some basic data for testing purposes. It should be
@@ -31,38 +29,33 @@ static INIT: std::sync::Once = std::sync::Once::new();
 ///
 /// As the database can be initialised before running, this allows tests to be run in any order
 /// provided they don't require the result of a previous test.
-pub fn initialise() {
-    INIT.call_once(|| {
-        async_std::task::block_on(async {
-            // Setup the environment variables
-            let config = config::ConfigFile::from_filesystem();
-            let resolved = config.resolve(Environment::Testing);
-            resolved.populate_environment();
+pub async fn initialise() {
+    // Setup the environment variables
+    let config = config::ConfigFile::from_filesystem();
+    let resolved = config.resolve(Environment::Testing);
+    resolved.populate_environment();
 
-            // Connect to the database
-            let conn_str = std::env::var("CONN_STR").expect("CONN_STR must be set");
+    // Connect to the database
+    let conn_str = std::env::var("CONN_STR").expect("CONN_STR must be set");
 
-            // Ensure that we aren't using the Atlas instance
-            assert!(
-                !conn_str.starts_with("mongodb+srv"),
-                "Please setup a local MongoDB instance for running the tests"
-            );
+    // Ensure that we aren't using the Atlas instance
+    assert!(
+        !conn_str.starts_with("mongodb+srv"),
+        "Please setup a local MongoDB instance for running the tests"
+    );
+    let client = mongodb::Client::with_uri_str(&conn_str).await.unwrap();
+    let database = client.database("sybl");
+    let collection_names = database.list_collection_names(None).await.unwrap();
 
-            let client = mongodb::Client::with_uri_str(&conn_str).await.unwrap();
-            let database = client.database("sybl");
-            let collection_names = database.list_collection_names(None).await.unwrap();
+    // Delete all records currently in the database
+    for name in collection_names {
+        let collection = database.collection(&name);
+        collection.delete_many(Document::new(), None).await.unwrap();
+    }
 
-            // Delete all records currently in the database
-            for name in collection_names {
-                let collection = database.collection(&name);
-                collection.delete_many(Document::new(), None).await.unwrap();
-            }
-
-            // Insert some test data
-            insert_test_users(&database).await;
-            insert_test_projects(&database).await;
-        });
-    });
+    // Insert some test data
+    insert_test_users(&database).await;
+    insert_test_projects(&database).await;
 }
 
 fn create_user_with_id(
@@ -158,24 +151,19 @@ async fn insert_test_projects(database: &mongodb::Database) {
     projects.insert_one(editable, None).await.unwrap();
 }
 
-pub fn build_json_request(url: &str, body: &str) -> tide::http::Request {
+pub fn build_json_request(url: &str, body: &str) -> test::TestRequest {
     let full_url = format!("localhost:{}", url);
-    let url = tide::http::Url::parse(&full_url).unwrap();
-    let mut req = tide::http::Request::new(tide::http::Method::Post, url);
-
-    req.set_body(body);
-    req.set_content_type(tide::http::mime::JSON);
-
-    req
+    test::TestRequest::default()
+        .uri(&full_url)
+        .header("content-type", "application/json")
+        .set_payload(String::from(body))
 }
 
-pub fn build_json_put_request(url: &str, body: &str) -> tide::http::Request {
+pub fn build_json_put_request(url: &str, body: &str) -> test::TestRequest {
     let full_url = format!("localhost:{}", url);
-    let url = tide::http::Url::parse(&full_url).unwrap();
-    let mut req = tide::http::Request::new(tide::http::Method::Put, url);
-
-    req.set_body(body);
-    req.set_content_type(tide::http::mime::JSON);
-
-    req
+    test::TestRequest::default()
+        .uri(&full_url)
+        .method(actix_web::http::Method::PUT)
+        .header("content-type", "application/json")
+        .set_payload(String::from(body))
 }
