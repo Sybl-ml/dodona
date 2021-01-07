@@ -8,7 +8,7 @@ use serde::Serialize;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
-use messages::client::ClientMessage;
+use crate::messages::ClientMessage;
 
 #[cfg(test)]
 mod tests;
@@ -172,11 +172,9 @@ pub async fn get_response_text<S: Display + Serialize>(endpoint: &str, body: S) 
 
     log::debug!("Sending: {} to {}", &body, &url);
 
-    let text = reqwest::blocking::Client::new()
-        .post(&url)
-        .json(&body)
-        .send()?
-        .text()?;
+    let request = reqwest::Client::new().post(&url).json(&body);
+    let response = request.send().await?;
+    let text = response.text().await?;
 
     log::debug!("Response body: {:?}", text);
 
