@@ -152,17 +152,13 @@ async fn insert_test_projects(database: &mongodb::Database) {
 }
 
 pub fn build_json_request(url: &str, body: &str) -> test::TestRequest {
-    let full_url = format!("localhost:{}", url);
     test::TestRequest::default()
-        .uri(&full_url)
         .header("content-type", "application/json")
         .set_payload(String::from(body))
 }
 
 pub fn build_json_put_request(url: &str, body: &str) -> test::TestRequest {
-    let full_url = format!("localhost:{}", url);
     test::TestRequest::default()
-        .uri(&full_url)
         .method(actix_web::http::Method::PUT)
         .header("content-type", "application/json")
         .set_payload(String::from(body))

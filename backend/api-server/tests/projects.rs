@@ -1,10 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use actix_web::{
-    http::{Method, Uri},
-    HttpRequest,
-};
-
+use actix_web::{client::Client, test, web, App, HttpRequest, Result};
 use models::dataset_details::DatasetDetails;
 use models::projects::Project;
 
@@ -21,18 +17,25 @@ pub struct DatasetResponse {
     dataset: String,
 }
 
-#[async_std::test]
-async fn projects_can_be_fetched_for_a_user() -> tide::Result<()> {
-    common::initialise();
-    let app = api_server::build_server().await;
+#[actix_rt::test]
+async fn projects_can_be_fetched_for_a_user() -> Result<()> {
+    common::initialise().await;
+    let mut app = test::init_service(App::new().route(
+        "/api/projects/u/{user_id}",
+        web::get().to(api_server::routes::projects::get_user_projects),
+    ))
+    .await;
 
     let formatted = format!("localhost:/api/projects/u/{}", common::MAIN_USER_ID);
-    let url = Url::parse(&formatted).unwrap();
-    let req = Request::new(tide::http::Method::Get, url);
 
-    let mut res: Response = app.respond(req).await?;
-    assert_eq!(tide::StatusCode::Ok, res.status());
-    assert_eq!(Some(tide::http::mime::JSON), res.content_type());
+    let res = test::TestRequest::default()
+        .method(actix_web::http::Method::PUT)
+        .uri(&formatted)
+        .send_request(&mut app)
+        .await;
+
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
+    // assert_eq!(Some(tide::http::mime::JSON), res.content_type());
 
     let projects: Vec<Project> = res.body_json().await?;
 
@@ -46,7 +49,7 @@ async fn projects_can_be_fetched_for_a_user() -> tide::Result<()> {
     Ok(())
 }
 
-#[async_std::test]
+#[actix_rt::test]
 async fn projects_must_be_tied_to_a_user() -> tide::Result<()> {
     common::initialise();
     let app = api_server::build_server().await;
@@ -61,7 +64,7 @@ async fn projects_must_be_tied_to_a_user() -> tide::Result<()> {
     Ok(())
 }
 
-#[async_std::test]
+#[actix_rt::test]
 async fn projects_cannot_be_found_for_invalid_user_ids() -> tide::Result<()> {
     common::initialise();
     let app = api_server::build_server().await;
@@ -75,7 +78,7 @@ async fn projects_cannot_be_found_for_invalid_user_ids() -> tide::Result<()> {
     Ok(())
 }
 
-#[async_std::test]
+#[actix_rt::test]
 async fn projects_can_be_fetched_by_identifier() -> tide::Result<()> {
     common::initialise();
     let app = api_server::build_server().await;
@@ -96,7 +99,7 @@ async fn projects_can_be_fetched_by_identifier() -> tide::Result<()> {
     Ok(())
 }
 
-#[async_std::test]
+#[actix_rt::test]
 async fn non_existent_projects_are_not_found() -> tide::Result<()> {
     common::initialise();
     let app = api_server::build_server().await;
@@ -114,7 +117,7 @@ async fn non_existent_projects_are_not_found() -> tide::Result<()> {
     Ok(())
 }
 
-#[async_std::test]
+#[actix_rt::test]
 async fn projects_cannot_be_found_with_invalid_identifiers() -> tide::Result<()> {
     common::initialise();
     let app = api_server::build_server().await;
@@ -128,7 +131,7 @@ async fn projects_cannot_be_found_with_invalid_identifiers() -> tide::Result<()>
     Ok(())
 }
 
-#[async_std::test]
+#[actix_rt::test]
 async fn projects_cannot_be_created_for_non_existent_users() -> tide::Result<()> {
     common::initialise();
     let app = api_server::build_server().await;
@@ -146,7 +149,7 @@ async fn projects_cannot_be_created_for_non_existent_users() -> tide::Result<()>
     Ok(())
 }
 
-#[async_std::test]
+#[actix_rt::test]
 async fn projects_can_be_created() -> tide::Result<()> {
     common::initialise();
     let app = api_server::build_server().await;
@@ -161,7 +164,7 @@ async fn projects_can_be_created() -> tide::Result<()> {
     Ok(())
 }
 
-#[async_std::test]
+#[actix_rt::test]
 async fn datasets_can_be_added_to_projects() -> tide::Result<()> {
     common::initialise();
     let app = api_server::build_server().await;
@@ -176,7 +179,7 @@ async fn datasets_can_be_added_to_projects() -> tide::Result<()> {
     Ok(())
 }
 
-#[async_std::test]
+#[actix_rt::test]
 async fn only_one_dataset_can_be_added_to_a_project() -> tide::Result<()> {
     common::initialise();
     let app = api_server::build_server().await;
@@ -220,7 +223,7 @@ async fn only_one_dataset_can_be_added_to_a_project() -> tide::Result<()> {
     Ok(())
 }
 
-#[async_std::test]
+#[actix_rt::test]
 async fn datasets_cannot_be_added_if_projects_do_not_exist() -> tide::Result<()> {
     common::initialise();
     let app = api_server::build_server().await;
@@ -235,7 +238,7 @@ async fn datasets_cannot_be_added_if_projects_do_not_exist() -> tide::Result<()>
     Ok(())
 }
 
-#[async_std::test]
+#[actix_rt::test]
 async fn dataset_can_be_taken_from_database() -> tide::Result<()> {
     common::initialise();
     let app = api_server::build_server().await;
@@ -257,7 +260,7 @@ async fn dataset_can_be_taken_from_database() -> tide::Result<()> {
     Ok(())
 }
 
-#[async_std::test]
+#[actix_rt::test]
 async fn overview_of_dataset_can_be_returned() -> tide::Result<()> {
     common::initialise();
     let app = api_server::build_server().await;
@@ -279,7 +282,7 @@ async fn overview_of_dataset_can_be_returned() -> tide::Result<()> {
     Ok(())
 }
 
-#[async_std::test]
+#[actix_rt::test]
 async fn projects_can_be_deleted() -> tide::Result<()> {
     common::initialise();
     let app = api_server::build_server().await;
@@ -302,7 +305,7 @@ async fn projects_can_be_deleted() -> tide::Result<()> {
     Ok(())
 }
 
-#[async_std::test]
+#[actix_rt::test]
 async fn projects_can_be_edited() -> tide::Result<()> {
     common::initialise();
     let app = api_server::build_server().await;
