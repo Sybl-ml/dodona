@@ -58,7 +58,7 @@ async fn try_to_connect(
 
         log::debug!("Failed to connect to: {}", address);
         log::debug!("Sleeping for: {:?}", timeout);
-        std::thread::sleep(timeout);
+        tokio::time::sleep(timeout).await;
     }
 
     log::debug!("Failed to make a connection at all");
@@ -128,10 +128,9 @@ async fn main() -> Result<()> {
 
     config::load(environment);
 
-    let state = get_job_queue().await.expect("Failed to get the job queue");
-
     let (tx, rx) = mpsc::unbounded_channel();
 
+    let state = get_job_queue().await.expect("Failed to get the job queue");
     state.into_iter().for_each(|e| tx.send(e).unwrap());
 
     log::info!("Beginning the thread execution");
