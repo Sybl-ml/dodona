@@ -329,7 +329,7 @@ pub async fn authenticate_model(
 ///
 /// Given a user identifier, finds all the models in the database that the user owns. If the user
 /// doesn't exist or an invalid identifier is given, returns a 404 response.
-#[get("/api/clients/u/{:user_id}")]
+#[get("/api/clients/u/{user_id}")]
 pub async fn get_user_models(
     app_data: web::Data<AppState>,
     user_id: web::Path<String>,
