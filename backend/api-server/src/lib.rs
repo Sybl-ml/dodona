@@ -11,6 +11,7 @@ extern crate serde_json;
 
 use std::env;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use mongodb::options::ClientOptions;
 use mongodb::Client;
@@ -25,11 +26,11 @@ pub mod routes;
 #[derive(Clone, Debug)]
 pub struct AppState {
     /// An instance of the MongoDB client
-    pub client: Client,
+    pub client: Arc<Client>,
     /// The name of the database to access
-    pub db_name: String,
+    pub db_name: Arc<String>,
     /// The pepper to use when hashing
-    pub pepper: String,
+    pub pepper: Arc<String>,
     /// The number of iterations to use for hashing
     pub pbkdf2_iterations: u32,
 }
@@ -74,12 +75,10 @@ pub async fn build_server() -> Result<()> {
         App::new()
             .wrap(cors_middleware)
             .wrap(middleware::Logger::default())
-            // https://github.com/actix/examples/blob/8dab533b40d9d0640e5c75922c9e8e292ed4a7d5/sqlx_todo/src/main.rs#L41
-            // pass database pool to application so we can access it inside handlers
             .data(AppState {
-                client: client.clone(),
-                db_name: String::from("sybl"),
-                pepper: pepper.clone(),
+                client: Arc::new(client.clone()),
+                db_name: Arc::new(String::from("sybl")),
+                pepper: Arc::new(pepper.clone()),
                 pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)
                     .expect("PBKDF2_ITERATIONS must be parseable as an integer"),
             })
