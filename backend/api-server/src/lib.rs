@@ -11,24 +11,25 @@ extern crate serde_json;
 
 use std::env;
 use std::str::FromStr;
-use std::sync::Arc;
 
 use mongodb::options::ClientOptions;
 use mongodb::Client;
-use tide::http::headers::HeaderValue;
-use tide::security::{CorsMiddleware, Origin};
 
+use actix_cors::Cors;
+use actix_web::{http, middleware, App, HttpServer, Result};
+
+pub mod dodona_error;
 pub mod routes;
 
 /// Defines the state for each request to access.
 #[derive(Clone, Debug)]
-pub struct State {
+pub struct AppState {
     /// An instance of the MongoDB client
-    pub client: Arc<Client>,
+    pub client: Client,
     /// The name of the database to access
-    pub db_name: Arc<String>,
+    pub db_name: String,
     /// The pepper to use when hashing
-    pub pepper: Arc<String>,
+    pub pepper: String,
     /// The number of iterations to use for hashing
     pub pbkdf2_iterations: u32,
 }
@@ -50,91 +51,44 @@ pub struct State {
 ///     Ok(())
 /// }
 /// ```
-pub async fn build_server() -> tide::Server<State> {
+pub async fn build_server() -> Result<()> {
     let conn_str = env::var("CONN_STR").expect("CONN_STR must be set");
     let app_name = env::var("APP_NAME").expect("APP_NAME must be set");
     let pepper = env::var("PEPPER").expect("PEPPER must be set");
     let pbkdf2_iterations = env::var("PBKDF2_ITERATIONS").expect("PBKDF2_ITERATIONS must be set");
 
-    // Configuring DB connection
     let mut client_options = ClientOptions::parse(&conn_str).await.unwrap();
     client_options.app_name = Some(app_name);
 
     let client = Client::with_options(client_options).unwrap();
 
-    let engine = State {
-        client: Arc::new(client),
-        db_name: Arc::new(String::from("sybl")),
-        pepper: Arc::new(pepper),
-        pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)
-            .expect("PBKDF2_ITERATIONS must be parseable as an integer"),
-    };
+    HttpServer::new(move || {
+        // cors
+        let cors_middleware = Cors::default()
+            .allowed_methods(vec!["GET", "POST", "DELETE", "PUT", "PATCH"])
+            .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
+            .allowed_header(http::header::CONTENT_TYPE)
+            .max_age(3600);
 
-    let mut app = tide::with_state(engine);
+        // launch http server
+        App::new()
+            .wrap(cors_middleware)
+            .wrap(middleware::Logger::default())
+            // https://github.com/actix/examples/blob/8dab533b40d9d0640e5c75922c9e8e292ed4a7d5/sqlx_todo/src/main.rs#L41
+            // pass database pool to application so we can access it inside handlers
+            .data(AppState {
+                client: client.clone(),
+                db_name: String::from("sybl"),
+                pepper: pepper.clone(),
+                pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)
+                    .expect("PBKDF2_ITERATIONS must be parseable as an integer"),
+            })
+            .configure(routes::init)
+    })
+    .bind("0.0.0.0:3001")?
+    .run()
+    .await
+    .unwrap();
 
-    // Setting up routes
-    let mut core_api = app.at("/api");
-
-    let mut user_api = core_api.at("/users");
-    user_api.at("/:user_id").get(routes::users::get);
-    user_api.at("/filter").post(routes::users::filter);
-    user_api.at("/edit").post(routes::users::edit);
-    user_api.at("/login").post(routes::users::login);
-    user_api.at("/new").post(routes::users::new);
-    user_api.at("/delete").post(routes::users::delete);
-
-    let mut projects_api = core_api.at("/projects");
-    projects_api
-        .at("/u/:user_id")
-        .get(routes::projects::get_user_projects);
-    projects_api
-        .at("/p/:project_id")
-        .get(routes::projects::get_project)
-        .patch(routes::projects::patch_project)
-        .delete(routes::projects::delete_project);
-    projects_api
-        .at("/u/:user_id/new")
-        .post(routes::projects::new);
-    projects_api
-        .at("/p/:project_id/data")
-        .put(routes::projects::add_data)
-        .get(routes::projects::get_data);
-    projects_api
-        .at("/p/:project_id/overview")
-        .post(routes::projects::overview);
-    projects_api
-        .at("/p/:project_id/process")
-        .post(routes::projects::begin_processing);
-    projects_api
-        .at("/p/:project_id/predictions")
-        .get(routes::projects::get_predictions);
-
-    let mut client_api = core_api.at("/clients");
-    client_api.at("/register").post(routes::clients::register);
-    client_api
-        .at("/u/:user_id")
-        .get(routes::clients::get_user_models);
-    client_api.at("/m/new").post(routes::clients::new_model);
-    client_api
-        .at("/m/verify")
-        .post(routes::clients::verify_challenge);
-    client_api
-        .at("/m/authenticate")
-        .post(routes::clients::authenticate_model);
-    client_api
-        .at("/m/unlock")
-        .post(routes::clients::unlock_model);
-
-    // CORS
-    let headers = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-        .parse::<HeaderValue>()
-        .unwrap();
-    let cors = CorsMiddleware::new()
-        .allow_methods(headers)
-        .allow_origin(Origin::from("*"))
-        .allow_credentials(false);
-
-    app.with(cors);
-
-    app
+    Ok(())
 }

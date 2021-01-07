@@ -1,13 +1,13 @@
 //! Defines the routes for the API server.
 
-use std::convert::TryFrom;
-
 use crypto::clean_json;
 use mongodb::{
     bson::{doc, document::Document, oid::ObjectId},
     Collection,
 };
-use tide::{http::mime, Response};
+
+use crate::dodona_error::DodonaError;
+use actix_web::{web, HttpResponse, Result};
 
 pub mod clients;
 pub mod projects;
@@ -43,30 +43,22 @@ pub mod users;
 /// assert!(body.is_ok());
 /// assert_eq!(body.unwrap(), expected);
 /// ```
-pub fn response_from_json<B: serde::Serialize>(body: B) -> Response {
+pub fn response_from_json<B: serde::Serialize>(body: B) -> Result<HttpResponse, DodonaError> {
     let body = clean_json(json!(body));
-    Response::builder(200)
-        .body(body)
-        .content_type(mime::JSON)
-        .build()
-}
-
-/// Builds a [`tide::Error`] from a code and message.
-pub fn tide_err(code: u16, msg: &'static str) -> tide::Error {
-    let status = tide::StatusCode::try_from(code).unwrap();
-    tide::Error::from_str(status, msg)
+    Ok(HttpResponse::Ok().json(body))
 }
 
 /// Checks whether a user exists with the given ID.
-pub async fn check_user_exists(id: &str, users: &Collection) -> Result<ObjectId, tide::Error> {
+pub async fn check_user_exists(id: &str, users: &Collection) -> Result<ObjectId, DodonaError> {
     // Check the project ID to make sure it exists
-    let object_id = ObjectId::with_string(&id).map_err(|_| tide_err(422, "invalid user id"))?;
+    let object_id = ObjectId::with_string(&id).map_err(|_| DodonaError::Invalid)?;
     let query = doc! { "_id": &object_id };
 
     users
         .find_one(query, None)
-        .await?
-        .ok_or_else(|| tide_err(404, "user not found"))?;
+        .await
+        .unwrap()
+        .ok_or_else(|| DodonaError::NotFound)?;
 
     Ok(object_id)
 }
@@ -75,22 +67,49 @@ pub async fn check_user_exists(id: &str, users: &Collection) -> Result<ObjectId,
 pub async fn check_project_exists(
     id: &str,
     projects: &Collection,
-) -> Result<ObjectId, tide::Error> {
+) -> Result<ObjectId, DodonaError> {
     // Check the project ID to make sure it exists
-    let object_id = ObjectId::with_string(&id).map_err(|_| tide_err(422, "invalid project id"))?;
+    let object_id = ObjectId::with_string(&id).map_err(|_| DodonaError::Invalid)?;
     let query = doc! { "_id": &object_id};
 
     projects
         .find_one(query, None)
-        .await?
-        .ok_or_else(|| tide_err(404, "project not found"))?;
+        .await
+        .unwrap()
+        .ok_or_else(|| DodonaError::NotFound)?;
 
     Ok(object_id)
 }
 
 /// Gets a key from a document, or returns a 422 error if it doesn't exist.
-pub fn get_from_doc<'a>(document: &'a Document, key: &'a str) -> Result<&'a str, tide::Error> {
-    document
-        .get_str(key)
-        .map_err(|_| tide_err(422, "missing key"))
+pub fn get_from_doc<'a>(document: &'a Document, key: &'a str) -> Result<&'a str, DodonaError> {
+    document.get_str(key).map_err(|_| DodonaError::Invalid)
+}
+
+/// Initialisation function for routes
+pub fn init(cfg: &mut web::ServiceConfig) {
+    cfg.service(clients::register);
+    cfg.service(clients::new_model);
+    cfg.service(clients::verify_challenge);
+    cfg.service(clients::unlock_model);
+    cfg.service(clients::authenticate_model);
+    cfg.service(clients::get_user_models);
+
+    cfg.service(projects::get_project);
+    cfg.service(projects::patch_project);
+    cfg.service(projects::delete_project);
+    cfg.service(projects::get_user_projects);
+    cfg.service(projects::new);
+    cfg.service(projects::add_data);
+    cfg.service(projects::overview);
+    cfg.service(projects::get_data);
+    cfg.service(projects::begin_processing);
+    cfg.service(projects::get_predictions);
+
+    cfg.service(users::get);
+    // cfg.service(users::filter);
+    cfg.service(users::new);
+    cfg.service(users::edit);
+    cfg.service(users::login);
+    cfg.service(users::delete);
 }
