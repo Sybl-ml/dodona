@@ -17,7 +17,7 @@ pub enum ClientMessage {
     /// Message to send Job Config
     JobConfig {
         /// Job timeout
-        timeout: u8,
+        timeout: i32,
         /// Types of each column in dataset for job
         column_types: Vec<String>,
     },

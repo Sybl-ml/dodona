@@ -2,12 +2,12 @@ use std::collections::VecDeque;
 use std::env;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::str::FromStr;
-use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
 use anyhow::Result;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio_stream::StreamExt;
 
 use config::Environment;
@@ -18,7 +18,7 @@ use utils::setup_logger;
 const TIMEOUT_SECS: u64 = 1;
 
 /// Listens for incoming messages from the API server and forwards them to the queue.
-async fn listen(inner: &Arc<Inner>) -> Result<()> {
+async fn listen(inner: UnboundedSender<InterfaceMessage>) -> Result<()> {
     // Get the environment variable for listening
     let var = env::var("INTERFACE_LISTEN").expect("INTERFACE_LISTEN must be set");
     let port = u16::from_str(&var).expect("INTERFACE_LISTEN must be a u16");
@@ -30,21 +30,16 @@ async fn listen(inner: &Arc<Inner>) -> Result<()> {
     let listener = TcpListener::bind(addr).await?;
     log::info!("Listening for connections on: {}", addr);
 
+    let mut buffer = [0_u8; 1024];
+
     loop {
         let (mut stream, address) = listener.accept().await?;
         log::debug!("Received connection from: {}", address);
 
-        let mut buffer = [0_u8; 24];
         let message = InterfaceMessage::from_stream(&mut stream, &mut buffer).await?;
+        log::info!("Received: {:?}", message);
 
-        log::info!("Received: {}", std::str::from_utf8(&buffer).unwrap());
-
-        let mut queue = inner.queue.lock().unwrap();
-        queue.push_back(message);
-
-        // Alert the other thread
-        drop(queue);
-        inner.available.notify_one();
+        inner.send(message)?;
     }
 }
 
@@ -72,7 +67,7 @@ async fn try_to_connect(
 }
 
 /// Receives messages from the frontend thread and communicates with the DCL.
-async fn receive(inner: &Arc<Inner>) -> Result<()> {
+async fn receive(mut inner: UnboundedReceiver<InterfaceMessage>) -> Result<()> {
     // Get the environment variable for sending
     let var = env::var("INTERFACE_SOCKET").expect("INTERFACE_SOCKET must be set");
     let port = u16::from_str(&var).expect("INTERFACE_SOCKET must be a u16");
@@ -83,47 +78,15 @@ async fn receive(inner: &Arc<Inner>) -> Result<()> {
     let attempts = 3;
 
     // Lock the queue so it cannot change
-    let mut queue = inner.queue.lock().unwrap();
-
     loop {
         // Try and send something onwards
-        if let Some(element) = queue.pop_front() {
+        if let Some(element) = inner.recv().await {
             if let Some(mut stream) = try_to_connect(&addr, timeout, attempts).await {
                 // Send the element to the onward node that we connected to
                 stream.write_all(&element.as_bytes()).await?;
                 log::info!("Sent: {:?}", element);
                 stream.shutdown().await?;
-            } else {
-                // Readd the element back to the queue at the front
-                queue.push_front(element);
-            };
-        } else {
-            log::debug!("Found nothing in the queue");
-
-            // Manually release the mutex and wait before continuing
-            queue = inner.available.wait(queue).unwrap();
-
-            log::debug!("Wait on available finished");
-        }
-    }
-}
-
-/// Represents the shared structure both threads have access to.
-#[derive(Debug, Default)]
-struct Inner {
-    /// The internal queue of jobs
-    queue: Mutex<VecDeque<InterfaceMessage>>,
-    /// The semaphore for alerting threads
-    available: Condvar,
-}
-
-impl Inner {
-    pub fn with_state(initial: VecDeque<InterfaceMessage>) -> Self {
-        log::info!("Initialising the queue with {} elements", initial.len());
-
-        Self {
-            queue: Mutex::new(initial),
-            available: Default::default(),
+            }
         }
     }
 }
@@ -166,14 +129,13 @@ async fn main() -> Result<()> {
     config::load(environment);
 
     let state = get_job_queue().await.expect("Failed to get the job queue");
-    let inner = Arc::new(Inner::with_state(state));
+
+    let (tx, rx) = mpsc::unbounded_channel();
+
+    state.into_iter().for_each(|e| tx.send(e).unwrap());
 
     log::info!("Beginning the thread execution");
-
-    let left = Arc::clone(&inner);
-    let right = Arc::clone(&inner);
-
-    tokio::try_join!(listen(&left), receive(&right))?;
+    tokio::try_join!(listen(tx), receive(rx))?;
 
     Ok(())
 }
