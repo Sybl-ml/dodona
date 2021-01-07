@@ -17,7 +17,7 @@ use mongodb::options::ClientOptions;
 use mongodb::Client;
 
 use actix_cors::Cors;
-use actix_web::{http, middleware, App, HttpServer, Result};
+use actix_web::{http, middleware, web, App, HttpServer, Result};
 
 pub mod dodona_error;
 pub mod routes;
@@ -82,6 +82,7 @@ pub async fn build_server() -> Result<()> {
                 pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)
                     .expect("PBKDF2_ITERATIONS must be parseable as an integer"),
             })
+            .route("/api/users/filter", web::post().to(routes::users::filter))
             .configure(routes::init)
     })
     .bind("0.0.0.0:3001")?

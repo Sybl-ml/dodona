@@ -38,7 +38,6 @@ pub async fn get(
 /// Given a filter query, finds all users who match the filter and returns them as a JSON array of
 /// objects. For example, given `{"first_name", "John"}`, finds all the users with the first name
 /// John.
-// #[post("/api/users/filter")]
 pub async fn filter(
     app_data: web::Data<AppState>,
     filter: web::Json<Document>,
