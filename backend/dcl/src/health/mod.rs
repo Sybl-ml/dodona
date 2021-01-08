@@ -29,7 +29,11 @@ pub async fn health_runner(nodepool: Arc<NodePool>, delay: u64) {
     loop {
         let np = Arc::clone(&nodepool);
         let total = check_health(np).await.unwrap();
-        log::info!("Checked {} nodes", total);
+
+        if total > 0 {
+            log::info!("Checked {} nodes", total);
+        }
+
         interval.tick().await;
     }
 }

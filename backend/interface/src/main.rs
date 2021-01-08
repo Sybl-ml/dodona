@@ -131,6 +131,7 @@ async fn main() -> Result<()> {
     let (tx, rx) = mpsc::unbounded_channel();
 
     let state = get_job_queue().await.expect("Failed to get the job queue");
+    log::info!("Beginning with {} elements in the queue", state.len());
     state.into_iter().for_each(|e| tx.send(e).unwrap());
 
     log::info!("Beginning the thread execution");
