@@ -82,8 +82,78 @@ pub async fn build_server() -> Result<()> {
                 pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)
                     .expect("PBKDF2_ITERATIONS must be parseable as an integer"),
             })
+            .route(
+                "/api/projects/p/{project_id}",
+                web::get().to(routes::projects::get_project),
+            )
+            .route(
+                "/api/projects/p/{project_id}",
+                web::patch().to(routes::projects::patch_project),
+            )
+            .route(
+                "/api/projects/p/{project_id}",
+                web::delete().to(routes::projects::delete_project),
+            )
+            .route(
+                "/api/projects/u/{user_id}",
+                web::get().to(routes::projects::get_user_projects),
+            )
+            .route(
+                "/api/projects/u/{user_id}/new",
+                web::post().to(routes::projects::new),
+            )
+            .route(
+                "/api/projects/p/{project_id}/data",
+                web::post().to(routes::projects::add_data),
+            )
+            .route(
+                "/api/projects/p/{project_id}/overview",
+                web::post().to(routes::projects::overview),
+            )
+            .route(
+                "/api/projects/p/{project_id}/data",
+                web::get().to(routes::projects::get_data),
+            )
+            .route(
+                "/api/projects/p/{project_id}/process",
+                web::post().to(routes::projects::begin_processing),
+            )
+            .route(
+                "/api/projects/p/{project_id}/predictions",
+                web::get().to(routes::projects::get_predictions),
+            )
+            // Clients
+            .route(
+                "/api/clients/register",
+                web::post().to(routes::clients::register),
+            )
+            .route(
+                "/api/clients/m/new",
+                web::post().to(routes::clients::new_model),
+            )
+            .route(
+                "/api/clients/m/verify",
+                web::post().to(routes::clients::verify_challenge),
+            )
+            .route(
+                "/api/clients/m/unlock",
+                web::post().to(routes::clients::unlock_model),
+            )
+            .route(
+                "/api/clients/m/authenticate",
+                web::post().to(routes::clients::authenticate_model),
+            )
+            .route(
+                "/api/clients/u/{user_id}",
+                web::get().to(routes::clients::get_user_models),
+            )
+            // users
+            .route("/api/users/{user_id}", web::get().to(routes::users::get))
             .route("/api/users/filter", web::post().to(routes::users::filter))
-            .configure(routes::init)
+            .route("/api/users/new", web::post().to(routes::users::new))
+            .route("/api/users/edit", web::post().to(routes::users::edit))
+            .route("/api/users/login", web::post().to(routes::users::login))
+            .route("/api/users/delete", web::post().to(routes::users::delete))
     })
     .bind("0.0.0.0:3001")?
     .run()

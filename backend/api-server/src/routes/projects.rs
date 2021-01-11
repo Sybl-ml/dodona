@@ -4,7 +4,7 @@ use std::env;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::str::FromStr;
 
-use actix_web::{delete, get, patch, post, web, HttpResponse};
+use actix_web::{web, HttpResponse};
 use mongodb::{
     bson::{doc, document::Document, oid::ObjectId},
     Collection,
@@ -28,7 +28,6 @@ use utils::compress::{compress_vec, decompress_data};
 ///
 /// Given a project identifier, finds the project in the database and returns it as a JSON object.
 /// If the project does not exist, returns a 404 response code.
-#[get("/api/projects/p/{project_id}")]
 pub async fn get_project(
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
@@ -70,7 +69,6 @@ pub async fn get_project(
 /// Given a project identifier, finds and updates the project in the database
 /// matching new data
 /// If project does not exist return a 404
-#[patch("/api/projects/p/{project_id}")]
 pub async fn patch_project(
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
@@ -98,7 +96,6 @@ pub async fn patch_project(
 /// if project is not found return a 422
 ///
 /// Will not currently authenticate the userid
-#[delete("/api/projects/p/{project_id}")]
 pub async fn delete_project(
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
@@ -121,7 +118,6 @@ pub async fn delete_project(
 ///
 /// Given a user identifier, finds all the projects in the database that the user owns. If the user
 /// doesn't exist or an invalid identifier is given, returns a 404 response.
-#[get("/api/projects/u/{user_id}")]
 pub async fn get_user_projects(
     app_data: web::Data<AppState>,
     user_id: web::Path<String>,
@@ -147,7 +143,6 @@ pub async fn get_user_projects(
 /// Given a user id, a project name and description, a project will
 /// be created and saved in the database. This can fail if the user id
 /// provided doesn't exist.
-#[post("/api/projects/u/{user_id}/new")]
 pub async fn new(
     app_data: web::Data<AppState>,
     user_id: web::Path<String>,
@@ -187,7 +182,6 @@ pub async fn new(
 /// an error writing out the compressed data to the vector or if there
 /// is an error finishing the compression stream. Both times an error
 /// will return a 404 to the caller.
-#[post("/api/projects/p/{project_id}/data")]
 pub async fn add_data(
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
@@ -269,7 +263,6 @@ pub async fn add_data(
 ///
 /// Project Id passed in as part of route and the dataset details
 /// for that project are returned from the database.
-#[post("/api/projects/p/{project_id}/overview")]
 pub async fn overview(
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
@@ -296,7 +289,6 @@ pub async fn overview(
 /// project id. Compressed data is then taken from returned struct
 /// and is decompressed before being sent in a response back to the
 /// user.
-#[get("/api/projects/p/{project_id}/data")]
 pub async fn get_data(
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
@@ -339,7 +331,6 @@ pub async fn get_data(
 /// Checks that the project exists, before sending the identifier of its dataset to the interface
 /// layer, which will then forward it to the DCL for processing. Updates the project state to
 /// `State::Processing`.
-#[post("/api/projects/p/{project_id}/process")]
 pub async fn begin_processing(
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
@@ -387,7 +378,6 @@ pub async fn begin_processing(
 ///
 /// Queries the database for all [`Prediction`] instances for a given project identifier, before
 /// decompressing each and returning them.
-#[get("/api/projects/p/{project_id}/predictions")]
 pub async fn get_predictions(
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,

@@ -1,6 +1,6 @@
 //! Defines the routes specific to user operations.
 
-use actix_web::{get, post, web, HttpResponse};
+use actix_web::{web, HttpResponse};
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
 use tokio::stream::StreamExt;
 
@@ -14,7 +14,6 @@ use models::users::User;
 ///
 /// Given a user identifier, finds the user in the database and returns them as a JSON object. If
 /// the user does not exist, the handler will panic.
-#[get("/api/users/{user_id}")]
 pub async fn get(
     app_data: web::Data<AppState>,
     user_id: web::Path<String>,
@@ -62,7 +61,6 @@ pub async fn filter(
 /// then gets stored in the Mongo database with a randomly generated user identifier. If the user's
 /// email already exists, the route will not register any user.
 /// The user's client status will be false which can be later changed
-#[post("/api/users/new")]
 pub async fn new(
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,
@@ -120,7 +118,6 @@ pub async fn new(
 ///
 /// Given a user identifier, finds the user in the database and updates their information based on
 /// the JSON provided, returning a message based on whether it was updated.
-#[post("/api/users/edit")]
 pub async fn edit(
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,
@@ -159,7 +156,6 @@ pub async fn edit(
 /// Given an email and password, finds the user in the database and checks that the two hashes
 /// match. If they don't, or the user does not exist, it will not authenticate them and send back a
 /// null token.
-#[post("/api/users/login")]
 pub async fn login(
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,
@@ -196,7 +192,6 @@ pub async fn login(
 /// Deletes a user from the database.
 ///
 /// Given a user identifier, deletes the related user from the database if they exist.
-#[post("/api/users/delete")]
 pub async fn delete(
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,

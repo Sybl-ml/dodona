@@ -3,7 +3,7 @@ use crate::dodona_error::DodonaError;
 use crate::routes::{get_from_doc, response_from_json};
 use crate::AppState;
 
-use actix_web::{get, post, web, HttpResponse};
+use actix_web::{web, HttpResponse};
 use chrono::Utc;
 use models::models::{AccessToken, ClientModel, Status};
 use models::users::{Client, User};
@@ -16,7 +16,6 @@ use tokio::stream::StreamExt;
 ///
 /// Will check the provided user_id matches with the
 /// provided email and password
-#[post("/api/clients/register")]
 pub async fn register(
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,
@@ -84,7 +83,6 @@ pub async fn register(
 /// provided an email check the user exists and is a client
 /// If validated generate a challenge and insert a new temp model
 /// Respond with the encoded challenge
-#[post("/api/clients/m/new")]
 pub async fn new_model(
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,
@@ -160,7 +158,6 @@ pub async fn new_model(
 /// `challenge_response` matches the `challenge` with respect to the `client`'s public key.
 /// Returns a new access token for the `new_model` if verification is successful.
 /// Returns a 404 error if the `client` or `model` is not found, or 401 if verification fails.
-#[post("/api/clients/m/verify")]
 pub async fn verify_challenge(
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,
@@ -240,7 +237,6 @@ pub async fn verify_challenge(
 /// then given a model `id`, unlocks the model for authentication and use by the DCL.
 /// TODO: implement safeguards, such as a OTP request parameter, to prevent clients
 /// (or mailicious actors) contacting this endpoint from outside of the dashboard.
-#[post("/api/clients/m/unlock")]
 pub async fn unlock_model(
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,
@@ -279,7 +275,6 @@ pub async fn unlock_model(
 /// has expired, the model should be asked to reauthenticate using a challenge response.
 /// Returns 200 if authentication is successful and a new challenge if the token has expired.
 /// Returns a 401 error if the model is not found or if authentication fails.
-#[post("/api/clients/m/authenticate")]
 pub async fn authenticate_model(
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,
@@ -329,7 +324,6 @@ pub async fn authenticate_model(
 ///
 /// Given a user identifier, finds all the models in the database that the user owns. If the user
 /// doesn't exist or an invalid identifier is given, returns a 404 response.
-#[get("/api/clients/u/{user_id}")]
 pub async fn get_user_models(
     app_data: web::Data<AppState>,
     user_id: web::Path<String>,

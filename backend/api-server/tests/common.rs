@@ -1,8 +1,10 @@
 use std::str::FromStr;
+use std::sync::Arc;
 
 use actix_web::test;
 use mongodb::bson::{self, document::Document, oid::ObjectId};
 
+use api_server::AppState;
 use config::Environment;
 use models::projects::Project;
 use models::users::User;
@@ -29,7 +31,7 @@ pub static EDITABLE_PROJECT_ID: &str = "5fb2c4e4b4b7becc1e81e278";
 ///
 /// As the database can be initialised before running, this allows tests to be run in any order
 /// provided they don't require the result of a previous test.
-pub async fn initialise() {
+pub async fn initialise() -> AppState {
     // Setup the environment variables
     let config = config::ConfigFile::from_filesystem();
     let resolved = config.resolve(Environment::Testing);
@@ -37,6 +39,9 @@ pub async fn initialise() {
 
     // Connect to the database
     let conn_str = std::env::var("CONN_STR").expect("CONN_STR must be set");
+    let pepper = std::env::var("PEPPER").expect("PEPPER must be set");
+    let pbkdf2_iterations =
+        std::env::var("PBKDF2_ITERATIONS").expect("PBKDF2_ITERATIONS must be set");
 
     // Ensure that we aren't using the Atlas instance
     assert!(
@@ -56,6 +61,14 @@ pub async fn initialise() {
     // Insert some test data
     insert_test_users(&database).await;
     insert_test_projects(&database).await;
+
+    AppState {
+        client: Arc::new(client.clone()),
+        db_name: Arc::new(String::from("sybl")),
+        pepper: Arc::new(pepper.clone()),
+        pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)
+            .expect("PBKDF2_ITERATIONS must be parseable as an integer"),
+    }
 }
 
 fn create_user_with_id(

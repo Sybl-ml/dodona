@@ -1,9 +1,12 @@
-use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
-use actix_web::{client::Client, test, web, App, HttpRequest, Result};
+use actix_cors::Cors;
+use actix_web::{client::Client, http, middleware, test, web, App, HttpRequest, Result};
 use api_server::routes;
 use models::dataset_details::DatasetDetails;
 use models::projects::Project;
+
+use serde::{Deserialize, Serialize};
 
 mod common;
 
@@ -20,12 +23,23 @@ pub struct DatasetResponse {
 
 #[actix_rt::test]
 async fn projects_can_be_fetched_for_a_user() -> Result<()> {
-    common::initialise().await;
+    let state = common::initialise().await;
+
+    let cors_middleware = Cors::default()
+        .allowed_methods(vec!["GET", "POST", "DELETE", "PUT", "PATCH"])
+        .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
+        .allowed_header(http::header::CONTENT_TYPE)
+        .max_age(3600);
+
     let mut app = test::init_service(
-        App::new().service(
-            web::resource("/api/projects/u/{user_id}")
-                .route(web::get().to(routes::projects::get_user_projects)),
-        ),
+        App::new()
+            .wrap(cors_middleware)
+            .wrap(middleware::Logger::default())
+            .data(state)
+            .service(
+                web::resource("/api/projects/u/{user_id}")
+                    .route(web::get().to(routes::projects::get_user_projects)),
+            ),
     )
     .await;
 
@@ -40,7 +54,7 @@ async fn projects_can_be_fetched_for_a_user() -> Result<()> {
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
     // assert_eq!(Some(tide::http::mime::JSON), res.content_type());
 
-    let projects: Vec<Project> = res.body_json().await?;
+    let projects: Vec<Project> = res.take_body();
 
     assert_eq!(projects.len(), 2);
 

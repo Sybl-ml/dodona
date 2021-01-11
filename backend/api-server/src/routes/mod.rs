@@ -7,7 +7,7 @@ use mongodb::{
 };
 
 use crate::dodona_error::DodonaError;
-use actix_web::{web, HttpResponse, Result};
+use actix_web::{HttpResponse, Result};
 
 pub mod clients;
 pub mod projects;
@@ -84,32 +84,4 @@ pub async fn check_project_exists(
 /// Gets a key from a document, or returns a 422 error if it doesn't exist.
 pub fn get_from_doc<'a>(document: &'a Document, key: &'a str) -> Result<&'a str, DodonaError> {
     document.get_str(key).map_err(|_| DodonaError::Invalid)
-}
-
-/// Initialisation function for routes
-pub fn init(cfg: &mut web::ServiceConfig) {
-    cfg.service(clients::register);
-    cfg.service(clients::new_model);
-    cfg.service(clients::verify_challenge);
-    cfg.service(clients::unlock_model);
-    cfg.service(clients::authenticate_model);
-    cfg.service(clients::get_user_models);
-
-    cfg.service(projects::get_project);
-    cfg.service(projects::patch_project);
-    cfg.service(projects::delete_project);
-    cfg.service(projects::get_user_projects);
-    cfg.service(projects::new);
-    cfg.service(projects::add_data);
-    cfg.service(projects::overview);
-    cfg.service(projects::get_data);
-    cfg.service(projects::begin_processing);
-    cfg.service(projects::get_predictions);
-
-    cfg.service(users::get);
-    // cfg.service(users::filter);
-    cfg.service(users::new);
-    cfg.service(users::edit);
-    cfg.service(users::login);
-    cfg.service(users::delete);
 }
