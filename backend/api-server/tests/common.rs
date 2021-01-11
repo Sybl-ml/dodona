@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use actix_web::test;
 use mongodb::bson::{self, document::Document, oid::ObjectId};
+use tokio::task;
 
 use api_server::AppState;
 use config::Environment;
@@ -23,6 +24,9 @@ pub static OVERWRITTEN_DATA_PROJECT_ID: &str = "5fb784e4ead1758e1ce67bcd";
 pub static DELETABLE_PROJECT_ID: &str = "5fb2b4049d524e99ac7f1c41";
 pub static EDITABLE_PROJECT_ID: &str = "5fb2c4e4b4b7becc1e81e278";
 
+/// Allows for the setup of the database prior to testing.
+static INIT: std::sync::Once = std::sync::Once::new();
+
 /// Defines the initialisation function for the tests.
 ///
 /// This will clean the database and insert some basic data for testing purposes. It should be
@@ -33,34 +37,48 @@ pub static EDITABLE_PROJECT_ID: &str = "5fb2c4e4b4b7becc1e81e278";
 /// provided they don't require the result of a previous test.
 pub async fn initialise() -> AppState {
     // Setup the environment variables
-    let config = config::ConfigFile::from_filesystem();
-    let resolved = config.resolve(Environment::Testing);
-    resolved.populate_environment();
+    INIT.call_once(|| {
+        task::block_in_place(move || {
+            futures::executor::block_on(async {
+                let config = config::ConfigFile::from_filesystem();
+                let resolved = config.resolve(Environment::Testing);
+                resolved.populate_environment();
 
-    // Connect to the database
+                // Connect to the database
+                let conn_str = std::env::var("CONN_STR").expect("CONN_STR must be set");
+
+                // Ensure that we aren't using the Atlas instance
+                assert!(
+                    !conn_str.starts_with("mongodb+srv"),
+                    "Please setup a local MongoDB instance for running the tests"
+                );
+                let client = mongodb::Client::with_uri_str(&conn_str).await.unwrap();
+                let database = client.database("sybl");
+                let collection_names = database.list_collection_names(None).await.unwrap();
+
+                // Delete all records currently in the database
+                for name in collection_names {
+                    let collection = database.collection(&name);
+                    collection.delete_many(Document::new(), None).await.unwrap();
+                }
+
+                // Insert some test data
+                insert_test_users(&database).await;
+                insert_test_projects(&database).await;
+            });
+        });
+    });
+
+    build_app_state().await
+}
+
+pub async fn build_app_state() -> AppState {
     let conn_str = std::env::var("CONN_STR").expect("CONN_STR must be set");
     let pepper = std::env::var("PEPPER").expect("PEPPER must be set");
     let pbkdf2_iterations =
         std::env::var("PBKDF2_ITERATIONS").expect("PBKDF2_ITERATIONS must be set");
 
-    // Ensure that we aren't using the Atlas instance
-    assert!(
-        !conn_str.starts_with("mongodb+srv"),
-        "Please setup a local MongoDB instance for running the tests"
-    );
     let client = mongodb::Client::with_uri_str(&conn_str).await.unwrap();
-    let database = client.database("sybl");
-    let collection_names = database.list_collection_names(None).await.unwrap();
-
-    // Delete all records currently in the database
-    for name in collection_names {
-        let collection = database.collection(&name);
-        collection.delete_many(Document::new(), None).await.unwrap();
-    }
-
-    // Insert some test data
-    insert_test_users(&database).await;
-    insert_test_projects(&database).await;
 
     AppState {
         client: Arc::new(client.clone()),

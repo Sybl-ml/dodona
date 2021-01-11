@@ -153,22 +153,24 @@ pub async fn new(
     let users = database.collection("users");
 
     // get user ID
-    let user_id = check_user_exists(&user_id, &users).await?;
+    let user_id = check_user_exists(&user_id, &users)
+        .await
+        .map_err(|_| DodonaError::Invalid)?;
 
     // get name
-    let name = clean(doc.get_str("name").map_err(|_| DodonaError::Unknown)?);
+    let name = clean(doc.get_str("name").map_err(|_| DodonaError::Invalid)?);
     let description = clean(
         doc.get_str("description")
-            .map_err(|_| DodonaError::Unknown)?,
+            .map_err(|_| DodonaError::Invalid)?,
     );
 
     let project = Project::new(&name, &description, user_id);
 
-    let document = mongodb::bson::ser::to_document(&project).map_err(|_| DodonaError::Unknown)?;
+    let document = mongodb::bson::ser::to_document(&project).map_err(|_| DodonaError::Invalid)?;
     let id = projects
         .insert_one(document, None)
         .await
-        .map_err(|_| DodonaError::Unknown)?
+        .map_err(|_| DodonaError::Invalid)?
         .inserted_id;
 
     response_from_json(doc! {"project_id": id})

@@ -19,30 +19,6 @@ pub mod users;
 /// request. As many API functions take and return JSON, this reduces repetition when the route has
 /// been processed correctly.
 ///
-/// # Examples
-///
-/// ```
-/// use serde::Serialize;
-/// use api_server::routes::response_from_json;
-///
-/// #[derive(Serialize)]
-/// struct Payload {
-///     name: String,
-///     age: u32,
-/// }
-///
-/// let payload = Payload { name: String::from("Freddie"), age: 22 };
-/// let mut response = response_from_json(payload);
-///
-/// assert_eq!(response.status(), tide::StatusCode::Ok);
-/// assert_eq!(response.content_type(), Some(tide::http::mime::JSON));
-///
-/// let body = async_std::task::block_on(response.take_body().into_string());
-/// let expected = String::from(r#"{"name":"Freddie","age":22}"#);
-///
-/// assert!(body.is_ok());
-/// assert_eq!(body.unwrap(), expected);
-/// ```
 pub fn response_from_json<B: serde::Serialize>(body: B) -> Result<HttpResponse, DodonaError> {
     let body = clean_json(json!(body));
     Ok(HttpResponse::Ok().json(body))

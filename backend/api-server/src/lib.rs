@@ -44,10 +44,9 @@ pub struct AppState {
 /// # Examples
 ///
 /// ```no_run
-/// #[async_std::main]
-/// async fn main() -> std::io::Result<()> {
-///     let server = api_server::build_server().await;
-///     server.listen("localhost:3000").await?;
+/// #[actix_rt::main]
+/// async fn main() -> std::io::Result<()>  {
+///     api_server::build_server().await.unwrap();
 ///
 ///     Ok(())
 /// }
