@@ -26,7 +26,8 @@ async fn projects_can_be_fetched_for_a_user() -> Result<()> {
             web::resource("/api/projects/u/{user_id}")
                 .route(web::get().to(routes::projects::get_user_projects)),
         ),
-    );
+    )
+    .await;
 
     let formatted = format!("localhost:/api/projects/u/{}", common::MAIN_USER_ID);
 
