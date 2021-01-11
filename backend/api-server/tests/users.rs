@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use tide::http::Response;
 
 use models::users::User;
 

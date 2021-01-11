@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use actix_web::{client::Client, test, web, App, HttpRequest, Result};
+use api_server::routes;
 use models::dataset_details::DatasetDetails;
 use models::projects::Project;
 
@@ -20,11 +21,12 @@ pub struct DatasetResponse {
 #[actix_rt::test]
 async fn projects_can_be_fetched_for_a_user() -> Result<()> {
     common::initialise().await;
-    let mut app = test::init_service(App::new().route(
-        "/api/projects/u/{user_id}",
-        web::get().to(api_server::routes::projects::get_user_projects),
-    ))
-    .await;
+    let mut app = test::init_service(
+        App::new().service(
+            web::resource("/api/projects/u/{user_id}")
+                .route(web::get().to(routes::projects::get_user_projects)),
+        ),
+    );
 
     let formatted = format!("localhost:/api/projects/u/{}", common::MAIN_USER_ID);
 
