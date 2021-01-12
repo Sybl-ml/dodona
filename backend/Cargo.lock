@@ -382,7 +382,6 @@ dependencies = [
  "thiserror",
  "tokio 1.0.1",
  "tokio-stream",
- "tokio-util 0.3.1",
  "toml",
  "utils",
 ]
