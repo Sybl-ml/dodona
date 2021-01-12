@@ -1,7 +1,6 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
-use actix_web::test;
 use mongodb::bson::{self, document::Document, oid::ObjectId};
 use tokio::task;
 
@@ -180,17 +179,4 @@ async fn insert_test_projects(database: &mongodb::Database) {
     projects.insert_one(overwritten_data, None).await.unwrap();
     projects.insert_one(deletable, None).await.unwrap();
     projects.insert_one(editable, None).await.unwrap();
-}
-
-pub fn build_json_request(url: &str, body: &str) -> test::TestRequest {
-    test::TestRequest::default()
-        .header("content-type", "application/json")
-        .set_payload(String::from(body))
-}
-
-pub fn build_json_put_request(url: &str, body: &str) -> test::TestRequest {
-    test::TestRequest::default()
-        .method(actix_web::http::Method::PUT)
-        .header("content-type", "application/json")
-        .set_payload(String::from(body))
 }
