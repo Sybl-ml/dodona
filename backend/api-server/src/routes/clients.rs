@@ -10,7 +10,7 @@ use models::users::{Client, User};
 use mongodb::bson::de::from_document;
 use mongodb::bson::ser::to_document;
 use mongodb::bson::{self, doc, document::Document, oid::ObjectId, Binary};
-use tokio::stream::StreamExt;
+use tokio_stream::StreamExt;
 
 /// Template for registering a new client
 ///

@@ -2,7 +2,7 @@
 
 use actix_web::{web, HttpResponse};
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
-use tokio::stream::StreamExt;
+use tokio_stream::StreamExt;
 
 use crate::dodona_error::DodonaError;
 use crate::routes::{check_user_exists, get_from_doc, response_from_json};

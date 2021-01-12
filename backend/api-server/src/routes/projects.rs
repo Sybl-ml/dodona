@@ -11,7 +11,7 @@ use mongodb::{
 };
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
-use tokio::stream::StreamExt;
+use tokio_stream::StreamExt;
 
 use crate::dodona_error::DodonaError;
 use crate::routes::{check_project_exists, check_user_exists, response_from_json};
