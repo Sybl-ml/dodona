@@ -25,6 +25,7 @@ thiserror = "1.0.23"
 chrono = "0.4"
 base64 = "0.13.0"
 config = { path = "../config" }
+messages = { path = "../messages" }
 crypto = { path = "../crypto" }
 models = { path = "../models" }
 utils = { path = "../utils" }

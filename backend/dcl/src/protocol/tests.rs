@@ -6,8 +6,8 @@ use mockito::mock;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 
-use crate::messages::Message;
 use crate::protocol;
+use messages::client::ClientMessage;
 
 #[tokio::test]
 async fn nodes_can_immediately_send_tokens() -> Result<(), Box<dyn Error>> {
@@ -37,7 +37,7 @@ async fn nodes_can_immediately_send_tokens() -> Result<(), Box<dyn Error>> {
 
     // Connect to the handler
     let mut stream = TcpStream::connect(addr).await?;
-    let message = Message::AccessToken {
+    let message = ClientMessage::AccessToken {
         id: String::from("5fe8b9d85511355cdab720aa"),
         token: String::from("abc"),
     };
@@ -78,7 +78,7 @@ async fn invalid_protocol_states_cause_panics() -> Result<(), Box<dyn Error>> {
 
     // Connect to the handler
     let mut stream = TcpStream::connect(addr).await?;
-    let message = Message::Alive { timestamp: 0 };
+    let message = ClientMessage::Alive { timestamp: 0 };
 
     // Send an invalid message as the first one
     stream.write(&message.as_bytes()).await?;
@@ -126,7 +126,7 @@ async fn incorrect_ordering_fails() -> Result<(), Box<dyn Error>> {
     let mut stream = TcpStream::connect(addr).await?;
 
     // Prepare messages for sending
-    let challenge_response = Message::ChallengeResponse {
+    let challenge_response = ClientMessage::ChallengeResponse {
         response: String::from("irrelevant"),
         model_name: String::from("model_name"),
         email: String::from("email"),

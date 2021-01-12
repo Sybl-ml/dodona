@@ -373,6 +373,7 @@ dependencies = [
  "env_logger",
  "futures",
  "log",
+ "messages",
  "models",
  "mongodb",
  "pbkdf2 0.5.0",
@@ -1112,6 +1113,7 @@ dependencies = [
  "http",
  "httparse",
  "log",
+ "messages",
  "mockito",
  "models",
  "mongodb",
@@ -1969,6 +1971,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "messages"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "log",
+ "mongodb",
+ "serde",
+ "serde_json",
+ "tokio 0.3.5",
+ "utils",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2083,6 +2098,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "crypto",
+ "messages",
  "mongodb",
  "serde",
  "serde_json",

@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use actix_web::{web, HttpResponse};
 use mongodb::{
-    bson::{doc, document::Document, oid::ObjectId},
+    bson::{doc, document::Document},
     Collection,
 };
 use tokio::io::AsyncWriteExt;
@@ -17,12 +17,14 @@ use crate::dodona_error::DodonaError;
 use crate::routes::{check_project_exists, check_user_exists, response_from_json};
 use crate::AppState;
 use crypto::clean;
+use messages::interface::InterfaceMessage;
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
 use models::jobs::Job;
 use models::predictions::Prediction;
 use models::projects::{Project, Status};
 use utils::compress::{compress_vec, decompress_data};
+use utils::ColumnType;
 
 /// Finds a project in the database given an identifier.
 ///
@@ -341,6 +343,11 @@ pub async fn begin_processing(
 
     let projects = database.collection("projects");
     let datasets = database.collection("datasets");
+    let dataset_details = database.collection("dataset_details");
+
+    let timeout: u8 = doc.get_str("timeout")?.parse()?;
+    log::info!("Timeout is here: {}", &timeout);
+    let project_id: String = req.param("project_id")?;
 
     let object_id = check_project_exists(&project_id, &projects).await?;
 
@@ -358,6 +365,32 @@ pub async fn begin_processing(
 
     // Send a request to the interface layer
     let identifier = dataset.id.expect("Dataset with no identifier");
+
+    let filter = doc! { "project_id": &object_id };
+    let document = dataset_details
+        .find_one(filter, None)
+        .await
+        .map_err(|_| DodonaError::Unknown)?
+        .ok_or_else(|| DodonaError::NotFound)?;
+
+    // Parse the dataset detail itself
+    let dataset_detail = mongodb::bson::de::from_document::<DatasetDetails>(document)
+        .map_err(|_| DodonaError::NotFound)?;
+
+    let types = dataset_detail
+        .column_types
+        .values()
+        .map(|x| match x.column_type {
+            ColumnType::Categorical(..) => String::from("Categorical"),
+            ColumnType::Numerical(..) => String::from("Numerical"),
+        })
+        .collect();
+
+    let config = InterfaceMessage::Config {
+        id: identifier.clone(),
+        timeout,
+        column_types: types,
+    };
 
     if forward_to_interface(&identifier).await.is_err() {
         log::warn!("Failed to forward: {}", identifier);
@@ -419,6 +452,7 @@ pub async fn get_predictions(
 async fn forward_to_interface(identifier: &ObjectId) -> tokio::io::Result<()> {
     log::debug!("Forwarding an identifier to the interface: {}", identifier);
 
+
     // Get the environment variable for the interface listener
     let var = env::var("INTERFACE_LISTEN").expect("INTERFACE_LISTEN must be set");
     let port = u16::from_str(&var).expect("INTERFACE_LISTEN must be a u16");
@@ -427,26 +461,26 @@ async fn forward_to_interface(identifier: &ObjectId) -> tokio::io::Result<()> {
     let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port);
 
     let mut stream = TcpStream::connect(addr).await?;
-    stream.write(identifier.to_hex().as_bytes()).await?;
+    stream.write(&msg.as_bytes()).await?;
     stream.shutdown(std::net::Shutdown::Both)?;
 
-    log::info!("Forwarded an identifier to the interface: {}", identifier);
+    log::info!("Forwarded an message to the interface: {:?}", msg);
 
     Ok(())
 }
 
 async fn insert_to_queue(
-    identifier: &ObjectId,
+    msg: &InterfaceMessage,
     collection: Collection,
 ) -> mongodb::error::Result<()> {
-    log::debug!("Inserting {} to the MongoDB interface queue", identifier);
+    log::debug!("Inserting {:?} to the MongoDB interface queue", msg);
 
-    let job = Job::new(identifier.clone());
+    let job = Job::new(msg.clone());
     let document = mongodb::bson::ser::to_document(&job).unwrap();
 
     match collection.insert_one(document, None).await {
-        Ok(_) => log::info!("Inserted {} to the MongoDB queue", identifier),
-        Err(_) => log::error!("Failed to insert {} to the MongoDB queue", identifier),
+        Ok(_) => log::info!("Inserted {:?} to the MongoDB queue", msg),
+        Err(_) => log::error!("Failed to insert {:?} to the MongoDB queue", msg),
     }
 
     Ok(())

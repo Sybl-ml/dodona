@@ -14,8 +14,8 @@ use tokio::time::timeout;
 
 use anyhow::Result;
 
-use crate::messages::Message;
 use crate::node_end::NodePool;
+use messages::client::ClientMessage;
 
 /// Runner for health checking
 ///
@@ -86,7 +86,7 @@ pub async fn heartbeat(stream_lock: Arc<RwLock<TcpStream>>) -> bool {
         .unwrap()
         .as_secs();
 
-    let message = Message::Alive { timestamp }.as_bytes();
+    let message = ClientMessage::Alive { timestamp }.as_bytes();
 
     if stream.write(&message).await.is_err() {
         return false;

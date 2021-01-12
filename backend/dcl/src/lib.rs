@@ -20,7 +20,6 @@ use tokio::sync::mpsc;
 pub mod health;
 pub mod interface_end;
 pub mod job_end;
-pub mod messages;
 pub mod node_end;
 pub mod protocol;
 
