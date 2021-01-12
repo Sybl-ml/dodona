@@ -29,14 +29,14 @@ pub enum DodonaError {
 
 impl DodonaError {
     /// Method to return string version of Enum
-    pub fn name(&self) -> String {
+    pub fn name(&self) -> &'static str {
         match self {
-            Self::NotFound => "NotFound".to_string(),
-            Self::Forbidden => "Forbidden".to_string(),
-            Self::Unknown => "Unknown".to_string(),
-            Self::Invalid => "Invalid".to_string(),
-            Self::Conflict => "Conflict".to_string(),
-            Self::Unauthorized => "Unauthorized".to_string(),
+            Self::NotFound => "NotFound",
+            Self::Forbidden => "Forbidden",
+            Self::Unknown => "Unknown",
+            Self::Invalid => "Invalid",
+            Self::Conflict => "Conflict",
+            Self::Unauthorized => "Unauthorized",
         }
     }
 }
@@ -59,8 +59,8 @@ impl ResponseError for DodonaError {
         let status_code = self.status_code();
         let error_response = ErrorResponse {
             code: status_code.as_u16(),
-            message: self.to_string(),
             error: self.name(),
+            message: self.to_string(),
         };
         HttpResponse::build(status_code).json(error_response)
     }
@@ -70,6 +70,6 @@ impl ResponseError for DodonaError {
 #[derive(Serialize)]
 struct ErrorResponse {
     code: u16,
-    error: String,
+    error: &'static str,
     message: String,
 }
