@@ -2,7 +2,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use mongodb::bson::{self, document::Document, oid::ObjectId};
-use tokio::task;
 
 use api_server::AppState;
 use config::Environment;
@@ -24,7 +23,7 @@ pub static DELETABLE_PROJECT_ID: &str = "5fb2b4049d524e99ac7f1c41";
 pub static EDITABLE_PROJECT_ID: &str = "5fb2c4e4b4b7becc1e81e278";
 
 /// Allows for the setup of the database prior to testing.
-static INIT: std::sync::Once = std::sync::Once::new();
+static MUTEX: tokio::sync::Mutex<bool> = tokio::sync::Mutex::const_new(true);
 
 /// Defines the initialisation function for the tests.
 ///
@@ -35,38 +34,40 @@ static INIT: std::sync::Once = std::sync::Once::new();
 /// As the database can be initialised before running, this allows tests to be run in any order
 /// provided they don't require the result of a previous test.
 pub async fn initialise() -> AppState {
-    // Setup the environment variables
-    INIT.call_once(|| {
-        task::block_in_place(move || {
-            futures::executor::block_on(async {
-                let config = config::ConfigFile::from_filesystem();
-                let resolved = config.resolve(Environment::Testing);
-                resolved.populate_environment();
+    // Aquire the mutex
+    let mut lock = MUTEX.lock().await;
 
-                // Connect to the database
-                let conn_str = std::env::var("CONN_STR").expect("CONN_STR must be set");
+    // Check whether this is the first time being run
+    if *lock {
+        let config = config::ConfigFile::from_filesystem();
+        let resolved = config.resolve(Environment::Testing);
+        resolved.populate_environment();
 
-                // Ensure that we aren't using the Atlas instance
-                assert!(
-                    !conn_str.starts_with("mongodb+srv"),
-                    "Please setup a local MongoDB instance for running the tests"
-                );
-                let client = mongodb::Client::with_uri_str(&conn_str).await.unwrap();
-                let database = client.database("sybl");
-                let collection_names = database.list_collection_names(None).await.unwrap();
+        // Connect to the database
+        let conn_str = std::env::var("CONN_STR").expect("CONN_STR must be set");
 
-                // Delete all records currently in the database
-                for name in collection_names {
-                    let collection = database.collection(&name);
-                    collection.delete_many(Document::new(), None).await.unwrap();
-                }
+        // Ensure that we aren't using the Atlas instance
+        assert!(
+            !conn_str.starts_with("mongodb+srv"),
+            "Please setup a local MongoDB instance for running the tests"
+        );
+        let client = mongodb::Client::with_uri_str(&conn_str).await.unwrap();
+        let database = client.database("sybl");
+        let collection_names = database.list_collection_names(None).await.unwrap();
 
-                // Insert some test data
-                insert_test_users(&database).await;
-                insert_test_projects(&database).await;
-            });
-        });
-    });
+        // Delete all records currently in the database
+        for name in collection_names {
+            let collection = database.collection(&name);
+            collection.delete_many(Document::new(), None).await.unwrap();
+        }
+
+        // Insert some test data
+        insert_test_users(&database).await;
+        insert_test_projects(&database).await;
+
+        // Update the lock
+        *lock = false;
+    }
 
     build_app_state().await
 }
