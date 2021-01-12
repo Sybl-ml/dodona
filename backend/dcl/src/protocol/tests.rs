@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::net::{Ipv4Addr, Shutdown, SocketAddrV4};
+use std::net::{Ipv4Addr, SocketAddrV4};
 use std::time::Duration;
 
 use mockito::mock;
@@ -7,7 +7,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 
 use crate::protocol;
-use messages::client::ClientMessage;
+use messages::ClientMessage;
 
 #[tokio::test]
 async fn nodes_can_immediately_send_tokens() -> Result<(), Box<dyn Error>> {
@@ -44,7 +44,7 @@ async fn nodes_can_immediately_send_tokens() -> Result<(), Box<dyn Error>> {
 
     // Write our access token and shutdown the stream
     stream.write(&message.as_bytes()).await?;
-    stream.shutdown(Shutdown::Both)?;
+    stream.shutdown().await?;
 
     // Ensure the listener handled it correctly
     assert!(handler.await.is_ok());
@@ -82,7 +82,7 @@ async fn invalid_protocol_states_cause_panics() -> Result<(), Box<dyn Error>> {
 
     // Send an invalid message as the first one
     stream.write(&message.as_bytes()).await?;
-    stream.shutdown(Shutdown::Both)?;
+    stream.shutdown().await?;
 
     // Check that the handler failed to handle it
     assert!(handler.await.is_err());

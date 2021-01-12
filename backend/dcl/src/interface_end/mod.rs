@@ -13,8 +13,7 @@ use tokio::sync::mpsc::Sender;
 use utils::compress::decompress_data;
 
 use crate::DatasetPair;
-use messages::client::ClientMessage;
-use messages::interface::InterfaceMessage;
+use messages::{ClientMessage, InterfaceMessage};
 use models::datasets::Dataset;
 
 /// Starts up interface server
@@ -71,13 +70,15 @@ async fn process_connection(
     let datasets = db_conn.collection("datasets");
 
     let filter = doc! { "_id": object_id };
+    log::debug!("Finding datasets with filter: {:?}", &filter);
 
-    log::info!("{:?}", &filter);
-
-    let doc = datasets.find_one(filter, None).await?.unwrap();
+    let doc = datasets
+        .find_one(filter, None)
+        .await?
+        .expect("Failed to find a document with the previous filter");
     let dataset: Dataset = mongodb::bson::de::from_document(doc)?;
 
-    log::info!("{:?}", &dataset);
+    log::debug!("{:?}", &dataset);
 
     // Get the data from the struct
     let comp_train = dataset.dataset.unwrap().bytes;
@@ -91,8 +92,8 @@ async fn process_connection(
     let train = std::str::from_utf8(&train_bytes)?.to_string();
     let predict = std::str::from_utf8(&predict_bytes)?.to_string();
 
-    log::info!("Decompressed train: {:?}", &train);
-    log::info!("Decompressed predict: {:?}", &predict);
+    log::debug!("Decompressed train: {:?}", &train);
+    log::debug!("Decompressed predict: {:?}", &predict);
 
     tx.send((
         dataset.project_id.unwrap(),

@@ -346,7 +346,7 @@ pub async fn begin_processing(
     let datasets = database.collection("datasets");
     let dataset_details = database.collection("dataset_details");
 
-    let timeout: u8 = doc.get_str("timeout").unwrap().parse().unwrap();
+    let timeout: i32 = doc.get_str("timeout").unwrap().parse().unwrap();
     log::info!("Timeout is here: {}", &timeout);
 
     let object_id = check_project_exists(&project_id, &projects).await?;
@@ -458,10 +458,11 @@ async fn forward_to_interface(msg: &InterfaceMessage) -> tokio::io::Result<()> {
 
     // Build the address to send to
     let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port);
-
     let mut stream = TcpStream::connect(addr).await?;
+
+    log::info!("Connected to: {}", addr);
+
     stream.write(&msg.as_bytes()).await?;
-    stream.shutdown(std::net::Shutdown::Both)?;
 
     log::info!("Forwarded an message to the interface: {:?}", msg);
 

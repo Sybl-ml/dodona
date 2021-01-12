@@ -1,7 +1,7 @@
 use super::*;
 
 use std::error::Error;
-use std::net::{Ipv4Addr, Shutdown, SocketAddrV4};
+use std::net::{Ipv4Addr, SocketAddrV4};
 use std::time::Duration;
 
 use tokio::net::{TcpListener, TcpStream};
@@ -42,7 +42,7 @@ async fn test_heartbeat_fail() -> Result<(), Box<dyn Error>> {
             let mut buffer = [0_u8; 24];
             inbound.read(&mut buffer).await.unwrap();
             tokio::time::sleep(Duration::new(1, 0)).await;
-            inbound.shutdown(Shutdown::Both).unwrap();
+            inbound.shutdown().await.unwrap();
         }
     });
 

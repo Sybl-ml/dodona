@@ -15,7 +15,7 @@ pub enum InterfaceMessage {
         /// ID of the dataset associated with Job
         id: ObjectId,
         /// Job timeout
-        timeout: u8,
+        timeout: i32,
         /// The columns in the dataset
         column_types: Vec<String>,
     },

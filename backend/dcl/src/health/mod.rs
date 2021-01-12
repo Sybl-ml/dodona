@@ -7,15 +7,15 @@
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio::prelude::*;
 use tokio::sync::RwLock;
 use tokio::time::timeout;
 
 use anyhow::Result;
 
 use crate::node_end::NodePool;
-use messages::client::ClientMessage;
+use messages::ClientMessage;
 
 /// Runner for health checking
 ///
@@ -29,7 +29,11 @@ pub async fn health_runner(nodepool: Arc<NodePool>, delay: u64) {
     loop {
         let np = Arc::clone(&nodepool);
         let total = check_health(np).await.unwrap();
-        log::info!("Checked {} nodes", total);
+
+        if total > 0 {
+            log::info!("Checked {} nodes", total);
+        }
+
         interval.tick().await;
     }
 }
