@@ -88,7 +88,7 @@ pub async fn new(
         .find_one(filter, None)
         .await
         .map_err(|_| DodonaError::Unknown)
-        .is_ok()
+        .is_err()
     {
         log::error!("Found a user with email '{}' already", &email);
         return response_from_json(doc! {"token": "null"});

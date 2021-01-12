@@ -17,7 +17,7 @@ use mongodb::options::ClientOptions;
 use mongodb::Client;
 
 use actix_cors::Cors;
-use actix_web::{http, middleware, web, App, HttpServer, Result};
+use actix_web::{middleware, web, App, HttpServer, Result};
 
 pub mod dodona_error;
 pub mod routes;
@@ -65,9 +65,9 @@ pub async fn build_server() -> Result<()> {
     HttpServer::new(move || {
         // cors
         let cors_middleware = Cors::default()
-            .allowed_methods(vec!["GET", "POST", "DELETE", "PUT", "PATCH"])
-            .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
-            .allowed_header(http::header::CONTENT_TYPE)
+            .allow_any_origin()
+            .allow_any_method()
+            .allow_any_header()
             .max_age(3600);
 
         // launch http server
@@ -103,7 +103,7 @@ pub async fn build_server() -> Result<()> {
             )
             .route(
                 "/api/projects/p/{project_id}/data",
-                web::post().to(routes::projects::add_data),
+                web::put().to(routes::projects::add_data),
             )
             .route(
                 "/api/projects/p/{project_id}/overview",
