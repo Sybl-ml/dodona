@@ -338,6 +338,7 @@ pub async fn get_data(
 pub async fn begin_processing(
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
+    doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
 
@@ -345,9 +346,8 @@ pub async fn begin_processing(
     let datasets = database.collection("datasets");
     let dataset_details = database.collection("dataset_details");
 
-    let timeout: u8 = doc.get_str("timeout")?.parse()?;
+    let timeout: u8 = doc.get_str("timeout").unwrap().parse().unwrap();
     log::info!("Timeout is here: {}", &timeout);
-    let project_id: String = req.param("project_id")?;
 
     let object_id = check_project_exists(&project_id, &projects).await?;
 
@@ -392,9 +392,9 @@ pub async fn begin_processing(
         column_types: types,
     };
 
-    if forward_to_interface(&identifier).await.is_err() {
-        log::warn!("Failed to forward: {}", identifier);
-        insert_to_queue(&identifier, database.collection("jobs"))
+    if forward_to_interface(&config).await.is_err() {
+        log::warn!("Failed to forward: {:?}", config);
+        insert_to_queue(&config, database.collection("jobs"))
             .await
             .map_err(|_| DodonaError::Unknown)?;
     }
@@ -449,9 +449,8 @@ pub async fn get_predictions(
     response_from_json(doc! {"predictions": decompressed})
 }
 
-async fn forward_to_interface(identifier: &ObjectId) -> tokio::io::Result<()> {
-    log::debug!("Forwarding an identifier to the interface: {}", identifier);
-
+async fn forward_to_interface(msg: &InterfaceMessage) -> tokio::io::Result<()> {
+    log::debug!("Forwarding an message to the interface: {:?}", msg);
 
     // Get the environment variable for the interface listener
     let var = env::var("INTERFACE_LISTEN").expect("INTERFACE_LISTEN must be set");
