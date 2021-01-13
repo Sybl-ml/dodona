@@ -29,4 +29,4 @@ messages = { path = "../messages" }
 crypto = { path = "../crypto" }
 models = { path = "../models" }
 utils = { path = "../utils" }
-mongodb = { git = "https://github.com/alexander-jackson/mongo-rust-driver" }
+mongodb = { git = "https://github.com/glebpom/mongo-rust-driver", branch = "tokio-1.0-fiix" }

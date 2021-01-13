@@ -1,5 +1,6 @@
 //! Part of DCL that takes a DCN and a dataset and comunicates with node
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -20,6 +21,21 @@ use models::predictions::Prediction;
 use utils::anon::{anonymise_dataset, deanonymise_dataset};
 use utils::compress::compress_bytes;
 use utils::{infer_train_and_predict, Columns};
+
+/// Struct to pass information for a cluster to function
+#[derive(Debug)]
+pub struct ClusterInfo {
+    /// Id of dataset
+    id: ObjectId,
+    /// Columns in dataset
+    cols: Columns,
+    /// Training CSV
+    train_csv: String,
+    /// Prediction CSV
+    predict_csv: String,
+    /// Config
+    config: ClientMessage,
+}
 
 /// Starts up and runs the job end
 ///
@@ -49,34 +65,58 @@ pub async fn run(
         let (anon_train, anon_predict) = infer_train_and_predict(&anon);
         let (anon_train_csv, anon_predict_csv) = (anon_train.join("\n"), anon_predict.join("\n"));
 
-        let cluster = nodepool.get_cluster(1).await.unwrap();
+        loop {
+            if let Some(cluster) = nodepool.get_cluster(1).await {
+                log::info!("Created Cluster");
+                let info = ClusterInfo {
+                    id: id.clone(),
+                    cols: columns.clone(),
+                    train_csv: anon_train_csv.clone(),
+                    predict_csv: anon_predict_csv.clone(),
+                    config: config.clone(),
+                };
 
-        for (key, dcn) in cluster {
-            let np_clone = Arc::clone(&nodepool);
-            let database_clone = Arc::clone(&database);
-
-            let identifier = id.clone();
-            let train = anon_train_csv.clone();
-            let predict = anon_predict_csv.clone();
-            let cols = columns.clone();
-            let config_clone = config.clone();
-
-            tokio::spawn(async move {
-                dcl_protcol(
-                    np_clone,
-                    database_clone,
-                    key,
-                    dcn,
-                    identifier,
-                    train,
-                    predict,
-                    cols,
-                    config_clone,
-                )
-                .await
-                .unwrap();
-            });
+                let np_clone = Arc::clone(&nodepool);
+                let database_clone = Arc::clone(&database);
+                run_cluster(np_clone, database_clone, cluster, info).await?;
+                return Ok(());
+            }
         }
+    }
+    Ok(())
+}
+
+async fn run_cluster(
+    nodepool: Arc<NodePool>,
+    database: Arc<Database>,
+    cluster: HashMap<String, Arc<RwLock<TcpStream>>>,
+    info: ClusterInfo,
+) -> Result<()> {
+    for (key, dcn) in cluster {
+        let np_clone = Arc::clone(&nodepool);
+        let database_clone = Arc::clone(&database);
+
+        let identifier = info.id.clone();
+        let train = info.train_csv.clone();
+        let predict = info.predict_csv.clone();
+        let cols = info.cols.clone();
+        let config_clone = info.config.clone();
+
+        tokio::spawn(async move {
+            dcl_protcol(
+                np_clone,
+                database_clone,
+                key,
+                dcn,
+                identifier,
+                train,
+                predict,
+                cols,
+                config_clone,
+            )
+            .await
+            .unwrap();
+        });
     }
     Ok(())
 }
