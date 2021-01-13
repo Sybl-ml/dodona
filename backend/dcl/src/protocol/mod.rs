@@ -8,7 +8,7 @@ use serde::Serialize;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
-use messages::ClientMessage;
+use messages::{ClientMessage, RawMessage, ReadLengthPrefix, WriteLengthPrefix};
 
 #[cfg(test)]
 mod tests;
@@ -94,7 +94,7 @@ impl<'a> Handler<'a> {
         let endpoint = "/api/clients/m/new";
         let text = get_response_text(endpoint, body).await?;
 
-        let message = ClientMessage::RawJSON { content: text };
+        let message = RawMessage::new(text);
 
         // Send the response back to the client
         self.respond(&message.as_bytes()).await?;
@@ -125,7 +125,7 @@ impl<'a> Handler<'a> {
         let endpoint = "/api/clients/m/verify";
         let text = get_response_text(endpoint, body).await?;
 
-        let message = ClientMessage::RawJSON { content: text };
+        let message = RawMessage::new(text);
 
         // Send the response back to the client
         self.stream.write(&message.as_bytes()).await?;
@@ -151,7 +151,7 @@ impl<'a> Handler<'a> {
         let endpoint = "/api/clients/m/authenticate";
         let text = get_response_text(endpoint, body).await?;
 
-        let message = ClientMessage::RawJSON { content: text };
+        let message = RawMessage::new(text);
 
         // Send the response back to the client
         self.stream.write(&message.as_bytes()).await?;

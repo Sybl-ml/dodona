@@ -17,7 +17,7 @@ use crate::dodona_error::DodonaError;
 use crate::routes::{check_project_exists, check_user_exists, response_from_json};
 use crate::AppState;
 use crypto::clean;
-use messages::interface::InterfaceMessage;
+use messages::{InterfaceMessage, WriteLengthPrefix};
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
 use models::jobs::Job;
@@ -464,7 +464,7 @@ async fn forward_to_interface(msg: &InterfaceMessage) -> tokio::io::Result<()> {
 
     stream.write(&msg.as_bytes()).await?;
 
-    log::info!("Forwarded an message to the interface: {:?}", msg);
+    log::info!("Forwarded a message to the interface: {:?}", msg);
 
     Ok(())
 }

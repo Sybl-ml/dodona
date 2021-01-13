@@ -13,7 +13,7 @@ use tokio::sync::mpsc::Sender;
 use utils::compress::decompress_data;
 
 use crate::DatasetPair;
-use messages::{ClientMessage, InterfaceMessage};
+use messages::{ClientMessage, InterfaceMessage, ReadLengthPrefix};
 use models::datasets::Dataset;
 
 /// Starts up interface server
