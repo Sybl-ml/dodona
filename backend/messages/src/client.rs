@@ -47,9 +47,4 @@ pub enum ClientMessage {
     },
     /// Prediction data from a node after computation
     Predictions(String),
-    /// A raw JSON message, usually from the API server
-    RawJSON {
-        /// The raw JSON contents
-        content: String,
-    },
 }

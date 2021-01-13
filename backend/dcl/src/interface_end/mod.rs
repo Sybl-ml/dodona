@@ -61,12 +61,12 @@ async fn process_connection(
             } => (id, timeout, column_types),
             _ => unreachable!(),
         };
-    log::info!(
-        "Received Information across the interface\n\tID: {}\n\tTimeout: {}\n\tTypes: {:?}",
-        &object_id,
-        &timeout,
-        &column_types
-    );
+
+    log::info!("Received a message from the interface:");
+    log::debug!("\tIdentifier: {}", object_id);
+    log::debug!("\tTimeout: {}", timeout);
+    log::debug!("\tColumn types: {:?}", column_types);
+
     let datasets = db_conn.collection("datasets");
 
     let filter = doc! { "_id": object_id };

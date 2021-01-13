@@ -14,9 +14,4 @@ pub enum InterfaceMessage {
         /// The columns in the dataset
         column_types: Vec<String>,
     },
-    /// A raw JSON message, usually from the API server
-    RawJSON {
-        /// The raw JSON contents
-        content: String,
-    },
 }
