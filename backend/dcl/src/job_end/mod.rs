@@ -1,5 +1,6 @@
 //! Part of DCL that takes a DCN and a dataset and comunicates with node
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -20,6 +21,21 @@ use models::predictions::Prediction;
 use utils::anon::{anonymise_dataset, deanonymise_dataset};
 use utils::compress::compress_bytes;
 use utils::{infer_train_and_predict, Columns};
+
+/// Struct to pass information for a cluster to function
+#[derive(Debug, Clone)]
+pub struct ClusterInfo {
+    /// Id of dataset
+    id: ObjectId,
+    /// Columns in dataset
+    columns: Columns,
+    /// Training CSV
+    train: String,
+    /// Prediction CSV
+    predict: String,
+    /// Config
+    config: ClientMessage,
+}
 
 /// Starts up and runs the job end
 ///
@@ -49,34 +65,43 @@ pub async fn run(
         let (anon_train, anon_predict) = infer_train_and_predict(&anon);
         let (anon_train_csv, anon_predict_csv) = (anon_train.join("\n"), anon_predict.join("\n"));
 
-        let cluster = nodepool.get_cluster(1).await.unwrap();
+        loop {
+            if let Some(cluster) = nodepool.get_cluster(1).await {
+                log::info!("Created Cluster");
+                let info = ClusterInfo {
+                    id: id.clone(),
+                    columns: columns.clone(),
+                    train: anon_train_csv.clone(),
+                    predict: anon_predict_csv.clone(),
+                    config: config.clone(),
+                };
 
-        for (key, dcn) in cluster {
-            let np_clone = Arc::clone(&nodepool);
-            let database_clone = Arc::clone(&database);
+                let np_clone = Arc::clone(&nodepool);
+                let database_clone = Arc::clone(&database);
+                run_cluster(np_clone, database_clone, cluster, info.clone()).await?;
+                return Ok(());
+            }
+        }
+    }
+    Ok(())
+}
 
-            let identifier = id.clone();
-            let train = anon_train_csv.clone();
-            let predict = anon_predict_csv.clone();
-            let cols = columns.clone();
-            let config_clone = config.clone();
+async fn run_cluster(
+    nodepool: Arc<NodePool>,
+    database: Arc<Database>,
+    cluster: HashMap<String, Arc<RwLock<TcpStream>>>,
+    info: ClusterInfo,
+) -> Result<()> {
+    for (key, dcn) in cluster {
+        let np_clone = Arc::clone(&nodepool);
+        let database_clone = Arc::clone(&database);
+        let info_clone = info.clone();
 
-            tokio::spawn(async move {
-                dcl_protcol(
-                    np_clone,
-                    database_clone,
-                    key,
-                    dcn,
-                    identifier,
-                    train,
-                    predict,
-                    cols,
-                    config_clone,
-                )
+        tokio::spawn(async move {
+            dcl_protcol(np_clone, database_clone, key, dcn, info_clone)
                 .await
                 .unwrap();
-            });
-        }
+        });
     }
     Ok(())
 }
@@ -87,19 +112,15 @@ pub async fn dcl_protcol(
     database: Arc<Database>,
     key: String,
     stream: Arc<RwLock<TcpStream>>,
-    id: ObjectId,
-    train: String,
-    predict: String,
-    columns: Columns,
-    config: ClientMessage,
+    info: ClusterInfo,
 ) -> Result<()> {
     log::info!("Sending a job to node with key: {}", key);
 
     let mut dcn_stream = stream.write().await;
 
     let mut buffer = [0_u8; 1024];
-    match config {
-        ClientMessage::JobConfig { .. } => dcn_stream.write(&config.as_bytes()).await.unwrap(),
+    match info.config {
+        ClientMessage::JobConfig { .. } => dcn_stream.write(&info.config.as_bytes()).await.unwrap(),
         _ => unreachable!(),
     };
 
@@ -108,7 +129,10 @@ pub async fn dcl_protcol(
 
     log::info!("(Node {}) Config response: {}", &key, config_response);
 
-    let dataset_message = ClientMessage::Dataset { train, predict };
+    let dataset_message = ClientMessage::Dataset {
+        train: info.train,
+        predict: info.predict,
+    };
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
     // TODO: Propagate this error forward to the frontend so that it can say a node has failed
@@ -132,10 +156,10 @@ pub async fn dcl_protcol(
         _ => unreachable!(),
     };
 
-    let predictions = deanonymise_dataset(anonymised_predictions, columns).unwrap();
+    let predictions = deanonymise_dataset(anonymised_predictions, info.columns).unwrap();
 
     // Write the predictions back to the database
-    write_predictions(database, id, &key, predictions.as_bytes())
+    write_predictions(database, info.id, &key, predictions.as_bytes())
         .await
         .unwrap_or_else(|error| {
             log::error!(
