@@ -1,4 +1,4 @@
-//! Defines the structure of predictions in the MongoDB instance.
+//! Defines the structure of predictions in the `MongoDB` instance.
 
 use mongodb::bson::{self, oid::ObjectId, Binary};
 
@@ -19,7 +19,7 @@ impl Prediction {
     pub fn new(project_id: ObjectId, predictions: Vec<u8>) -> Self {
         Self {
             id: None,
-            project_id: project_id,
+            project_id,
             predictions: Binary {
                 subtype: bson::spec::BinarySubtype::Generic,
                 bytes: predictions,

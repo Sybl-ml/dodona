@@ -1,8 +1,7 @@
 //! Health checking functionality
 //!
-//! This will go through and will check each node to make sure
-//! each is alive and working. It will update its status in the
-//! NodeInfo object for the node.
+//! This will go through and will check each node to make sure each is alive and working. It will
+//! update its status in the [`NodeInfo`] object for the node.
 
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
@@ -19,9 +18,8 @@ use messages::{ClientMessage, WriteLengthPrefix};
 
 /// Runner for health checking
 ///
-/// Runs the health checking framework to go through
-/// each node that is not currently being used and makes
-/// sure it is still alive. This will be run every <delay> seconds.
+/// Runs the health checking framework to go through each node that is not currently being used and
+/// makes sure it is still alive. This will be run every <delay> seconds.
 pub async fn health_runner(nodepool: Arc<NodePool>, delay: u64) {
     log::info!("Health Checking Running");
     let mut interval = tokio::time::interval(Duration::from_secs(delay));
@@ -40,8 +38,8 @@ pub async fn health_runner(nodepool: Arc<NodePool>, delay: u64) {
 
 /// Go through nodes and check if alive
 ///
-/// Loops through all nodes and checks to see if they are alive.
-/// This information is saved in NodeInfo.
+/// Loops through all nodes and checks to see if they are alive.  This information is saved [`in`]
+/// [`NodeInfo`].
 pub async fn check_health(nodepool: Arc<NodePool>) -> Result<u8> {
     let mut nodes = nodepool.nodes.write().await;
     let mut clean_list: Vec<String> = Vec::new();

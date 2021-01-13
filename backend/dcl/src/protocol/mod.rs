@@ -62,13 +62,10 @@ impl<'a> Handler<'a> {
     /// them along with the challenge response, or by instantly receiving a [`Message::AccessToken`]
     /// from the user.
     pub async fn get_access_token(&mut self) -> Result<Option<(String, String)>> {
-        match self.peek_message().await? {
-            ClientMessage::NewModel { .. } => {
-                self.register_new_model().await?;
-                self.authenticate_challenge_response().await?;
-                return Ok(None);
-            }
-            _ => (),
+        if let ClientMessage::NewModel { .. } = self.peek_message().await? {
+            self.register_new_model().await?;
+            self.authenticate_challenge_response().await?;
+            return Ok(None);
         };
 
         let (id, token) = self.verify_access_token().await?;

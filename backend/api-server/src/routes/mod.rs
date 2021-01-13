@@ -34,7 +34,7 @@ pub async fn check_user_exists(id: &str, users: &Collection) -> Result<ObjectId,
         .find_one(query, None)
         .await
         .unwrap()
-        .ok_or_else(|| DodonaError::NotFound)?;
+        .ok_or(DodonaError::NotFound)?;
 
     Ok(object_id)
 }
@@ -52,7 +52,7 @@ pub async fn check_project_exists(
         .find_one(query, None)
         .await
         .unwrap()
-        .ok_or_else(|| DodonaError::NotFound)?;
+        .ok_or(DodonaError::NotFound)?;
 
     Ok(object_id)
 }

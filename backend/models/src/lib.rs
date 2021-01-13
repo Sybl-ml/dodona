@@ -1,4 +1,4 @@
-//! Defines the models module for MongoDB
+//! Defines the models module for `MongoDB`
 
 #[macro_use]
 extern crate serde;

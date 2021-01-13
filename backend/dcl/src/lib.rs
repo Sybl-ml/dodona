@@ -1,6 +1,6 @@
 //! Contains the Distributed Control Layer for the Sybl project.
 //!
-//! Manages connections to Compute Nodes, a MongoDB database and an Inteface Layer
+//! Manages connections to Compute Nodes, a `MongoDB` database and an Interface Layer
 
 #![warn(rust_2018_idioms)]
 #![warn(missing_debug_implementations)]

@@ -57,8 +57,8 @@ pub async fn run(
 
         let data = msg
             .train
-            .split("\n")
-            .chain(msg.predict.split("\n").skip(1))
+            .split('\n')
+            .chain(msg.predict.split('\n').skip(1))
             .collect::<Vec<_>>()
             .join("\n");
         let (anon, columns) = anonymise_dataset(data).unwrap();

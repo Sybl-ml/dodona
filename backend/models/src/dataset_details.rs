@@ -1,4 +1,4 @@
-//! Defines the dataset details for a given dataset and project in the MongoDB instance.
+//! Defines the dataset details for a given dataset and project in the `MongoDB` instance.
 
 use chrono::Utc;
 use mongodb::bson;

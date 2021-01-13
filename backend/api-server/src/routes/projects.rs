@@ -178,10 +178,10 @@ pub async fn new(
     response_from_json(doc! {"project_id": id})
 }
 
-/// Saves a dataset to MongoDB for associated project.
+/// Saves a dataset to `MongoDB` for associated project.
 ///
 /// This will take in a project id and a dataset. This route will
-/// compress the dataset using BZip2 and will store this compressed
+/// compress the dataset using `bzip2` and will store this compressed
 /// data in the database as binary data. This can go wrong if there's
 /// an error writing out the compressed data to the vector or if there
 /// is an error finishing the compression stream. Both times an error
@@ -309,7 +309,7 @@ pub async fn get_data(
         .find_one(filter, None)
         .await
         .map_err(|_| DodonaError::Unknown)?
-        .ok_or_else(|| DodonaError::NotFound)?;
+        .ok_or(DodonaError::NotFound)?;
 
     // Parse the dataset itself
     let dataset =
@@ -357,7 +357,7 @@ pub async fn begin_processing(
         .find_one(filter, None)
         .await
         .map_err(|_| DodonaError::Unknown)?
-        .ok_or_else(|| DodonaError::NotFound)?;
+        .ok_or(DodonaError::NotFound)?;
 
     // Parse the dataset itself
     let dataset =
@@ -371,7 +371,7 @@ pub async fn begin_processing(
         .find_one(filter, None)
         .await
         .map_err(|_| DodonaError::Unknown)?
-        .ok_or_else(|| DodonaError::NotFound)?;
+        .ok_or(DodonaError::NotFound)?;
 
     // Parse the dataset detail itself
     let dataset_detail = mongodb::bson::de::from_document::<DatasetDetails>(document)
@@ -478,9 +478,10 @@ async fn insert_to_queue(
     let job = Job::new(msg.clone());
     let document = mongodb::bson::ser::to_document(&job).unwrap();
 
-    match collection.insert_one(document, None).await {
-        Ok(_) => log::info!("Inserted {:?} to the MongoDB queue", msg),
-        Err(_) => log::error!("Failed to insert {:?} to the MongoDB queue", msg),
+    if collection.insert_one(document, None).await.is_ok() {
+        log::info!("Inserted {:?} to the MongoDB queue", msg);
+    } else {
+        log::error!("Failed to insert {:?} to the MongoDB queue", msg);
     }
 
     Ok(())

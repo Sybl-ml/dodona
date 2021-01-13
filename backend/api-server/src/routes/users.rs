@@ -177,7 +177,7 @@ pub async fn login(
         .map_err(|_| DodonaError::Unknown)?
         .map(|doc| mongodb::bson::de::from_document::<User>(doc).unwrap());
 
-    let user = user.ok_or_else(|| DodonaError::NotFound)?;
+    let user = user.ok_or(DodonaError::NotFound)?;
     let peppered = format!("{}{}", password, pepper);
 
     // Check the user's password

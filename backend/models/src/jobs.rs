@@ -1,4 +1,4 @@
-//! Defines the structure of jobs in the MongoDB instance.
+//! Defines the structure of jobs in the `MongoDB` instance.
 
 use messages::interface::InterfaceMessage;
 use mongodb::bson::oid::ObjectId;
@@ -14,7 +14,7 @@ pub struct Job {
 }
 
 impl Job {
-    /// Creates a new [`Job`] with a given InterfaceMessage.
+    /// Creates a new [`Job`] with a given [`InterfaceMessage`].
     pub fn new(msg: InterfaceMessage) -> Self {
         Self {
             id: ObjectId::new(),

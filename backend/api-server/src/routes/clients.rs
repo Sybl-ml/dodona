@@ -14,8 +14,7 @@ use tokio_stream::StreamExt;
 
 /// Template for registering a new client
 ///
-/// Will check the provided user_id matches with the
-/// provided email and password
+/// Will check the provided `user_id` matches with the provided email and password
 pub async fn register(
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,
@@ -38,7 +37,7 @@ pub async fn register(
         .map_err(|_| DodonaError::Unknown)?
         .map(|doc| from_document::<User>(doc).unwrap());
 
-    let user = user.ok_or_else(|| DodonaError::NotFound)?;
+    let user = user.ok_or(DodonaError::NotFound)?;
 
     if user.client {
         return response_from_json(doc! {"privKey": "null"});
@@ -176,7 +175,7 @@ pub async fn verify_challenge(
         .map_err(|_| DodonaError::Unknown)?
         .map(|doc| from_document::<User>(doc).unwrap());
 
-    let user = user.ok_or_else(|| DodonaError::NotFound)?;
+    let user = user.ok_or(DodonaError::NotFound)?;
     let user_id = user.id.expect("User ID is none");
     // get clients public key matching with that users id
     let filter = doc! { "user_id": &user_id };
@@ -185,7 +184,7 @@ pub async fn verify_challenge(
         .await
         .map_err(|_| DodonaError::Unknown)?
         .map(|doc| from_document::<Client>(doc).unwrap());
-    let client = client.ok_or_else(|| DodonaError::NotFound)?;
+    let client = client.ok_or(DodonaError::NotFound)?;
 
     let filter = doc! { "user_id": &user_id, "name": &model_name };
     let model = models
@@ -193,14 +192,10 @@ pub async fn verify_challenge(
         .await
         .map_err(|_| DodonaError::Unknown)?
         .map(|doc| from_document::<ClientModel>(doc).unwrap());
-    let mut model = model.ok_or_else(|| DodonaError::NotFound)?;
+    let mut model = model.ok_or(DodonaError::NotFound)?;
 
     let public_key = client.public_key;
-
-    let challenge = &model
-        .challenge
-        .ok_or_else(|| DodonaError::Unauthorized)?
-        .bytes;
+    let challenge = &model.challenge.ok_or(DodonaError::Unauthorized)?.bytes;
 
     // needs converting to Vec<u8>
     let challenge_response = base64::decode(get_from_doc(&doc, "challenge_response")?).unwrap();
@@ -252,7 +247,7 @@ pub async fn unlock_model(
         .await
         .map_err(|_| DodonaError::Unknown)?
         .map(|doc| from_document::<ClientModel>(doc).unwrap());
-    let mut model = model.ok_or_else(|| DodonaError::Unauthorized)?;
+    let mut model = model.ok_or(DodonaError::Unauthorized)?;
 
     //TODO: implement additional safeguards to prevent arbitrary access and unlocking
 
@@ -290,7 +285,7 @@ pub async fn authenticate_model(
         .await
         .map_err(|_| DodonaError::Unknown)?
         .map(|doc| from_document::<ClientModel>(doc).unwrap());
-    let mut model = model.ok_or_else(|| DodonaError::Unauthorized)?;
+    let mut model = model.ok_or(DodonaError::Unauthorized)?;
 
     let token = base64::decode(get_from_doc(&doc, "token")?).unwrap();
 

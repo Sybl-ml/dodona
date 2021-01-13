@@ -1,4 +1,4 @@
-//! Defines the details for a model in the MongoDB instance.
+//! Defines the details for a model in the `MongoDB` instance.
 
 use std::fmt;
 
@@ -39,6 +39,12 @@ impl AccessToken {
             },
             expires: Utc::now() + Duration::weeks(2),
         }
+    }
+}
+
+impl Default for AccessToken {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -85,9 +91,6 @@ impl ClientModel {
         }
 
         // Check the user's token
-        match &self.access_token {
-            Some(x) if x.token.bytes == token => true,
-            _ => false,
-        }
+        matches!(&self.access_token, Some(x) if x.token.bytes == token)
     }
 }

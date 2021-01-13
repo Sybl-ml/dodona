@@ -1,4 +1,4 @@
-//! Defines error handling for the api_server
+//! Defines error handling for the API server.
 
 use actix_web::{error::ResponseError, http::StatusCode, HttpResponse};
 use serde::Serialize;
