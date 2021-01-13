@@ -7,7 +7,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 
-use messages::InterfaceMessage;
+use messages::{InterfaceMessage, WriteLengthPrefix};
 
 mod common;
 

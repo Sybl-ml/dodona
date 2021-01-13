@@ -7,7 +7,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 
 use crate::protocol;
-use messages::ClientMessage;
+use messages::{ClientMessage, WriteLengthPrefix};
 
 #[tokio::test]
 async fn nodes_can_immediately_send_tokens() -> Result<(), Box<dyn Error>> {

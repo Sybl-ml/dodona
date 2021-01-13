@@ -11,7 +11,7 @@ use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio_stream::StreamExt;
 
 use config::Environment;
-use messages::InterfaceMessage;
+use messages::{InterfaceMessage, ReadLengthPrefix, WriteLengthPrefix};
 use models::jobs::Job;
 use utils::setup_logger;
 
