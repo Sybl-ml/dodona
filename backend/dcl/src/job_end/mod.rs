@@ -23,16 +23,16 @@ use utils::compress::compress_bytes;
 use utils::{infer_train_and_predict, Columns};
 
 /// Struct to pass information for a cluster to function
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ClusterInfo {
     /// Id of dataset
     id: ObjectId,
     /// Columns in dataset
-    cols: Columns,
+    columns: Columns,
     /// Training CSV
-    train_csv: String,
+    train: String,
     /// Prediction CSV
-    predict_csv: String,
+    predict: String,
     /// Config
     config: ClientMessage,
 }
@@ -70,15 +70,15 @@ pub async fn run(
                 log::info!("Created Cluster");
                 let info = ClusterInfo {
                     id: id.clone(),
-                    cols: columns.clone(),
-                    train_csv: anon_train_csv.clone(),
-                    predict_csv: anon_predict_csv.clone(),
+                    columns: columns.clone(),
+                    train: anon_train_csv.clone(),
+                    predict: anon_predict_csv.clone(),
                     config: config.clone(),
                 };
 
                 let np_clone = Arc::clone(&nodepool);
                 let database_clone = Arc::clone(&database);
-                run_cluster(np_clone, database_clone, cluster, info).await?;
+                run_cluster(np_clone, database_clone, cluster, info.clone()).await?;
                 return Ok(());
             }
         }
@@ -95,27 +95,12 @@ async fn run_cluster(
     for (key, dcn) in cluster {
         let np_clone = Arc::clone(&nodepool);
         let database_clone = Arc::clone(&database);
-
-        let identifier = info.id.clone();
-        let train = info.train_csv.clone();
-        let predict = info.predict_csv.clone();
-        let cols = info.cols.clone();
-        let config_clone = info.config.clone();
+        let info_clone = info.clone();
 
         tokio::spawn(async move {
-            dcl_protcol(
-                np_clone,
-                database_clone,
-                key,
-                dcn,
-                identifier,
-                train,
-                predict,
-                cols,
-                config_clone,
-            )
-            .await
-            .unwrap();
+            dcl_protcol(np_clone, database_clone, key, dcn, info_clone)
+                .await
+                .unwrap();
         });
     }
     Ok(())
@@ -127,19 +112,15 @@ pub async fn dcl_protcol(
     database: Arc<Database>,
     key: String,
     stream: Arc<RwLock<TcpStream>>,
-    id: ObjectId,
-    train: String,
-    predict: String,
-    columns: Columns,
-    config: ClientMessage,
+    info: ClusterInfo,
 ) -> Result<()> {
     log::info!("Sending a job to node with key: {}", key);
 
     let mut dcn_stream = stream.write().await;
 
     let mut buffer = [0_u8; 1024];
-    match config {
-        ClientMessage::JobConfig { .. } => dcn_stream.write(&config.as_bytes()).await.unwrap(),
+    match info.config {
+        ClientMessage::JobConfig { .. } => dcn_stream.write(&info.config.as_bytes()).await.unwrap(),
         _ => unreachable!(),
     };
 
@@ -148,7 +129,10 @@ pub async fn dcl_protcol(
 
     log::info!("(Node {}) Config response: {}", &key, config_response);
 
-    let dataset_message = ClientMessage::Dataset { train, predict };
+    let dataset_message = ClientMessage::Dataset {
+        train: info.train,
+        predict: info.predict,
+    };
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
     // TODO: Propagate this error forward to the frontend so that it can say a node has failed
@@ -172,10 +156,10 @@ pub async fn dcl_protcol(
         _ => unreachable!(),
     };
 
-    let predictions = deanonymise_dataset(anonymised_predictions, columns).unwrap();
+    let predictions = deanonymise_dataset(anonymised_predictions, info.columns).unwrap();
 
     // Write the predictions back to the database
-    write_predictions(database, id, &key, predictions.as_bytes())
+    write_predictions(database, info.id, &key, predictions.as_bytes())
         .await
         .unwrap_or_else(|error| {
             log::error!(
