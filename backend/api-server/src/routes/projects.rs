@@ -1,9 +1,15 @@
 //! Defines the routes specific to project operations.
 
-use async_std::net::TcpStream;
+use std::env;
+use std::str::FromStr;
+
+use async_std::net::{Ipv4Addr, SocketAddrV4, TcpStream};
 use async_std::prelude::*;
 use async_std::stream::StreamExt;
-use mongodb::bson::{doc, document::Document};
+use mongodb::{
+    bson::{doc, document::Document, oid::ObjectId},
+    Collection,
+};
 use tide::{Request, Response};
 
 use crate::routes::{check_project_exists, check_user_exists, response_from_json, tide_err};
@@ -11,8 +17,10 @@ use crate::State;
 use crypto::clean;
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
+use models::jobs::Job;
 use models::predictions::Prediction;
 use models::projects::{Project, Status};
+use utils::compress::{compress_vec, decompress_data};
 
 /// Finds a project in the database given an identifier.
 ///
@@ -162,7 +170,7 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
 
     log::info!("Project already has data: {}", project_has_data);
 
-    let analysis = utils::analyse(&data);
+    let analysis = utils::analysis::analyse(&data);
     let (train, predict) = utils::infer_train_and_predict(&data);
     let column_types = analysis.types;
     let data_head = analysis.header;
@@ -170,10 +178,9 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
     log::info!("Dataset types: {:?}", &column_types);
 
     // Compress the input data
-    let compressed =
-        utils::compress_vec(&train).map_err(|_| tide_err(422, "failed compression"))?;
+    let compressed = compress_vec(&train).map_err(|_| tide_err(422, "failed compression"))?;
     let compressed_predict =
-        utils::compress_vec(&predict).map_err(|_| tide_err(422, "failed compression"))?;
+        compress_vec(&predict).map_err(|_| tide_err(422, "failed compression"))?;
 
     let details = DatasetDetails::new(object_id.clone(), data_head, column_types);
     let dataset = Dataset::new(object_id.clone(), compressed, compressed_predict);
@@ -188,7 +195,7 @@ pub async fn add_data(mut req: Request<State>) -> tide::Result {
         projects
             .update_one(
                 doc! { "_id": &object_id},
-                doc! {"$set": {"status": Status::Ready.to_string()}},
+                doc! {"$set": {"status": Status::Ready}},
                 None,
             )
             .await?;
@@ -254,9 +261,9 @@ pub async fn get_data(req: Request<State>) -> tide::Result {
     let comp_predict = dataset.predict.expect("missing prediction dataset").bytes;
 
     let decomp_train =
-        utils::decompress_data(&comp_train).map_err(|_| tide_err(422, "failed decompression"))?;
+        decompress_data(&comp_train).map_err(|_| tide_err(422, "failed decompression"))?;
     let decomp_predict =
-        utils::decompress_data(&comp_predict).map_err(|_| tide_err(422, "failed decompression"))?;
+        decompress_data(&comp_predict).map_err(|_| tide_err(422, "failed decompression"))?;
 
     let train = clean(std::str::from_utf8(&decomp_train)?);
     let predict = clean(std::str::from_utf8(&decomp_predict)?);
@@ -296,15 +303,15 @@ pub async fn begin_processing(req: Request<State>) -> tide::Result {
         .map_err(|_| tide_err(422, "failed to parse dataset"))?;
 
     // Send a request to the interface layer
-    let hex = dataset.id.expect("Dataset with no identifier").to_hex();
-    log::info!("Forwarding dataset id: {} to the interface layer", &hex);
+    let identifier = dataset.id.expect("Dataset with no identifier");
 
-    let mut stream = TcpStream::connect("127.0.0.1:5000").await?;
-    stream.write(hex.as_bytes()).await?;
-    stream.shutdown(std::net::Shutdown::Both)?;
+    if forward_to_interface(&identifier).await.is_err() {
+        log::warn!("Failed to forward: {}", identifier);
+        insert_to_queue(&identifier, database.collection("jobs")).await?;
+    }
 
     // Mark the project as processing
-    let update = doc! { "$set": doc!{ "status": Status::Processing.to_string() } };
+    let update = doc! { "$set": doc!{ "status": Status::Processing } };
     projects
         .update_one(doc! { "_id": &object_id}, update, None)
         .await?;
@@ -337,7 +344,7 @@ pub async fn get_predictions(req: Request<State>) -> tide::Result {
         .filter_map(Result::ok)
         .map(|document| {
             let prediction: Prediction = mongodb::bson::de::from_document(document).unwrap();
-            let decompressed = utils::decompress_data(&prediction.predictions.bytes).unwrap();
+            let decompressed = decompress_data(&prediction.predictions.bytes).unwrap();
 
             String::from_utf8(decompressed).unwrap()
         })
@@ -345,4 +352,40 @@ pub async fn get_predictions(req: Request<State>) -> tide::Result {
         .await;
 
     Ok(response_from_json(doc! {"predictions": decompressed}))
+}
+
+async fn forward_to_interface(identifier: &ObjectId) -> async_std::io::Result<()> {
+    log::debug!("Forwarding an identifier to the interface: {}", identifier);
+
+    // Get the environment variable for the interface listener
+    let var = env::var("INTERFACE_LISTEN").expect("INTERFACE_LISTEN must be set");
+    let port = u16::from_str(&var).expect("INTERFACE_LISTEN must be a u16");
+
+    // Build the address to send to
+    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port);
+
+    let mut stream = TcpStream::connect(addr).await?;
+    stream.write(identifier.to_hex().as_bytes()).await?;
+    stream.shutdown(std::net::Shutdown::Both)?;
+
+    log::info!("Forwarded an identifier to the interface: {}", identifier);
+
+    Ok(())
+}
+
+async fn insert_to_queue(
+    identifier: &ObjectId,
+    collection: Collection,
+) -> mongodb::error::Result<()> {
+    log::debug!("Inserting {} to the MongoDB interface queue", identifier);
+
+    let job = Job::new(identifier.clone());
+    let document = mongodb::bson::ser::to_document(&job).unwrap();
+
+    match collection.insert_one(document, None).await {
+        Ok(_) => log::info!("Inserted {} to the MongoDB queue", identifier),
+        Err(_) => log::error!("Failed to insert {} to the MongoDB queue", identifier),
+    }
+
+    Ok(())
 }

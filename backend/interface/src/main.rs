@@ -1,19 +1,34 @@
 use std::collections::VecDeque;
+use std::env;
 use std::io::{Read, Write};
-use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
+use std::net::{Ipv4Addr, Shutdown, SocketAddrV4, TcpListener, TcpStream};
 use std::str::FromStr;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
+use async_std::stream::StreamExt;
+use async_std::task::block_on;
+
+use config::Environment;
+use models::jobs::Job;
+use utils::setup_logger;
+
 const TIMEOUT_SECS: u64 = 1;
-const LISTEN_ADDR: &str = "127.0.0.1:5000";
 
 /// Listens for incoming messages from the API server and forwards them to the queue.
 fn listen(inner: &Arc<Inner>) -> std::io::Result<()> {
-    let listener = TcpListener::bind(LISTEN_ADDR)?;
+    // Get the environment variable for listening
+    let var = env::var("INTERFACE_LISTEN").expect("INTERFACE_LISTEN must be set");
+    let port = u16::from_str(&var).expect("INTERFACE_LISTEN must be a u16");
+
+    // Build the address to listen on
+    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port);
+
+    // Begin listening for messages
+    let listener = TcpListener::bind(addr)?;
     let incoming = listener.incoming();
 
-    log::info!("Listening for connections on: {}", LISTEN_ADDR);
+    log::info!("Listening for connections on: {}", addr);
 
     for possible_stream in incoming {
         let mut stream = possible_stream?;
@@ -34,7 +49,7 @@ fn listen(inner: &Arc<Inner>) -> std::io::Result<()> {
 }
 
 /// Continually tries to connect until a connection is achieved.
-fn try_to_connect(address: &SocketAddr, timeout: Duration, attempts: usize) -> Option<TcpStream> {
+fn try_to_connect(address: &SocketAddrV4, timeout: Duration, attempts: usize) -> Option<TcpStream> {
     for i in 0..attempts {
         log::debug!("Connection attempt: {}", i + 1);
 
@@ -54,7 +69,12 @@ fn try_to_connect(address: &SocketAddr, timeout: Duration, attempts: usize) -> O
 
 /// Receives messages from the frontend thread and communicates with the DCL.
 fn receive(inner: &Arc<Inner>) -> std::io::Result<()> {
-    let address = SocketAddr::from_str("127.0.0.1:6000").unwrap();
+    // Get the environment variable for sending
+    let var = env::var("INTERFACE_SOCKET").expect("INTERFACE_SOCKET must be set");
+    let port = u16::from_str(&var).expect("INTERFACE_SOCKET must be a u16");
+
+    // Build the address to send to
+    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port);
     let timeout = Duration::from_secs(TIMEOUT_SECS);
     let attempts = 3;
 
@@ -64,7 +84,7 @@ fn receive(inner: &Arc<Inner>) -> std::io::Result<()> {
     loop {
         // Try and send something onwards
         if let Some(element) = queue.pop_front() {
-            if let Some(mut stream) = try_to_connect(&address, timeout, attempts) {
+            if let Some(mut stream) = try_to_connect(&addr, timeout, attempts) {
                 // Send the element to the onward node that we connected to
                 stream.write_all(&element)?;
                 log::info!("Sent: {}", std::str::from_utf8(&element).unwrap());
@@ -96,11 +116,60 @@ struct Inner {
     available: Condvar,
 }
 
+impl Inner {
+    pub fn with_state(initial: VecDeque<ObjectId>) -> Self {
+        log::info!("Initialising the queue with {} elements", initial.len());
+
+        Self {
+            queue: Mutex::new(initial),
+            available: Default::default(),
+        }
+    }
+}
+
+fn get_job_queue() -> mongodb::error::Result<VecDeque<ObjectId>> {
+    // Setup the MongoDB client
+    let uri = std::env::var("CONN_STR").unwrap();
+    let client = block_on(async { mongodb::Client::with_uri_str(&uri).await })?;
+
+    // Get the jobs collection
+    let database = client.database("sybl");
+    let jobs = database.collection("jobs");
+
+    // Pull all the jobs and deserialize them
+    let cursor = block_on(async { jobs.find(None, None).await })?;
+
+    let queue = block_on(async {
+        cursor
+            .filter_map(Result::ok)
+            .filter_map(|x| mongodb::bson::de::from_document::<Job>(x).ok())
+            .map(|job| {
+                let mut bytes = [0_u8; 24];
+                bytes.copy_from_slice(&job.dataset_id.to_hex().as_bytes()[..]);
+                bytes
+            })
+            .collect()
+            .await
+    });
+
+    Ok(queue)
+}
+
 fn main() -> std::io::Result<()> {
     // Setup logging
-    pretty_env_logger::init();
+    setup_logger("interface");
 
-    let inner = Arc::new(Inner::default());
+    // Load the configuration variables
+    let environment = if cfg!(debug_assertions) {
+        Environment::Development
+    } else {
+        Environment::Production
+    };
+
+    config::load(environment);
+
+    let state = get_job_queue().expect("Failed to get the job queue");
+    let inner = Arc::new(Inner::with_state(state));
 
     log::info!("Beginning the thread execution");
     crossbeam::scope(|s| {

@@ -19,13 +19,19 @@ use mongodb::{
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
 
-pub mod protocol;
+use models::models::Status;
+
+use crate::protocol;
 
 /// Defines information about a Node
 #[derive(Debug)]
 pub struct Node {
+    /// TCPStream for connection to node
     conn: Arc<RwLock<TcpStream>>,
+    /// ID for associated model in database
     model_id: String,
+    /// Counter used to determine if node is permanently dead
+    pub counter: RwLock<u8>,
 }
 
 // Node Methods
@@ -35,6 +41,7 @@ impl Node {
         Self {
             conn: Arc::new(RwLock::new(conn)),
             model_id: model_id.into(),
+            counter: RwLock::new(0),
         }
     }
 
@@ -50,6 +57,23 @@ impl Node {
     /// Gets the model identifier for the node.
     pub fn get_model_id(&self) -> &String {
         &self.model_id
+    }
+
+    /// Increment the dead counter for node
+    pub async fn inc_counter(&self) {
+        let mut counter = self.counter.write().await;
+        *counter += 1;
+    }
+
+    /// Reset the dead counter for node
+    pub async fn reset_counter(&self) {
+        let mut counter = self.counter.write().await;
+        *counter = 0;
+    }
+
+    /// Get the value for dead counter for node
+    pub async fn get_counter(&self) -> u8 {
+        *self.counter.read().await
     }
 }
 
@@ -169,20 +193,24 @@ impl NodePool {
     /// When passed an ObjectId, this function will find the
     /// NodeInfo instance for that ID and will set its `using`
     /// flag to be false, signifying the end of its use.
-    pub async fn end(&self, key: &str) {
+    pub async fn end(&self, key: &str) -> Result<()> {
         let mut info_write = self.info.write().await;
         info_write.get_mut(key).unwrap().using = false;
+
+        Ok(())
     }
 
     /// Updates a NodeInfo object
     ///
     /// Gets the correct NodeInfo struct and updates its alive
     /// field by inverting what it currently is.
-    pub async fn update_node(&self, id: &str, status: bool) {
+    pub async fn update_node(&self, id: &str, status: bool) -> Result<()> {
         let mut info_write = self.info.write().await;
         let node_info = info_write.get_mut(id).unwrap();
 
         node_info.alive = status;
+
+        Ok(())
     }
 
     /// Checks if a node is being used
@@ -204,15 +232,14 @@ impl NodePool {
 /// communicate with the DCNs.
 pub async fn run(nodepool: Arc<NodePool>, database: Arc<Database>, socket: u16) -> Result<()> {
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
+    log::info!("Node Socket: {:?}", socket);
     let listener = TcpListener::bind(&socket).await?;
-
-    log::info!("RUNNING NODE END");
 
     while let Ok((inbound, _)) = listener.accept().await {
         let sp_clone = Arc::clone(&nodepool);
         let db_clone = Arc::clone(&database);
 
-        log::info!("NODE CONNECTION");
+        log::info!("Node Connection: {}", inbound.peer_addr()?);
 
         tokio::spawn(async move {
             process_connection(inbound, db_clone, sp_clone)
@@ -229,10 +256,11 @@ async fn process_connection(
     database: Arc<Database>,
     nodepool: Arc<NodePool>,
 ) -> Result<()> {
-    log::info!("PROCESSING");
-
     let mut handler = protocol::Handler::new(&mut stream);
-    let (model_id, token) = handler.get_access_token().await?;
+    let (model_id, token) = match handler.get_access_token().await? {
+        Some(t) => t,
+        None => return Ok(()),
+    };
 
     log::info!("New registered connection with:");
     log::info!("\tModel ID: {}", model_id);
@@ -242,8 +270,6 @@ async fn process_connection(
 
     let node = Node::new(stream, model_id);
     nodepool.add(node).await;
-
-    log::info!("PROCESSED");
 
     Ok(())
 }
@@ -257,7 +283,7 @@ pub async fn update_model_status(database: Arc<Database>, model_id: &str) -> Res
 
     let object_id = ObjectId::with_string(model_id)?;
     let query = doc! {"_id": &object_id};
-    let update = doc! { "$set": { "status": "Running" } };
+    let update = doc! { "$set": { "status": Status::Running } };
     models.update_one(query, update, None).await?;
 
     Ok(())
