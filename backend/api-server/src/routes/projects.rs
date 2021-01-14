@@ -42,17 +42,11 @@ pub async fn get_project(
 
     let filter = doc! { "_id": &object_id };
     // Unwrap is fine here as we already checked it exists
-    let doc = projects
-        .find_one(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?;
+    let doc = projects.find_one(filter, None).await?;
 
     // get that project from the projects collection
     let filter = doc! { "project_id": &object_id };
-    let details_doc = details
-        .find_one(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?;
+    let details_doc = details.find_one(filter, None).await?;
 
     let response = if let Some(details_doc) = details_doc {
         log::info!("{:?}", &details_doc);
@@ -83,10 +77,7 @@ pub async fn patch_project(
 
     let filter = doc! { "_id": &object_id };
     let update_doc = doc! { "$set": doc.into_inner() };
-    projects
-        .update_one(filter, update_doc, None)
-        .await
-        .map_err(|_| DodonaError::NotFound)?;
+    projects.update_one(filter, update_doc, None).await?;
 
     Ok(HttpResponse::Ok().finish())
 }
@@ -108,10 +99,7 @@ pub async fn delete_project(
     let object_id = check_project_exists(&project_id, &projects).await?;
 
     let filter = doc! { "_id": &object_id };
-    projects
-        .delete_one(filter, None)
-        .await
-        .map_err(|_| DodonaError::NotFound)?;
+    projects.delete_one(filter, None).await?;
 
     Ok(HttpResponse::Ok().finish())
 }
@@ -131,10 +119,7 @@ pub async fn get_user_projects(
     let object_id = check_user_exists(&user_id, &users).await?;
 
     let filter = doc! { "user_id": &object_id };
-    let cursor = projects
-        .find(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?;
+    let cursor = projects.find(filter, None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 
     response_from_json(documents.unwrap())
@@ -155,25 +140,16 @@ pub async fn new(
     let users = database.collection("users");
 
     // get user ID
-    let user_id = check_user_exists(&user_id, &users)
-        .await
-        .map_err(|_| DodonaError::Invalid)?;
+    let user_id = check_user_exists(&user_id, &users).await?;
 
     // get name
-    let name = clean(doc.get_str("name").map_err(|_| DodonaError::Invalid)?);
-    let description = clean(
-        doc.get_str("description")
-            .map_err(|_| DodonaError::Invalid)?,
-    );
+    let name = clean(doc.get_str("name")?);
+    let description = clean(doc.get_str("description")?);
 
     let project = Project::new(&name, &description, user_id);
 
-    let document = mongodb::bson::ser::to_document(&project).map_err(|_| DodonaError::Invalid)?;
-    let id = projects
-        .insert_one(document, None)
-        .await
-        .map_err(|_| DodonaError::Invalid)?
-        .inserted_id;
+    let document = mongodb::bson::ser::to_document(&project)?;
+    let id = projects.insert_one(document, None).await?.inserted_id;
 
     response_from_json(doc! {"project_id": id})
 }
@@ -197,14 +173,13 @@ pub async fn add_data(
     let dataset_details = database.collection("dataset_details");
     let projects = database.collection("projects");
 
-    let data = clean(doc.get_str("content").map_err(|_| DodonaError::Unknown)?);
+    let data = clean(doc.get_str("content")?);
     let object_id = check_project_exists(&project_id, &projects).await?;
 
     // Check whether the project has data already
     let project_has_data = datasets
         .find_one(doc! { "project_id": &object_id }, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?
+        .await?
         .is_some();
 
     log::info!("Project already has data: {}", project_has_data);
@@ -217,8 +192,8 @@ pub async fn add_data(
     log::info!("Dataset types: {:?}", &column_types);
 
     // Compress the input data
-    let compressed = compress_vec(&train).map_err(|_| DodonaError::Invalid)?;
-    let compressed_predict = compress_vec(&predict).map_err(|_| DodonaError::Invalid)?;
+    let compressed = compress_vec(&train)?;
+    let compressed_predict = compress_vec(&predict)?;
 
     let details = DatasetDetails::new(object_id.clone(), data_head, column_types);
     let dataset = Dataset::new(object_id.clone(), compressed, compressed_predict);
@@ -226,14 +201,8 @@ pub async fn add_data(
     // If the project has data, delete the existing information
     if project_has_data {
         let query = doc! { "project_id": &object_id };
-        datasets
-            .delete_one(query.clone(), None)
-            .await
-            .map_err(|_| DodonaError::Unknown)?;
-        dataset_details
-            .delete_one(query, None)
-            .await
-            .map_err(|_| DodonaError::Unknown)?;
+        datasets.delete_one(query.clone(), None).await?;
+        dataset_details.delete_one(query, None).await?;
     } else {
         // Update the project status
         projects
@@ -242,23 +211,15 @@ pub async fn add_data(
                 doc! {"$set": {"status": Status::Ready}},
                 None,
             )
-            .await
-            .map_err(|_| DodonaError::Unknown)?;
+            .await?;
     }
 
     // Insert the dataset details and the dataset itself
-    let document = mongodb::bson::ser::to_document(&details).map_err(|_| DodonaError::Unknown)?;
-    dataset_details
-        .insert_one(document, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?;
+    let document = mongodb::bson::ser::to_document(&details)?;
+    dataset_details.insert_one(document, None).await?;
 
-    let document = mongodb::bson::ser::to_document(&dataset).map_err(|_| DodonaError::Unknown)?;
-    let id = datasets
-        .insert_one(document, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?
-        .inserted_id;
+    let document = mongodb::bson::ser::to_document(&dataset)?;
+    let id = datasets.insert_one(document, None).await?.inserted_id;
 
     response_from_json(doc! {"dataset_id": id})
 }
@@ -278,10 +239,7 @@ pub async fn overview(
     let object_id = check_project_exists(&project_id, &projects).await?;
 
     let filter = doc! { "project_id": &object_id };
-    let cursor = dataset_details
-        .find(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?;
+    let cursor = dataset_details.find(filter, None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 
     response_from_json(documents.unwrap())
@@ -307,22 +265,20 @@ pub async fn get_data(
     // Find the dataset in the database
     let document = datasets
         .find_one(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?
+        .await?
         .ok_or(DodonaError::NotFound)?;
 
     // Parse the dataset itself
-    let dataset =
-        mongodb::bson::de::from_document::<Dataset>(document).map_err(|_| DodonaError::Invalid)?;
+    let dataset = mongodb::bson::de::from_document::<Dataset>(document)?;
 
     let comp_train = dataset.dataset.expect("missing training dataset").bytes;
     let comp_predict = dataset.predict.expect("missing prediction dataset").bytes;
 
-    let decomp_train = decompress_data(&comp_train).map_err(|_| DodonaError::Invalid)?;
-    let decomp_predict = decompress_data(&comp_predict).map_err(|_| DodonaError::Invalid)?;
+    let decomp_train = decompress_data(&comp_train)?;
+    let decomp_predict = decompress_data(&comp_predict)?;
 
-    let train = clean(std::str::from_utf8(&decomp_train).map_err(|_| DodonaError::Unknown)?);
-    let predict = clean(std::str::from_utf8(&decomp_predict).map_err(|_| DodonaError::Unknown)?);
+    let train = clean(std::str::from_utf8(&decomp_train)?);
+    let predict = clean(std::str::from_utf8(&decomp_predict)?);
 
     log::info!("Training data: {:?}", &train);
     log::info!("Prediction data: {:?}", &predict);
@@ -355,13 +311,11 @@ pub async fn begin_processing(
     let filter = doc! { "project_id": &object_id };
     let document = datasets
         .find_one(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?
+        .await?
         .ok_or(DodonaError::NotFound)?;
 
     // Parse the dataset itself
-    let dataset =
-        mongodb::bson::de::from_document::<Dataset>(document).map_err(|_| DodonaError::Invalid)?;
+    let dataset = mongodb::bson::de::from_document::<Dataset>(document)?;
 
     // Send a request to the interface layer
     let identifier = dataset.id.expect("Dataset with no identifier");
@@ -369,13 +323,11 @@ pub async fn begin_processing(
     let filter = doc! { "project_id": &object_id };
     let document = dataset_details
         .find_one(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?
+        .await?
         .ok_or(DodonaError::NotFound)?;
 
     // Parse the dataset detail itself
-    let dataset_detail = mongodb::bson::de::from_document::<DatasetDetails>(document)
-        .map_err(|_| DodonaError::NotFound)?;
+    let dataset_detail = mongodb::bson::de::from_document::<DatasetDetails>(document)?;
 
     let types = dataset_detail
         .column_types
@@ -394,17 +346,14 @@ pub async fn begin_processing(
 
     if forward_to_interface(&config).await.is_err() {
         log::warn!("Failed to forward: {:?}", config);
-        insert_to_queue(&config, database.collection("jobs"))
-            .await
-            .map_err(|_| DodonaError::Unknown)?;
+        insert_to_queue(&config, database.collection("jobs")).await?;
     }
 
     // Mark the project as processing
     let update = doc! { "$set": doc!{ "status": Status::Processing } };
     projects
         .update_one(doc! { "_id": &object_id}, update, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?;
+        .await?;
 
     response_from_json(doc! {"success": true})
 }
@@ -429,10 +378,7 @@ pub async fn get_predictions(
 
     // Find the predictions for the given project
     let filter = doc! { "project_id": &object_id };
-    let cursor = predictions
-        .find(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?;
+    let cursor = predictions.find(filter, None).await?;
 
     // Decompress the predictions for each instance found
     let decompressed: Vec<_> = cursor

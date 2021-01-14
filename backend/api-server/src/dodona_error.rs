@@ -1,6 +1,7 @@
 //! Defines error handling for the API server.
 
 use actix_web::{error::ResponseError, http::StatusCode, HttpResponse};
+use mongodb::bson;
 use serde::Serialize;
 use thiserror::Error;
 
@@ -17,8 +18,8 @@ pub enum DodonaError {
     #[error("Unknown Internal Error")]
     Unknown,
     /// UNPROCESSABLE_ENTITY HTTP Error
-    #[error("Invalid Request")]
-    Invalid,
+    #[error("Unprocessable Entity")]
+    UnprocessableEntity,
     /// Conflict HTTP Error
     #[error("Conflict")]
     Conflict,
@@ -34,10 +35,58 @@ impl DodonaError {
             Self::NotFound => "NotFound",
             Self::Forbidden => "Forbidden",
             Self::Unknown => "Unknown",
-            Self::Invalid => "Invalid",
+            Self::UnprocessableEntity => "UnprocessableEntity",
             Self::Conflict => "Conflict",
             Self::Unauthorized => "Unauthorized",
         }
+    }
+}
+
+impl From<std::str::Utf8Error> for DodonaError {
+    fn from(_error: std::str::Utf8Error) -> DodonaError {
+        DodonaError::UnprocessableEntity
+    }
+}
+
+impl From<bson::oid::Error> for DodonaError {
+    fn from(_error: bson::oid::Error) -> DodonaError {
+        DodonaError::UnprocessableEntity
+    }
+}
+
+impl From<bson::document::ValueAccessError> for DodonaError {
+    fn from(_error: bson::document::ValueAccessError) -> DodonaError {
+        DodonaError::UnprocessableEntity
+    }
+}
+
+impl From<bson::ser::Error> for DodonaError {
+    fn from(_error: bson::ser::Error) -> DodonaError {
+        DodonaError::UnprocessableEntity
+    }
+}
+
+impl From<bson::de::Error> for DodonaError {
+    fn from(_error: bson::de::Error) -> DodonaError {
+        DodonaError::UnprocessableEntity
+    }
+}
+
+impl From<mongodb::error::Error> for DodonaError {
+    fn from(_error: mongodb::error::Error) -> DodonaError {
+        DodonaError::Unknown
+    }
+}
+
+impl From<pbkdf2::CheckError> for DodonaError {
+    fn from(_error: pbkdf2::CheckError) -> DodonaError {
+        DodonaError::Unauthorized
+    }
+}
+
+impl From<utils::compress::CompressionError> for DodonaError {
+    fn from(_error: utils::compress::CompressionError) -> DodonaError {
+        DodonaError::UnprocessableEntity
     }
 }
 
@@ -48,7 +97,7 @@ impl ResponseError for DodonaError {
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::Forbidden => StatusCode::FORBIDDEN,
             Self::Unknown => StatusCode::INTERNAL_SERVER_ERROR,
-            Self::Invalid => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::UnprocessableEntity => StatusCode::UNPROCESSABLE_ENTITY,
             Self::Conflict => StatusCode::CONFLICT,
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
         }
