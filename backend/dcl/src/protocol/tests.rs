@@ -1,13 +1,13 @@
 use std::error::Error;
-use std::net::{Ipv4Addr, Shutdown, SocketAddrV4};
+use std::net::{Ipv4Addr, SocketAddrV4};
 use std::time::Duration;
 
 use mockito::mock;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 
-use crate::messages::Message;
 use crate::protocol;
+use messages::{ClientMessage, WriteLengthPrefix};
 
 #[tokio::test]
 async fn nodes_can_immediately_send_tokens() -> Result<(), Box<dyn Error>> {
@@ -37,14 +37,14 @@ async fn nodes_can_immediately_send_tokens() -> Result<(), Box<dyn Error>> {
 
     // Connect to the handler
     let mut stream = TcpStream::connect(addr).await?;
-    let message = Message::AccessToken {
+    let message = ClientMessage::AccessToken {
         id: String::from("5fe8b9d85511355cdab720aa"),
         token: String::from("abc"),
     };
 
     // Write our access token and shutdown the stream
     stream.write(&message.as_bytes()).await?;
-    stream.shutdown(Shutdown::Both)?;
+    stream.shutdown().await?;
 
     // Ensure the listener handled it correctly
     assert!(handler.await.is_ok());
@@ -78,11 +78,11 @@ async fn invalid_protocol_states_cause_panics() -> Result<(), Box<dyn Error>> {
 
     // Connect to the handler
     let mut stream = TcpStream::connect(addr).await?;
-    let message = Message::Alive { timestamp: 0 };
+    let message = ClientMessage::Alive { timestamp: 0 };
 
     // Send an invalid message as the first one
     stream.write(&message.as_bytes()).await?;
-    stream.shutdown(Shutdown::Both)?;
+    stream.shutdown().await?;
 
     // Check that the handler failed to handle it
     assert!(handler.await.is_err());
@@ -126,7 +126,7 @@ async fn incorrect_ordering_fails() -> Result<(), Box<dyn Error>> {
     let mut stream = TcpStream::connect(addr).await?;
 
     // Prepare messages for sending
-    let challenge_response = Message::ChallengeResponse {
+    let challenge_response = ClientMessage::ChallengeResponse {
         response: String::from("irrelevant"),
         model_name: String::from("model_name"),
         email: String::from("email"),

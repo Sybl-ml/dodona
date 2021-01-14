@@ -1,4 +1,4 @@
-//! Defines the structure of users in the MongoDB instance.
+//! Defines the structure of users in the `MongoDB` instance.
 
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};

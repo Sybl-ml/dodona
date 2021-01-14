@@ -1,7 +1,9 @@
 use std::str::FromStr;
+use std::sync::Arc;
 
 use mongodb::bson::{self, document::Document, oid::ObjectId};
 
+use api_server::AppState;
 use config::Environment;
 use models::projects::Project;
 use models::users::User;
@@ -21,7 +23,7 @@ pub static DELETABLE_PROJECT_ID: &str = "5fb2b4049d524e99ac7f1c41";
 pub static EDITABLE_PROJECT_ID: &str = "5fb2c4e4b4b7becc1e81e278";
 
 /// Allows for the setup of the database prior to testing.
-static INIT: std::sync::Once = std::sync::Once::new();
+static MUTEX: tokio::sync::Mutex<bool> = tokio::sync::Mutex::const_new(true);
 
 /// Defines the initialisation function for the tests.
 ///
@@ -31,38 +33,60 @@ static INIT: std::sync::Once = std::sync::Once::new();
 ///
 /// As the database can be initialised before running, this allows tests to be run in any order
 /// provided they don't require the result of a previous test.
-pub fn initialise() {
-    INIT.call_once(|| {
-        async_std::task::block_on(async {
-            // Setup the environment variables
-            let config = config::ConfigFile::from_filesystem();
-            let resolved = config.resolve(Environment::Testing);
-            resolved.populate_environment();
+pub async fn initialise() -> AppState {
+    // Aquire the mutex
+    let mut lock = MUTEX.lock().await;
 
-            // Connect to the database
-            let conn_str = std::env::var("CONN_STR").expect("CONN_STR must be set");
+    // Check whether this is the first time being run
+    if *lock {
+        let config = config::ConfigFile::from_filesystem();
+        let resolved = config.resolve(Environment::Testing);
+        resolved.populate_environment();
 
-            // Ensure that we aren't using the Atlas instance
-            assert!(
-                !conn_str.starts_with("mongodb+srv"),
-                "Please setup a local MongoDB instance for running the tests"
-            );
+        // Connect to the database
+        let conn_str = std::env::var("CONN_STR").expect("CONN_STR must be set");
 
-            let client = mongodb::Client::with_uri_str(&conn_str).await.unwrap();
-            let database = client.database("sybl");
-            let collection_names = database.list_collection_names(None).await.unwrap();
+        // Ensure that we aren't using the Atlas instance
+        assert!(
+            !conn_str.starts_with("mongodb+srv"),
+            "Please setup a local MongoDB instance for running the tests"
+        );
+        let client = mongodb::Client::with_uri_str(&conn_str).await.unwrap();
+        let database = client.database("sybl");
+        let collection_names = database.list_collection_names(None).await.unwrap();
 
-            // Delete all records currently in the database
-            for name in collection_names {
-                let collection = database.collection(&name);
-                collection.delete_many(Document::new(), None).await.unwrap();
-            }
+        // Delete all records currently in the database
+        for name in collection_names {
+            let collection = database.collection(&name);
+            collection.delete_many(Document::new(), None).await.unwrap();
+        }
 
-            // Insert some test data
-            insert_test_users(&database).await;
-            insert_test_projects(&database).await;
-        });
-    });
+        // Insert some test data
+        insert_test_users(&database).await;
+        insert_test_projects(&database).await;
+
+        // Update the lock
+        *lock = false;
+    }
+
+    build_app_state().await
+}
+
+pub async fn build_app_state() -> AppState {
+    let conn_str = std::env::var("CONN_STR").expect("CONN_STR must be set");
+    let pepper = std::env::var("PEPPER").expect("PEPPER must be set");
+    let pbkdf2_iterations =
+        std::env::var("PBKDF2_ITERATIONS").expect("PBKDF2_ITERATIONS must be set");
+
+    let client = mongodb::Client::with_uri_str(&conn_str).await.unwrap();
+
+    AppState {
+        client: Arc::new(client.clone()),
+        db_name: Arc::new(String::from("sybl")),
+        pepper: Arc::new(pepper.clone()),
+        pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)
+            .expect("PBKDF2_ITERATIONS must be parseable as an integer"),
+    }
 }
 
 fn create_user_with_id(
@@ -156,26 +180,4 @@ async fn insert_test_projects(database: &mongodb::Database) {
     projects.insert_one(overwritten_data, None).await.unwrap();
     projects.insert_one(deletable, None).await.unwrap();
     projects.insert_one(editable, None).await.unwrap();
-}
-
-pub fn build_json_request(url: &str, body: &str) -> tide::http::Request {
-    let full_url = format!("localhost:{}", url);
-    let url = tide::http::Url::parse(&full_url).unwrap();
-    let mut req = tide::http::Request::new(tide::http::Method::Post, url);
-
-    req.set_body(body);
-    req.set_content_type(tide::http::mime::JSON);
-
-    req
-}
-
-pub fn build_json_put_request(url: &str, body: &str) -> tide::http::Request {
-    let full_url = format!("localhost:{}", url);
-    let url = tide::http::Url::parse(&full_url).unwrap();
-    let mut req = tide::http::Request::new(tide::http::Method::Put, url);
-
-    req.set_body(body);
-    req.set_content_type(tide::http::mime::JSON);
-
-    req
 }

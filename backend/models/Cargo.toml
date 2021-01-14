@@ -11,11 +11,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 utils = { path = "../utils" }
 crypto = { path = "../crypto" }
-
-[dependencies.mongodb]
-version = "1.1.0"
-default-features = false
-features = ["async-std-runtime"]
+messages = { path = "../messages" }
+mongodb = { git = "https://github.com/glebpom/mongo-rust-driver", branch = "tokio-1.0-fiix" }
 
 [dependencies.chrono]
 version = "0.4"

@@ -1,131 +1,188 @@
 use serde::Deserialize;
-use tide::http::Response;
 
 use models::users::User;
 
+use actix_web::{middleware, test, web, App, Result};
+use api_server::routes;
+use mongodb::bson::{doc, document::Document};
+
 mod common;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct AuthResponse {
     pub token: String,
 }
 
-#[async_std::test]
-async fn users_can_register() -> tide::Result<()> {
-    common::initialise();
-    let app = api_server::build_server().await;
+#[actix_rt::test]
+async fn users_can_register() -> Result<()> {
+    let state = common::initialise().await;
+    let mut app = test::init_service(
+        App::new()
+            .wrap(middleware::Logger::default())
+            .data(state)
+            .route("/api/users/new", web::post().to(routes::users::new)),
+    )
+    .await;
 
-    let body = r#"
-    {
+    let doc = doc! {
         "email": "johnsmith@email.com",
         "password": "password",
         "firstName": "John",
         "lastName": "Smith"
-    }"#;
-    let req = common::build_json_request("/api/users/new", body);
+    };
 
-    let mut res: Response = app.respond(req).await?;
-    assert_eq!(tide::StatusCode::Ok, res.status());
-    assert_eq!(Some(tide::http::mime::JSON), res.content_type());
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::POST)
+        .uri("/api/users/new")
+        .set_json(&doc)
+        .to_request();
 
-    let body: Result<AuthResponse, _> = res.body_json().await;
-    assert!(body.is_ok());
+    let res = test::call_service(&mut app, req).await;
+
+    let body: AuthResponse = test::read_body_json(res).await;
+    assert!(body.token != "null");
 
     Ok(())
 }
 
-#[async_std::test]
-async fn users_cannot_register_twice() -> tide::Result<()> {
-    common::initialise();
-    let app = api_server::build_server().await;
+#[actix_rt::test]
+async fn users_cannot_register_twice() -> Result<()> {
+    let state = common::initialise().await;
+    let mut app = test::init_service(
+        App::new()
+            .wrap(middleware::Logger::default())
+            .data(state)
+            .route("/api/users/new", web::post().to(routes::users::new)),
+    )
+    .await;
 
-    let body = r#"
-    {
+    let doc = doc! {
         "email": "matthewsmith@email.com",
         "password": "password",
         "firstName": "Matthew",
         "lastName": "Smith"
-    }"#;
-    let req = common::build_json_request("/api/users/new", body);
+    };
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::POST)
+        .uri("/api/users/new")
+        .set_json(&doc)
+        .to_request();
 
-    let mut res: Response = app.respond(req).await?;
-    assert_eq!(tide::StatusCode::Ok, res.status());
-    assert_eq!(Some(tide::http::mime::JSON), res.content_type());
+    let res = test::call_service(&mut app, req).await;
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
-    let body: AuthResponse = res.body_json().await?;
+    let body: AuthResponse = test::read_body_json(res).await;
     assert_eq!(body.token, "null");
 
     Ok(())
 }
 
-#[async_std::test]
-async fn users_can_login() -> tide::Result<()> {
-    common::initialise();
-    let app = api_server::build_server().await;
+#[actix_rt::test]
+async fn users_can_login() -> Result<()> {
+    let state = common::initialise().await;
+    let mut app = test::init_service(
+        App::new()
+            .wrap(middleware::Logger::default())
+            .data(state)
+            .route("/api/users/login", web::post().to(routes::users::login)),
+    )
+    .await;
 
-    let body = r#"{
+    let doc = doc! {
         "email": "matthewsmith@email.com",
         "password": "password"
-    }"#;
-    let req = common::build_json_request("/api/users/login", body);
+    };
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::POST)
+        .uri("/api/users/login")
+        .set_json(&doc)
+        .to_request();
 
-    let mut res: Response = app.respond(req).await?;
-    assert_eq!(tide::StatusCode::Ok, res.status());
-    assert_eq!(Some(tide::http::mime::JSON), res.content_type());
+    let res = test::call_service(&mut app, req).await;
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
-    let body: Result<AuthResponse, _> = res.body_json().await;
-    assert!(body.is_ok());
+    let body: AuthResponse = test::read_body_json(res).await;
+    assert!(body.token != "null");
 
     Ok(())
 }
 
-#[async_std::test]
-async fn users_cannot_login_without_correct_password() -> tide::Result<()> {
-    common::initialise();
-    let app = api_server::build_server().await;
+#[actix_rt::test]
+async fn users_cannot_login_without_correct_password() -> Result<()> {
+    let state = common::initialise().await;
+    let mut app = test::init_service(
+        App::new()
+            .wrap(middleware::Logger::default())
+            .data(state)
+            .route("/api/users/login", web::post().to(routes::users::login)),
+    )
+    .await;
 
-    let body = r#"{
+    let doc = doc! {
         "email": "matthewsmith@email.com",
         "password": "incorrect"
-    }"#;
-    let req = common::build_json_request("/api/users/login", body);
+    };
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::POST)
+        .uri("/api/users/login")
+        .set_json(&doc)
+        .to_request();
 
-    let res: Response = app.respond(req).await?;
-    assert_eq!(tide::StatusCode::Unauthorized, res.status());
-
-    Ok(())
-}
-
-#[async_std::test]
-async fn users_cannot_login_without_correct_email() -> tide::Result<()> {
-    common::initialise();
-    let app = api_server::build_server().await;
-
-    let body = r#"{
-        "email": "mattsmith@email.com",
-        "password": "password"
-    }"#;
-    let req = common::build_json_request("/api/users/login", body);
-
-    let res: Response = app.respond(req).await?;
-    assert_eq!(tide::StatusCode::NotFound, res.status());
+    let res = test::call_service(&mut app, req).await;
+    assert_eq!(actix_web::http::StatusCode::UNAUTHORIZED, res.status());
 
     Ok(())
 }
 
-#[async_std::test]
-async fn filter_finds_given_user_and_no_others() -> tide::Result<()> {
-    common::initialise();
-    let app = api_server::build_server().await;
+#[actix_rt::test]
+async fn users_cannot_login_without_correct_email() -> Result<()> {
+    let state = common::initialise().await;
+    let mut app = test::init_service(
+        App::new()
+            .wrap(middleware::Logger::default())
+            .data(state)
+            .route("/api/users/login", web::post().to(routes::users::login)),
+    )
+    .await;
 
-    let body = r#"{"email": "matthewsmith@email.com"}"#;
-    let req = common::build_json_request("/api/users/filter", body);
+    let doc = doc! {
+        "email": "incorrect@email.com",
+        "password": "passowrd"
+    };
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::POST)
+        .uri("/api/users/login")
+        .set_json(&doc)
+        .to_request();
 
-    let mut res: Response = app.respond(req).await?;
-    assert_eq!(tide::StatusCode::Ok, res.status());
-    assert_eq!(Some(tide::http::mime::JSON), res.content_type());
+    let res = test::call_service(&mut app, req).await;
+    assert_eq!(actix_web::http::StatusCode::NOT_FOUND, res.status());
 
-    let users: Vec<User> = res.body_json().await?;
+    Ok(())
+}
+
+#[actix_rt::test]
+async fn filter_finds_given_user_and_no_others() -> Result<()> {
+    let state = common::initialise().await;
+    let mut app = test::init_service(
+        App::new()
+            .wrap(middleware::Logger::default())
+            .data(state)
+            .route("/api/users/filter", web::post().to(routes::users::filter)),
+    )
+    .await;
+
+    let doc = doc! {"email": "matthewsmith@email.com"};
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::POST)
+        .uri("/api/users/filter")
+        .set_json(&doc)
+        .to_request();
+
+    let res = test::call_service(&mut app, req).await;
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
+
+    let users: Vec<User> = test::read_body_json(res).await;
 
     assert_eq!(users.len(), 1);
 
@@ -137,52 +194,73 @@ async fn filter_finds_given_user_and_no_others() -> tide::Result<()> {
     Ok(())
 }
 
-#[async_std::test]
-async fn non_existent_users_are_not_found() -> tide::Result<()> {
-    common::initialise();
-    let app = api_server::build_server().await;
+#[actix_rt::test]
+async fn non_existent_users_are_not_found() -> Result<()> {
+    let state = common::initialise().await;
+    let mut app = test::init_service(
+        App::new()
+            .wrap(middleware::Logger::default())
+            .data(state)
+            .route("/api/users/filter", web::post().to(routes::users::filter)),
+    )
+    .await;
 
-    let body = r#"{"email": "nonexistent@email.com"}"#;
-    let req = common::build_json_request("/api/users/filter", body);
+    let doc = doc! {"email": "nonexistent@email.com"};
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::POST)
+        .uri("/api/users/filter")
+        .set_json(&doc)
+        .to_request();
 
-    let mut res: Response = app.respond(req).await?;
-    assert_eq!(tide::StatusCode::Ok, res.status());
-    assert_eq!(Some(tide::http::mime::JSON), res.content_type());
+    let res = test::call_service(&mut app, req).await;
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
-    let users: Vec<User> = res.body_json().await?;
+    let users: Vec<User> = test::read_body_json(res).await;
     assert!(users.is_empty());
 
     Ok(())
 }
 
-#[async_std::test]
-async fn users_can_be_deleted() -> tide::Result<()> {
-    common::initialise();
-    let app = api_server::build_server().await;
+#[actix_rt::test]
+async fn users_can_be_deleted() -> Result<()> {
+    let state = common::initialise().await;
+    let mut app = test::init_service(
+        App::new()
+            .wrap(middleware::Logger::default())
+            .data(state)
+            .route("/api/users/filter", web::post().to(routes::users::filter))
+            .route("/api/users/delete", web::post().to(routes::users::delete)),
+    )
+    .await;
 
     // Find the user
-    let body = r#"{"email": "delete@me.com"}"#;
-    let req = common::build_json_request("/api/users/filter", body);
+    let doc = doc! {"email": "delete@me.com"};
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::POST)
+        .uri("/api/users/filter")
+        .set_json(&doc)
+        .to_request();
 
-    let mut res: Response = app.respond(req).await?;
-    assert_eq!(tide::StatusCode::Ok, res.status());
-    assert_eq!(Some(tide::http::mime::JSON), res.content_type());
+    let res = test::call_service(&mut app, req).await;
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
-    let users: Vec<User> = res.body_json().await?;
+    let users: Vec<User> = test::read_body_json(res).await;
     let user = &users[0];
 
     // Delete the user
-    let body = format!(r#"{{"id": "{}"}}"#, user.id.as_ref().unwrap().to_string());
-    let req = common::build_json_request("/api/users/delete", &body);
+    let doc = doc! {"id": user.id.as_ref().unwrap().to_string() };
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::POST)
+        .uri("/api/users/delete")
+        .set_json(&doc)
+        .to_request();
 
-    let mut res: Response = app.respond(req).await?;
-    assert_eq!(tide::StatusCode::Ok, res.status());
-    assert_eq!(Some(tide::http::mime::JSON), res.content_type());
+    let res = test::call_service(&mut app, req).await;
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
-    let body = res.body_string().await?;
-    let expected = r#"{"status":"deleted"}"#;
+    let body: Document = test::read_body_json(res).await;
 
-    assert_eq!(body, expected);
+    assert_eq!(body.get_str("status").unwrap(), "deleted");
 
     Ok(())
 }

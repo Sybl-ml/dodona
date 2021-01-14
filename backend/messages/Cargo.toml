@@ -1,5 +1,5 @@
 [package]
-name = "dcl"
+name = "messages"
 version = "0.1.0"
 authors = ["Freddie Brown <fred@noser.net>"]
 edition = "2018"
@@ -7,29 +7,11 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0"
 tokio = { version = "1", features = ["full"] }
-log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-futures = "0.3.5"
-http = "0.2.1"
-httparse = "1.3.4"
-anyhow = "1.0"
-bzip2 = "0.4.1"
-csv = "1.1.3"
-toml = "0.5.7"
-config = { path = "../config" }
-models = { path = "../models" }
+log = "0.4"
 utils = { path = "../utils" }
-messages = { path = "../messages" }
-chrono = "0.4.19"
 mongodb = { git = "https://github.com/glebpom/mongo-rust-driver", branch = "tokio-1.0-fiix" }
-
-[dev-dependencies]
-pbkdf2 = "0.5.0"
-chrono = "0.4"
-mockito = "0.28.0"
-
-[dependencies.reqwest]
-version = "0.11"
-features = ["json"]
+async-trait = "0.1.42"

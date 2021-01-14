@@ -1,9 +1,13 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
+
+use mongodb::bson::oid::ObjectId;
+use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
-use tokio::prelude::*;
 use tokio::sync::mpsc;
+
+use messages::{InterfaceMessage, WriteLengthPrefix};
 
 mod common;
 
@@ -36,7 +40,12 @@ async fn test_interface_end() {
     let mut stream = TcpStream::connect(socket.to_string()).await.unwrap();
 
     // write dataset id to interface end
-    stream.write(common::DATASET_ID.as_bytes()).await.unwrap();
+    let config = InterfaceMessage::Config {
+        id: ObjectId::with_string(common::DATASET_ID).unwrap(),
+        timeout: 10,
+        column_types: Vec::new(),
+    };
+    stream.write(&config.as_bytes()).await.unwrap();
     tokio::time::sleep(Duration::from_secs(1)).await;
 
     // assert on receive end of mpsc

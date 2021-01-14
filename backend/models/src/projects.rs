@@ -1,4 +1,4 @@
-//! Defines the structure of projects in the MongoDB instance.
+//! Defines the structure of projects in the `MongoDB` instance.
 
 use chrono::Utc;
 use mongodb::bson::{self, oid::ObjectId, Bson};

@@ -4,6 +4,20 @@
       <h3>Almost Done!</h3>
       <p>To start computation click the button below</p>
       <br>
+      <b-dropdown id="dropdown-form" text="Job Configuration" block variant="outline-primary" ref="dropdown" class="m-2" menu-class="w-100">
+        <b-dropdown-text>This is where you configure how the job should be run</b-dropdown-text>
+        <b-dropdown-form>
+        <b-form-group label="Timeout (mins)" label-for="dropdown-form-timeout">
+          <b-form-input
+            id="dropdown-form-timeout"
+            size="sm"
+            type="number"
+            v-model="timeout"
+          ></b-form-input>
+        </b-form-group>
+        </b-dropdown-form>
+      </b-dropdown>
+      <br>
       <p class="display-1 text-center">
         <b-link @click="start">
           <b-icon-play-fill variant="success"/>
@@ -41,6 +55,11 @@ import Papa from "papaparse";
 
 export default {
   name: "ProjectOverview",
+  data() {
+    return {
+      timeout: 10,
+    };
+  },
   props: {
     projectId: String,
     dataDate: Date,
@@ -62,7 +81,10 @@ export default {
       let user_id = $cookies.get("token");
       try {
         await axios.post(
-          `http://localhost:3001/api/projects/p/${this.projectId}/process`
+          `http://localhost:3001/api/projects/p/${this.projectId}/process`,
+          {
+            timeout: this.timeout,
+          }
         );
       } catch (err) {
         console.log(err);

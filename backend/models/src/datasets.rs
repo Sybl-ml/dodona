@@ -1,4 +1,4 @@
-//! Defines the structure of datasets in the MongoDB instance.
+//! Defines the structure of datasets in the `MongoDB` instance.
 
 use mongodb::bson::{self, oid::ObjectId, Binary};
 
