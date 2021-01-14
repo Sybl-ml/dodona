@@ -42,52 +42,30 @@ impl DodonaError {
     }
 }
 
-impl From<std::str::Utf8Error> for DodonaError {
-    fn from(_error: std::str::Utf8Error) -> DodonaError {
-        DodonaError::UnprocessableEntity
+/// Allows impl From<Error> to be generated more easily for various errors
+macro_rules! error_map {
+    ($($error:path => $code:ident,)*) => {
+        $(
+            impl From<$error> for DodonaError {
+                fn from(_error: $error) -> Self {
+                    Self::$code
+                }
+            }
+        )*
     }
 }
 
-impl From<bson::oid::Error> for DodonaError {
-    fn from(_error: bson::oid::Error) -> DodonaError {
-        DodonaError::UnprocessableEntity
-    }
-}
-
-impl From<bson::document::ValueAccessError> for DodonaError {
-    fn from(_error: bson::document::ValueAccessError) -> DodonaError {
-        DodonaError::UnprocessableEntity
-    }
-}
-
-impl From<bson::ser::Error> for DodonaError {
-    fn from(_error: bson::ser::Error) -> DodonaError {
-        DodonaError::UnprocessableEntity
-    }
-}
-
-impl From<bson::de::Error> for DodonaError {
-    fn from(_error: bson::de::Error) -> DodonaError {
-        DodonaError::UnprocessableEntity
-    }
-}
-
-impl From<mongodb::error::Error> for DodonaError {
-    fn from(_error: mongodb::error::Error) -> DodonaError {
-        DodonaError::Unknown
-    }
-}
-
-impl From<pbkdf2::CheckError> for DodonaError {
-    fn from(_error: pbkdf2::CheckError) -> DodonaError {
-        DodonaError::Unauthorized
-    }
-}
-
-impl From<utils::compress::CompressionError> for DodonaError {
-    fn from(_error: utils::compress::CompressionError) -> DodonaError {
-        DodonaError::UnprocessableEntity
-    }
+error_map! {
+    std::str::Utf8Error => UnprocessableEntity,
+    std::num::ParseIntError => UnprocessableEntity,
+    bson::oid::Error => UnprocessableEntity,
+    bson::document::ValueAccessError => UnprocessableEntity,
+    bson::ser::Error => UnprocessableEntity,
+    bson::de::Error => UnprocessableEntity,
+    mongodb::error::Error => Unknown,
+    pbkdf2::CheckError => Unauthorized,
+    base64::DecodeError => UnprocessableEntity,
+    utils::compress::CompressionError => UnprocessableEntity,
 }
 
 impl ResponseError for DodonaError {

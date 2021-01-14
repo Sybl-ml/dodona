@@ -46,7 +46,7 @@ pub async fn filter(
     let cursor = users.find(filter.into_inner(), None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 
-    response_from_json(documents.unwrap())
+    response_from_json(documents?)
 }
 
 /// Creates a new user given the form information.
@@ -93,7 +93,7 @@ pub async fn new(
 
     let user = User::new(email, hash, first_name, last_name);
 
-    let document = mongodb::bson::ser::to_document(&user).unwrap();
+    let document = mongodb::bson::ser::to_document(&user)?;
     let id = users.insert_one(document, None).await?.inserted_id;
 
     response_from_json(doc! {"token": id.as_object_id().unwrap().to_string()})
@@ -115,9 +115,12 @@ pub async fn edit(
 
     // Get the user from the database
     let filter = doc! { "_id": &object_id };
-    let user_doc = users.find_one(filter.clone(), None).await?;
+    let user_doc = users
+        .find_one(filter.clone(), None)
+        .await?
+        .ok_or(DodonaError::NotFound)?;
 
-    let mut user: User = mongodb::bson::de::from_document(user_doc.unwrap())?;
+    let mut user: User = mongodb::bson::de::from_document(user_doc)?;
 
     if let Ok(email) = doc.get_str("email") {
         user.email = clean(email);
@@ -149,12 +152,12 @@ pub async fn login(
     println!("{}, {}", &email, &password);
 
     let filter = doc! {"email": email};
-    let user = users
+    let user_doc = users
         .find_one(filter, None)
         .await?
-        .map(|doc| mongodb::bson::de::from_document::<User>(doc).unwrap());
+        .ok_or(DodonaError::NotFound)?;
+    let user: User = mongodb::bson::de::from_document(user_doc)?;
 
-    let user = user.ok_or(DodonaError::NotFound)?;
     let peppered = format!("{}{}", password, pepper);
 
     // Check the user's password
@@ -162,7 +165,7 @@ pub async fn login(
 
     log::info!("Logged in: {:?}", user);
 
-    let identifier = user.id.unwrap().to_string();
+    let identifier = user.id.expect("User has no identifier").to_string();
     response_from_json(doc! {"token": identifier})
 }
 

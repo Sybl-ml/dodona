@@ -41,8 +41,10 @@ pub async fn get_project(
     let object_id = check_project_exists(&project_id, &projects).await?;
 
     let filter = doc! { "_id": &object_id };
-    // Unwrap is fine here as we already checked it exists
-    let doc = projects.find_one(filter, None).await?;
+    let doc = projects
+        .find_one(filter, None)
+        .await?
+        .ok_or(DodonaError::NotFound)?;
 
     // get that project from the projects collection
     let filter = doc! { "project_id": &object_id };
@@ -50,10 +52,10 @@ pub async fn get_project(
 
     let response = if let Some(details_doc) = details_doc {
         log::info!("{:?}", &details_doc);
-        doc! {"project": doc.unwrap(), "details": details_doc}
+        doc! {"project": doc, "details": details_doc}
     } else {
         log::info!("{:?}", &details_doc);
-        doc! {"project": doc.unwrap(), "details": {}}
+        doc! {"project": doc, "details": {}}
     };
 
     log::info!("{:?}", &response);
@@ -122,7 +124,7 @@ pub async fn get_user_projects(
     let cursor = projects.find(filter, None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 
-    response_from_json(documents.unwrap())
+    response_from_json(documents?)
 }
 
 /// Creates a new project related to a given user.
@@ -242,7 +244,7 @@ pub async fn overview(
     let cursor = dataset_details.find(filter, None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 
-    response_from_json(documents.unwrap())
+    response_from_json(documents?)
 }
 
 /// Route returns back uncompressed dataset
@@ -302,7 +304,7 @@ pub async fn begin_processing(
     let datasets = database.collection("datasets");
     let dataset_details = database.collection("dataset_details");
 
-    let timeout: i32 = doc.get_str("timeout").unwrap().parse().unwrap();
+    let timeout: i32 = doc.get_str("timeout")?.parse()?;
     log::info!("Timeout is here: {}", &timeout);
 
     let object_id = check_project_exists(&project_id, &projects).await?;
@@ -422,7 +424,7 @@ async fn insert_to_queue(
     log::debug!("Inserting {:?} to the MongoDB interface queue", msg);
 
     let job = Job::new(msg.clone());
-    let document = mongodb::bson::ser::to_document(&job).unwrap();
+    let document = mongodb::bson::ser::to_document(&job)?;
 
     if collection.insert_one(document, None).await.is_ok() {
         log::info!("Inserted {:?} to the MongoDB queue", msg);
