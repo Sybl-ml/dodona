@@ -1,13 +1,13 @@
 //! Defines the routes for the API server.
 
-use crypto::clean_json;
+use actix_web::{HttpResponse, Result};
 use mongodb::{
-    bson::{doc, document::Document, oid::ObjectId},
+    bson::{doc, oid::ObjectId},
     Collection,
 };
 
 use crate::dodona_error::DodonaError;
-use actix_web::{HttpResponse, Result};
+use crypto::clean_json;
 
 pub mod clients;
 pub mod projects;
@@ -27,7 +27,7 @@ pub fn response_from_json<B: serde::Serialize>(body: B) -> Result<HttpResponse, 
 /// Checks whether a user exists with the given ID.
 pub async fn check_user_exists(id: &str, users: &Collection) -> Result<ObjectId, DodonaError> {
     // Check the project ID to make sure it exists
-    let object_id = ObjectId::with_string(&id).map_err(|_| DodonaError::Invalid)?;
+    let object_id = ObjectId::with_string(&id)?;
     let query = doc! { "_id": &object_id };
 
     users
@@ -45,7 +45,7 @@ pub async fn check_project_exists(
     projects: &Collection,
 ) -> Result<ObjectId, DodonaError> {
     // Check the project ID to make sure it exists
-    let object_id = ObjectId::with_string(&id).map_err(|_| DodonaError::Invalid)?;
+    let object_id = ObjectId::with_string(&id)?;
     let query = doc! { "_id": &object_id};
 
     projects
@@ -55,9 +55,4 @@ pub async fn check_project_exists(
         .ok_or(DodonaError::NotFound)?;
 
     Ok(object_id)
-}
-
-/// Gets a key from a document, or returns a 422 error if it doesn't exist.
-pub fn get_from_doc<'a>(document: &'a Document, key: &'a str) -> Result<&'a str, DodonaError> {
-    document.get_str(key).map_err(|_| DodonaError::Invalid)
 }

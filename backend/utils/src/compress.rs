@@ -1,9 +1,17 @@
 //! Defines compression and decompression utilities for project data
 
+use std::io::Write;
+
 use anyhow::Result;
 use bzip2::write::{BzDecoder, BzEncoder};
 use bzip2::Compression;
-use std::io::Write;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum CompressionError {
+    #[error("io error occurred during compression")]
+    IoError(#[from] std::io::Error),
+}
 
 /// Compresses data and returns result about compression process
 ///
@@ -28,19 +36,19 @@ use std::io::Write;
 ///     Err(_) => log::error!("Compression failed"),
 /// }
 /// ```
-pub fn compress_data(data: &str) -> Result<Vec<u8>, std::io::Error> {
+pub fn compress_data(data: &str) -> Result<Vec<u8>, CompressionError> {
     compress_bytes(data.as_bytes())
 }
 
 /// Compresses a vector of raw bytes.
-pub fn compress_bytes(bytes: &[u8]) -> Result<Vec<u8>, std::io::Error> {
+pub fn compress_bytes(bytes: &[u8]) -> Result<Vec<u8>, CompressionError> {
     let mut write_compress = BzEncoder::new(vec![], Compression::best());
     write_compress.write(bytes).unwrap();
-    write_compress.finish()
+    Ok(write_compress.finish()?)
 }
 
 /// Compresses a vector of byte arrays into a single compression stream.
-pub fn compress_vec(data: &[&str]) -> Result<Vec<u8>, std::io::Error> {
+pub fn compress_vec(data: &[&str]) -> Result<Vec<u8>, CompressionError> {
     let mut write_compress = BzEncoder::new(vec![], Compression::best());
 
     for (i, e) in data.iter().enumerate() {
@@ -52,7 +60,7 @@ pub fn compress_vec(data: &[&str]) -> Result<Vec<u8>, std::io::Error> {
         }
     }
 
-    write_compress.finish()
+    Ok(write_compress.finish()?)
 }
 
 /// Decompresses data and returns a result about the compression process
@@ -80,8 +88,8 @@ pub fn compress_vec(data: &[&str]) -> Result<Vec<u8>, std::io::Error> {
 ///     Err(_) => log::error!("Decompression failed"),
 /// }
 /// ```
-pub fn decompress_data(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
+pub fn decompress_data(data: &[u8]) -> Result<Vec<u8>, CompressionError> {
     let mut write_decompress = BzDecoder::new(vec![]);
     write_decompress.write_all(data).unwrap();
-    write_decompress.finish()
+    Ok(write_decompress.finish()?)
 }

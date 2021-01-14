@@ -3199,6 +3199,7 @@ dependencies = [
  "log",
  "pbkdf2 0.5.0",
  "serde",
+ "thiserror",
 ]
 
 [[package]]

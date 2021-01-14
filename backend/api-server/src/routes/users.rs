@@ -5,7 +5,7 @@ use mongodb::bson::{doc, document::Document, oid::ObjectId};
 use tokio_stream::StreamExt;
 
 use crate::dodona_error::DodonaError;
-use crate::routes::{check_user_exists, get_from_doc, response_from_json};
+use crate::routes::{check_user_exists, response_from_json};
 use crate::AppState;
 use crypto::clean;
 use models::users::User;
@@ -24,10 +24,7 @@ pub async fn get(
     let object_id = check_user_exists(&user_id, &users).await?;
 
     let filter: Document = doc! { "_id": object_id };
-    let document = users
-        .find_one(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?;
+    let document = users.find_one(filter, None).await?;
 
     response_from_json(document)
 }
@@ -46,10 +43,7 @@ pub async fn filter(
 
     println!("Filter: {:?}", &filter);
 
-    let cursor = users
-        .find(filter.into_inner(), None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?;
+    let cursor = users.find(filter.into_inner(), None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 
     response_from_json(documents.unwrap())
@@ -72,10 +66,10 @@ pub async fn new(
     let database = app_data.client.database("sybl");
     let users = database.collection("users");
 
-    let password = get_from_doc(&doc, "password")?;
-    let email = clean(get_from_doc(&doc, "email")?);
-    let first_name = clean(get_from_doc(&doc, "firstName")?);
-    let last_name = clean(get_from_doc(&doc, "lastName")?);
+    let password = doc.get_str("password")?;
+    let email = clean(doc.get_str("email")?);
+    let first_name = clean(doc.get_str("firstName")?);
+    let last_name = clean(doc.get_str("lastName")?);
 
     log::info!("Email: {}, Password: {}", email, password);
     log::info!("Name: {} {}", first_name, last_name);
@@ -84,12 +78,7 @@ pub async fn new(
 
     log::info!("Checking if the user exists already");
 
-    if users
-        .find_one(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?
-        .is_some()
-    {
+    if users.find_one(filter, None).await?.is_some() {
         log::error!("Found a user with email '{}' already", &email);
         return response_from_json(doc! {"token": "null"});
     }
@@ -98,18 +87,14 @@ pub async fn new(
 
     let peppered = format!("{}{}", &password, &pepper);
     let hash = pbkdf2::pbkdf2_simple(&peppered, app_data.pbkdf2_iterations)
-        .map_err(|_| DodonaError::Unknown)?;
+        .expect("Failed to hash the user's password");
 
     log::info!("Hash: {:?}", hash);
 
     let user = User::new(email, hash, first_name, last_name);
 
     let document = mongodb::bson::ser::to_document(&user).unwrap();
-    let id = users
-        .insert_one(document, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?
-        .inserted_id;
+    let id = users.insert_one(document, None).await?.inserted_id;
 
     response_from_json(doc! {"token": id.as_object_id().unwrap().to_string()})
 }
@@ -125,28 +110,21 @@ pub async fn edit(
     let database = app_data.client.database("sybl");
     let users = database.collection("users");
 
-    let user_id = clean(get_from_doc(&doc, "id")?);
+    let user_id = clean(doc.get_str("id")?);
     let object_id = check_user_exists(&user_id, &users).await?;
 
     // Get the user from the database
     let filter = doc! { "_id": &object_id };
-    let user_doc = users
-        .find_one(filter.clone(), None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?;
+    let user_doc = users.find_one(filter.clone(), None).await?;
 
-    let mut user: User =
-        mongodb::bson::de::from_document(user_doc.unwrap()).map_err(|_| DodonaError::Invalid)?;
+    let mut user: User = mongodb::bson::de::from_document(user_doc.unwrap())?;
 
     if let Ok(email) = doc.get_str("email") {
         user.email = clean(email);
     }
 
-    let document = mongodb::bson::ser::to_document(&user).unwrap();
-    users
-        .update_one(filter, document, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?;
+    let document = mongodb::bson::ser::to_document(&user)?;
+    users.update_one(filter, document, None).await?;
 
     response_from_json(doc! {"status": "changed"})
 }
@@ -165,23 +143,22 @@ pub async fn login(
 
     let users = database.collection("users");
 
-    let password = get_from_doc(&doc, "password")?;
-    let email = clean(get_from_doc(&doc, "email")?);
+    let password = doc.get_str("password")?;
+    let email = clean(doc.get_str("email")?);
 
     println!("{}, {}", &email, &password);
 
     let filter = doc! {"email": email};
     let user = users
         .find_one(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?
+        .await?
         .map(|doc| mongodb::bson::de::from_document::<User>(doc).unwrap());
 
     let user = user.ok_or(DodonaError::NotFound)?;
     let peppered = format!("{}{}", password, pepper);
 
     // Check the user's password
-    pbkdf2::pbkdf2_check(&peppered, &user.hash).map_err(|_| DodonaError::Unauthorized)?;
+    pbkdf2::pbkdf2_check(&peppered, &user.hash)?;
 
     log::info!("Logged in: {:?}", user);
 
@@ -199,11 +176,11 @@ pub async fn delete(
     let database = app_data.client.database("sybl");
     let users = database.collection("users");
 
-    let object_id = clean(get_from_doc(&doc, "id")?);
-    let id = ObjectId::with_string(&object_id).map_err(|_| DodonaError::Invalid)?;
+    let object_id = clean(doc.get_str("id")?);
+    let id = ObjectId::with_string(&object_id)?;
     let filter = doc! {"_id": id};
 
-    users.find_one_and_delete(filter, None).await.unwrap();
+    users.find_one_and_delete(filter, None).await?;
 
     response_from_json(doc! {"status": "deleted"})
 }

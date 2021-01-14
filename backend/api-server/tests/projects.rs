@@ -249,10 +249,7 @@ async fn projects_cannot_be_created_for_non_existent_users() -> Result<()> {
 
     let res = test::call_service(&mut app, req).await;
 
-    assert_eq!(
-        actix_web::http::StatusCode::UNPROCESSABLE_ENTITY,
-        res.status()
-    );
+    assert_eq!(actix_web::http::StatusCode::NOT_FOUND, res.status());
 
     Ok(())
 }

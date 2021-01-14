@@ -1,7 +1,4 @@
 //! Defines routes specific to client operations
-use crate::dodona_error::DodonaError;
-use crate::routes::{get_from_doc, response_from_json};
-use crate::AppState;
 
 use actix_web::{web, HttpResponse};
 use chrono::Utc;
@@ -11,6 +8,10 @@ use mongodb::bson::de::from_document;
 use mongodb::bson::ser::to_document;
 use mongodb::bson::{self, doc, document::Document, oid::ObjectId, Binary};
 use tokio_stream::StreamExt;
+
+use crate::dodona_error::DodonaError;
+use crate::routes::response_from_json;
+use crate::AppState;
 
 /// Template for registering a new client
 ///
@@ -24,17 +25,16 @@ pub async fn register(
     let users = database.collection("users");
     let clients = database.collection("clients");
 
-    let password = get_from_doc(&doc, "password")?;
-    let email = crypto::clean(get_from_doc(&doc, "email")?);
-    let id = get_from_doc(&doc, "id")?;
+    let password = doc.get_str("password")?;
+    let email = crypto::clean(doc.get_str("email")?);
+    let id = doc.get_str("id")?;
 
-    let user_id = ObjectId::with_string(&id).map_err(|_| DodonaError::Invalid)?;
+    let user_id = ObjectId::with_string(&id)?;
 
     let filter = doc! { "_id": &user_id };
     let user = users
         .find_one(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?
+        .await?
         .map(|doc| from_document::<User>(doc).unwrap());
 
     let user = user.ok_or(DodonaError::NotFound)?;
@@ -57,18 +57,14 @@ pub async fn register(
                 doc! {"$set": {"client": true}},
                 None,
             )
-            .await
-            .map_err(|_| DodonaError::Unknown)?;
+            .await?;
 
         // Update the user to be a client
         let client = Client::new(user_id, public_key);
 
         // store client object in db
         let document = to_document(&client).unwrap();
-        clients
-            .insert_one(document, None)
-            .await
-            .map_err(|_| DodonaError::Unknown)?;
+        clients.insert_one(document, None).await?;
 
         // reponse with private key
         response_from_json(doc! {"privKey": private_key})
@@ -91,14 +87,10 @@ pub async fn new_model(
     let models = database.collection("models");
 
     let email = crypto::clean(doc.get_str("email").unwrap());
-    let model_name = get_from_doc(&doc, "model_name")?.to_string();
+    let model_name = doc.get_str("model_name")?.to_string();
 
     let filter = doc! { "email": &email };
-    let user = match users
-        .find_one(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?
-    {
+    let user = match users.find_one(filter, None).await? {
         Some(u) => from_document::<User>(u).unwrap(),
         None => return Err(DodonaError::NotFound),
     };
@@ -109,12 +101,7 @@ pub async fn new_model(
     }
 
     let filter = doc! { "user_id": &user_id, "name": &model_name };
-    if models
-        .find_one(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?
-        .is_some()
-    {
+    if models.find_one(filter, None).await?.is_some() {
         return Err(DodonaError::Conflict);
     }
 
@@ -138,10 +125,7 @@ pub async fn new_model(
 
     // insert model into database
     let document = to_document(&temp_model).unwrap();
-    models
-        .insert_one(document, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?;
+    models.insert_one(document, None).await?;
 
     // return challenge
     response_from_json(doc! {
@@ -166,13 +150,12 @@ pub async fn verify_challenge(
     let clients = database.collection("clients");
     let models = database.collection("models");
 
-    let model_name = get_from_doc(&doc, "model_name")?.to_string();
+    let model_name = doc.get_str("model_name")?.to_string();
     let email = crypto::clean(doc.get_str("email").unwrap());
     let filter = doc! { "email": &email };
     let user = users
         .find_one(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?
+        .await?
         .map(|doc| from_document::<User>(doc).unwrap());
 
     let user = user.ok_or(DodonaError::NotFound)?;
@@ -181,16 +164,14 @@ pub async fn verify_challenge(
     let filter = doc! { "user_id": &user_id };
     let client = clients
         .find_one(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?
+        .await?
         .map(|doc| from_document::<Client>(doc).unwrap());
     let client = client.ok_or(DodonaError::NotFound)?;
 
     let filter = doc! { "user_id": &user_id, "name": &model_name };
     let model = models
         .find_one(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?
+        .await?
         .map(|doc| from_document::<ClientModel>(doc).unwrap());
     let mut model = model.ok_or(DodonaError::NotFound)?;
 
@@ -198,7 +179,7 @@ pub async fn verify_challenge(
     let challenge = &model.challenge.ok_or(DodonaError::Unauthorized)?.bytes;
 
     // needs converting to Vec<u8>
-    let challenge_response = base64::decode(get_from_doc(&doc, "challenge_response")?).unwrap();
+    let challenge_response = base64::decode(doc.get_str("challenge_response")?).unwrap();
 
     if !crypto::verify_challenge(challenge.to_vec(), challenge_response, public_key) {
         return Err(DodonaError::Unauthorized);
@@ -211,10 +192,7 @@ pub async fn verify_challenge(
 
     let filter = doc! { "user_id": &user_id, "name": &model_name };
     let update = doc! { "$set": to_document(&model).unwrap() };
-    models
-        .find_one_and_update(filter, update, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?;
+    models.find_one_and_update(filter, update, None).await?;
 
     // return the access token to the model
     response_from_json(doc! {
@@ -244,24 +222,21 @@ pub async fn unlock_model(
     let models = database.collection("models");
     let users = database.collection("users");
 
-    let model_id =
-        ObjectId::with_string(&get_from_doc(&doc, "id")?).map_err(|_| DodonaError::Unauthorized)?;
+    let model_id = ObjectId::with_string(doc.get_str("id")?)?;
     let filter = doc! { "_id": &model_id };
     let model = models
         .find_one(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?
+        .await?
         .map(|doc| from_document::<ClientModel>(doc).unwrap());
     let mut model = model.ok_or(DodonaError::Unauthorized)?;
 
-    let password = get_from_doc(&doc, "password")?;
+    let password = doc.get_str("password")?;
     let pepper = &app_data.pepper;
 
     let filter = doc! { "_id": &model.user_id };
     let user = users
         .find_one(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?
+        .await?
         .map(|doc| from_document::<User>(doc).unwrap());
     let user = user.ok_or(DodonaError::Unauthorized)?;
 
@@ -275,10 +250,7 @@ pub async fn unlock_model(
 
     let filter = doc! { "_id": &model_id };
     let update = doc! { "$set": to_document(&model).unwrap() };
-    models
-        .find_one_and_update(filter, update, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?;
+    models.find_one_and_update(filter, update, None).await?;
 
     Ok(HttpResponse::Ok().body("Model successfully unlocked"))
 }
@@ -297,17 +269,15 @@ pub async fn authenticate_model(
     let database = app_data.client.database("sybl");
     let models = database.collection("models");
 
-    let model_id =
-        ObjectId::with_string(&get_from_doc(&doc, "id")?).map_err(|_| DodonaError::Unauthorized)?;
+    let model_id = ObjectId::with_string(&doc.get_str("id")?)?;
     let filter = doc! { "_id": &model_id };
     let model = models
         .find_one(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?
+        .await?
         .map(|doc| from_document::<ClientModel>(doc).unwrap());
     let mut model = model.ok_or(DodonaError::Unauthorized)?;
 
-    let token = base64::decode(get_from_doc(&doc, "token")?).unwrap();
+    let token = base64::decode(doc.get_str("token")?).unwrap();
 
     if !model.is_authenticated(&token) {
         return Err(DodonaError::Unauthorized);
@@ -323,10 +293,7 @@ pub async fn authenticate_model(
 
         let filter = doc! { "_id": &model_id };
         let update = doc! { "$set": to_document(&model).unwrap() };
-        models
-            .find_one_and_update(filter, update, None)
-            .await
-            .map_err(|_| DodonaError::Unknown)?;
+        models.find_one_and_update(filter, update, None).await?;
 
         response_from_json(doc! {"challenge": base64::encode(challenge)})
     } else {
@@ -352,19 +319,13 @@ pub async fn get_user_models(
         Err(_) => return Err(DodonaError::NotFound),
     };
 
-    let found_user = users
-        .find_one(doc! { "_id": &object_id}, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?;
+    let found_user = users.find_one(doc! { "_id": &object_id}, None).await?;
 
     if found_user.is_none() {
         return Err(DodonaError::NotFound);
     }
     let filter = doc! { "user_id": &object_id };
-    let cursor = models
-        .find(filter, None)
-        .await
-        .map_err(|_| DodonaError::Unknown)?;
+    let cursor = models.find(filter, None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 
     response_from_json(documents.unwrap())

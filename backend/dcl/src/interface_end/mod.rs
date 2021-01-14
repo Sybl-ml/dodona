@@ -59,7 +59,6 @@ async fn process_connection(
                 timeout,
                 column_types,
             } => (id, timeout, column_types),
-            _ => unreachable!(),
         };
 
     log::info!("Received a message from the interface:");
