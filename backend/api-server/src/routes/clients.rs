@@ -255,19 +255,20 @@ pub async fn unlock_model(
     let mut model = model.ok_or(DodonaError::Unauthorized)?;
 
     let password = get_from_doc(&doc, "password")?;
-    let pepper = &state.pepper;
+    let pepper = &app_data.pepper;
 
     let filter = doc! { "_id": &model.user_id };
     let user = users
         .find_one(filter, None)
-        .await?
+        .await
+        .map_err(|_| DodonaError::Unknown)?
         .map(|doc| from_document::<User>(doc).unwrap());
-    let user = user.ok_or_else(|| tide_err(401, &msg))?;
+    let user = user.ok_or(DodonaError::Unauthorized)?;
 
     let peppered = format!("{}{}", password, pepper);
 
     if !model.authenticated || pbkdf2::pbkdf2_check(&peppered, &user.hash).is_err() {
-        return Err(tide_err(401, &msg));
+        return Err(DodonaError::Unauthorized);
     }
 
     model.locked = false;
