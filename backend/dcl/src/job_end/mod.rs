@@ -10,8 +10,7 @@ use mongodb::{
 };
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
-use tokio::sync::mpsc::Receiver;
-use tokio::sync::RwLock;
+use tokio::sync::{mpsc::Receiver, Notify, RwLock};
 
 use crate::node_end::NodePool;
 use crate::DatasetPair;
@@ -95,30 +94,35 @@ async fn run_cluster(
     info: ClusterInfo,
 ) -> Result<()> {
     let cluster_counter = Arc::new(RwLock::new(cluster.len()));
+    let notify = Arc::new(Notify::new());
     for (key, dcn) in cluster {
         let np_clone = Arc::clone(&nodepool);
         let database_clone = Arc::clone(&database);
         let info_clone = info.clone();
-        let cc_clone = cluster_counter.clone();
+        let cc_clone = Arc::clone(&cluster_counter);
+        let noti_clone = Arc::clone(&notify);
 
         tokio::spawn(async move {
-            dcl_protcol(np_clone, database_clone, key, dcn, info_clone, cc_clone)
-                .await
-                .unwrap();
+            dcl_protcol(
+                np_clone,
+                database_clone,
+                key,
+                dcn,
+                info_clone,
+                cc_clone,
+                noti_clone,
+            )
+            .await
+            .unwrap();
         });
     }
 
-    let database_clone = Arc::clone(&database);
     let project_id = info.id.clone();
 
-    loop {
-        let read_cc = cluster_counter.read().await;
-        if *read_cc == 0 {
-            log::info!("All Jobs Complete!");
-            change_status(database_clone, project_id, Status::Complete).await?;
-            return Ok(());
-        }
-    }
+    notify.notified().await;
+    log::info!("All Jobs Complete!");
+    change_status(database, project_id, Status::Complete).await?;
+    Ok(())
 }
 
 /// Function to execute DCL protocol
@@ -129,6 +133,7 @@ pub async fn dcl_protcol(
     stream: Arc<RwLock<TcpStream>>,
     info: ClusterInfo,
     cluster_counter: Arc<RwLock<usize>>,
+    notify: Arc<Notify>,
 ) -> Result<()> {
     log::info!("Sending a job to node with key: {}", key);
 
@@ -149,6 +154,9 @@ pub async fn dcl_protcol(
             nodepool.update_node(&key, false).await?;
             let mut write_cc = cluster_counter.write().await;
             *write_cc -= 1;
+            if *write_cc == 0 {
+                notify.notify_one();
+            }
 
             log::error!(
                 "(Node {}) Error dealing with node predictions: {}",
@@ -184,6 +192,9 @@ pub async fn dcl_protcol(
 
     let mut write_cc = cluster_counter.write().await;
     *write_cc -= 1;
+    if *write_cc == 0 {
+        notify.notify_one();
+    }
 
     Ok(())
 }

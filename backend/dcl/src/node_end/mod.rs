@@ -207,6 +207,7 @@ impl NodePool {
         let mut buffer = [0_u8; 1024];
         dcn_stream.write(&config.as_bytes()).await.unwrap();
 
+        // TODO: Update to use proper length prefixing
         let size = dcn_stream.read(&mut buffer).await.unwrap();
         let config_response = std::str::from_utf8(&buffer[4..size]).unwrap();
         let config_response: ConfigResponse = serde_json::from_str(&config_response).unwrap();
@@ -217,11 +218,7 @@ impl NodePool {
             config_response.response
         );
 
-        if config_response.response == "sure" {
-            true
-        } else {
-            false
-        }
+        config_response.response == "sure"
     }
 
     /// Changes the `using` flag on a [`NodeInfo`] object
