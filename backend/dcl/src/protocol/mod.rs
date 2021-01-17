@@ -150,6 +150,8 @@ impl<'a> Handler<'a> {
 
         let message = RawMessage::new(text);
 
+        log::info!("RAW MESSAGE: {:?}", &message);
+
         // Send the response back to the client
         self.stream.write(&message.as_bytes()).await?;
 
