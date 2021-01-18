@@ -46,6 +46,25 @@ pub struct ClusterControl {
     pub notify: Arc<Notify>,
 }
 
+impl ClusterControl {
+    /// Creates a new instance of ClusterControl
+    pub fn new(counter: usize) -> ClusterControl {
+        ClusterControl {
+            counter: Arc::new(RwLock::new(counter)),
+            notify: Arc::new(Notify::new()),
+        }
+    }
+
+    /// Decrements the cluster counter
+    pub async fn decrement(&self) {
+        let mut write_cc = self.counter.write().await;
+        *write_cc -= 1;
+        if *write_cc == 0 {
+            self.notify.notify_one();
+        }
+    }
+}
+
 /// Starts up and runs the job end
 ///
 /// Takes in nodepool and mpsc receiver and will listen for incoming datasets.
@@ -102,12 +121,8 @@ async fn run_cluster(
     cluster: HashMap<String, Arc<RwLock<TcpStream>>>,
     info: ClusterInfo,
 ) -> Result<()> {
-    let cluster_counter = Arc::new(RwLock::new(cluster.len()));
-    let notify = Arc::new(Notify::new());
-    let cc: ClusterControl = ClusterControl {
-        counter: Arc::clone(&cluster_counter),
-        notify: Arc::clone(&notify),
-    };
+    let cc: ClusterControl = ClusterControl::new(cluster.len());
+
     for (key, dcn) in cluster {
         let np_clone = Arc::clone(&nodepool);
         let database_clone = Arc::clone(&database);
@@ -123,7 +138,7 @@ async fn run_cluster(
 
     let project_id = info.id.clone();
 
-    notify.notified().await;
+    cc.notify.notified().await;
     log::info!("All Jobs Complete!");
     change_status(database, project_id, Status::Complete).await?;
     Ok(())
@@ -155,11 +170,7 @@ pub async fn dcl_protcol(
         Ok(pm) => pm,
         Err(error) => {
             nodepool.update_node(&key, false).await?;
-            let mut write_cc = cluster_control.counter.write().await;
-            *write_cc -= 1;
-            if *write_cc == 0 {
-                cluster_control.notify.notify_one();
-            }
+            cluster_control.decrement().await;
 
             log::error!(
                 "(Node {}) Error dealing with node predictions: {}",
@@ -193,11 +204,7 @@ pub async fn dcl_protcol(
 
     nodepool.end(&key).await?;
 
-    let mut write_cc = cluster_control.counter.write().await;
-    *write_cc -= 1;
-    if *write_cc == 0 {
-        cluster_control.notify.notify_one();
-    }
+    cluster_control.decrement().await;
 
     Ok(())
 }
