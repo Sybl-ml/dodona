@@ -55,7 +55,15 @@ pub async fn get_project(
         doc! {"project": doc, "details": details_doc}
     } else {
         log::info!("{:?}", &details_doc);
-        doc! {"project": doc, "details": {}}
+        let dd = DatasetDetails {
+            id: None,
+            project_id: None,
+            date_created: mongodb::bson::DateTime(chrono::Utc::now()),
+            head: None,
+            column_types: utils::Columns::new(),
+        };
+
+        doc! {"project": doc, "details": mongodb::bson::ser::to_document(&dd)?}
     };
 
     log::info!("{:?}", &response);
