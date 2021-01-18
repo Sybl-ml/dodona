@@ -547,6 +547,10 @@ async fn projects_can_be_edited() -> Result<()> {
             .route(
                 "/api/projects/p/{project_id}",
                 web::patch().to(routes::projects::patch_project),
+            )
+            .route(
+                "/api/projects/p/{project_id}",
+                web::get().to(routes::projects::get_project),
             ),
     )
     .await;
@@ -562,18 +566,17 @@ async fn projects_can_be_edited() -> Result<()> {
     let res = test::call_service(&mut app, req).await;
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
-    /*
     let formatted = format!("/api/projects/p/{}", common::EDITABLE_PROJECT_ID);
-    let url = Url::parse(&formatted).unwrap();
-    let req = Request::new(tide::http::Method::Get, url);
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::GET)
+        .uri(&formatted)
+        .to_request();
 
-    let mut res: Response = app.respond(req).await?;
-    assert_eq!(tide::StatusCode::Ok, res.status());
-    assert_eq!(Some(tide::http::mime::JSON), res.content_type());
+    let res = test::call_service(&mut app, req).await;
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
-    let project_response: ProjectResponse = res.body_json().await?;
+    let project_response: ProjectResponse = test::read_body_json(res).await;
 
     assert_eq!("new description", project_response.project.description);
-    */
     Ok(())
 }
