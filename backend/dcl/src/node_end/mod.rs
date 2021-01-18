@@ -14,9 +14,11 @@ use mongodb::{
     bson::{doc, oid::ObjectId},
     Database,
 };
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
 
+use messages::{ClientMessage, WriteLengthPrefix};
 use models::models::Status;
 
 use crate::protocol;
@@ -99,6 +101,12 @@ impl Default for NodeInfo {
     }
 }
 
+/// Struct to deserialise response message from
+#[derive(Debug, Deserialize)]
+pub struct ConfigResponse {
+    response: String,
+}
+
 /// Struct holding all compute node connections and information about them
 #[derive(Debug, Default)]
 pub struct NodePool {
@@ -162,6 +170,7 @@ impl NodePool {
     pub async fn get_cluster(
         &self,
         size: usize,
+        config: ClientMessage,
     ) -> Option<HashMap<String, Arc<RwLock<TcpStream>>>> {
         let nodes_read = self.nodes.read().await;
         let mut cluster: HashMap<String, Arc<RwLock<TcpStream>>> = HashMap::new();
@@ -171,7 +180,9 @@ impl NodePool {
             if info.alive && !info.using {
                 info.using = true;
                 let stream = nodes_read.get(key).unwrap().get_tcp();
-                cluster.insert(key.clone(), stream);
+                if NodePool::job_accepted(stream.clone(), config.clone(), key.clone()).await {
+                    cluster.insert(key.clone(), stream);
+                }
 
                 if cluster.len() == size {
                     return Some(cluster);
@@ -183,6 +194,31 @@ impl NodePool {
             0 => None,
             _ => Some(cluster),
         }
+    }
+
+    /// Checks with a node if it will accept a job or not
+    pub async fn job_accepted(
+        stream: Arc<RwLock<TcpStream>>,
+        config: ClientMessage,
+        key: String,
+    ) -> bool {
+        let mut dcn_stream = stream.write().await;
+
+        let mut buffer = [0_u8; 1024];
+        dcn_stream.write(&config.as_bytes()).await.unwrap();
+
+        // TODO: Update to use proper length prefixing
+        let size = dcn_stream.read(&mut buffer).await.unwrap();
+        let config_response = std::str::from_utf8(&buffer[4..size]).unwrap();
+        let config_response: ConfigResponse = serde_json::from_str(&config_response).unwrap();
+
+        log::info!(
+            "(Node {}) Config response: {:?}",
+            &key,
+            config_response.response
+        );
+
+        config_response.response == "sure"
     }
 
     /// Changes the `using` flag on a [`NodeInfo`] object

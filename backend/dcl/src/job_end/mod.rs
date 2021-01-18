@@ -8,15 +8,15 @@ use mongodb::{
     bson::{doc, oid::ObjectId},
     Database,
 };
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
-use tokio::sync::mpsc::Receiver;
-use tokio::sync::RwLock;
+use tokio::sync::{mpsc::Receiver, Notify, RwLock};
 
 use crate::node_end::NodePool;
 use crate::DatasetPair;
 use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
 use models::predictions::Prediction;
+use models::projects::Status;
 
 use utils::anon::{anonymise_dataset, deanonymise_dataset};
 use utils::compress::compress_bytes;
@@ -25,16 +25,44 @@ use utils::{infer_train_and_predict, Columns};
 /// Struct to pass information for a cluster to function
 #[derive(Debug, Clone)]
 pub struct ClusterInfo {
-    /// Id of dataset
-    id: ObjectId,
+    /// Id of project
+    pub id: ObjectId,
     /// Columns in dataset
-    columns: Columns,
+    pub columns: Columns,
     /// Training CSV
-    train: String,
+    pub train: String,
     /// Prediction CSV
-    predict: String,
+    pub predict: String,
     /// Config
-    config: ClientMessage,
+    pub config: ClientMessage,
+}
+
+/// Controlling structures for clusters
+#[derive(Debug, Clone)]
+pub struct ClusterControl {
+    /// Cluster counter
+    pub counter: Arc<RwLock<usize>>,
+    /// Cluster notifier
+    pub notify: Arc<Notify>,
+}
+
+impl ClusterControl {
+    /// Creates a new instance of ClusterControl
+    pub fn new(counter: usize) -> ClusterControl {
+        ClusterControl {
+            counter: Arc::new(RwLock::new(counter)),
+            notify: Arc::new(Notify::new()),
+        }
+    }
+
+    /// Decrements the cluster counter
+    pub async fn decrement(&self) {
+        let mut write_cc = self.counter.write().await;
+        *write_cc -= 1;
+        if *write_cc == 0 {
+            self.notify.notify_one();
+        }
+    }
 }
 
 /// Starts up and runs the job end
@@ -65,21 +93,22 @@ pub async fn run(
         let (anon_train, anon_predict) = infer_train_and_predict(&anon);
         let (anon_train_csv, anon_predict_csv) = (anon_train.join("\n"), anon_predict.join("\n"));
 
+        let info = ClusterInfo {
+            id: id.clone(),
+            columns: columns.clone(),
+            train: anon_train_csv.clone(),
+            predict: anon_predict_csv.clone(),
+            config: config.clone(),
+        };
+
         loop {
-            if let Some(cluster) = nodepool.get_cluster(1).await {
+            if let Some(cluster) = nodepool.get_cluster(1, info.config.clone()).await {
                 log::info!("Created Cluster");
-                let info = ClusterInfo {
-                    id: id.clone(),
-                    columns: columns.clone(),
-                    train: anon_train_csv.clone(),
-                    predict: anon_predict_csv.clone(),
-                    config: config.clone(),
-                };
 
                 let np_clone = Arc::clone(&nodepool);
                 let database_clone = Arc::clone(&database);
                 run_cluster(np_clone, database_clone, cluster, info.clone()).await?;
-                return Ok(());
+                break;
             }
         }
     }
@@ -92,17 +121,26 @@ async fn run_cluster(
     cluster: HashMap<String, Arc<RwLock<TcpStream>>>,
     info: ClusterInfo,
 ) -> Result<()> {
+    let cc: ClusterControl = ClusterControl::new(cluster.len());
+
     for (key, dcn) in cluster {
         let np_clone = Arc::clone(&nodepool);
         let database_clone = Arc::clone(&database);
         let info_clone = info.clone();
+        let cc_clone = cc.clone();
 
         tokio::spawn(async move {
-            dcl_protcol(np_clone, database_clone, key, dcn, info_clone)
+            dcl_protcol(np_clone, database_clone, key, dcn, info_clone, cc_clone)
                 .await
                 .unwrap();
         });
     }
+
+    let project_id = info.id.clone();
+
+    cc.notify.notified().await;
+    log::info!("All Jobs Complete!");
+    change_status(database, project_id, Status::Complete).await?;
     Ok(())
 }
 
@@ -113,21 +151,13 @@ pub async fn dcl_protcol(
     key: String,
     stream: Arc<RwLock<TcpStream>>,
     info: ClusterInfo,
+    cluster_control: ClusterControl,
 ) -> Result<()> {
     log::info!("Sending a job to node with key: {}", key);
 
     let mut dcn_stream = stream.write().await;
 
     let mut buffer = [0_u8; 1024];
-    match info.config {
-        ClientMessage::JobConfig { .. } => dcn_stream.write(&info.config.as_bytes()).await.unwrap(),
-        _ => unreachable!(),
-    };
-
-    let size = dcn_stream.read(&mut buffer).await.unwrap();
-    let config_response = std::str::from_utf8(&buffer[..size]).unwrap();
-
-    log::info!("(Node {}) Config response: {}", &key, config_response);
 
     let dataset_message = ClientMessage::Dataset {
         train: info.train,
@@ -140,6 +170,7 @@ pub async fn dcl_protcol(
         Ok(pm) => pm,
         Err(error) => {
             nodepool.update_node(&key, false).await?;
+            cluster_control.decrement().await;
 
             log::error!(
                 "(Node {}) Error dealing with node predictions: {}",
@@ -172,6 +203,8 @@ pub async fn dcl_protcol(
     log::info!("(Node: {}) Computed Data: {}", &key, predictions);
 
     nodepool.end(&key).await?;
+
+    cluster_control.decrement().await;
 
     Ok(())
 }
@@ -206,6 +239,25 @@ pub async fn increment_run_count(database: Arc<Database>, model_id: &str) -> Res
     let query = doc! {"_id": &object_id};
     let update = doc! { "$inc": { "times_run": 1 } };
     models.update_one(query, update, None).await?;
+
+    Ok(())
+}
+
+/// Change the status of a project after it has been completed
+pub async fn change_status(
+    database: Arc<Database>,
+    project_id: ObjectId,
+    status: Status,
+) -> Result<()> {
+    let projects = database.collection("projects");
+
+    projects
+        .update_one(
+            doc! { "_id": &project_id},
+            doc! {"$set": {"status": status}},
+            None,
+        )
+        .await?;
 
     Ok(())
 }
