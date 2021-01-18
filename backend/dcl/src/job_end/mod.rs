@@ -37,6 +37,15 @@ pub struct ClusterInfo {
     pub config: ClientMessage,
 }
 
+/// Controlling structures for clusters
+#[derive(Debug, Clone)]
+pub struct ClusterControl {
+    /// Cluster counter
+    pub counter: Arc<RwLock<usize>>,
+    /// Cluster notifier
+    pub notify: Arc<Notify>,
+}
+
 /// Starts up and runs the job end
 ///
 /// Takes in nodepool and mpsc receiver and will listen for incoming datasets.
@@ -80,7 +89,7 @@ pub async fn run(
                 let np_clone = Arc::clone(&nodepool);
                 let database_clone = Arc::clone(&database);
                 run_cluster(np_clone, database_clone, cluster, info.clone()).await?;
-                return Ok(());
+                break;
             }
         }
     }
@@ -95,25 +104,20 @@ async fn run_cluster(
 ) -> Result<()> {
     let cluster_counter = Arc::new(RwLock::new(cluster.len()));
     let notify = Arc::new(Notify::new());
+    let cc: ClusterControl = ClusterControl {
+        counter: Arc::clone(&cluster_counter),
+        notify: Arc::clone(&notify),
+    };
     for (key, dcn) in cluster {
         let np_clone = Arc::clone(&nodepool);
         let database_clone = Arc::clone(&database);
         let info_clone = info.clone();
-        let cc_clone = Arc::clone(&cluster_counter);
-        let noti_clone = Arc::clone(&notify);
+        let cc_clone = cc.clone();
 
         tokio::spawn(async move {
-            dcl_protcol(
-                np_clone,
-                database_clone,
-                key,
-                dcn,
-                info_clone,
-                cc_clone,
-                noti_clone,
-            )
-            .await
-            .unwrap();
+            dcl_protcol(np_clone, database_clone, key, dcn, info_clone, cc_clone)
+                .await
+                .unwrap();
         });
     }
 
@@ -132,8 +136,7 @@ pub async fn dcl_protcol(
     key: String,
     stream: Arc<RwLock<TcpStream>>,
     info: ClusterInfo,
-    cluster_counter: Arc<RwLock<usize>>,
-    notify: Arc<Notify>,
+    cluster_control: ClusterControl,
 ) -> Result<()> {
     log::info!("Sending a job to node with key: {}", key);
 
@@ -152,10 +155,10 @@ pub async fn dcl_protcol(
         Ok(pm) => pm,
         Err(error) => {
             nodepool.update_node(&key, false).await?;
-            let mut write_cc = cluster_counter.write().await;
+            let mut write_cc = cluster_control.counter.write().await;
             *write_cc -= 1;
             if *write_cc == 0 {
-                notify.notify_one();
+                cluster_control.notify.notify_one();
             }
 
             log::error!(
@@ -190,10 +193,10 @@ pub async fn dcl_protcol(
 
     nodepool.end(&key).await?;
 
-    let mut write_cc = cluster_counter.write().await;
+    let mut write_cc = cluster_control.counter.write().await;
     *write_cc -= 1;
     if *write_cc == 0 {
-        notify.notify_one();
+        cluster_control.notify.notify_one();
     }
 
     Ok(())
