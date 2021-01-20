@@ -25,7 +25,12 @@ pub struct DatasetDetails {
 
 impl DatasetDetails {
     /// Creates a new instance of [`DatasetDetails`].
-    pub fn new(dataset_name:String, project_id: ObjectId, head: String, column_types: Columns) -> Self {
+    pub fn new(
+        dataset_name: String,
+        project_id: ObjectId,
+        head: String,
+        column_types: Columns,
+    ) -> Self {
         Self {
             id: None,
             dataset_name: Some(dataset_name),
