@@ -1,4 +1,4 @@
-use utils::anon::{anonymise_dataset, deanonymise_dataset};
+use utils::anon::{anonymise_dataset, deanonymise_dataset, infer_dataset_columns};
 use utils::infer_columns;
 
 #[test]
@@ -27,19 +27,22 @@ fn columns_can_be_anonymised() {
 #[test]
 fn headers_can_be_anonymised() {
     let dataset = "age,location\n20,Coventry\n20,\n21,Leamington".to_string();
-    let anonymised = anonymise_dataset(dataset).unwrap().0;
+    let columns = infer_dataset_columns(&dataset).unwrap();
+    let anonymised = anonymise_dataset(&dataset, &columns).unwrap();
     assert!(!anonymised.contains("age") && !anonymised.contains("location"));
 }
 
 #[test]
 fn datasets_can_be_anonymised() {
     let dataset = "age,location\n20,Coventry\n20,\n21,Leamington".to_string();
-    assert_ne!(anonymise_dataset(dataset.clone()).unwrap().0, dataset);
+    let columns = infer_dataset_columns(&dataset).unwrap();
+    assert_ne!(anonymise_dataset(&dataset, &columns).unwrap(), dataset);
 }
 
 #[test]
 fn datasets_can_be_deanonymised() {
     let dataset = "age,location\n20,Coventry\n20,\n21,Leamington\n".to_string();
-    let (anonymised, columns) = anonymise_dataset(dataset.clone()).unwrap();
-    assert_eq!(deanonymise_dataset(anonymised, columns).unwrap(), dataset);
+    let columns = infer_dataset_columns(&dataset).unwrap();
+    let anonymised = anonymise_dataset(&dataset, &columns).unwrap();
+    assert_eq!(deanonymise_dataset(&anonymised, &columns).unwrap(), dataset);
 }

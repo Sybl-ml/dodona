@@ -3,6 +3,12 @@
 use crate::{infer_columns, Columns};
 use csv::{Reader, StringRecord, Writer};
 
+pub fn infer_dataset_columns(dataset: &String) -> Option<Columns> {
+    // identify the types and range (numerical) or unique values (categorical) of each column
+    let mut reader = Reader::from_reader(dataset.as_bytes());
+    infer_columns(&mut reader).ok()
+}
+
 /// Given a `dataset` represented in a `String`-encoded CSV format, identifies the columns
 /// of features within the dataset, anonymises the data using range normalisation for
 /// numerical data and pseudonymisation for categorical data, anonymises header names with
@@ -11,11 +17,7 @@ use csv::{Reader, StringRecord, Writer};
 ///
 /// Returns `None` if headers cannot be parsed or the output CSV cannot be `String`-encoded.
 /// Ignores and removes any records which cannot be anonymised
-pub fn anonymise_dataset(dataset: String) -> Option<(String, Columns)> {
-    // identify the types and range (numerical) or unique values (categorical) of each column
-    let mut reader = Reader::from_reader(dataset.as_bytes());
-    let types: Columns = infer_columns(&mut reader).ok()?;
-
+pub fn anonymise_dataset(dataset: &String, columns: &Columns) -> Option<String> {
     // read each record of the data and anonymise each value based on its column
     let mut reader = Reader::from_reader(dataset.as_bytes());
     let headers = reader.headers().ok()?.to_owned();
@@ -23,7 +25,7 @@ pub fn anonymise_dataset(dataset: String) -> Option<(String, Columns)> {
     let records: Vec<StringRecord> = reader.records().filter_map(Result::ok).collect();
     let anonymised = records
         .iter()
-        .filter_map(|r| anonymise_row(r, &types, &headers))
+        .filter_map(|r| anonymise_row(r, &columns, &headers))
         .collect::<Vec<_>>();
 
     // encode column names based on random pseudonyms
@@ -31,7 +33,7 @@ pub fn anonymise_dataset(dataset: String) -> Option<(String, Columns)> {
         .write_record(
             headers
                 .iter()
-                .map(|c| &types.get(&c.to_string()).unwrap().pseudonym),
+                .map(|c| &columns.get(&c.to_string()).unwrap().pseudonym),
         )
         .unwrap();
 
@@ -40,14 +42,13 @@ pub fn anonymise_dataset(dataset: String) -> Option<(String, Columns)> {
         writer.write_record(v).unwrap();
     });
 
-    // return the anonymised dataset as a `String` with the `Columns` used for anonymisation
-    Some((
+    // return the anonymised dataset as a `String`
+    Some(
         writer
             .into_inner()
             .ok()
-            .and_then(|l| String::from_utf8(l).ok())?,
-        types,
-    ))
+            .and_then(|l| String::from_utf8(l).ok())?
+    )
 }
 
 pub fn anonymise_row(
@@ -72,7 +73,7 @@ pub fn anonymise_row(
 ///
 /// Returns `None` if headers cannot be parsed or the output CSV cannot be `String`-encoded.
 /// Ignores and removes any records which cannot be deanonymised
-pub fn deanonymise_dataset(dataset: String, columns: Columns) -> Option<String> {
+pub fn deanonymise_dataset(dataset: &String, columns: &Columns) -> Option<String> {
     // identify the pseudonyms used to anonymise the data
     let mut reader = Reader::from_reader(dataset.as_bytes());
     let pseudonyms = reader.headers().ok()?.to_owned();
