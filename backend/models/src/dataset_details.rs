@@ -11,7 +11,7 @@ pub struct DatasetDetails {
     /// The unique identifier for the dataset
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id: Option<ObjectId>,
-    // Name of Dataset
+    /// Name of Dataset
     pub dataset_name: Option<String>,
     /// Unique identifier for the associated project
     pub project_id: Option<ObjectId>,
