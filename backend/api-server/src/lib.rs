@@ -7,6 +7,8 @@
 #![warn(missing_docs)]
 
 #[macro_use]
+extern crate serde;
+#[macro_use]
 extern crate serde_json;
 
 use std::env;
@@ -19,6 +21,7 @@ use mongodb::Client;
 use actix_cors::Cors;
 use actix_web::{middleware, web, App, HttpServer, Result};
 
+pub mod auth;
 pub mod dodona_error;
 pub mod routes;
 

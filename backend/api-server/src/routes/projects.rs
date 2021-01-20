@@ -13,6 +13,8 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio_stream::StreamExt;
 
+use crate::auth;
+
 use crate::dodona_error::DodonaError;
 use crate::routes::{check_project_exists, check_user_exists, response_from_json};
 use crate::AppState;
@@ -31,6 +33,7 @@ use utils::ColumnType;
 /// Given a project identifier, finds the project in the database and returns it as a JSON object.
 /// If the project does not exist, returns a 404 response code.
 pub async fn get_project(
+    _user: auth::User,
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
