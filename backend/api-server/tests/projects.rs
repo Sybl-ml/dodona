@@ -351,7 +351,7 @@ async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
 
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
-    let doc = doc! {"content": "age,sex,location\n23,M,Coventry"};
+    let doc = doc! {"content": "age,sex,location\n23,M,Coventry", "name": "Freddie"};
     let url = format!(
         "/api/projects/p/{}/data",
         common::OVERWRITTEN_DATA_PROJECT_ID
