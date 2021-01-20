@@ -1,10 +1,11 @@
 //! Part of DCL that takes a DCN and a dataset and comunicates with node
 
+use rand::seq::SliceRandom;
+use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Result;
-use csv::{Reader, StringRecord};
 use mongodb::{
     bson::{doc, oid::ObjectId},
     Database,
@@ -66,6 +67,10 @@ impl ClusterControl {
     }
 }
 
+const CLUSTER_SIZE: usize = 1;
+const VALIDATION_SIZE: usize = 10;
+const TRAINING_BAG_SIZE: usize = 10;
+
 /// Starts up and runs the job end
 ///
 /// Takes in nodepool and mpsc receiver and will listen for incoming datasets.
@@ -90,7 +95,36 @@ pub async fn run(
             .chain(msg.predict.split('\n').skip(1))
             .collect::<Vec<_>>()
             .join("\n");
+
         let columns = infer_dataset_columns(&data).unwrap();
+
+        let mut train = msg.train.split('\n').collect::<Vec<_>>();
+        let mut validation = vec![];
+        let test = msg.train.split('\n').collect::<Vec<_>>();
+
+        for _ in 1..=VALIDATION_SIZE {
+            validation.push(train.swap_remove(thread_rng().gen_range(0..train.len())));
+        }
+
+        let mut bags: HashMap<usize, (String, String)> = HashMap::new();
+
+        for m in 1..=CLUSTER_SIZE {
+            let model_train: Vec<_> = train
+                .choose_multiple(&mut thread_rng(), TRAINING_BAG_SIZE)
+                .map(|s| s.to_owned())
+                .collect();
+            let mut model_test: Vec<_> = test.clone();
+            model_test.append(&mut validation);
+            model_test.shuffle(&mut thread_rng());
+            bags.insert(
+                m,
+                (
+                    anonymise_dataset(&model_train.join("\n"), &columns).unwrap(),
+                    anonymise_dataset(&model_test.join("\n"), &columns).unwrap(),
+                ),
+            );
+        }
+
         let anon = anonymise_dataset(&data, &columns).unwrap();
         let (anon_train, anon_predict) = infer_train_and_predict(&anon);
         let (anon_train_csv, anon_predict_csv) = (anon_train.join("\n"), anon_predict.join("\n"));

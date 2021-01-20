@@ -47,7 +47,7 @@ pub fn anonymise_dataset(dataset: &String, columns: &Columns) -> Option<String> 
         writer
             .into_inner()
             .ok()
-            .and_then(|l| String::from_utf8(l).ok())?
+            .and_then(|l| String::from_utf8(l).ok())?,
     )
 }
 
