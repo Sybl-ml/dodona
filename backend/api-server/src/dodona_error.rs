@@ -64,6 +64,7 @@ error_map! {
     bson::de::Error => UnprocessableEntity,
     mongodb::error::Error => Unknown,
     pbkdf2::CheckError => Unauthorized,
+    jsonwebtoken::errors::Error => Unauthorized,
     base64::DecodeError => UnprocessableEntity,
     utils::compress::CompressionError => UnprocessableEntity,
 }
