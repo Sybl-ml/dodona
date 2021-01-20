@@ -24,6 +24,7 @@
           :dataHead="dataHead"
           @get-data="fetchData"
           :data="data"
+          :datasetName="datasetName"
           :loading="loading"
         />
       </b-tab>
@@ -70,6 +71,7 @@ export default {
       dateCreated: new Date(),
 
       datasetDate: new Date(),
+      datasetName: "",
       dataHead: {},
       dataTypes: {},
 
@@ -113,6 +115,7 @@ export default {
       this.dateCreated = new Date(project_info.date_created.$date);
       this.status = project_info.status;
       this.dataHead = Papa.parse(project_details.head, { header: true });
+      this.datasetName = project_details.dataset_name
       this.datasetDate = new Date(project_details.date_created.$date);
       this.dataTypes = project_details.column_types;
     },
