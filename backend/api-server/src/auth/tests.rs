@@ -5,7 +5,7 @@ use actix_web::test::TestRequest;
 use jsonwebtoken::{EncodingKey, Header};
 use mongodb::bson::oid::ObjectId;
 
-use crate::auth::User;
+use crate::auth::{get_encoding_key, User};
 
 #[test]
 fn request_without_authorization_header_is_rejected() {
@@ -40,7 +40,7 @@ fn request_with_valid_token_but_no_bearer_is_rejected() {
 
     // Setup the JWT with the same settings as above
     let header = Header::default();
-    let key = EncodingKey::from_secret(b"");
+    let key = get_encoding_key();
     let encoded = jsonwebtoken::encode(&header, &user, &key).unwrap();
 
     // Build the request with the produced token
@@ -59,7 +59,7 @@ fn request_with_valid_expired_token_is_rejected() {
 
     // Setup the JWT with the same settings as above
     let header = Header::default();
-    let key = EncodingKey::from_secret(b"");
+    let key = get_encoding_key();
     let encoded = jsonwebtoken::encode(&header, &user, &key).unwrap();
 
     // Build the request with the produced token
@@ -79,7 +79,7 @@ fn request_with_valid_token_is_accepted() {
 
     // Setup the JWT with the same settings as above
     let header = Header::default();
-    let key = EncodingKey::from_secret(b"");
+    let key = get_encoding_key();
     let encoded = jsonwebtoken::encode(&header, &user, &key).unwrap();
 
     // Build the request with the produced token
@@ -103,7 +103,7 @@ fn jwt_tokens_can_expire() {
 
     // Setup the JWT with the same settings as above
     let header = Header::default();
-    let key = EncodingKey::from_secret(b"");
+    let key = get_encoding_key();
     let encoded = jsonwebtoken::encode(&header, &user, &key).unwrap();
 
     // Build the request with the produced token
@@ -116,12 +116,6 @@ fn jwt_tokens_can_expire() {
 
     // Wait until the token has expired
     std::thread::sleep(Duration::from_secs(1));
-
-    // Send the same request again
-    let auth_value = format!("Bearer {}", encoded);
-    let request = TestRequest::default()
-        .header("Authorization", auth_value)
-        .to_http_request();
 
     assert!(User::try_from(&request).is_err());
 }
