@@ -1,10 +1,11 @@
 use actix_web::{middleware, test, web, App, Result};
+use mongodb::bson::{doc, document::Document, oid::ObjectId};
+use serde::{Deserialize, Serialize};
+
+use api_server::auth::{get_encoding_key, User};
 use api_server::routes;
 use models::dataset_details::DatasetDetails;
 use models::projects::Project;
-use mongodb::bson::{doc, document::Document};
-
-use serde::{Deserialize, Serialize};
 
 mod common;
 
@@ -17,6 +18,17 @@ pub struct ProjectResponse {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DatasetResponse {
     dataset: String,
+}
+
+fn get_bearer_token(identifier: &str) -> String {
+    // Create a user for authentication
+    let user = User::new(ObjectId::with_string(identifier).unwrap(), u64::MAX);
+
+    let header = jsonwebtoken::Header::default();
+    let key = get_encoding_key();
+    let encoded = jsonwebtoken::encode(&header, &user, &key).unwrap();
+
+    format!("Bearer {}", encoded)
 }
 
 #[actix_rt::test]
@@ -132,6 +144,7 @@ async fn projects_can_be_fetched_by_identifier() -> Result<()> {
     let formatted = format!("/api/projects/p/{}", common::MAIN_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
+        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
         .uri(&formatted)
         .to_request();
 
@@ -183,6 +196,7 @@ async fn non_existent_projects_are_not_found() -> Result<()> {
     let formatted = format!("/api/projects/p/{}", common::NON_EXISTENT_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
+        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
         .uri(&formatted)
         .to_request();
 
@@ -211,6 +225,7 @@ async fn projects_cannot_be_found_with_invalid_identifiers() -> Result<()> {
     let url = "/api/projects/p/invalid";
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
+        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
         .uri(&url)
         .to_request();
 
@@ -559,6 +574,7 @@ async fn projects_can_be_edited() -> Result<()> {
     let doc = doc! {"description": "new description"};
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PATCH)
+        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
         .set_json(&doc)
         .uri(&formatted)
         .to_request();
@@ -569,6 +585,7 @@ async fn projects_can_be_edited() -> Result<()> {
     let formatted = format!("/api/projects/p/{}", common::EDITABLE_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
+        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
         .uri(&formatted)
         .to_request();
 

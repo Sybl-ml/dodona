@@ -4,10 +4,20 @@ use std::convert::TryFrom;
 
 use actix_web::{dev::Payload, web::HttpRequest, FromRequest};
 use futures_util::future;
-use jsonwebtoken::{DecodingKey, TokenData, Validation};
+use jsonwebtoken::{DecodingKey, EncodingKey, TokenData, Validation};
 use mongodb::bson::oid::ObjectId;
 
 use crate::dodona_error::DodonaError;
+
+pub fn get_encoding_key() -> EncodingKey {
+    let key = include_str!("../../jwt_key");
+    EncodingKey::from_secret(&key.as_bytes())
+}
+
+fn get_decoding_key() -> DecodingKey<'static> {
+    let key = include_str!("../../jwt_key");
+    DecodingKey::from_secret(&key.as_bytes())
+}
 
 /// An authorised user and their identifier.
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -39,7 +49,8 @@ impl TryFrom<&HttpRequest> for User {
             .strip_prefix("Bearer ")
             .ok_or(DodonaError::Unauthorized)?;
 
-        let key = DecodingKey::from_secret(b"");
+        // Get the secret key from the filesystem
+        let key = get_decoding_key();
         let validation = Validation::default();
         let token_data: TokenData<User> = jsonwebtoken::decode(token, &key, &validation)?;
 
