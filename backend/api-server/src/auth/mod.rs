@@ -22,7 +22,7 @@ fn get_decoding_key() -> DecodingKey<'static> {
 /// An authorised user and their identifier.
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct User {
-    id: ObjectId,
+    pub id: ObjectId,
     exp: u64,
 }
 
