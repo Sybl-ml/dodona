@@ -179,6 +179,35 @@ async fn projects_can_be_fetched_by_identifier() -> Result<()> {
 }
 
 #[actix_rt::test]
+async fn projects_cannot_be_fetched_by_users_who_do_not_own_it() -> Result<()> {
+    let state = common::initialise().await;
+
+    let mut app = test::init_service(
+        App::new()
+            .wrap(middleware::Logger::default())
+            .data(state)
+            .service(
+                web::resource("/api/projects/p/{project_id}")
+                    .route(web::get().to(routes::projects::get_project)),
+            ),
+    )
+    .await;
+
+    let formatted = format!("/api/projects/p/{}", common::MAIN_PROJECT_ID);
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::GET)
+        .header("Authorization", get_bearer_token(common::DELETE_UID))
+        .uri(&formatted)
+        .to_request();
+
+    let res = test::call_service(&mut app, req).await;
+
+    assert_eq!(actix_web::http::StatusCode::UNAUTHORIZED, res.status());
+
+    Ok(())
+}
+
+#[actix_rt::test]
 async fn non_existent_projects_are_not_found() -> Result<()> {
     let state = common::initialise().await;
 
