@@ -102,7 +102,7 @@ pub async fn run(
         let mut train = msg.train.split('\n').collect::<Vec<_>>();
         let headers = train.remove(0);
         let mut validation = vec![];
-        let test = msg.train.split('\n').skip(1).collect::<Vec<_>>();
+        let test = msg.predict.split('\n').skip(1).collect::<Vec<_>>();
 
         for _ in 1..=VALIDATION_SIZE {
             validation.push(train.swap_remove(thread_rng().gen_range(0..train.len())));
