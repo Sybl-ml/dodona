@@ -11,6 +11,8 @@ pub struct DatasetDetails {
     /// The unique identifier for the dataset
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id: Option<ObjectId>,
+    /// Name of Dataset
+    pub dataset_name: Option<String>,
     /// Unique identifier for the associated project
     pub project_id: Option<ObjectId>,
     /// The date that the dataset was uploaded
@@ -23,9 +25,15 @@ pub struct DatasetDetails {
 
 impl DatasetDetails {
     /// Creates a new instance of [`DatasetDetails`].
-    pub fn new(project_id: ObjectId, head: String, column_types: Columns) -> Self {
+    pub fn new(
+        dataset_name: String,
+        project_id: ObjectId,
+        head: String,
+        column_types: Columns,
+    ) -> Self {
         Self {
             id: None,
+            dataset_name: Some(dataset_name),
             project_id: Some(project_id),
             date_created: bson::DateTime(Utc::now()),
             head: Some(head),

@@ -300,7 +300,7 @@ async fn datasets_can_be_added_to_projects() -> Result<()> {
     )
     .await;
 
-    let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa"};
+    let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa", "name": "Freddie"};
     let url = format!("/api/projects/p/{}/data", common::MAIN_PROJECT_ID);
 
     let req = test::TestRequest::default()
@@ -335,7 +335,7 @@ async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
     )
     .await;
 
-    let doc = doc! {"content": "age,sex,location\n23,M,Leamington Spa"};
+    let doc = doc! {"content": "age,sex,location\n23,M,Leamington Spa", "name": "Freddie"};
     let url = format!(
         "/api/projects/p/{}/data",
         common::OVERWRITTEN_DATA_PROJECT_ID
@@ -351,7 +351,7 @@ async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
 
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
-    let doc = doc! {"content": "age,sex,location\n23,M,Coventry"};
+    let doc = doc! {"content": "age,sex,location\n23,M,Coventry", "name": "Freddie"};
     let url = format!(
         "/api/projects/p/{}/data",
         common::OVERWRITTEN_DATA_PROJECT_ID
@@ -400,7 +400,7 @@ async fn datasets_cannot_be_added_if_projects_do_not_exist() -> Result<()> {
     )
     .await;
 
-    let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa"};
+    let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa", "name": "Freddie"};
     let url = format!("/api/projects/p/{}/data", common::NON_EXISTENT_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
@@ -432,7 +432,7 @@ async fn dataset_can_be_taken_from_database() -> Result<()> {
     )
     .await;
 
-    let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa"};
+    let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa", "name": "Freddie"};
     let url = format!("/api/projects/p/{}/data", common::MAIN_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
@@ -473,7 +473,7 @@ async fn overview_of_dataset_can_be_returned() -> Result<()> {
     )
     .await;
 
-    let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa"};
+    let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa", "name": "Freddie"};
     let url = format!("/api/projects/p/{}/data", common::MAIN_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)

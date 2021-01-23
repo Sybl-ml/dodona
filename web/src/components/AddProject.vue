@@ -98,6 +98,7 @@ export default {
       let project_response = await axios.put(
         `http://localhost:3001/api/projects/p/${this.project_id}/data`,
         {
+          name: this.file.name,
           content: e.target.result,
         }
       );
