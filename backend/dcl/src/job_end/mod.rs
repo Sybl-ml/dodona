@@ -104,13 +104,19 @@ pub async fn run(
         let mut validation = vec![];
         let test = msg.predict.split('\n').skip(1).collect::<Vec<_>>();
 
+        log::info!("{:?}", &train);
+        log::info!("{}", &train.len());
+
         for _ in 1..=VALIDATION_SIZE {
             validation.push(train.swap_remove(thread_rng().gen_range(0..train.len())));
         }
 
+        log::info!("Built validation data");
+
         let mut bags: HashMap<usize, (String, String)> = HashMap::new();
 
         for m in 1..=CLUSTER_SIZE {
+            log::info!("BOOTSTRAPPING");
             let model_train: Vec<_> = train
                 .choose_multiple(&mut thread_rng(), TRAINING_BAG_SIZE)
                 .map(|s| s.to_owned())
@@ -136,22 +142,25 @@ pub async fn run(
             let anon_valid = anonymise_dataset(&model_anon_valid.join("\n"), &columns).unwrap();
 
             // Add record ids to train
-            let (train_rids, anon_train) = generate_ids(anon_train);
+            let (anon_train, train_rids) = generate_ids(anon_train);
             log::info!(
                 "IDs: {:?}\nAnonymised Train: {:?}",
                 &train_rids,
                 &anon_train
             );
             // Add record ids to test
-            let (test_rids, mut anon_test) = generate_ids(anon_test);
+            let (anon_test, test_rids) = generate_ids(anon_test);
             log::info!("IDs: {:?}\nAnonymised Test: {:?}", &test_rids, &anon_test);
             // Add record ids to validation
-            let (valid_rids, mut anon_valid) = generate_ids(anon_valid);
+            let (anon_valid, valid_rids) = generate_ids(anon_valid);
             log::info!(
                 "IDs: {:?}\nAnonymised Valid: {:?}",
                 &valid_rids,
                 &anon_valid
             );
+
+            let mut anon_test = anon_test.split("\n").collect::<Vec<_>>();
+            let mut anon_valid = anon_valid.split("\n").collect::<Vec<_>>();
 
             // Get the new anonymised headers for test set
             let new_headers = anon_test.remove(0);
@@ -166,7 +175,7 @@ pub async fn run(
             log::info!("Anonymised Test with Validation: {:?}", &final_anon_test);
 
             // Add to bag
-            bags.insert(m, (anon_train.join("\n"), final_anon_test.join("\n")));
+            bags.insert(m, (anon_train, final_anon_test.join("\n")));
         }
 
         let anon = anonymise_dataset(&data, &columns).unwrap();

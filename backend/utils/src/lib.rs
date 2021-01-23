@@ -325,17 +325,28 @@ pub fn generate_ids(dataset: String) -> (String, Vec<String>) {
     let mut writer = Writer::from_writer(vec![]);
     let records: Vec<StringRecord> = reader.records().filter_map(Result::ok).collect();
 
-    headers.push_field("record_id");
+    let mut new_header = vec!["record_id"];
+    for field in headers.iter() {
+        new_header.push(field);
+    }
+    headers = StringRecord::from(new_header);
+
+    println!("{:?}", headers);
+
     let with_ids = records
         .iter()
         .map(|line| {
-            let mut line_copy = line.clone();
             let record_id = generate_string(8);
             record_ids.push(record_id.clone());
-            line_copy.push_field(&record_id);
-            line_copy
+            let mut new_line = vec![record_id];
+            for field in line.iter() {
+                new_line.push(String::from(field));
+            }
+            StringRecord::from(new_line)
         })
         .collect::<Vec<_>>();
+
+    println!("{:?}", with_ids);
 
     // Write headers
     writer.write_record(headers.iter()).unwrap();
