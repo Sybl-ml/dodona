@@ -1,4 +1,5 @@
 use utils::anon::{anonymise_dataset, deanonymise_dataset, infer_dataset_columns};
+use utils::generate_ids;
 use utils::infer_columns;
 
 #[test]
@@ -45,4 +46,12 @@ fn datasets_can_be_deanonymised() {
     let columns = infer_dataset_columns(&dataset).unwrap();
     let anonymised = anonymise_dataset(&dataset, &columns).unwrap();
     assert_eq!(deanonymise_dataset(&anonymised, &columns).unwrap(), dataset);
+}
+
+#[test]
+fn n_record_ids_are_generated() {
+    let number: usize = 10;
+    let record_ids = generate_ids(number);
+    assert_eq!(number, record_ids.len());
+    assert_eq!(8, record_ids[0].len());
 }

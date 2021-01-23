@@ -312,6 +312,16 @@ pub fn parse_body<R: std::io::Read>(reader: &mut Reader<R>, n: usize) -> String 
         .join("\n")
 }
 
+/// Returns a vector of ids used during ML
+///
+/// When a CSV is sent to a client, they should be given
+/// the ids of the records so that they can be matched up upon
+/// being returned. The ids are generated using the Linear
+/// Congruential Generator algorithm.
+pub fn generate_ids(n: usize) -> Vec<String> {
+    (0..n).into_iter().map(|_x| generate_string(8)).collect()
+}
+
 /// Sets up the logging for the application.
 ///
 /// Initialises a new instance of a [`fern`] logger, which displays the time and some coloured
