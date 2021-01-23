@@ -114,9 +114,17 @@ pub async fn run(
                 .choose_multiple(&mut thread_rng(), TRAINING_BAG_SIZE)
                 .map(|s| s.to_owned())
                 .collect();
+            // Anonymise train data
+            // Anonymise test data
+            // Anonymise validation data
+            // Add record ids to train
+            // Add record ids to test
+            // Add record ids to validation
+            // Combine validation with test
             let mut model_test: Vec<_> = test.clone();
             model_test.append(&mut validation);
             model_test.shuffle(&mut thread_rng());
+            // Add to bag
             bags.insert(
                 m,
                 (

@@ -4,7 +4,7 @@
 extern crate serde;
 
 use anyhow::Result;
-use csv::{Reader, StringRecord};
+use csv::{Reader, StringRecord, Writer};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -318,21 +318,40 @@ pub fn parse_body<R: std::io::Read>(reader: &mut Reader<R>, n: usize) -> String 
 /// the ids of the records so that they can be matched up upon
 /// being returned.
 pub fn generate_ids(dataset: String) -> (String, Vec<String>) {
-    // (0..n).into_iter().map(|_x| generate_string(8)).collect()
     // Break dataset
     let mut record_ids = Vec::new();
+    let mut reader = Reader::from_reader(dataset.as_bytes());
+    let mut headers = reader.headers().ok().unwrap().to_owned();
+    let mut writer = Writer::from_writer(vec![]);
+    let records: Vec<StringRecord> = reader.records().filter_map(Result::ok).collect();
 
-    let with_ids = dataset
-        .split('\n')
+    headers.push_field("record_id");
+    let with_ids = records
+        .iter()
         .map(|line| {
+            let mut line_copy = line.clone();
             let record_id = generate_string(8);
             record_ids.push(record_id.clone());
-            format!("{},{}", record_id, line)
+            line_copy.push_field(&record_id);
+            line_copy
         })
-        .collect::<Vec<_>>()
-        .join("\n");
+        .collect::<Vec<_>>();
 
-    (with_ids, record_ids)
+    // Write headers
+    writer.write_record(headers.iter()).unwrap();
+
+    // write the new rows with ids to csv
+    with_ids.iter().for_each(|v| {
+        writer.write_record(v).unwrap();
+    });
+
+    let new_csv = writer
+        .into_inner()
+        .ok()
+        .and_then(|l| String::from_utf8(l).ok())
+        .unwrap();
+
+    (new_csv, record_ids)
 }
 
 /// Sets up the logging for the application.

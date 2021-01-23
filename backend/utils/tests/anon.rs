@@ -51,13 +51,8 @@ fn datasets_can_be_deanonymised() {
 #[test]
 fn n_record_ids_are_generated() {
     let dataset: String = String::from(
-        "12.2,Francis Lane,1896\n12.2,Thomas Curtis,1896\n11.8,Tom Burke,1896\n11.4,Arthur Duffey,1900\n10.0,Charlie Greene,1968\n10.0,Jim Hines,1968\n9.9,Jim Hines,1968\n9.92,Carl Lewis,1988\n9.84,Donovan Bailey,1996\n9.69,Usain Bolt,2008\n9.63,Usain Bolt,2012 ",);
+        "Time,Person,Year\n12.2,Francis Lane,1896\n12.2,Thomas Curtis,1896\n11.8,Tom Burke,1896\n11.4,Arthur Duffey,1900\n10.0,Charlie Greene,1968\n10.0,Jim Hines,1968\n9.9,Jim Hines,1968\n9.92,Carl Lewis,1988\n9.84,Donovan Bailey,1996\n9.69,Usain Bolt,2008\n9.63,Usain Bolt,2012 ",);
     let (new_dataset, ids) = generate_ids(dataset);
     let new_dataset = new_dataset.split("\n").collect::<Vec<_>>();
-    assert_eq!(ids.len(), new_dataset.len());
-    for item in new_dataset.iter().zip(ids.iter()) {
-        let (row, id) = item;
-        let broken_row = row.split(",").collect::<Vec<_>>();
-        assert_eq!(broken_row[0], id);
-    }
+    assert_eq!(ids.len(), new_dataset.len() + 1);
 }
