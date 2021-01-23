@@ -871,6 +871,7 @@ dependencies = [
  "bzip2",
  "chrono",
  "config",
+ "crypto",
  "csv",
  "futures",
  "http",

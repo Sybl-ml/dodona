@@ -316,10 +316,23 @@ pub fn parse_body<R: std::io::Read>(reader: &mut Reader<R>, n: usize) -> String 
 ///
 /// When a CSV is sent to a client, they should be given
 /// the ids of the records so that they can be matched up upon
-/// being returned. The ids are generated using the Linear
-/// Congruential Generator algorithm.
-pub fn generate_ids(n: usize) -> Vec<String> {
-    (0..n).into_iter().map(|_x| generate_string(8)).collect()
+/// being returned.
+pub fn generate_ids(dataset: String) -> (String, Vec<String>) {
+    // (0..n).into_iter().map(|_x| generate_string(8)).collect()
+    // Break dataset
+    let mut record_ids = Vec::new();
+
+    let with_ids = dataset
+        .split('\n')
+        .map(|line| {
+            let record_id = generate_string(8);
+            record_ids.push(record_id.clone());
+            format!("{},{}", record_id, line)
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    (with_ids, record_ids)
 }
 
 /// Sets up the logging for the application.

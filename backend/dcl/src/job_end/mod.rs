@@ -20,6 +20,7 @@ use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
 use models::predictions::Prediction;
 use models::projects::Status;
 
+use crypto::generate_string;
 use utils::anon::{anonymise_dataset, deanonymise_dataset, infer_dataset_columns};
 use utils::compress::compress_bytes;
 use utils::{infer_train_and_predict, Columns};
