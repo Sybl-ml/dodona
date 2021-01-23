@@ -20,9 +20,9 @@ use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
 use models::predictions::Prediction;
 use models::projects::Status;
 
-use crypto::generate_string;
 use utils::anon::{anonymise_dataset, deanonymise_dataset, infer_dataset_columns};
 use utils::compress::compress_bytes;
+use utils::generate_ids;
 use utils::{infer_train_and_predict, Columns};
 
 /// Struct to pass information for a cluster to function
@@ -100,8 +100,9 @@ pub async fn run(
         let columns = infer_dataset_columns(&data).unwrap();
 
         let mut train = msg.train.split('\n').collect::<Vec<_>>();
+        let headers = train.remove(0);
         let mut validation = vec![];
-        let test = msg.train.split('\n').collect::<Vec<_>>();
+        let test = msg.train.split('\n').skip(1).collect::<Vec<_>>();
 
         for _ in 1..=VALIDATION_SIZE {
             validation.push(train.swap_remove(thread_rng().gen_range(0..train.len())));
@@ -114,24 +115,58 @@ pub async fn run(
                 .choose_multiple(&mut thread_rng(), TRAINING_BAG_SIZE)
                 .map(|s| s.to_owned())
                 .collect();
+
+            // Create new train set with headers
+            let mut model_anon_train = vec![headers.clone()];
+            model_anon_train.extend_from_slice(&model_train);
+
+            // Create new test set with headers
+            let mut model_anon_test = vec![headers.clone()];
+            model_anon_test.extend_from_slice(&test);
+
+            // Create new validation set with headers
+            let mut model_anon_valid = vec![headers.clone()];
+            model_anon_valid.extend_from_slice(&validation);
+
             // Anonymise train data
+            let anon_train = anonymise_dataset(&model_anon_train.join("\n"), &columns).unwrap();
             // Anonymise test data
+            let anon_test = anonymise_dataset(&model_anon_test.join("\n"), &columns).unwrap();
             // Anonymise validation data
+            let anon_valid = anonymise_dataset(&model_anon_valid.join("\n"), &columns).unwrap();
+
             // Add record ids to train
-            // Add record ids to test
-            // Add record ids to validation
-            // Combine validation with test
-            let mut model_test: Vec<_> = test.clone();
-            model_test.append(&mut validation);
-            model_test.shuffle(&mut thread_rng());
-            // Add to bag
-            bags.insert(
-                m,
-                (
-                    anonymise_dataset(&model_train.join("\n"), &columns).unwrap(),
-                    anonymise_dataset(&model_test.join("\n"), &columns).unwrap(),
-                ),
+            let (train_rids, anon_train) = generate_ids(anon_train);
+            log::info!(
+                "IDs: {:?}\nAnonymised Train: {:?}",
+                &train_rids,
+                &anon_train
             );
+            // Add record ids to test
+            let (test_rids, mut anon_test) = generate_ids(anon_test);
+            log::info!("IDs: {:?}\nAnonymised Test: {:?}", &test_rids, &anon_test);
+            // Add record ids to validation
+            let (valid_rids, mut anon_valid) = generate_ids(anon_valid);
+            log::info!(
+                "IDs: {:?}\nAnonymised Valid: {:?}",
+                &valid_rids,
+                &anon_valid
+            );
+
+            // Get the new anonymised headers for test set
+            let new_headers = anon_test.remove(0);
+            anon_valid.remove(0);
+
+            // Combine validation with test
+            anon_test.append(&mut anon_valid);
+            anon_test.shuffle(&mut thread_rng());
+            let mut final_anon_test = vec![new_headers];
+            final_anon_test.extend_from_slice(&anon_test);
+
+            log::info!("Anonymised Test with Validation: {:?}", &final_anon_test);
+
+            // Add to bag
+            bags.insert(m, (anon_train.join("\n"), final_anon_test.join("\n")));
         }
 
         let anon = anonymise_dataset(&data, &columns).unwrap();
