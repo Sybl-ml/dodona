@@ -23,7 +23,7 @@ use models::projects::Status;
 use utils::anon::{anonymise_dataset, deanonymise_dataset, infer_dataset_columns};
 use utils::compress::compress_bytes;
 use utils::generate_ids;
-use utils::{infer_train_and_predict, Columns};
+use utils::Columns;
 
 /// Struct to pass information for a cluster to function
 #[derive(Debug, Clone)]
@@ -173,10 +173,6 @@ pub async fn run(
             // Add to bag
             bags.insert(m, (anon_train, final_anon_test.join("\n")));
         }
-
-        let anon = anonymise_dataset(&data, &columns).unwrap();
-        let (anon_train, anon_predict) = infer_train_and_predict(&anon);
-        let (anon_train_csv, anon_predict_csv) = (anon_train.join("\n"), anon_predict.join("\n"));
 
         let info = ClusterInfo {
             id: id.clone(),
