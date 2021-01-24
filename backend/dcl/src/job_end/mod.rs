@@ -32,10 +32,6 @@ pub struct ClusterInfo {
     pub id: ObjectId,
     /// Columns in dataset
     pub columns: Columns,
-    /// Training CSV
-    pub train: String,
-    /// Prediction CSV
-    pub predict: String,
     /// Config
     pub config: ClientMessage,
 }
@@ -185,8 +181,6 @@ pub async fn run(
         let info = ClusterInfo {
             id: id.clone(),
             columns: columns.clone(),
-            train: anon_train_csv.clone(),
-            predict: anon_predict_csv.clone(),
             config: config.clone(),
         };
 
@@ -196,7 +190,14 @@ pub async fn run(
 
                 let np_clone = Arc::clone(&nodepool);
                 let database_clone = Arc::clone(&database);
-                run_cluster(np_clone, database_clone, cluster, info.clone()).await?;
+                run_cluster(
+                    np_clone,
+                    database_clone,
+                    cluster,
+                    info.clone(),
+                    bags.clone(),
+                )
+                .await?;
                 break;
             }
         }
@@ -209,19 +210,31 @@ async fn run_cluster(
     database: Arc<Database>,
     cluster: HashMap<String, Arc<RwLock<TcpStream>>>,
     info: ClusterInfo,
+    prediction_bag: HashMap<usize, (String, String)>,
 ) -> Result<()> {
     let cc: ClusterControl = ClusterControl::new(cluster.len());
+    let mut counter: usize = 1;
 
     for (key, dcn) in cluster {
         let np_clone = Arc::clone(&nodepool);
         let database_clone = Arc::clone(&database);
         let info_clone = info.clone();
         let cc_clone = cc.clone();
+        let train_predict = prediction_bag.get(&counter).unwrap().clone();
+        counter += 1;
 
         tokio::spawn(async move {
-            dcl_protcol(np_clone, database_clone, key, dcn, info_clone, cc_clone)
-                .await
-                .unwrap();
+            dcl_protcol(
+                np_clone,
+                database_clone,
+                key,
+                dcn,
+                info_clone,
+                cc_clone,
+                train_predict,
+            )
+            .await
+            .unwrap();
         });
     }
 
@@ -241,16 +254,18 @@ pub async fn dcl_protcol(
     stream: Arc<RwLock<TcpStream>>,
     info: ClusterInfo,
     cluster_control: ClusterControl,
+    train_predict: (String, String),
 ) -> Result<()> {
     log::info!("Sending a job to node with key: {}", key);
 
     let mut dcn_stream = stream.write().await;
 
     let mut buffer = [0_u8; 1024];
+    let (train, predict) = train_predict;
 
     let dataset_message = ClientMessage::Dataset {
-        train: info.train,
-        predict: info.predict,
+        train: train,
+        predict: predict,
     };
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
@@ -275,6 +290,8 @@ pub async fn dcl_protcol(
         ClientMessage::Predictions(s) => s,
         _ => unreachable!(),
     };
+
+    log::info!("Predictions: {:?}", &anonymised_predictions);
 
     let predictions = deanonymise_dataset(&anonymised_predictions, &info.columns).unwrap();
 
