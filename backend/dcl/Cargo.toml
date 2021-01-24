@@ -23,6 +23,7 @@ config = { path = "../config" }
 models = { path = "../models" }
 utils = { path = "../utils" }
 messages = { path = "../messages" }
+crypto = { path = "../crypto" }
 chrono = "0.4.19"
 mongodb = { git = "https://github.com/glebpom/mongo-rust-driver", branch = "tokio-1.0-fiix" }
 

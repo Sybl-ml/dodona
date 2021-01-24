@@ -83,13 +83,15 @@ pub fn deanonymise_dataset(dataset: &String, columns: &Columns) -> Option<String
     // translate the pseudonyms to their original names for each column
     let headers: StringRecord = pseudonyms
         .iter()
-        .map(|p| {
-            &columns
+        .map(|p| match p {
+            "record_id" => p,
+            _ => columns
                 .values()
                 .filter(|c| c.pseudonym == p)
                 .next()
                 .unwrap()
                 .name
+                .as_str(),
         })
         .collect::<Vec<_>>()
         .into();
@@ -120,8 +122,9 @@ pub fn deanonymise_row(
 ) -> Option<Vec<String>> {
     row.iter()
         .zip(headers)
-        .map(|(v, c)| {
-            types
+        .map(|(v, c)| match c {
+            "record_id" => Some(v.to_string()),
+            _ => types
                 .get(&c.to_string())
                 .and_then(|l| l.deanonymise(v.to_string()))
         })

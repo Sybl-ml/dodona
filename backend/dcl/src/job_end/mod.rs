@@ -22,6 +22,7 @@ use models::projects::Status;
 
 use utils::anon::{anonymise_dataset, deanonymise_dataset, infer_dataset_columns};
 use utils::compress::compress_bytes;
+use utils::generate_ids;
 use utils::{infer_train_and_predict, Columns};
 
 /// Struct to pass information for a cluster to function
@@ -31,10 +32,6 @@ pub struct ClusterInfo {
     pub id: ObjectId,
     /// Columns in dataset
     pub columns: Columns,
-    /// Training CSV
-    pub train: String,
-    /// Prediction CSV
-    pub predict: String,
     /// Config
     pub config: ClientMessage,
 }
@@ -99,30 +96,82 @@ pub async fn run(
         let columns = infer_dataset_columns(&data).unwrap();
 
         let mut train = msg.train.split('\n').collect::<Vec<_>>();
+        let headers = train.remove(0);
         let mut validation = vec![];
-        let test = msg.train.split('\n').collect::<Vec<_>>();
+        let test = msg.predict.split('\n').skip(1).collect::<Vec<_>>();
+
+        log::info!("{:?}", &train);
+        log::info!("{}", &train.len());
 
         for _ in 1..=VALIDATION_SIZE {
             validation.push(train.swap_remove(thread_rng().gen_range(0..train.len())));
         }
 
+        log::info!("Built validation data");
+
         let mut bags: HashMap<usize, (String, String)> = HashMap::new();
 
         for m in 1..=CLUSTER_SIZE {
+            log::info!("BOOTSTRAPPING");
             let model_train: Vec<_> = train
                 .choose_multiple(&mut thread_rng(), TRAINING_BAG_SIZE)
                 .map(|s| s.to_owned())
                 .collect();
-            let mut model_test: Vec<_> = test.clone();
-            model_test.append(&mut validation);
-            model_test.shuffle(&mut thread_rng());
-            bags.insert(
-                m,
-                (
-                    anonymise_dataset(&model_train.join("\n"), &columns).unwrap(),
-                    anonymise_dataset(&model_test.join("\n"), &columns).unwrap(),
-                ),
+
+            // Create new train set with headers
+            let mut model_anon_train = vec![headers.clone()];
+            model_anon_train.extend_from_slice(&model_train);
+
+            // Create new test set with headers
+            let mut model_anon_test = vec![headers.clone()];
+            model_anon_test.extend_from_slice(&test);
+
+            // Create new validation set with headers
+            let mut model_anon_valid = vec![headers.clone()];
+            model_anon_valid.extend_from_slice(&validation);
+
+            // Anonymise train data
+            let anon_train = anonymise_dataset(&model_anon_train.join("\n"), &columns).unwrap();
+            // Anonymise test data
+            let anon_test = anonymise_dataset(&model_anon_test.join("\n"), &columns).unwrap();
+            // Anonymise validation data
+            let anon_valid = anonymise_dataset(&model_anon_valid.join("\n"), &columns).unwrap();
+
+            // Add record ids to train
+            let (anon_train, train_rids) = generate_ids(anon_train);
+            log::info!(
+                "IDs: {:?}\nAnonymised Train: {:?}",
+                &train_rids,
+                &anon_train
             );
+            // Add record ids to test
+            let (anon_test, test_rids) = generate_ids(anon_test);
+            log::info!("IDs: {:?}\nAnonymised Test: {:?}", &test_rids, &anon_test);
+            // Add record ids to validation
+            let (anon_valid, valid_rids) = generate_ids(anon_valid);
+            log::info!(
+                "IDs: {:?}\nAnonymised Valid: {:?}",
+                &valid_rids,
+                &anon_valid
+            );
+
+            let mut anon_test = anon_test.split("\n").collect::<Vec<_>>();
+            let mut anon_valid = anon_valid.split("\n").collect::<Vec<_>>();
+
+            // Get the new anonymised headers for test set
+            let new_headers = anon_test.remove(0);
+            anon_valid.remove(0);
+
+            // Combine validation with test
+            anon_test.append(&mut anon_valid);
+            anon_test.shuffle(&mut thread_rng());
+            let mut final_anon_test = vec![new_headers];
+            final_anon_test.extend_from_slice(&anon_test);
+
+            log::info!("Anonymised Test with Validation: {:?}", &final_anon_test);
+
+            // Add to bag
+            bags.insert(m, (anon_train, final_anon_test.join("\n")));
         }
 
         let anon = anonymise_dataset(&data, &columns).unwrap();
@@ -132,8 +181,6 @@ pub async fn run(
         let info = ClusterInfo {
             id: id.clone(),
             columns: columns.clone(),
-            train: anon_train_csv.clone(),
-            predict: anon_predict_csv.clone(),
             config: config.clone(),
         };
 
@@ -143,7 +190,14 @@ pub async fn run(
 
                 let np_clone = Arc::clone(&nodepool);
                 let database_clone = Arc::clone(&database);
-                run_cluster(np_clone, database_clone, cluster, info.clone()).await?;
+                run_cluster(
+                    np_clone,
+                    database_clone,
+                    cluster,
+                    info.clone(),
+                    bags.clone(),
+                )
+                .await?;
                 break;
             }
         }
@@ -156,19 +210,31 @@ async fn run_cluster(
     database: Arc<Database>,
     cluster: HashMap<String, Arc<RwLock<TcpStream>>>,
     info: ClusterInfo,
+    prediction_bag: HashMap<usize, (String, String)>,
 ) -> Result<()> {
     let cc: ClusterControl = ClusterControl::new(cluster.len());
+    let mut counter: usize = 1;
 
     for (key, dcn) in cluster {
         let np_clone = Arc::clone(&nodepool);
         let database_clone = Arc::clone(&database);
         let info_clone = info.clone();
         let cc_clone = cc.clone();
+        let train_predict = prediction_bag.get(&counter).unwrap().clone();
+        counter += 1;
 
         tokio::spawn(async move {
-            dcl_protcol(np_clone, database_clone, key, dcn, info_clone, cc_clone)
-                .await
-                .unwrap();
+            dcl_protcol(
+                np_clone,
+                database_clone,
+                key,
+                dcn,
+                info_clone,
+                cc_clone,
+                train_predict,
+            )
+            .await
+            .unwrap();
         });
     }
 
@@ -188,16 +254,18 @@ pub async fn dcl_protcol(
     stream: Arc<RwLock<TcpStream>>,
     info: ClusterInfo,
     cluster_control: ClusterControl,
+    train_predict: (String, String),
 ) -> Result<()> {
     log::info!("Sending a job to node with key: {}", key);
 
     let mut dcn_stream = stream.write().await;
 
     let mut buffer = [0_u8; 1024];
+    let (train, predict) = train_predict;
 
     let dataset_message = ClientMessage::Dataset {
-        train: info.train,
-        predict: info.predict,
+        train: train,
+        predict: predict,
     };
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
@@ -222,6 +290,8 @@ pub async fn dcl_protcol(
         ClientMessage::Predictions(s) => s,
         _ => unreachable!(),
     };
+
+    log::info!("Predictions: {:?}", &anonymised_predictions);
 
     let predictions = deanonymise_dataset(&anonymised_predictions, &info.columns).unwrap();
 
