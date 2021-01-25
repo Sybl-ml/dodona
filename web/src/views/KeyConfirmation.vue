@@ -14,12 +14,12 @@
         <b-card class="shadow">
           <b-row>
             <b-col md="10">
-              <code>{{ private_key }}</code>
+              <code class="rsaDisplay">{{ private_key }}</code>
             </b-col>
             <b-col style="text-align: right" md="2">
               <b-button
                 variant="dark"
-                style="background: none; border: none; margin: 0; padding: 0"
+                style="background: none; border: none; margin: 0; padding: 0;"
               >
                 <b-icon-clipboard-plus
                   @click="copy(private_key)"
@@ -37,6 +37,13 @@
     </b-row>
   </b-container>
 </template>
+
+<style scoped>
+  .rsaDisplay{
+    user-select: none; 
+    white-space:pre-wrap;
+  }
+</style>
 
 <script>
 export default {
