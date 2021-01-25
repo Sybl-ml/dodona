@@ -187,6 +187,8 @@ pub async fn add_data(
 
     log::info!("Project already has data: {}", project_has_data);
 
+    let dataset_name = doc.get_str("name")?.to_string();
+
     let analysis = utils::analysis::analyse(&data);
     let (train, predict) = utils::infer_train_and_predict(&data);
     let column_types = analysis.types;
@@ -198,7 +200,7 @@ pub async fn add_data(
     let compressed = compress_vec(&train)?;
     let compressed_predict = compress_vec(&predict)?;
 
-    let details = DatasetDetails::new(object_id.clone(), data_head, column_types);
+    let details = DatasetDetails::new(dataset_name, object_id.clone(), data_head, column_types);
     let dataset = Dataset::new(object_id.clone(), compressed, compressed_predict);
 
     // If the project has data, delete the existing information

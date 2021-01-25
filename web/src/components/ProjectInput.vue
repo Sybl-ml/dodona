@@ -1,5 +1,9 @@
 <template>
-  <b-container fluid class="mt-3">
+  <b-container fluid >
+    <b-row>
+      <h4>{{this.datasetName}}
+      </h4>
+    </b-row>
     <b-row>
       <b-col v-if="!data && !loading" class="text-center">
         <b-row class="input-table">
@@ -38,6 +42,7 @@ export default {
   name: "ProjectInput",
   props: {
     projectId: String,
+    datasetName: String,
     data: Object,
     dataHead: Object,
     loading: Boolean,
