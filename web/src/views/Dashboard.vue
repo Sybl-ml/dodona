@@ -113,7 +113,7 @@ export default {
     let user_id = $cookies.get("token");
 
     let response = await axios.get(
-      `http://localhost:3001/api/projects/u/${user_id}`
+      `http://localhost:3001/api/projects`
     );
 
     this.projects = response.data.map((x) => {

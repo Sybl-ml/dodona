@@ -9,6 +9,7 @@ use mongodb::bson::ser::to_document;
 use mongodb::bson::{self, doc, document::Document, oid::ObjectId, Binary};
 use tokio_stream::StreamExt;
 
+use crate::auth;
 use crate::dodona_error::DodonaError;
 use crate::routes::response_from_json;
 use crate::AppState;
@@ -289,24 +290,13 @@ pub async fn authenticate_model(
 /// Given a user identifier, finds all the models in the database that the user owns. If the user
 /// doesn't exist or an invalid identifier is given, returns a 404 response.
 pub async fn get_user_models(
+    user: auth::User,
     app_data: web::Data<AppState>,
-    user_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
     let models = database.collection("models");
-    let users = database.collection("users");
 
-    let object_id = match ObjectId::with_string(&user_id) {
-        Ok(id) => id,
-        Err(_) => return Err(DodonaError::NotFound),
-    };
-
-    let found_user = users.find_one(doc! { "_id": &object_id}, None).await?;
-
-    if found_user.is_none() {
-        return Err(DodonaError::NotFound);
-    }
-    let filter = doc! { "user_id": &object_id };
+    let filter = doc! { "user_id": &user.id };
     let cursor = models.find(filter, None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 

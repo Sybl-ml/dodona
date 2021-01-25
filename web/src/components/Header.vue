@@ -87,7 +87,7 @@ export default {
       }
       try {
         let user_data = await axios.get(
-          `http://localhost:3001/api/users/${user_id}`
+          `http://localhost:3001/api/users`
         );
         this.name = user_data.data.first_name + " " + user_data.data.last_name;
         this.email = user_data.data.email;

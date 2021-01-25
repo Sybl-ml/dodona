@@ -16,9 +16,7 @@ use tokio_stream::StreamExt;
 use crate::auth;
 
 use crate::dodona_error::DodonaError;
-use crate::routes::{
-    check_project_exists, check_user_exists, check_user_owns_project, response_from_json,
-};
+use crate::routes::{check_project_exists, check_user_owns_project, response_from_json};
 use crate::AppState;
 use crypto::clean;
 use messages::{InterfaceMessage, WriteLengthPrefix};
@@ -117,16 +115,13 @@ pub async fn delete_project(
 /// Given a user identifier, finds all the projects in the database that the user owns. If the user
 /// doesn't exist or an invalid identifier is given, returns a 404 response.
 pub async fn get_user_projects(
+    user: auth::User,
     app_data: web::Data<AppState>,
-    user_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
     let projects = database.collection("projects");
-    let users = database.collection("users");
 
-    let object_id = check_user_exists(&user_id, &users).await?;
-
-    let filter = doc! { "user_id": &object_id };
+    let filter = doc! { "user_id": &user.id };
     let cursor = projects.find(filter, None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 
@@ -139,22 +134,18 @@ pub async fn get_user_projects(
 /// be created and saved in the database. This can fail if the user id
 /// provided doesn't exist.
 pub async fn new(
+    user: auth::User,
     app_data: web::Data<AppState>,
-    user_id: web::Path<String>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
     let projects = database.collection("projects");
-    let users = database.collection("users");
-
-    // get user ID
-    let user_id = check_user_exists(&user_id, &users).await?;
 
     // get name
     let name = clean(doc.get_str("name")?);
     let description = clean(doc.get_str("description")?);
 
-    let project = Project::new(&name, &description, user_id);
+    let project = Project::new(&name, &description, user.id.clone());
 
     let document = mongodb::bson::ser::to_document(&project)?;
     let id = projects.insert_one(document, None).await?.inserted_id;

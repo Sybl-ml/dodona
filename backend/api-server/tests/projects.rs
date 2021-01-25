@@ -40,17 +40,18 @@ async fn projects_can_be_fetched_for_a_user() -> Result<()> {
             .wrap(middleware::Logger::default())
             .data(state)
             .service(
-                web::resource("/api/projects/u/{user_id}")
+                web::resource("/api/projects")
                     .route(web::get().to(routes::projects::get_user_projects)),
             ),
     )
     .await;
 
-    let formatted = format!("/api/projects/u/{}", common::MAIN_USER_ID);
+    let url = "/api/projects";
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
-        .uri(&formatted)
+        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
+        .uri(&url)
         .to_request();
 
     let res = test::call_service(&mut app, req).await;
@@ -67,61 +68,6 @@ async fn projects_can_be_fetched_for_a_user() -> Result<()> {
 
     assert_eq!("Test Project", found.name);
     assert_eq!("Test Description", found.description);
-
-    Ok(())
-}
-
-#[actix_rt::test]
-async fn projects_must_be_tied_to_a_user() -> Result<()> {
-    let state = common::initialise().await;
-
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .service(
-                web::resource("/api/projects/u/{user_id}")
-                    .route(web::get().to(routes::projects::get_user_projects)),
-            ),
-    )
-    .await;
-
-    let formatted = format!("/api/projects/u/{}", common::NON_EXISTENT_USER_ID);
-    let req = test::TestRequest::default()
-        .method(actix_web::http::Method::GET)
-        .uri(&formatted)
-        .to_request();
-
-    let res = test::call_service(&mut app, req).await;
-
-    assert_eq!(actix_web::http::StatusCode::NOT_FOUND, res.status());
-
-    Ok(())
-}
-
-#[actix_rt::test]
-async fn projects_cannot_be_found_for_invalid_user_ids() -> Result<()> {
-    let state = common::initialise().await;
-
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .service(
-                web::resource("/api/projects/u/{user_id}")
-                    .route(web::get().to(routes::projects::get_user_projects)),
-            ),
-    )
-    .await;
-
-    let url = "/api/projects/u/5fb91546de4ea43e91aaeede";
-    let req = test::TestRequest::default()
-        .method(actix_web::http::Method::GET)
-        .uri(&url)
-        .to_request();
-
-    let res = test::call_service(&mut app, req).await;
-    assert_eq!(actix_web::http::StatusCode::NOT_FOUND, res.status());
 
     Ok(())
 }
@@ -269,36 +215,6 @@ async fn projects_cannot_be_found_with_invalid_identifiers() -> Result<()> {
 }
 
 #[actix_rt::test]
-async fn projects_cannot_be_created_for_non_existent_users() -> Result<()> {
-    let state = common::initialise().await;
-
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .service(
-                web::resource("/api/projects/u/{user_id}/new")
-                    .route(web::post().to(routes::projects::new)),
-            ),
-    )
-    .await;
-    let doc = doc! {"name": "test", "description": "test"};
-    let url_str = format!("/api/projects/u/{}/new", common::USERLESS_PROJECT_ID);
-
-    let req = test::TestRequest::default()
-        .method(actix_web::http::Method::POST)
-        .uri(&url_str)
-        .set_json(&doc)
-        .to_request();
-
-    let res = test::call_service(&mut app, req).await;
-
-    assert_eq!(actix_web::http::StatusCode::NOT_FOUND, res.status());
-
-    Ok(())
-}
-
-#[actix_rt::test]
 async fn projects_can_be_created() -> Result<()> {
     let state = common::initialise().await;
 
@@ -307,17 +223,20 @@ async fn projects_can_be_created() -> Result<()> {
             .wrap(middleware::Logger::default())
             .data(state)
             .service(
-                web::resource("/api/projects/u/{user_id}/new")
-                    .route(web::post().to(routes::projects::new)),
+                web::resource("/api/projects/new").route(web::post().to(routes::projects::new)),
             ),
     )
     .await;
 
     let doc = doc! {"name": "test", "description": "test"};
-    let url = format!("/api/projects/u/{}/new", common::CREATES_PROJECT_UID);
+    let url = "/api/projects/new";
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
+        .header(
+            "Authorization",
+            get_bearer_token(common::CREATES_PROJECT_UID),
+        )
         .uri(&url)
         .set_json(&doc)
         .to_request();

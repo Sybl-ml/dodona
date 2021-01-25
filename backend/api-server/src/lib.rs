@@ -97,13 +97,10 @@ pub async fn build_server() -> Result<()> {
                 web::delete().to(routes::projects::delete_project),
             )
             .route(
-                "/api/projects/u/{user_id}",
+                "/api/projects",
                 web::get().to(routes::projects::get_user_projects),
             )
-            .route(
-                "/api/projects/u/{user_id}/new",
-                web::post().to(routes::projects::new),
-            )
+            .route("/api/projects/new", web::post().to(routes::projects::new))
             .route(
                 "/api/projects/p/{project_id}/data",
                 web::put().to(routes::projects::add_data),
@@ -146,11 +143,11 @@ pub async fn build_server() -> Result<()> {
                 web::post().to(routes::clients::authenticate_model),
             )
             .route(
-                "/api/clients/u/{user_id}",
+                "/api/clients",
                 web::get().to(routes::clients::get_user_models),
             )
             // users
-            .route("/api/users/{user_id}", web::get().to(routes::users::get))
+            .route("/api/users", web::get().to(routes::users::get))
             .route("/api/users/filter", web::post().to(routes::users::filter))
             .route("/api/users/new", web::post().to(routes::users::new))
             .route("/api/users/edit", web::post().to(routes::users::edit))
