@@ -4,6 +4,7 @@ use actix_web::{web, HttpResponse};
 use mongodb::bson::{doc, document::Document, oid::ObjectId};
 use tokio_stream::StreamExt;
 
+use crate::auth;
 use crate::dodona_error::DodonaError;
 use crate::routes::{check_user_exists, response_from_json};
 use crate::AppState;
@@ -15,15 +16,13 @@ use models::users::User;
 /// Given a user identifier, finds the user in the database and returns them as a JSON object. If
 /// the user does not exist, the handler will panic.
 pub async fn get(
+    user: auth::User,
     app_data: web::Data<AppState>,
-    user_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
     let users = database.collection("users");
 
-    let object_id = check_user_exists(&user_id, &users).await?;
-
-    let filter: Document = doc! { "_id": object_id };
+    let filter: Document = doc! { "_id": user.id };
     let document = users.find_one(filter, None).await?;
 
     response_from_json(document)

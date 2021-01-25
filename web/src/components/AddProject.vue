@@ -71,7 +71,7 @@ export default {
       let user_id = $cookies.get("token");
       try {
         let project_response = await axios.post(
-          `http://localhost:3001/api/projects/u/${user_id}/new`,
+          `http://localhost:3001/api/projects/new`,
           {
             name: this.name,
             description: this.description,

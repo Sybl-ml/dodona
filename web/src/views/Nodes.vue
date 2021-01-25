@@ -164,7 +164,7 @@ export default {
     let user_id = $cookies.get("token");
     try {
       let data = await axios.get(
-        `http://localhost:3001/api/clients/u/${user_id}`
+        `http://localhost:3001/api/clients`
       );
       this.model_data = data.data;
     } catch (err) {
