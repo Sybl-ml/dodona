@@ -63,14 +63,14 @@ impl fmt::Display for AccessToken {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClientModel {
     /// The unique identifier for the client model
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<ObjectId>,
+    #[serde(rename = "_id")]
+    pub id: ObjectId,
     /// The user id which this models belongs to
     pub user_id: ObjectId,
     /// name provided for the model
     pub name: String,
     /// Status of the model
-    pub status: Option<Status>,
+    pub status: Status,
     /// The access token for the model, if set
     pub access_token: Option<AccessToken>,
     /// false if the model has been unlocked through web
@@ -84,6 +84,23 @@ pub struct ClientModel {
 }
 
 impl ClientModel {
+    pub fn new(user_id: ObjectId, name: String, challenge: Vec<u8>) -> Self {
+        Self {
+            id: ObjectId::new(),
+            user_id,
+            name,
+            status: Status::NotStarted,
+            access_token: None,
+            locked: true,
+            authenticated: false,
+            challenge: Some(Binary {
+                subtype: bson::spec::BinarySubtype::Generic,
+                bytes: challenge,
+            }),
+            times_run: 0,
+        }
+    }
+
     pub fn is_authenticated(&self, token: &[u8]) -> bool {
         // Check the easy conditions
         if !self.authenticated || self.locked {

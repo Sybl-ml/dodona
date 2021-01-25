@@ -50,23 +50,16 @@ pub async fn get_project(
     let filter = doc! { "project_id": &object_id };
     let details_doc = details.find_one(filter, None).await?;
 
-    let response = if let Some(details_doc) = details_doc {
-        log::info!("{:?}", &details_doc);
-        doc! {"project": doc, "details": details_doc}
-    } else {
-        log::info!("{:?}", &details_doc);
-        let dd = DatasetDetails {
-            id: None,
-            project_id: None,
-            date_created: mongodb::bson::DateTime(chrono::Utc::now()),
-            head: None,
-            column_types: utils::Columns::new(),
-        };
+    // Begin by adding the project as we know we will respond with that
+    let mut response = doc! { "project": doc };
 
-        doc! {"project": doc, "details": mongodb::bson::ser::to_document(&dd)?}
-    };
+    if let Some(details_doc) = details_doc {
+        // Insert the details as well
+        response.insert("details", details_doc);
+    }
 
     log::info!("{:?}", &response);
+
     response_from_json(response)
 }
 
@@ -327,9 +320,6 @@ pub async fn begin_processing(
     // Parse the dataset itself
     let dataset = mongodb::bson::de::from_document::<Dataset>(document)?;
 
-    // Send a request to the interface layer
-    let identifier = dataset.id.expect("Dataset with no identifier");
-
     let filter = doc! { "project_id": &object_id };
     let document = dataset_details
         .find_one(filter, None)
@@ -348,8 +338,9 @@ pub async fn begin_processing(
         })
         .collect();
 
+    // Send a request to the interface layer
     let config = InterfaceMessage::Config {
-        id: identifier.clone(),
+        id: dataset.id.clone(),
         timeout,
         column_types: types,
     };

@@ -9,10 +9,10 @@ use utils::Columns;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DatasetDetails {
     /// The unique identifier for the dataset
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<ObjectId>,
+    #[serde(rename = "_id")]
+    pub id: ObjectId,
     /// Unique identifier for the associated project
-    pub project_id: Option<ObjectId>,
+    pub project_id: ObjectId,
     /// The date that the dataset was uploaded
     pub date_created: bson::DateTime,
     /// Head of the dataset
@@ -25,8 +25,8 @@ impl DatasetDetails {
     /// Creates a new instance of [`DatasetDetails`].
     pub fn new(project_id: ObjectId, head: String, column_types: Columns) -> Self {
         Self {
-            id: None,
-            project_id: Some(project_id),
+            id: ObjectId::new(),
+            project_id,
             date_created: bson::DateTime(Utc::now()),
             head: Some(head),
             column_types,

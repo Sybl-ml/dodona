@@ -31,8 +31,8 @@ impl From<Status> for Bson {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Project {
     /// The unique identifier for the project
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<ObjectId>,
+    #[serde(rename = "_id")]
+    pub id: ObjectId,
     /// The name of the project
     pub name: String,
     /// The description of the project set by user
@@ -40,7 +40,7 @@ pub struct Project {
     /// The date and time that the project was created
     pub date_created: bson::DateTime,
     /// The identifier of the user who created the project
-    pub user_id: Option<ObjectId>,
+    pub user_id: ObjectId,
     /// The status of the project
     pub status: Status,
 }
@@ -49,11 +49,11 @@ impl Project {
     /// Creates a new instance of [`Project`].
     pub fn new<T: Into<String>>(name: T, description: T, user_id: ObjectId) -> Self {
         Self {
-            id: None,
+            id: ObjectId::new(),
             name: name.into(),
             description: description.into(),
             date_created: bson::DateTime(Utc::now()),
-            user_id: Some(user_id),
+            user_id,
             status: Status::Unfinished,
         }
     }

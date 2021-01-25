@@ -165,7 +165,7 @@ pub async fn login(
 
     log::info!("Logged in: {:?}", user);
 
-    let identifier = user.id.expect("User has no identifier").to_string();
+    let identifier = user.id.to_string();
     response_from_json(doc! {"token": identifier})
 }
 

@@ -95,7 +95,7 @@ async fn process_connection(
     log::debug!("Decompressed predict: {:?}", &predict);
 
     tx.send((
-        dataset.project_id.unwrap(),
+        dataset.project_id,
         DatasetPair { train, predict },
         ClientMessage::JobConfig {
             timeout,

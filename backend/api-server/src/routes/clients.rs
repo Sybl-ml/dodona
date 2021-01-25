@@ -2,7 +2,7 @@
 
 use actix_web::{web, HttpResponse};
 use chrono::Utc;
-use models::models::{AccessToken, ClientModel, Status};
+use models::models::{AccessToken, ClientModel};
 use models::users::{Client, User};
 use mongodb::bson::de::from_document;
 use mongodb::bson::ser::to_document;
@@ -91,34 +91,19 @@ pub async fn new_model(
         Some(u) => from_document::<User>(u)?,
         None => return Err(DodonaError::NotFound),
     };
-    let user_id = user.id.expect("ID is none");
 
     if !user.client {
         return Err(DodonaError::Forbidden);
     }
 
-    let filter = doc! { "user_id": &user_id, "name": &model_name };
+    let filter = doc! { "user_id": &user.id, "name": &model_name };
     if models.find_one(filter, None).await?.is_some() {
         return Err(DodonaError::Conflict);
     }
 
     // Generate challenge
     let challenge = crypto::generate_challenge();
-    // Make new model
-    let temp_model = ClientModel {
-        id: Some(ObjectId::new()),
-        user_id: user_id.clone(),
-        name: model_name,
-        status: Some(Status::NotStarted),
-        access_token: None,
-        locked: true,
-        authenticated: false,
-        challenge: Some(Binary {
-            subtype: bson::spec::BinarySubtype::Generic,
-            bytes: challenge.clone(),
-        }),
-        times_run: 0,
-    };
+    let temp_model = ClientModel::new(user.id, model_name, challenge.clone());
 
     // insert model into database
     let document = to_document(&temp_model)?;
@@ -156,17 +141,16 @@ pub async fn verify_challenge(
         .await?
         .ok_or(DodonaError::NotFound)?;
     let user: User = from_document(user_doc)?;
-    let user_id = user.id.expect("User ID is none");
 
     // get clients public key matching with that users id
-    let filter = doc! { "user_id": &user_id };
+    let filter = doc! { "user_id": &user.id };
     let client_doc = clients
         .find_one(filter, None)
         .await?
         .ok_or(DodonaError::NotFound)?;
     let client: Client = from_document(client_doc)?;
 
-    let filter = doc! { "user_id": &user_id, "name": &model_name };
+    let filter = doc! { "user_id": &user.id, "name": &model_name };
     let model_doc = models
         .find_one(filter, None)
         .await?
@@ -188,14 +172,14 @@ pub async fn verify_challenge(
     model.access_token = Some(access_token.clone());
     model.challenge = None;
 
-    let filter = doc! { "user_id": &user_id, "name": &model_name };
+    let filter = doc! { "user_id": &user.id, "name": &model_name };
     let update = doc! { "$set": to_document(&model)? };
     models.find_one_and_update(filter, update, None).await?;
 
     // return the access token to the model
     response_from_json(doc! {
         "AccessToken": {
-            "id": model.id.expect("Model ID is none").to_string(),
+            "id": model.id.to_string(),
             "token": base64::encode(access_token.clone().token.bytes),
             "expires": access_token.expires.to_rfc3339()
         }
