@@ -1,70 +1,88 @@
 <template>
   <b-container fluid class="d-flex flex-column flex-grow-1">
     <b-row class="justify-content-center text-center">
-      <b-col lg="2" md="6" sm="8" xs="12">
-        <br /><br />
-        <icon-logo height="5em" width="5em" :show_text="false" />
-        <h1>New Sybl Account</h1>
-        <b-form class="mt-5 mb-3" @submit.prevent="onSubmit">
-          <b-form-input
-            class="mb-3"
-            type="text"
-            required
-            placeholder="First Name"
-            v-model="firstName"
-          />
-          <b-form-input
-            class="mb-3"
-            type="text"
-            required
-            placeholder="Last Name"
-            v-model="lastName"
-          />
-          <b-form-input
-            class="mb-3"
-            type="text"
-            required
-            placeholder="Enter Email"
-            v-model="email"
-          />
-          <b-form-input
-            type="password"
-            required
-            placeholder="Password"
-            class="mb-3"
-            v-model="password"
-          />
-          <b-form-input
-            type="password"
-            required
-            placeholder="Confirm Password"
-            class="mb-3"
-            v-model="confirmPassword"
-          />
-          <b-form-checkbox value="me" class="mb-3" v-model="overAge"
-            >I am Over 13</b-form-checkbox
-          >
-          <b-button
-            variant="primary"
-            type="submit"
-            block
-            :disabled="!validCredentials"
-          >
-            SIGN UP
-          </b-button>
-        </b-form>
-        <p v-show="!validRegistration">
-          Something is wrong with your information
-        </p>
+      <b-col lg="3" md="6" sm="8" xs="12">
+        <icon-logo
+          class="mt-5 mb-3"
+          height="10em"
+          width="10em"
+          :show_text="false"
+        />
+        <h1 class="mb-3"><strong>Create A New Account</strong></h1>
+        <b-card bordered-variant="primary" class="text-center mt-3 mb-5">
+          <b-form class="mt-3 mb-3" @submit.prevent="onSubmit">
+            <b-form-input
+              class="mb-3"
+              type="text"
+              required
+              placeholder="First Name"
+              v-model="firstName"
+            />
+            <b-form-input
+              class="mb-3"
+              type="text"
+              required
+              placeholder="Last Name"
+              v-model="lastName"
+            />
+            <b-input-group class="mb-3" prepend="@">
+              <b-form-input
+                type="email"
+                required
+                placeholder="Enter Email"
+                v-model="email"
+              />
+            </b-input-group>
+            
+            <b-input-group class="mb-3" prepend="#">
+              <b-form-input
+                :type="passwordType"
+                required
+                placeholder="Password"
+                v-model="password"
+                pattern="^.{8,32}$"
+                title="Password must contain at least eight characters"
+              />
+              <template #append>
+                <b-input-group-text>
+                  <b-icon
+                    style="cursor: pointer;"
+                    :icon="passwordIcon"
+                    @click="hidePassword = !hidePassword"
+                  />
+                </b-input-group-text>
+              </template>
+            </b-input-group>
+
+            <b-input-group class="mb-3" prepend="#">
+              <b-form-input
+                type="password"
+                required
+                placeholder="Confirm Password"
+                v-model="confirmPassword"
+              />
+            </b-input-group>
+
+            <b-form-checkbox value="me" class="mb-3" v-model="overAge"
+              >I am Over 13</b-form-checkbox
+            >
+            <b-button
+              variant="primary"
+              type="submit"
+              block
+              :disabled="!validCredentials"
+            >
+              SIGN UP
+              <b-spinner v-show="submitted" small></b-spinner>
+            </b-button>
+          </b-form>
+        </b-card>
       </b-col>
     </b-row>
-    <b-row class="justify-content-center text-center" align-v="end">
-      <b-col>
-        <p>
-          Did you know? You can register as a client and provide models through
-          account settings
-        </p>
-      </b-col>
+    <b-row class="justify-content-center text-center">
+      <b-alert v-model="failed" variant="danger" dismissible>
+        Something is wrong with your infomation
+      </b-alert>
     </b-row>
   </b-container>
 </template>
@@ -82,7 +100,9 @@ export default {
       firstName: "",
       lastName: "",
 
-      validRegistration: true,
+      submitted: false,
+      hidePassword: true,
+      failed: false,
     };
   },
   components: {
@@ -100,9 +120,21 @@ export default {
         this.password === this.confirmPassword
       );
     },
+    passwordType() {
+      return this.hidePassword ? "password" : "text";
+    },
+    passwordIcon() {
+      return this.hidePassword ? "eye-fill" : "eye-slash-fill";
+    },
   },
   methods: {
+    sleep(ms) {
+      return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+      });
+    },
     async onSubmit() {
+      this.submitted = true;
       let response = await axios.post("http://localhost:3001/api/users/new", {
         email: this.email,
         password: this.password,
@@ -110,14 +142,20 @@ export default {
         lastName: this.lastName,
       });
 
-      response = response.data;
-
-      if (response.token === "null") {
-        this.validRegistration = false;
-      } else {
-        $cookies.set("token", response.token, { path: "/", sameSite: true });
-        this.$router.push("dashboard");
+      if (response) {
+        response = response.data;
+        if (response.token === "null") {
+          this.failed = false;
+        } else {
+          $cookies.set("token", response.token, { path: "/", sameSite: true });
+          this.$router.push("dashboard");
+        }
       }
+
+      await this.sleep(1000);
+      
+      this.failed = true;
+      this.submitted = false;
     },
   },
 };
