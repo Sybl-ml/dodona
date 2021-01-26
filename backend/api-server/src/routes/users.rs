@@ -95,7 +95,8 @@ pub async fn new(
     let document = mongodb::bson::ser::to_document(&user)?;
     let id = users.insert_one(document, None).await?.inserted_id;
 
-    response_from_json(doc! {"token": id.as_object_id().unwrap().to_string()})
+    let jwt = auth::Claims::create_token(id.as_object_id().unwrap().clone())?;
+    response_from_json(doc! {"token": jwt})
 }
 
 /// Edits a user in the database and updates their information.
