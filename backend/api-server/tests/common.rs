@@ -3,7 +3,10 @@ use std::sync::Arc;
 
 use mongodb::bson::{self, document::Document, oid::ObjectId};
 
-use api_server::AppState;
+use api_server::{
+    auth::{self, get_encoding_key},
+    AppState,
+};
 use config::Environment;
 use models::projects::Project;
 use models::users::User;
@@ -87,6 +90,17 @@ pub async fn build_app_state() -> AppState {
         pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)
             .expect("PBKDF2_ITERATIONS must be parseable as an integer"),
     }
+}
+
+pub fn get_bearer_token(identifier: &str) -> String {
+    // Create a user for authentication
+    let user = auth::User::new(ObjectId::with_string(identifier).unwrap(), u64::MAX);
+
+    let header = jsonwebtoken::Header::default();
+    let key = get_encoding_key();
+    let encoded = jsonwebtoken::encode(&header, &user, &key).unwrap();
+
+    format!("Bearer {}", encoded)
 }
 
 fn create_user_with_id(

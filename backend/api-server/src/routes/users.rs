@@ -1,12 +1,12 @@
 //! Defines the routes specific to user operations.
 
 use actix_web::{web, HttpResponse};
-use mongodb::bson::{doc, document::Document, oid::ObjectId};
+use mongodb::bson::{doc, document::Document};
 use tokio_stream::StreamExt;
 
 use crate::auth;
 use crate::dodona_error::DodonaError;
-use crate::routes::{check_user_exists, response_from_json};
+use crate::routes::response_from_json;
 use crate::AppState;
 use crypto::clean;
 use models::users::User;
@@ -103,17 +103,15 @@ pub async fn new(
 /// Given a user identifier, finds the user in the database and updates their information based on
 /// the JSON provided, returning a message based on whether it was updated.
 pub async fn edit(
+    user: auth::User,
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
     let users = database.collection("users");
 
-    let user_id = clean(doc.get_str("id")?);
-    let object_id = check_user_exists(&user_id, &users).await?;
-
     // Get the user from the database
-    let filter = doc! { "_id": &object_id };
+    let filter = doc! { "_id": &user.id };
     let user_doc = users
         .find_one(filter.clone(), None)
         .await?
@@ -173,16 +171,13 @@ pub async fn login(
 ///
 /// Given a user identifier, deletes the related user from the database if they exist.
 pub async fn delete(
+    user: auth::User,
     app_data: web::Data<AppState>,
-    doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
     let users = database.collection("users");
 
-    let object_id = clean(doc.get_str("id")?);
-    let id = ObjectId::with_string(&object_id)?;
-    let filter = doc! {"_id": id};
-
+    let filter = doc! { "_id": user.id };
     users.find_one_and_delete(filter, None).await?;
 
     response_from_json(doc! {"status": "deleted"})
