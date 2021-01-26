@@ -18,6 +18,7 @@ use crate::AppState;
 ///
 /// Will check the provided `user_id` matches with the provided email and password
 pub async fn register(
+    claims: auth::User,
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
@@ -28,11 +29,8 @@ pub async fn register(
 
     let password = doc.get_str("password")?;
     let email = crypto::clean(doc.get_str("email")?);
-    let id = doc.get_str("id")?;
 
-    let user_id = ObjectId::with_string(&id)?;
-
-    let filter = doc! { "_id": &user_id };
+    let filter = doc! { "_id": &claims.id };
     let user_doc = users.find_one(filter, None).await?;
 
     let user: User = from_document(user_doc.ok_or(DodonaError::NotFound)?)?;
@@ -51,14 +49,14 @@ pub async fn register(
         // create a new client object
         users
             .update_one(
-                doc! { "_id": &user_id },
+                doc! { "_id": &claims.id },
                 doc! {"$set": {"client": true}},
                 None,
             )
             .await?;
 
         // Update the user to be a client
-        let client = Client::new(user_id, public_key);
+        let client = Client::new(claims.id, public_key);
 
         // store client object in db
         let document = to_document(&client)?;
@@ -198,6 +196,7 @@ pub async fn verify_challenge(
 /// and the password `password` of the user to whom the model is registered.
 /// The model must be authenticated using `verify_challenge` before being unlocked
 pub async fn unlock_model(
+    claims: auth::User,
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
@@ -213,10 +212,15 @@ pub async fn unlock_model(
         .ok_or(DodonaError::Unauthorized)?;
     let mut model: ClientModel = from_document(model_doc)?;
 
+    // Check the current user owns this model
+    if model.user_id != claims.id {
+        return Err(DodonaError::Unauthorized);
+    }
+
     let password = doc.get_str("password")?;
     let pepper = &app_data.pepper;
 
-    let filter = doc! { "_id": &model.user_id };
+    let filter = doc! { "_id": &claims.id };
     let user_doc = users
         .find_one(filter, None)
         .await?
@@ -290,13 +294,13 @@ pub async fn authenticate_model(
 /// Given a user identifier, finds all the models in the database that the user owns. If the user
 /// doesn't exist or an invalid identifier is given, returns a 404 response.
 pub async fn get_user_models(
-    user: auth::User,
+    claims: auth::User,
     app_data: web::Data<AppState>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
     let models = database.collection("models");
 
-    let filter = doc! { "user_id": &user.id };
+    let filter = doc! { "user_id": &claims.id };
     let cursor = models.find(filter, None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 

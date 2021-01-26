@@ -25,37 +25,6 @@ pub fn response_from_json<B: serde::Serialize>(body: B) -> Result<HttpResponse, 
     Ok(HttpResponse::Ok().json(body))
 }
 
-/// Checks whether a user exists with the given ID.
-pub async fn check_user_exists(id: &str, users: &Collection) -> Result<ObjectId, DodonaError> {
-    // Check the project ID to make sure it exists
-    let object_id = ObjectId::with_string(&id)?;
-    let query = doc! { "_id": &object_id };
-
-    users
-        .find_one(query, None)
-        .await?
-        .ok_or(DodonaError::NotFound)?;
-
-    Ok(object_id)
-}
-
-/// Checks whether a project exists with the given ID.
-pub async fn check_project_exists(
-    id: &str,
-    projects: &Collection,
-) -> Result<ObjectId, DodonaError> {
-    // Check the project ID to make sure it exists
-    let object_id = ObjectId::with_string(&id)?;
-    let query = doc! { "_id": &object_id};
-
-    projects
-        .find_one(query, None)
-        .await?
-        .ok_or(DodonaError::NotFound)?;
-
-    Ok(object_id)
-}
-
 /// Checks whether a project exists with the given ID and that the given user owns it.
 pub async fn check_user_owns_project(
     user_id: &ObjectId,

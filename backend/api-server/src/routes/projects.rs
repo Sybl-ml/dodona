@@ -16,7 +16,7 @@ use tokio_stream::StreamExt;
 use crate::auth;
 
 use crate::dodona_error::DodonaError;
-use crate::routes::{check_project_exists, check_user_owns_project, response_from_json};
+use crate::routes::{check_user_owns_project, response_from_json};
 use crate::AppState;
 use crypto::clean;
 use messages::{InterfaceMessage, WriteLengthPrefix};
@@ -72,6 +72,7 @@ pub async fn get_project(
 /// matching new data
 /// If project does not exist return a 404
 pub async fn patch_project(
+    user: auth::User,
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
     doc: web::Json<Document>,
@@ -79,7 +80,7 @@ pub async fn patch_project(
     let database = app_data.client.database("sybl");
     let projects = database.collection("projects");
 
-    let object_id = check_project_exists(&project_id, &projects).await?;
+    let object_id = check_user_owns_project(&user.id, &project_id, &projects).await?;
 
     let filter = doc! { "_id": &object_id };
     let update_doc = doc! { "$set": doc.into_inner() };
@@ -96,13 +97,14 @@ pub async fn patch_project(
 ///
 /// Will not currently authenticate the userid
 pub async fn delete_project(
+    user: auth::User,
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
     let projects = database.collection("projects");
 
-    let object_id = check_project_exists(&project_id, &projects).await?;
+    let object_id = check_user_owns_project(&user.id, &project_id, &projects).await?;
 
     let filter = doc! { "_id": &object_id };
     projects.delete_one(filter, None).await?;
@@ -162,6 +164,7 @@ pub async fn new(
 /// is an error finishing the compression stream. Both times an error
 /// will return a 404 to the caller.
 pub async fn add_data(
+    user: auth::User,
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
     doc: web::Json<Document>,
@@ -173,7 +176,7 @@ pub async fn add_data(
     let projects = database.collection("projects");
 
     let data = clean(doc.get_str("content")?);
-    let object_id = check_project_exists(&project_id, &projects).await?;
+    let object_id = check_user_owns_project(&user.id, &project_id, &projects).await?;
 
     // Check whether the project has data already
     let project_has_data = datasets
@@ -230,6 +233,7 @@ pub async fn add_data(
 /// Project Id passed in as part of route and the dataset details
 /// for that project are returned from the database.
 pub async fn overview(
+    user: auth::User,
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
@@ -237,7 +241,7 @@ pub async fn overview(
     let dataset_details = database.collection("dataset_details");
     let projects = database.collection("projects");
 
-    let object_id = check_project_exists(&project_id, &projects).await?;
+    let object_id = check_user_owns_project(&user.id, &project_id, &projects).await?;
 
     let filter = doc! { "project_id": &object_id };
     let cursor = dataset_details.find(filter, None).await?;
@@ -253,6 +257,7 @@ pub async fn overview(
 /// and is decompressed before being sent in a response back to the
 /// user.
 pub async fn get_data(
+    user: auth::User,
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
@@ -260,7 +265,7 @@ pub async fn get_data(
     let datasets = database.collection("datasets");
     let projects = database.collection("projects");
 
-    let object_id = check_project_exists(&project_id, &projects).await?;
+    let object_id = check_user_owns_project(&user.id, &project_id, &projects).await?;
     let filter = doc! { "project_id": &object_id };
 
     // Find the dataset in the database
@@ -293,6 +298,7 @@ pub async fn get_data(
 /// layer, which will then forward it to the DCL for processing. Updates the project state to
 /// `State::Processing`.
 pub async fn begin_processing(
+    user: auth::User,
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
     doc: web::Json<Document>,
@@ -306,7 +312,7 @@ pub async fn begin_processing(
     let timeout: i32 = doc.get_str("timeout")?.parse()?;
     log::info!("Timeout is here: {}", &timeout);
 
-    let object_id = check_project_exists(&project_id, &projects).await?;
+    let object_id = check_user_owns_project(&user.id, &project_id, &projects).await?;
 
     // Find the dataset in the database
     let filter = doc! { "project_id": &object_id };
@@ -362,6 +368,7 @@ pub async fn begin_processing(
 /// Queries the database for all [`Prediction`] instances for a given project identifier, before
 /// decompressing each and returning them.
 pub async fn get_predictions(
+    user: auth::User,
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
@@ -373,7 +380,7 @@ pub async fn get_predictions(
     let predictions = database.collection("predictions");
 
     // Get the project identifier and check it exists
-    let object_id = check_project_exists(&project_id, &projects).await?;
+    let object_id = check_user_owns_project(&user.id, &project_id, &projects).await?;
 
     // Find the predictions for the given project
     let filter = doc! { "project_id": &object_id };
