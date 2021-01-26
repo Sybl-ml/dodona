@@ -98,7 +98,7 @@ fn create_user_with_id(
 ) -> bson::Document {
     let mut user = User::new(email, hash, first_name, last_name);
 
-    user.id = Some(ObjectId::with_string(id).unwrap());
+    user.id = ObjectId::with_string(id).unwrap();
 
     bson::ser::to_document(&user).unwrap()
 }
@@ -106,7 +106,7 @@ fn create_user_with_id(
 fn create_project_with_id(id: &str, name: &str, desc: &str, uid: &str) -> bson::Document {
     let mut project = Project::new(name, desc, ObjectId::with_string(uid).unwrap());
 
-    project.id = Some(ObjectId::with_string(id).unwrap());
+    project.id = ObjectId::with_string(id).unwrap();
 
     bson::ser::to_document(&project).unwrap()
 }

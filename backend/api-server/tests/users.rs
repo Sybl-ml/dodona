@@ -248,7 +248,7 @@ async fn users_can_be_deleted() -> Result<()> {
     let user = &users[0];
 
     // Delete the user
-    let doc = doc! {"id": user.id.as_ref().unwrap().to_string() };
+    let doc = doc! {"id": user.id.to_string() };
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
         .uri("/api/users/delete")

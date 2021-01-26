@@ -11,7 +11,7 @@ mod common;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProjectResponse {
     project: Project,
-    details: DatasetDetails,
+    details: Option<DatasetDetails>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

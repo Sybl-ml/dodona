@@ -3,7 +3,7 @@ use std::env;
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
-    env::set_var("RUST_LOG", "actix_web=debug,actix_server=info");
+    env::set_var("RUST_LOG", "debug,actix_web=debug,actix_server=info");
     env_logger::init();
 
     let environment = if cfg!(debug_assertions) {
