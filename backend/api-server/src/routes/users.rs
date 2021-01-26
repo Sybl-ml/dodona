@@ -16,13 +16,13 @@ use models::users::User;
 /// Given a user identifier, finds the user in the database and returns them as a JSON object. If
 /// the user does not exist, the handler will panic.
 pub async fn get(
-    user: auth::User,
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
     let users = database.collection("users");
 
-    let filter: Document = doc! { "_id": user.id };
+    let filter: Document = doc! { "_id": claims.id };
     let document = users.find_one(filter, None).await?;
 
     response_from_json(document)
@@ -103,7 +103,7 @@ pub async fn new(
 /// Given a user identifier, finds the user in the database and updates their information based on
 /// the JSON provided, returning a message based on whether it was updated.
 pub async fn edit(
-    user: auth::User,
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
@@ -111,7 +111,7 @@ pub async fn edit(
     let users = database.collection("users");
 
     // Get the user from the database
-    let filter = doc! { "_id": &user.id };
+    let filter = doc! { "_id": &claims.id };
     let user_doc = users
         .find_one(filter.clone(), None)
         .await?
@@ -163,7 +163,7 @@ pub async fn login(
     log::info!("Logged in: {:?}", user);
 
     let identifier = user.id.expect("User has no identifier");
-    let jwt = auth::User::create_token(identifier)?;
+    let jwt = auth::Claims::create_token(identifier)?;
     response_from_json(doc! {"token": jwt})
 }
 
@@ -171,13 +171,13 @@ pub async fn login(
 ///
 /// Given a user identifier, deletes the related user from the database if they exist.
 pub async fn delete(
-    user: auth::User,
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
     let users = database.collection("users");
 
-    let filter = doc! { "_id": user.id };
+    let filter = doc! { "_id": claims.id };
     users.find_one_and_delete(filter, None).await?;
 
     response_from_json(doc! {"status": "deleted"})

@@ -5,13 +5,13 @@ use actix_web::test::TestRequest;
 use jsonwebtoken::{EncodingKey, Header};
 use mongodb::bson::oid::ObjectId;
 
-use crate::auth::{get_encoding_key, User};
+use crate::auth::{get_encoding_key, Claims};
 
 #[test]
 fn request_without_authorization_header_is_rejected() {
     let request = TestRequest::default().to_http_request();
 
-    assert!(User::try_from(&request).is_err());
+    assert!(Claims::try_from(&request).is_err());
 }
 
 #[test]
@@ -20,7 +20,7 @@ fn request_without_valid_string_authorization_header_is_rejected() {
         .header("Authorization", "�")
         .to_http_request();
 
-    assert!(User::try_from(&request).is_err());
+    assert!(Claims::try_from(&request).is_err());
 }
 
 #[test]
@@ -29,14 +29,14 @@ fn request_with_invalid_token_is_rejected() {
         .header("Authorization", "some valid utf-8")
         .to_http_request();
 
-    assert!(User::try_from(&request).is_err());
+    assert!(Claims::try_from(&request).is_err());
 }
 
 #[test]
 fn request_with_valid_token_but_no_bearer_is_rejected() {
     // Create a new user with a random ObjectId
     let id = ObjectId::new();
-    let user = User::new(id, u64::MAX);
+    let user = Claims::new(id, u64::MAX);
 
     // Setup the JWT with the same settings as above
     let header = Header::default();
@@ -48,14 +48,14 @@ fn request_with_valid_token_but_no_bearer_is_rejected() {
         .header("Authorization", encoded)
         .to_http_request();
 
-    assert!(User::try_from(&request).is_err());
+    assert!(Claims::try_from(&request).is_err());
 }
 
 #[test]
 fn request_with_valid_expired_token_is_rejected() {
     // Create a new user with a random ObjectId
     let id = ObjectId::new();
-    let user = User::new(id, u64::MIN);
+    let user = Claims::new(id, u64::MIN);
 
     // Setup the JWT with the same settings as above
     let header = Header::default();
@@ -68,14 +68,14 @@ fn request_with_valid_expired_token_is_rejected() {
         .header("Authorization", auth_value)
         .to_http_request();
 
-    assert!(User::try_from(&request).is_err());
+    assert!(Claims::try_from(&request).is_err());
 }
 
 #[test]
 fn request_with_valid_token_is_accepted() {
     // Create a new user with a random ObjectId
     let id = ObjectId::new();
-    let user = User::new(id, u64::MAX);
+    let user = Claims::new(id, u64::MAX);
 
     // Setup the JWT with the same settings as above
     let header = Header::default();
@@ -88,7 +88,7 @@ fn request_with_valid_token_is_accepted() {
         .header("Authorization", auth_value)
         .to_http_request();
 
-    assert!(User::try_from(&request).is_ok());
+    assert!(Claims::try_from(&request).is_ok());
 }
 
 #[test]
@@ -99,7 +99,7 @@ fn jwt_tokens_can_expire() {
     // Create a new user with a random ObjectId
     let id = ObjectId::new();
     // Set the expiry to be 1 second from now
-    let user = User::new(id, current.as_secs());
+    let user = Claims::new(id, current.as_secs());
 
     // Setup the JWT with the same settings as above
     let header = Header::default();
@@ -112,19 +112,19 @@ fn jwt_tokens_can_expire() {
         .header("Authorization", auth_value)
         .to_http_request();
 
-    assert!(User::try_from(&request).is_ok());
+    assert!(Claims::try_from(&request).is_ok());
 
     // Wait until the token has expired
     std::thread::sleep(Duration::from_secs(1));
 
-    assert!(User::try_from(&request).is_err());
+    assert!(Claims::try_from(&request).is_err());
 }
 
 #[test]
 fn tokens_encoded_with_a_different_key_are_rejected() {
     // Create a new user with a random ObjectId
     let id = ObjectId::new();
-    let user = User::new(id, u64::MAX);
+    let user = Claims::new(id, u64::MAX);
 
     // Setup the JWT with the same settings as above
     let header = Header::default();
@@ -137,5 +137,5 @@ fn tokens_encoded_with_a_different_key_are_rejected() {
         .header("Authorization", auth_value)
         .to_http_request();
 
-    assert!(User::try_from(&request).is_err());
+    assert!(Claims::try_from(&request).is_err());
 }

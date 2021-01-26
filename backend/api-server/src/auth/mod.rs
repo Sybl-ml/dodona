@@ -19,14 +19,14 @@ fn get_decoding_key() -> DecodingKey<'static> {
     DecodingKey::from_secret(&key.as_bytes())
 }
 
-/// An authorised user and their identifier.
+/// The claims made by a user for authentication.
 #[derive(Debug, Default, Serialize, Deserialize)]
-pub struct User {
+pub struct Claims {
     pub id: ObjectId,
     exp: u64,
 }
 
-impl User {
+impl Claims {
     /// Creates a new user with an identifier and expiry timestamp.
     pub fn new(id: ObjectId, exp: u64) -> Self {
         Self { id, exp }
@@ -35,14 +35,14 @@ impl User {
     /// Creates a JWT for the given user identifier.
     pub fn create_token(id: ObjectId) -> jsonwebtoken::errors::Result<String> {
         let header = Header::default();
-        let claims = User::new(id, u64::MAX);
+        let claims = Self::new(id, u64::MAX);
         let key = get_encoding_key();
 
         jsonwebtoken::encode(&header, &claims, &key)
     }
 }
 
-impl TryFrom<&HttpRequest> for User {
+impl TryFrom<&HttpRequest> for Claims {
     type Error = DodonaError;
 
     fn try_from(req: &HttpRequest) -> Result<Self, Self::Error> {
@@ -61,19 +61,19 @@ impl TryFrom<&HttpRequest> for User {
         // Get the secret key from the filesystem
         let key = get_decoding_key();
         let validation = Validation::default();
-        let token_data: TokenData<User> = jsonwebtoken::decode(token, &key, &validation)?;
+        let token_data: TokenData<Self> = jsonwebtoken::decode(token, &key, &validation)?;
 
         Ok(token_data.claims)
     }
 }
 
-impl FromRequest for User {
+impl FromRequest for Claims {
     type Error = DodonaError;
     type Future = future::Ready<Result<Self, Self::Error>>;
     type Config = ();
 
     fn from_request(req: &HttpRequest, _payload: &mut Payload) -> Self::Future {
-        future::ready(User::try_from(req))
+        future::ready(Self::try_from(req))
     }
 }
 

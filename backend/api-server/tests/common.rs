@@ -3,10 +3,7 @@ use std::sync::Arc;
 
 use mongodb::bson::{self, document::Document, oid::ObjectId};
 
-use api_server::{
-    auth::{self, get_encoding_key},
-    AppState,
-};
+use api_server::{auth, AppState};
 use config::Environment;
 use models::projects::Project;
 use models::users::User;
@@ -37,7 +34,7 @@ static MUTEX: tokio::sync::Mutex<bool> = tokio::sync::Mutex::const_new(true);
 /// As the database can be initialised before running, this allows tests to be run in any order
 /// provided they don't require the result of a previous test.
 pub async fn initialise() -> AppState {
-    // Aquire the mutex
+    // Acquire the mutex
     let mut lock = MUTEX.lock().await;
 
     // Check whether this is the first time being run
@@ -94,11 +91,7 @@ pub async fn build_app_state() -> AppState {
 
 pub fn get_bearer_token(identifier: &str) -> String {
     // Create a user for authentication
-    let user = auth::User::new(ObjectId::with_string(identifier).unwrap(), u64::MAX);
-
-    let header = jsonwebtoken::Header::default();
-    let key = get_encoding_key();
-    let encoded = jsonwebtoken::encode(&header, &user, &key).unwrap();
+    let encoded = auth::Claims::create_token(ObjectId::with_string(identifier).unwrap()).unwrap();
 
     format!("Bearer {}", encoded)
 }
