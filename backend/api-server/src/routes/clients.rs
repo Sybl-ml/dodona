@@ -18,7 +18,7 @@ use crate::AppState;
 ///
 /// Will check the provided `user_id` matches with the provided email and password
 pub async fn register(
-    claims: auth::User,
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
@@ -196,7 +196,7 @@ pub async fn verify_challenge(
 /// and the password `password` of the user to whom the model is registered.
 /// The model must be authenticated using `verify_challenge` before being unlocked
 pub async fn unlock_model(
-    claims: auth::User,
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
@@ -294,7 +294,7 @@ pub async fn authenticate_model(
 /// Given a user identifier, finds all the models in the database that the user owns. If the user
 /// doesn't exist or an invalid identifier is given, returns a 404 response.
 pub async fn get_user_models(
-    claims: auth::User,
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
