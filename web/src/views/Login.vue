@@ -2,7 +2,7 @@
   <b-container fluid>
     <b-row class="justify-content-center text-center">
       <b-col lg="2" md="6" sm="8" xs="12">
-        <br/><br/>
+        <br /><br />
         <icon-logo height="5em" width="5em" :show_text="false" />
         <h1>Sign In To Sybl</h1>
         <b-form class="mt-5 mb-3" @submit.prevent="onSubmit">
@@ -13,13 +13,25 @@
             placeholder="Enter Email"
             v-model="email"
           />
-          <b-form-input
-            type="password"
-            required
-            placeholder="Password"
-            class="mb-3"
-            v-model="password"
-          />
+
+          <b-input-group class="mb-3">
+            <b-form-input
+              :type="passwordType"
+              required
+              placeholder="Password"
+              v-model="password"
+            />
+            <template #append>
+              <b-input-group-text>
+                <b-icon
+                  style="cursor: pointer;"
+                  :icon="passwordIcon"
+                  @click="hidePassword = !hidePassword"
+                />
+              </b-input-group-text>
+            </template>
+          </b-input-group>
+
           <b-form-checkbox value="me" class="mb-3" v-model="remember_password"
             >Remember Me</b-form-checkbox
           >
@@ -41,12 +53,20 @@ export default {
       email: "",
       password: "",
       remember_password: false,
-
       valid_credentials: true,
+      hidePassword: true,
     };
   },
   components: {
     IconLogo,
+  },
+  computed: {
+    passwordType() {
+      return this.hidePassword ? "password" : "text";
+    },
+    passwordIcon() {
+      return this.hidePassword ? "eye-fill" : "eye-slash-fill";
+    },
   },
   methods: {
     async onSubmit() {
