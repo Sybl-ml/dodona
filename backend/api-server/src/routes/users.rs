@@ -164,8 +164,8 @@ pub async fn login(
 
     log::info!("Logged in: {:?}", user);
 
-    let identifier = user.id.to_string();
-    response_from_json(doc! {"token": identifier})
+    let jwt = auth::User::create_token(user.id)?;
+    response_from_json(doc! {"token": jwt})
 }
 
 /// Deletes a user from the database.

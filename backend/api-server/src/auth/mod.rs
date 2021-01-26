@@ -4,7 +4,7 @@ use std::convert::TryFrom;
 
 use actix_web::{dev::Payload, web::HttpRequest, FromRequest};
 use futures_util::future;
-use jsonwebtoken::{DecodingKey, EncodingKey, TokenData, Validation};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, TokenData, Validation};
 use mongodb::bson::oid::ObjectId;
 
 use crate::dodona_error::DodonaError;
@@ -30,6 +30,15 @@ impl User {
     /// Creates a new user with an identifier and expiry timestamp.
     pub fn new(id: ObjectId, exp: u64) -> Self {
         Self { id, exp }
+    }
+
+    /// Creates a JWT for the given user identifier.
+    pub fn create_token(id: ObjectId) -> jsonwebtoken::errors::Result<String> {
+        let header = Header::default();
+        let claims = User::new(id, u64::MAX);
+        let key = get_encoding_key();
+
+        jsonwebtoken::encode(&header, &claims, &key)
     }
 }
 
