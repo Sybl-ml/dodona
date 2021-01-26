@@ -4,11 +4,11 @@ export default {
    props: {
       width: {
       type: [Number, String],
-      default: 18
+      default: 36
     },
     height: {
       type: [Number, String],
-      default: 18
+      default: 36
     },
     show_text: {
        type: Boolean,
@@ -18,7 +18,7 @@ export default {
    computed: {
       viewbox() {
          if (this.show_text) return "0 0 410 150";
-         else return "0 0 150 150";
+         else return "0 0 115 140";
       }
    }
 }
