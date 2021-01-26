@@ -32,7 +32,7 @@
             </template>
           </b-input-group>
 
-          <b-form-checkbox value="me" class="mb-3" v-model="remember_password"
+          <b-form-checkbox style="display:none;" value="me" class="mb-3" v-model="remember_password"
             >Remember Me</b-form-checkbox
           >
           <b-button variant="primary" type="submit" block> SIGN IN </b-button>
