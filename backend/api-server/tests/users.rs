@@ -252,10 +252,7 @@ async fn users_can_be_deleted() -> Result<()> {
     // Delete the user
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
-        .header(
-            "Authorization",
-            get_bearer_token(&user.id.as_ref().unwrap().to_string()),
-        )
+        .header("Authorization", get_bearer_token(&user.id.to_string()))
         .uri("/api/users/delete")
         .to_request();
 

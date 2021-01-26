@@ -9,6 +9,7 @@ use mongodb::bson::oid::ObjectId;
 
 use crate::dodona_error::DodonaError;
 
+/// Retrieves the encoding key used for JWT authentication.
 pub fn get_encoding_key() -> EncodingKey {
     let key = include_str!("../../jwt_key");
     EncodingKey::from_secret(&key.as_bytes())
@@ -22,7 +23,9 @@ fn get_decoding_key() -> DecodingKey<'static> {
 /// The claims made by a user for authentication.
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Claims {
+    /// The user's [`ObjectId`] from the database.
     pub id: ObjectId,
+    /// The expiry timestamp of the token.
     exp: u64,
 }
 

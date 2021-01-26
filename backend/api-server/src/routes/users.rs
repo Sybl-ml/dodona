@@ -162,7 +162,7 @@ pub async fn login(
 
     log::info!("Logged in: {:?}", user);
 
-    let jwt = auth::User::create_token(user.id)?;
+    let jwt = auth::Claims::create_token(user.id)?;
     response_from_json(doc! {"token": jwt})
 }
 

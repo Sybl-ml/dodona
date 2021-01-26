@@ -42,8 +42,9 @@ pub async fn check_user_owns_project(
 
     let project: Project = from_document(project_doc)?;
 
-    match project.user_id {
-        Some(id) if id == *user_id => Ok(object_id),
-        _ => Err(DodonaError::Unauthorized),
+    if project.user_id == *user_id {
+        Ok(object_id)
+    } else {
+        Err(DodonaError::Unauthorized)
     }
 }
