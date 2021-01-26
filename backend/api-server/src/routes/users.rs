@@ -164,8 +164,9 @@ pub async fn login(
 
     log::info!("Logged in: {:?}", user);
 
-    let identifier = user.id.expect("User has no identifier").to_string();
-    response_from_json(doc! {"token": identifier})
+    let identifier = user.id.expect("User has no identifier");
+    let jwt = auth::User::create_token(identifier)?;
+    response_from_json(doc! {"token": jwt})
 }
 
 /// Deletes a user from the database.
