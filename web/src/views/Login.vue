@@ -26,7 +26,7 @@
                 required
                 placeholder="Password"
                 v-model="password"
-                pattern="^.{8,32}$"
+                pattern="^.{1,32}$"
                 title="Password must contain at least eight characters"
               />
               <template #append>
