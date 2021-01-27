@@ -4,8 +4,16 @@
       <h2>Create a New Project</h2>
     </b-card>
     <b-card no-body>
-      <b-tabs pills card vertical v-model="tabIndex">
-        <b-tab title="1. Details" active>
+      <navigatable-tab
+        :tabs="[
+          { key: '1', title: '1. Details', disabled: false },
+          { key: '2', title: '2. Data', disabled: false },
+          { key: '3', title: '3. Processing', disabled: true },
+          { key: '4', title: '4. Configure', disabled: true },
+          { key: '5', title: '5. Finish', disabled: false },
+        ]"
+      >
+        <template v-slot:1>
           <b-form-input
             ref="title"
             placeholder="Name Your Project"
@@ -18,17 +26,10 @@
             class="mb-3"
           />
           <b-form-tags class="mb-3" v-model="descriptions"></b-form-tags>
+        </template>
 
-          <b-button
-            size="sm"
-            class="mb-3 float-right"
-            variant="primary"
-            @click="tabIndex++"
-            ><strong>Next</strong></b-button
-          >
-        </b-tab>
-        <b-tab title="2. Data"
-          ><b-card-text>
+        <template v-slot:2>
+          <b-card-text>
             Please upload a dataset...
           </b-card-text>
           <b-form-file
@@ -39,66 +40,11 @@
           />
           <b-alert show variant="danger" dismissible>
             <strong>TIP:</strong> You can upload a dataset later
-          </b-alert>
-          <b-button
-            size="sm"
-            class="mb-3 float-left"
-            variant="primary"
-            @click="tabIndex--"
-            ><strong>Previous</strong></b-button
-          >
-          <b-button
-            size="sm"
-            class="mb-3 float-right"
-            variant="primary"
-            @click="tabIndex++"
-            ><strong>Next</strong></b-button
-          ></b-tab
-        >
-        <b-tab title="3. Processing" disabled
-          ><b-card-text>Describe the data...</b-card-text>
-          <b-button
-            size="sm"
-            class="mb-3 float-left"
-            variant="primary"
-            @click="tabIndex--"
-            ><strong>Previous</strong></b-button
-          >
-          <b-button
-            size="sm"
-            class="mb-3 float-right"
-            variant="primary"
-            @click="tabIndex++"
-            ><strong>Next</strong></b-button
-          ></b-tab
-        >
-        <b-tab title="4. Configure" disabled
-          ><b-card-text>How long ...</b-card-text
-          ><b-button
-            size="sm"
-            class="mb-3 float-left"
-            variant="primary"
-            @click="tabIndex--"
-            ><strong>Previous</strong></b-button
-          >
-          <b-button
-            size="sm"
-            class="mb-3 float-right"
-            variant="primary"
-            @click="tabIndex++"
-            ><strong>Next</strong></b-button
-          ></b-tab
-        >
-        <b-tab title="5. Finish"
-          ><b-card-text>Confirm the Details Below Before Creation</b-card-text>
+          </b-alert></template>
+
+          <template v-slot:5>
+            <b-card-text>Confirm the Details Below Before Creation</b-card-text>
           <b-table striped hover :items="reviewItems"></b-table>
-          <b-button
-            size="sm"
-            class="mb-3 float-left"
-            variant="primary"
-            @click="tabIndex--"
-            ><strong>Previous</strong></b-button
-          >
           <b-button
             size="sm"
             @click="onSubmit"
@@ -111,8 +57,8 @@
               v-show="!submitted && complete"
             ></b-icon-check-all>
           </b-button>
-        </b-tab>
-      </b-tabs>
+          </template>
+      </navigatable-tab>
     </b-card>
   </b-container>
 </template>
@@ -131,6 +77,7 @@
 
 <script>
 import axios from "axios";
+import NavigatableTab from "./NavigatableTab.vue";
 
 export default {
   name: "AddProject",
@@ -142,7 +89,6 @@ export default {
       upload_in_progress: false,
       file_reader: null,
       project_id: "",
-      tabIndex: 1,
       complete: true,
       submitted: false,
       descriptions: [],
@@ -154,8 +100,12 @@ export default {
       ],
     };
   },
+  components: {
+    NavigatableTab,
+  },
   mounted() {
-    this.$refs.title.focus();
+    th;
+    NavigatableTabis.$refs.title.focus();
   },
   methods: {
     async onSubmit() {

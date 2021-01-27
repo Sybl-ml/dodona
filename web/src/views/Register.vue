@@ -9,185 +9,124 @@
           :show_text="false"
         />
         <h1 class="mb-3"><strong>Create A New Account</strong></h1>
-        <b-card
-          no-body
-          class="text-left mt-3 mb-5 vh-80"
-        >
-          <b-form @submit.prevent="onSubmit">
-            <b-tabs pills card vertical v-model="tabIndex">
-              <b-tab title="1. Name" active>
-                <b-card-text>To start with what is your name ...</b-card-text>
-                
-                  <b-form-input
-                    class="mb-3"
-                    type="text"
-                    required
-                    placeholder="First Name"
-                    v-model="firstName"
-                  />
+        <b-card no-body class="text-left mt-3 mb-5 vh-80">
+          <navigatable-tab
+            :tabs="[
+              { key: '1', title: '1. Name', disabled: false },
+              { key: '2', title: '2. Details', disabled: false },
+              { key: '3', title: '3. Photo', disabled: true },
+              { key: '4', title: '4. Payment', disabled: true },
+              { key: '5', title: '5. Create', disabled: false },
+            ]"
+          >
+            <<template v-slot:1>
+              <b-card-text>To start with what is your name ...</b-card-text>
+
+              <b-form-input
+                class="mb-3"
+                type="text"
+                required
+                placeholder="First Name"
+                v-model="firstName"
+              />
+              <b-form-input
+                class="mb-3"
+                type="text"
+                required
+                placeholder="Last Name"
+                v-model="lastName"
+              />
+            </template>
+            <template v-slot:2>
+              <b-card-text>
+                Select Your Prefered Currency
+              </b-card-text>
+
+              <b-form-select
+                class="mb-3"
+                v-model="preferedCurrency"
+                :options="currencyOptions"
+              ></b-form-select>
+              <b-card-text>
+                Select Your Date of Birth
+              </b-card-text>
+              <b-form-datepicker v-model="dob" class="mb-3"></b-form-datepicker>
+            </template>
+            <template v-slot:5>
+              <b-card-text
+                >Please provide your required login infomation...</b-card-text
+              >
+              <b-input-group class="mb-3" prepend="@">
                 <b-form-input
-                  class="mb-3"
-                  type="text"
+                  type="email"
                   required
-                  placeholder="Last Name"
-                  v-model="lastName"
+                  placeholder="Enter Email"
+                  v-model="email"
                 />
-                <b-button
-                  size="sm"
-                  class="mb-3 float-right"
-                  variant="primary"
-                  @click="tabIndex++"
-                  ><strong>Next</strong></b-button
-                >
-              </b-tab>
-              <b-tab title="2. Details" disabled
-                ><b-card-text v-if="this.firstName"
-                  ><strong>Welcome {{ this.firstName }}!</strong>
-                </b-card-text>
-                <b-card-text>
-                  Select Your Prefered Currency
-                </b-card-text>
+              </b-input-group>
+              <b-input-group class="mb-3" prepend="#">
+                <b-form-input
+                  :type="passwordType"
+                  required
+                  placeholder="Password"
+                  v-model="password"
+                  pattern="^.{1,32}$"
+                  title="Password must contain at least eight characters"
+                />
+                <template #append>
+                  <b-input-group-text>
+                    <b-icon
+                      style="cursor: pointer;"
+                      :icon="passwordIcon"
+                      @click="hidePassword = !hidePassword"
+                    />
+                  </b-input-group-text>
+                </template>
+              </b-input-group>
 
-                <b-form-select
-                  class="mb-3"
-                  v-model="preferedCurrency"
-                  :options="currencyOptions"
-                ></b-form-select>
-                <b-card-text>
-                  Select Your Date of Birth
-                </b-card-text>
-                <b-form-datepicker
-                  v-model="dob"
-                  class="mb-3"
-                ></b-form-datepicker>
+              <b-input-group class="mb-3" prepend="#">
+                <b-form-input
+                  type="password"
+                  required
+                  id="confirmPass"
+                  placeholder="Confirm Password"
+                  v-model="confirmPassword"
+                /> </b-input-group
+              ><b-tooltip
+                v-if="confirmPassword != password"
+                target="confirmPass"
+                triggers="hover"
+                variant="warning"
+                >Passwords do not match
+              </b-tooltip>
 
+              <span id="submitButton" class="float-right">
                 <b-button
                   size="sm"
-                  class="mb-3 float-left"
-                  variant="primary"
-                  @click="tabIndex--"
-                  ><strong>Previous</strong></b-button
+                  variant="ready"
+                  type="submit"
+                  style="width:10rem"
+                  v-b-tooltip.hover
+                  @click="onSubmit"
+                  :disabled="!validCredentials"
                 >
-                <b-button
-                  size="sm"
-                  class="mb-3 float-right"
-                  variant="primary"
-                  @click="tabIndex++"
-                  ><strong>Next</strong></b-button
-                ></b-tab
+                  SIGN UP
+                  <b-spinner v-show="submitted" small></b-spinner>
+                  <b-icon-check-all
+                    v-show="!submitted && validCredentials"
+                  ></b-icon-check-all>
+                </b-button> </span
+              ><b-tooltip
+                v-if="!validCredentials"
+                target="submitButton"
+                triggers="hover"
+                placement="topleft"
+                variant="danger"
               >
-              <b-tab title="3. Photo" disabled
-                ><b-card-text>Select a Profile Picture</b-card-text>
-                <b-button
-                  size="sm"
-                  class="mb-3 float-left"
-                  variant="primary"
-                  @click="tabIndex--"
-                  ><strong>Previous</strong></b-button
-                >
-                <b-button
-                  size="sm"
-                  class="mb-3 float-right"
-                  variant="primary"
-                  @click="tabIndex++"
-                  ><strong>Next</strong></b-button
-                ></b-tab
-              >
-              <b-tab title="4. Payment" disabled
-                ><b-card-text>Tab contents 3</b-card-text
-                ><b-button
-                  size="sm"
-                  class="mb-3 float-left"
-                  variant="primary"
-                  @click="tabIndex--"
-                  ><strong>Previous</strong></b-button
-                >
-                <b-button
-                  size="sm"
-                  class="mb-3 float-right"
-                  variant="primary"
-                  @click="tabIndex++"
-                  ><strong>Next</strong></b-button
-                ></b-tab
-              >
-              <b-tab title="5. Create"
-                ><b-card-text
-                  >Please provide your required login infomation...</b-card-text
-                >
-                <b-input-group class="mb-3" prepend="@">
-                  <b-form-input
-                    type="email"
-                    required
-                    placeholder="Enter Email"
-                    v-model="email"
-                  />
-                </b-input-group>
-                <b-input-group class="mb-3" prepend="#">
-                  <b-form-input
-                    :type="passwordType"
-                    required
-                    placeholder="Password"
-                    v-model="password"
-                    pattern="^.{8,32}$"
-                    title="Password must contain at least eight characters"
-                  />
-                  <template #append>
-                    <b-input-group-text>
-                      <b-icon
-                        style="cursor: pointer;"
-                        :icon="passwordIcon"
-                        @click="hidePassword = !hidePassword"
-                      />
-                    </b-input-group-text>
-                  </template>
-                </b-input-group>
-                <b-input-group class="mb-3" prepend="#">
-                  <b-form-input
-                    type="password"
-                    required
-                    id="confirmPass"
-                    placeholder="Confirm Password"
-                    v-model="confirmPassword"
-                  /> </b-input-group
-                ><b-tooltip
-                  v-if="this.confirmPassword != this.password"
-                  target="confirmPass"
-                  triggers="hover"
-                  variant="warning"
-                  >Passwords do not match
-                </b-tooltip>
-                <b-button
-                  size="sm"
-                  class="mb-3 float-left"
-                  variant="primary"
-                  @click="tabIndex--"
-                  ><strong>Previous</strong></b-button
-                >
-                <span id="submitButton" class="float-right">
-                  <b-button
-                  size="sm"
-                    variant="ready"
-                    type="submit"
-                    style="width:10rem"
-                    v-b-tooltip.hover
-                    :disabled="!validCredentials"
-                  >
-                    SIGN UP
-                    <b-spinner v-show="submitted" small></b-spinner>
-                    <b-icon-check-all v-show="!submitted && validCredentials" ></b-icon-check-all>
-                  </b-button> </span
-                ><b-tooltip
-                  v-if="!validCredentials"
-                  target="submitButton"
-                  triggers="hover"
-                  placement="topleft"
-                  variant="danger"
-                >
-                  Missing or Invalid Credentials
-                </b-tooltip>
-              </b-tab>
-            </b-tabs>
-          </b-form>
+                Missing or Invalid Credentials
+              </b-tooltip>
+            </template> 
+          </navigatable-tab>
         </b-card>
       </b-col>
     </b-row>
@@ -201,6 +140,7 @@
 
 <script>
 import IconLogo from "@/components/icons/IconLogo";
+import NavigatableTab from "@/components/NavigatableTab.vue";
 import axios from "axios";
 export default {
   data() {
@@ -213,8 +153,6 @@ export default {
       dob: "",
       firstName: "",
       lastName: "",
-
-      tabIndex: 1,
 
       submitted: false,
       hidePassword: true,
@@ -231,6 +169,7 @@ export default {
   },
   components: {
     IconLogo,
+    NavigatableTab,
   },
   computed: {
     validCredentials() {
@@ -252,10 +191,10 @@ export default {
     },
     invalidFeedback() {
       if (this.firstName.length > 0) {
-        return 'Enter at least 4 characters.'
+        return "Enter at least 4 characters.";
       }
-      return 'Please enter something.'
-    }
+      return "Please enter something.";
+    },
   },
   methods: {
     sleep(ms) {
