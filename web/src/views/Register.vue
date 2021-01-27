@@ -1,7 +1,7 @@
 <template>
   <b-container fluid class="d-flex flex-column flex-grow-1">
     <b-row class="justify-content-center text-center">
-      <b-col lg="4" md="8" sm="10" xs="12">
+      <b-col lg="5" md="8" sm="12" xs="12">
         <icon-logo
           class="mt-5 mb-3"
           height="10em"
@@ -11,20 +11,20 @@
         <h1 class="mb-3"><strong>Create A New Account</strong></h1>
         <b-card
           no-body
-          bordered-variant="primary"
           class="text-left mt-3 mb-5 vh-80"
         >
           <b-form @submit.prevent="onSubmit">
             <b-tabs pills card vertical v-model="tabIndex">
-              <b-tab title="Name" active>
+              <b-tab title="1. Name" active>
                 <b-card-text>To start with what is your name ...</b-card-text>
-                <b-form-input
-                  class="mb-3"
-                  type="text"
-                  required
-                  placeholder="First Name"
-                  v-model="firstName"
-                />
+                
+                  <b-form-input
+                    class="mb-3"
+                    type="text"
+                    required
+                    placeholder="First Name"
+                    v-model="firstName"
+                  />
                 <b-form-input
                   class="mb-3"
                   type="text"
@@ -40,7 +40,7 @@
                   ><strong>Next</strong></b-button
                 >
               </b-tab>
-              <b-tab title="Details" disabled
+              <b-tab title="2. Details" disabled
                 ><b-card-text v-if="this.firstName"
                   ><strong>Welcome {{ this.firstName }}!</strong>
                 </b-card-text>
@@ -76,7 +76,7 @@
                   ><strong>Next</strong></b-button
                 ></b-tab
               >
-              <b-tab title="Photo" disabled
+              <b-tab title="3. Photo" disabled
                 ><b-card-text>Select a Profile Picture</b-card-text>
                 <b-button
                   size="sm"
@@ -93,7 +93,7 @@
                   ><strong>Next</strong></b-button
                 ></b-tab
               >
-              <b-tab title="Payment" disabled
+              <b-tab title="4. Payment" disabled
                 ><b-card-text>Tab contents 3</b-card-text
                 ><b-button
                   size="sm"
@@ -110,7 +110,7 @@
                   ><strong>Next</strong></b-button
                 ></b-tab
               >
-              <b-tab title="Create"
+              <b-tab title="5. Create"
                 ><b-card-text
                   >Please provide your required login infomation...</b-card-text
                 >
@@ -122,7 +122,6 @@
                     v-model="email"
                   />
                 </b-input-group>
-
                 <b-input-group class="mb-3" prepend="#">
                   <b-form-input
                     :type="passwordType"
@@ -142,7 +141,6 @@
                     </b-input-group-text>
                   </template>
                 </b-input-group>
-
                 <b-input-group class="mb-3" prepend="#">
                   <b-form-input
                     type="password"
@@ -252,6 +250,12 @@ export default {
     passwordIcon() {
       return this.hidePassword ? "eye-fill" : "eye-slash-fill";
     },
+    invalidFeedback() {
+      if (this.firstName.length > 0) {
+        return 'Enter at least 4 characters.'
+      }
+      return 'Please enter something.'
+    }
   },
   methods: {
     sleep(ms) {
