@@ -102,11 +102,12 @@ export default {
   components: {
     NavigatableTab,
   },
-  mounted() {
-    th;
-    NavigatableTabis.$refs.title.focus();
-  },
   methods: {
+    sleep(ms) {
+      return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+      });
+    },
     async onSubmit() {
       this.submitted = true;
       this.upload_in_progress = true;
@@ -128,6 +129,9 @@ export default {
       if (this.file) {
         this.readFile();
       }
+      
+      await this.sleep(1000);
+
       this.$router.replace("/dashboard/" + this.project_id);
       this.$emit("insert:project", this.project_id);
     },
