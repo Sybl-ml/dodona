@@ -116,10 +116,6 @@ export default {
         this.validRegistration = false;
       } else {
         $cookies.set("token", response.token, { path: "/", sameSite: true });
-
-        // Send the user's JWT token on every request type
-        axios.defaults.headers.common["Authorization"] = `Bearer ${response.token}`;
-
         this.$router.push("dashboard");
       }
     },

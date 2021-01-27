@@ -78,8 +78,6 @@ export default {
   methods: {
     signout: function () {
       $cookies.remove("token");
-      // Remove the token from Axios requests
-      delete axios.defaults.headers.common["Authorization"];
       this.$router.push("/login");
     },
     getUserData: async function () {
