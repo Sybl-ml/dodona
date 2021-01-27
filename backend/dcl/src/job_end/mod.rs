@@ -34,6 +34,8 @@ pub struct ClusterInfo {
     pub columns: Columns,
     /// Config
     pub config: ClientMessage,
+    /// Validation results
+    pub validation_ans: HashMap<(usize, String), String>,
 }
 
 /// Controlling structures for clusters
@@ -186,6 +188,7 @@ pub async fn run(
             id: id.clone(),
             columns: columns.clone(),
             config: config.clone(),
+            validation_ans: validation_ans.clone(),
         };
 
         loop {
@@ -298,6 +301,17 @@ pub async fn dcl_protcol(
     log::info!("Predictions: {:?}", &anonymised_predictions);
 
     let predictions = deanonymise_dataset(&anonymised_predictions, &info.columns).unwrap();
+
+    let model_errors = [1; CLUSTER_SIZE];
+
+    for values in predictions.split('\n').map(|s| s.split(',')) {
+        let (record_id, prediction) = (values[0], values[1]);
+        // TODO: implement regression error calculations
+        if Some(prediction) != info.validation_ans.get((1, record_id)) {
+            // TODO: identify which model returned which predictions
+            model_errors[0] += 1;
+        }
+    }
 
     // Write the predictions back to the database
     write_predictions(database, info.id, &key, predictions.as_bytes())
