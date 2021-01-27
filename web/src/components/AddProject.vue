@@ -1,44 +1,127 @@
 <template>
   <b-container fluid>
-    <b-form-input
-      ref="title"
-      placeholder="Name Your Project"
-      class="add-project"
-      v-model="name"
-    />
-    <h5>Create a new project</h5>
-    <b-tabs>
-      <b-tab title="New Project" active>
-        <br />
-        <b-form-textarea
-          placeholder="Write a short description of your project"
-          v-model="description"
-        />
-        <br />
-        <b-form-checkbox v-model="show_upload">Upload data</b-form-checkbox>
-        <b-form-file
-          v-show="show_upload"
-          placeholder="Upload a dataset"
-          drop-placeholder="Drop file here..."
-          v-model="file"
-        />
-        <br /><br />
-        <b-button @click="onSubmit" variant="primary">Submit</b-button>
-      </b-tab>
-    </b-tabs>
+    <b-card no-body style="border:none;box-shadow:none;">
+      <h2>Create a New Project</h2>
+    </b-card>
+    <b-card no-body>
+      <b-tabs pills card vertical v-model="tabIndex">
+        <b-tab title="1. Details" active>
+          <b-form-input
+            ref="title"
+            placeholder="Name Your Project"
+            class="mb-3 add-project"
+            v-model="name"
+          />
+          <b-form-textarea
+            placeholder="Write a short description of your project"
+            v-model="description"
+            class="mb-3"
+          />
+          <b-form-tags class="mb-3" v-model="descriptions"></b-form-tags>
+
+          <b-button
+            size="sm"
+            class="mb-3 float-right"
+            variant="primary"
+            @click="tabIndex++"
+            ><strong>Next</strong></b-button
+          >
+        </b-tab>
+        <b-tab title="2. Data"
+          ><b-card-text>
+            Please upload a dataset...
+          </b-card-text>
+          <b-form-file
+            class="mb-3"
+            placeholder="Upload a dataset"
+            drop-placeholder="Drop file here..."
+            v-model="file"
+          />
+          <b-alert show variant="danger" dismissible>
+            <strong>TIP:</strong> You can upload a dataset later
+          </b-alert>
+          <b-button
+            size="sm"
+            class="mb-3 float-left"
+            variant="primary"
+            @click="tabIndex--"
+            ><strong>Previous</strong></b-button
+          >
+          <b-button
+            size="sm"
+            class="mb-3 float-right"
+            variant="primary"
+            @click="tabIndex++"
+            ><strong>Next</strong></b-button
+          ></b-tab
+        >
+        <b-tab title="3. Processing" disabled
+          ><b-card-text>Describe the data...</b-card-text>
+          <b-button
+            size="sm"
+            class="mb-3 float-left"
+            variant="primary"
+            @click="tabIndex--"
+            ><strong>Previous</strong></b-button
+          >
+          <b-button
+            size="sm"
+            class="mb-3 float-right"
+            variant="primary"
+            @click="tabIndex++"
+            ><strong>Next</strong></b-button
+          ></b-tab
+        >
+        <b-tab title="4. Configure" disabled
+          ><b-card-text>How long ...</b-card-text
+          ><b-button
+            size="sm"
+            class="mb-3 float-left"
+            variant="primary"
+            @click="tabIndex--"
+            ><strong>Previous</strong></b-button
+          >
+          <b-button
+            size="sm"
+            class="mb-3 float-right"
+            variant="primary"
+            @click="tabIndex++"
+            ><strong>Next</strong></b-button
+          ></b-tab
+        >
+        <b-tab title="5. Finish"
+          ><b-card-text>Confirm the Details Below Before Creation</b-card-text>
+          <b-table striped hover :items="reviewItems"></b-table>
+          <b-button
+            size="sm"
+            class="mb-3 float-left"
+            variant="primary"
+            @click="tabIndex--"
+            ><strong>Previous</strong></b-button
+          >
+          <b-button
+            size="sm"
+            @click="onSubmit"
+            variant="ready"
+            class="float-right"
+          >
+            Create
+            <b-spinner v-show="submitted" small></b-spinner>
+            <b-icon-check-all
+              v-show="!submitted && complete"
+            ></b-icon-check-all>
+          </b-button>
+        </b-tab>
+      </b-tabs>
+    </b-card>
   </b-container>
 </template>
 
 <style>
 .add-project {
-  border: none !important;
-  border-radius: 0 !important;
-  height: auto !important;
-  font-size: 2rem !important;
-  font-weight: 500 !important;
+  font-size: 1.5rem;
+  font-weight: 700;
   line-height: 1.2 !important;
-  padding: 0px !important;
-  margin-bottom: 0.5rem !important;
 }
 
 .add-project:focus {
@@ -59,7 +142,16 @@ export default {
       upload_in_progress: false,
       file_reader: null,
       project_id: "",
-      show_upload: false,
+      tabIndex: 1,
+      complete: true,
+      submitted: false,
+      descriptions: [],
+      reviewItems: [
+        { age: 40, first_name: "Dickerson", last_name: "Macdonald" },
+        { age: 21, first_name: "Larsen", last_name: "Shaw" },
+        { age: 89, first_name: "Geneva", last_name: "Wilson" },
+        { age: 38, first_name: "Jami", last_name: "Carney" },
+      ],
     };
   },
   mounted() {
@@ -67,6 +159,7 @@ export default {
   },
   methods: {
     async onSubmit() {
+      this.submitted = true;
       this.upload_in_progress = true;
       let user_id = $cookies.get("token");
       try {
@@ -86,7 +179,7 @@ export default {
       if (this.file) {
         this.readFile();
       }
-      this.$router.replace("/dashboard/"+this.project_id);
+      this.$router.replace("/dashboard/" + this.project_id);
       this.$emit("insert:project", this.project_id);
     },
     readFile() {
