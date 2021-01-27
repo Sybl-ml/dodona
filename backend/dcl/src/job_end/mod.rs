@@ -35,7 +35,7 @@ pub struct ClusterInfo {
     /// Config
     pub config: ClientMessage,
     /// Validation results
-    pub validation_ans: HashMap<(usize, String), String>,
+    pub validation_ans: HashMap<(ModelID, String), String>,
 }
 
 /// Controlling structures for clusters
@@ -69,6 +69,10 @@ impl ClusterControl {
 const CLUSTER_SIZE: usize = 1;
 const VALIDATION_SIZE: usize = 10;
 const TRAINING_BAG_SIZE: usize = 10;
+
+// TODO: Find a better way of identifying models
+
+type ModelID = usize;
 
 /// Starts up and runs the job end
 ///
@@ -111,8 +115,8 @@ pub async fn run(
 
         log::info!("Built validation data");
 
-        let mut bags: HashMap<usize, (String, String)> = HashMap::new();
-        let mut validation_ans: HashMap<(usize, String), String> = HashMap::new();
+        let mut bags: HashMap<ModelID, (String, String)> = HashMap::new();
+        let mut validation_ans: HashMap<(ModelID, String), String> = HashMap::new();
 
         for m in 1..=CLUSTER_SIZE {
             log::info!("BOOTSTRAPPING");
@@ -217,7 +221,7 @@ async fn run_cluster(
     database: Arc<Database>,
     cluster: HashMap<String, Arc<RwLock<TcpStream>>>,
     info: ClusterInfo,
-    prediction_bag: HashMap<usize, (String, String)>,
+    prediction_bag: HashMap<ModelID, (String, String)>,
 ) -> Result<()> {
     let cc: ClusterControl = ClusterControl::new(cluster.len());
     let mut counter: usize = 1;
@@ -302,14 +306,17 @@ pub async fn dcl_protcol(
 
     let predictions = deanonymise_dataset(&anonymised_predictions, &info.columns).unwrap();
 
-    let model_errors = [1; CLUSTER_SIZE];
+    let mut model_errors: HashMap<ModelID, i32> = HashMap::new();
 
-    for values in predictions.split('\n').map(|s| s.split(',')) {
+    for values in predictions
+        .split('\n')
+        .map(|s| s.split(',').collect::<Vec<_>>())
+    {
         let (record_id, prediction) = (values[0], values[1]);
         // TODO: implement regression error calculations
-        if Some(prediction) != info.validation_ans.get((1, record_id)) {
+        if Some(&prediction.to_owned()) != info.validation_ans.get(&(1, record_id.to_owned())) {
             // TODO: identify which model returned which predictions
-            model_errors[0] += 1;
+            *model_errors.entry(0).or_insert(0) += 1;
         }
     }
 

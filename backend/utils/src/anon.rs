@@ -126,7 +126,7 @@ pub fn deanonymise_row(
             "record_id" => Some(v.to_string()),
             _ => types
                 .get(&c.to_string())
-                .and_then(|l| l.deanonymise(v.to_string()))
+                .and_then(|l| l.deanonymise(v.to_string())),
         })
         .collect()
 }
