@@ -54,7 +54,6 @@
 </template>
 
 <script>
-import axios from "axios";
 import Papa from "papaparse";
 import ProjectOverview from "@/components/ProjectOverview";
 import ProjectInput from "@/components/ProjectInput";
@@ -103,7 +102,7 @@ export default {
   },
   methods: {
     async fetchProject() {
-      let project_response = await axios.get(
+      let project_response = await this.$http.get(
         `http://localhost:3001/api/projects/p/${this.projectId}`
       );
 
@@ -122,7 +121,7 @@ export default {
     async fetchData() {
       this.loading = true;
 
-      let project_response = await axios.get(
+      let project_response = await this.$http.get(
         `http://localhost:3001/api/projects/p/${this.projectId}/data`
       );
 
@@ -134,7 +133,7 @@ export default {
     async fetchResults() {
       this.results_loading = true;
 
-      let project_predictions = await axios.get(
+      let project_predictions = await this.$http.get(
         `http://localhost:3001/api/projects/p/${this.projectId}/predictions`
       );
       this.results = project_predictions.data['predictions'];

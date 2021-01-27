@@ -98,7 +98,6 @@
 </style>
 
 <script>
-import axios from "axios";
 import Vue from "vue";
 
 export default {
@@ -112,7 +111,7 @@ export default {
   async mounted() {
     let user_id = $cookies.get("token");
 
-    let response = await axios.get(
+    let response = await this.$http.get(
       `http://localhost:3001/api/projects`
     );
 
@@ -147,7 +146,7 @@ export default {
       }
     },
     async addProject(id) {
-      let project_response = await axios.get(
+      let project_response = await this.$http.get(
         `http://localhost:3001/api/projects/p/${id}`
       );
 

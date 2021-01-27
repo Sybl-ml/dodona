@@ -50,7 +50,6 @@
 </style>
 
 <script>
-import axios from "axios";
 import Papa from "papaparse";
 
 export default {
@@ -80,7 +79,7 @@ export default {
     async start() {
       let user_id = $cookies.get("token");
       try {
-        await axios.post(
+        await this.$http.post(
           `http://localhost:3001/api/projects/p/${this.projectId}/process`,
           {
             timeout: this.timeout,
