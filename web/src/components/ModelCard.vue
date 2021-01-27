@@ -89,7 +89,6 @@
 </style>
 
 <script>
-import axios from "axios";
 export default {
     name: "ModelCard",
     props: {
@@ -117,7 +116,7 @@ export default {
     },
     methods: {
         async onSubmit() {
-          let response = await axios.post("http://localhost:3001/api/clients/m/unlock", {
+          let response = await this.$http.post("http://localhost:3001/api/clients/m/unlock", {
               id: this.data._id.$oid,
               password: this.password,
           });

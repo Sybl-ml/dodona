@@ -8,6 +8,8 @@ use mongodb::bson::{doc, document::Document};
 
 mod common;
 
+use common::get_bearer_token;
+
 #[derive(Deserialize, Debug)]
 struct AuthResponse {
     pub token: String,
@@ -248,11 +250,10 @@ async fn users_can_be_deleted() -> Result<()> {
     let user = &users[0];
 
     // Delete the user
-    let doc = doc! {"id": user.id.to_string() };
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
+        .header("Authorization", get_bearer_token(&user.id.to_string()))
         .uri("/api/users/delete")
-        .set_json(&doc)
         .to_request();
 
     let res = test::call_service(&mut app, req).await;

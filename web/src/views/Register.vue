@@ -71,7 +71,6 @@
 
 <script>
 import IconLogo from "@/components/icons/IconLogo";
-import axios from "axios";
 export default {
   data() {
     return {
@@ -103,7 +102,7 @@ export default {
   },
   methods: {
     async onSubmit() {
-      let response = await axios.post("http://localhost:3001/api/users/new", {
+      let response = await this.$http.post("http://localhost:3001/api/users/new", {
         email: this.email,
         password: this.password,
         firstName: this.firstName,

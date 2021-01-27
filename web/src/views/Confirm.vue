@@ -31,7 +31,6 @@
 
 <script>
 import IconLogo from "@/components/icons/IconLogo";
-import axios from "axios";
 export default {
   data() {
     return {
@@ -45,7 +44,7 @@ export default {
   },
   methods: {
     async onSubmit() {
-      let response = await axios.post(
+      let response = await this.$http.post(
         "http://localhost:3001/api/clients/register",
         {
           id: $cookies.get("token"),
