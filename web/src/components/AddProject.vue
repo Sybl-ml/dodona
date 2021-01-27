@@ -130,8 +130,6 @@
 </style>
 
 <script>
-import axios from "axios";
-
 export default {
   name: "AddProject",
   data() {
@@ -163,8 +161,8 @@ export default {
       this.upload_in_progress = true;
       let user_id = $cookies.get("token");
       try {
-        let project_response = await axios.post(
-          `http://localhost:3001/api/projects/u/${user_id}/new`,
+        let project_response = await this.$http.post(
+          `http://localhost:3001/api/projects/new`,
           {
             name: this.name,
             description: this.description,
@@ -188,7 +186,7 @@ export default {
       this.file_reader.readAsText(this.file);
     },
     async sendFile(e) {
-      let project_response = await axios.put(
+      let project_response = await this.$http.put(
         `http://localhost:3001/api/projects/p/${this.project_id}/data`,
         {
           name: this.file.name,

@@ -1,11 +1,12 @@
 //! Defines the routes specific to user operations.
 
 use actix_web::{web, HttpResponse};
-use mongodb::bson::{doc, document::Document, oid::ObjectId};
+use mongodb::bson::{doc, document::Document};
 use tokio_stream::StreamExt;
 
+use crate::auth;
 use crate::dodona_error::DodonaError;
-use crate::routes::{check_user_exists, response_from_json};
+use crate::routes::response_from_json;
 use crate::AppState;
 use crypto::clean;
 use models::users::User;
@@ -15,15 +16,13 @@ use models::users::User;
 /// Given a user identifier, finds the user in the database and returns them as a JSON object. If
 /// the user does not exist, the handler will panic.
 pub async fn get(
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
-    user_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
     let users = database.collection("users");
 
-    let object_id = check_user_exists(&user_id, &users).await?;
-
-    let filter: Document = doc! { "_id": object_id };
+    let filter: Document = doc! { "_id": claims.id };
     let document = users.find_one(filter, None).await?;
 
     response_from_json(document)
@@ -96,7 +95,8 @@ pub async fn new(
     let document = mongodb::bson::ser::to_document(&user)?;
     let id = users.insert_one(document, None).await?.inserted_id;
 
-    response_from_json(doc! {"token": id.as_object_id().unwrap().to_string()})
+    let jwt = auth::Claims::create_token(id.as_object_id().unwrap().clone())?;
+    response_from_json(doc! {"token": jwt})
 }
 
 /// Edits a user in the database and updates their information.
@@ -104,17 +104,15 @@ pub async fn new(
 /// Given a user identifier, finds the user in the database and updates their information based on
 /// the JSON provided, returning a message based on whether it was updated.
 pub async fn edit(
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
     let users = database.collection("users");
 
-    let user_id = clean(doc.get_str("id")?);
-    let object_id = check_user_exists(&user_id, &users).await?;
-
     // Get the user from the database
-    let filter = doc! { "_id": &object_id };
+    let filter = doc! { "_id": &claims.id };
     let user_doc = users
         .find_one(filter.clone(), None)
         .await?
@@ -165,24 +163,21 @@ pub async fn login(
 
     log::info!("Logged in: {:?}", user);
 
-    let identifier = user.id.expect("User has no identifier").to_string();
-    response_from_json(doc! {"token": identifier})
+    let jwt = auth::Claims::create_token(user.id)?;
+    response_from_json(doc! {"token": jwt})
 }
 
 /// Deletes a user from the database.
 ///
 /// Given a user identifier, deletes the related user from the database if they exist.
 pub async fn delete(
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
-    doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
     let users = database.collection("users");
 
-    let object_id = clean(doc.get_str("id")?);
-    let id = ObjectId::with_string(&object_id)?;
-    let filter = doc! {"_id": id};
-
+    let filter = doc! { "_id": claims.id };
     users.find_one_and_delete(filter, None).await?;
 
     response_from_json(doc! {"status": "deleted"})

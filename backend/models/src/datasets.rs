@@ -6,10 +6,10 @@ use mongodb::bson::{self, oid::ObjectId, Binary};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Dataset {
     /// The unique identifier for the dataset
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<ObjectId>,
+    #[serde(rename = "_id")]
+    pub id: ObjectId,
     /// Unique identifier for the associated project
-    pub project_id: Option<ObjectId>,
+    pub project_id: ObjectId,
     /// Dataset binary stored in the database
     pub dataset: Option<Binary>,
     /// Dataset to be predicted by the model
@@ -20,8 +20,8 @@ impl Dataset {
     /// Creates a new [`Dataset`] for a project with some data.
     pub fn new(project_id: ObjectId, dataset: Vec<u8>, predict: Vec<u8>) -> Self {
         Self {
-            id: None,
-            project_id: Some(project_id),
+            id: ObjectId::new(),
+            project_id: project_id,
             dataset: Some(Binary {
                 subtype: bson::spec::BinarySubtype::Generic,
                 bytes: dataset,

@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User {
     /// The unique identifier for the user
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<ObjectId>,
+    #[serde(rename = "_id")]
+    pub id: ObjectId,
     /// The user's email
     pub email: String,
     /// The peppered and hashed version of the user's password
@@ -19,7 +19,7 @@ pub struct User {
     pub last_name: String,
     /// The user's API key
     pub api_key: String,
-    // The user's client status
+    /// Whether the user is a client or not
     pub client: bool,
     /// The user's credits
     pub credits: i32,
@@ -29,7 +29,7 @@ impl User {
     /// Creates a new instance of [`User`].
     pub fn new<T: Into<String>>(email: T, hash: T, first_name: T, last_name: T) -> Self {
         Self {
-            id: None,
+            id: ObjectId::new(),
             email: email.into(),
             hash: hash.into(),
             first_name: first_name.into(),
@@ -45,8 +45,8 @@ impl User {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Client {
     /// The unique identifier for the client
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<ObjectId>,
+    #[serde(rename = "_id")]
+    pub id: ObjectId,
     /// The identifier of the user to which this client information belongs
     pub user_id: ObjectId,
     /// This clients public Key
@@ -56,7 +56,7 @@ pub struct Client {
 impl Client {
     pub fn new(user_id: ObjectId, public_key: String) -> Self {
         Self {
-            id: None,
+            id: ObjectId::new(),
             user_id,
             public_key,
         }
