@@ -16,7 +16,7 @@
       <b-nav-item disabled>{{ credits }} Credits</b-nav-item>
       <b-nav-item-dropdown right>
         <template #button-content>
-          <img :src="avatar" class="img-circle" />
+          <b-avatar size="1.75em"></b-avatar>
           {{ name }}
         </template>
         <b-dropdown-item disabled>{{ email }}</b-dropdown-item>
@@ -61,14 +61,12 @@ export default {
     IconLogo,
   },
   data() {
-    let randNo = Math.floor(Math.random() * 6) + 1;
     return {
       name: "",
       email: "",
       client: false,
       time: "",
       credits: 0,
-      avatar: "https://www.w3schools.com/w3images/avatar" + randNo + ".png",
       loggedIn: false,
       logoRoute: "/",
       atDashboard: false,
