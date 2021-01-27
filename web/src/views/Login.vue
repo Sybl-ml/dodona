@@ -67,7 +67,6 @@
 
 <script>
 import IconLogo from "@/components/icons/IconLogo";
-import Face from "@/components/icons/conent/Face";
 import axios from "axios";
 export default {
   data() {
@@ -82,7 +81,6 @@ export default {
   },
   components: {
     IconLogo,
-    Face,
   },
   computed: {
     passwordType() {
