@@ -110,6 +110,7 @@ pub async fn run(
         log::info!("Built validation data");
 
         let mut bags: HashMap<usize, (String, String)> = HashMap::new();
+        let mut validation_ans: HashMap<(usize, String), String> = HashMap::new();
 
         for m in 1..=CLUSTER_SIZE {
             log::info!("BOOTSTRAPPING");
@@ -148,19 +149,26 @@ pub async fn run(
             let (anon_test, test_rids) = generate_ids(anon_test);
             log::info!("IDs: {:?}\nAnonymised Test: {:?}", &test_rids, &anon_test);
             // Add record ids to validation
-            let (anon_valid, valid_rids) = generate_ids(anon_valid);
+            let (anon_valid_with_ans, valid_rids) = generate_ids(anon_valid);
             log::info!(
                 "IDs: {:?}\nAnonymised Valid: {:?}",
                 &valid_rids,
-                &anon_valid
+                &anon_valid_with_ans
             );
 
+            let mut anon_valid_with_ans = anon_valid_with_ans.split("\n").collect::<Vec<_>>();
+            let mut anon_valid: Vec<&str> = vec![];
+            anon_valid_with_ans.remove(0);
+            for (record, id) in anon_valid_with_ans.iter().zip(valid_rids.iter()) {
+                let values: Vec<_> = record.rsplitn(2, ',').collect();
+                validation_ans.insert((m, id.to_owned()), values[0].to_owned());
+                anon_valid.push(values[1]);
+            }
+
             let mut anon_test = anon_test.split("\n").collect::<Vec<_>>();
-            let mut anon_valid = anon_valid.split("\n").collect::<Vec<_>>();
 
             // Get the new anonymised headers for test set
             let new_headers = anon_test.remove(0);
-            anon_valid.remove(0);
 
             // Combine validation with test
             anon_test.append(&mut anon_valid);
