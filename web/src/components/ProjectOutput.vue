@@ -34,7 +34,6 @@
 </style>
 
 <script>
-import axios from "axios";
 import Papa from "papaparse";
 
 export default {

@@ -98,7 +98,6 @@
 </style>
 
 <script>
-import axios from "axios";
 import Vue from "vue";
 
 export default {
@@ -112,8 +111,8 @@ export default {
   async mounted() {
     let user_id = $cookies.get("token");
 
-    let response = await axios.get(
-      `http://localhost:3001/api/projects/u/${user_id}`
+    let response = await this.$http.get(
+      `http://localhost:3001/api/projects`
     );
 
     this.projects = response.data.map((x) => {
@@ -147,7 +146,7 @@ export default {
       }
     },
     async addProject(id) {
-      let project_response = await axios.get(
+      let project_response = await this.$http.get(
         `http://localhost:3001/api/projects/p/${id}`
       );
 

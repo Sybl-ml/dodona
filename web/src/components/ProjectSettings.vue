@@ -50,8 +50,6 @@
 </style>
 
 <script>
-import axios from "axios";
-
 export default {
   name: "ProjectSettings",
   data() {
@@ -70,7 +68,7 @@ export default {
       this.$emit("update:name", this.newName);
 
       try {
-        let project_response = await axios.patch(
+        let project_response = await this.$http.patch(
           `http://localhost:3001/api/projects/p/${this.projectId}`,
           {
             name: this.newName,
@@ -84,7 +82,7 @@ export default {
       this.$emit("update:description", this.newDescription);
 
       try {
-        let project_response = await axios.patch(
+        let project_response = await this.$http.patch(
           `http://localhost:3001/api/projects/p/${this.projectId}`,
           {
             description: this.newDescription,
@@ -98,7 +96,7 @@ export default {
       this.$emit("delete:project", this.projectId);
 
       try {
-        let project_response = await axios.delete(
+        let project_response = await this.$http.delete(
           `http://localhost:3001/api/projects/p/${this.projectId}`
         );
       } catch (err) {

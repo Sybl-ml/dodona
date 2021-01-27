@@ -6,8 +6,8 @@ use mongodb::bson::{self, oid::ObjectId, Binary};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Prediction {
     /// The unique identifier for the prediction
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<ObjectId>,
+    #[serde(rename = "_id")]
+    pub id: ObjectId,
     /// Unique identifier for the associated project
     pub project_id: ObjectId,
     /// Dataset predicted by the model
@@ -18,7 +18,7 @@ impl Prediction {
     /// Creates a new [`Dataset`] for a project with some data.
     pub fn new(project_id: ObjectId, predictions: Vec<u8>) -> Self {
         Self {
-            id: None,
+            id: ObjectId::new(),
             project_id,
             predictions: Binary {
                 subtype: bson::spec::BinarySubtype::Generic,

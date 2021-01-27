@@ -2,13 +2,14 @@
 
 use actix_web::{web, HttpResponse};
 use chrono::Utc;
-use models::models::{AccessToken, ClientModel, Status};
+use models::models::{AccessToken, ClientModel};
 use models::users::{Client, User};
 use mongodb::bson::de::from_document;
 use mongodb::bson::ser::to_document;
 use mongodb::bson::{self, doc, document::Document, oid::ObjectId, Binary};
 use tokio_stream::StreamExt;
 
+use crate::auth;
 use crate::dodona_error::DodonaError;
 use crate::routes::response_from_json;
 use crate::AppState;
@@ -17,6 +18,7 @@ use crate::AppState;
 ///
 /// Will check the provided `user_id` matches with the provided email and password
 pub async fn register(
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
@@ -27,11 +29,8 @@ pub async fn register(
 
     let password = doc.get_str("password")?;
     let email = crypto::clean(doc.get_str("email")?);
-    let id = doc.get_str("id")?;
 
-    let user_id = ObjectId::with_string(&id)?;
-
-    let filter = doc! { "_id": &user_id };
+    let filter = doc! { "_id": &claims.id };
     let user_doc = users.find_one(filter, None).await?;
 
     let user: User = from_document(user_doc.ok_or(DodonaError::NotFound)?)?;
@@ -50,14 +49,14 @@ pub async fn register(
         // create a new client object
         users
             .update_one(
-                doc! { "_id": &user_id },
+                doc! { "_id": &claims.id },
                 doc! {"$set": {"client": true}},
                 None,
             )
             .await?;
 
         // Update the user to be a client
-        let client = Client::new(user_id, public_key);
+        let client = Client::new(claims.id, public_key);
 
         // store client object in db
         let document = to_document(&client)?;
@@ -91,34 +90,19 @@ pub async fn new_model(
         Some(u) => from_document::<User>(u)?,
         None => return Err(DodonaError::NotFound),
     };
-    let user_id = user.id.expect("ID is none");
 
     if !user.client {
         return Err(DodonaError::Forbidden);
     }
 
-    let filter = doc! { "user_id": &user_id, "name": &model_name };
+    let filter = doc! { "user_id": &user.id, "name": &model_name };
     if models.find_one(filter, None).await?.is_some() {
         return Err(DodonaError::Conflict);
     }
 
     // Generate challenge
     let challenge = crypto::generate_challenge();
-    // Make new model
-    let temp_model = ClientModel {
-        id: Some(ObjectId::new()),
-        user_id: user_id.clone(),
-        name: model_name,
-        status: Some(Status::NotStarted),
-        access_token: None,
-        locked: true,
-        authenticated: false,
-        challenge: Some(Binary {
-            subtype: bson::spec::BinarySubtype::Generic,
-            bytes: challenge.clone(),
-        }),
-        times_run: 0,
-    };
+    let temp_model = ClientModel::new(user.id, model_name, challenge.clone());
 
     // insert model into database
     let document = to_document(&temp_model)?;
@@ -156,17 +140,16 @@ pub async fn verify_challenge(
         .await?
         .ok_or(DodonaError::NotFound)?;
     let user: User = from_document(user_doc)?;
-    let user_id = user.id.expect("User ID is none");
 
     // get clients public key matching with that users id
-    let filter = doc! { "user_id": &user_id };
+    let filter = doc! { "user_id": &user.id };
     let client_doc = clients
         .find_one(filter, None)
         .await?
         .ok_or(DodonaError::NotFound)?;
     let client: Client = from_document(client_doc)?;
 
-    let filter = doc! { "user_id": &user_id, "name": &model_name };
+    let filter = doc! { "user_id": &user.id, "name": &model_name };
     let model_doc = models
         .find_one(filter, None)
         .await?
@@ -188,14 +171,14 @@ pub async fn verify_challenge(
     model.access_token = Some(access_token.clone());
     model.challenge = None;
 
-    let filter = doc! { "user_id": &user_id, "name": &model_name };
+    let filter = doc! { "user_id": &user.id, "name": &model_name };
     let update = doc! { "$set": to_document(&model)? };
     models.find_one_and_update(filter, update, None).await?;
 
     // return the access token to the model
     response_from_json(doc! {
         "AccessToken": {
-            "id": model.id.expect("Model ID is none").to_string(),
+            "id": model.id.to_string(),
             "token": base64::encode(access_token.clone().token.bytes),
             "expires": access_token.expires.to_rfc3339()
         }
@@ -213,6 +196,7 @@ pub async fn verify_challenge(
 /// and the password `password` of the user to whom the model is registered.
 /// The model must be authenticated using `verify_challenge` before being unlocked
 pub async fn unlock_model(
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
@@ -228,10 +212,15 @@ pub async fn unlock_model(
         .ok_or(DodonaError::Unauthorized)?;
     let mut model: ClientModel = from_document(model_doc)?;
 
+    // Check the current user owns this model
+    if model.user_id != claims.id {
+        return Err(DodonaError::Unauthorized);
+    }
+
     let password = doc.get_str("password")?;
     let pepper = &app_data.pepper;
 
-    let filter = doc! { "_id": &model.user_id };
+    let filter = doc! { "_id": &claims.id };
     let user_doc = users
         .find_one(filter, None)
         .await?
@@ -305,24 +294,13 @@ pub async fn authenticate_model(
 /// Given a user identifier, finds all the models in the database that the user owns. If the user
 /// doesn't exist or an invalid identifier is given, returns a 404 response.
 pub async fn get_user_models(
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
-    user_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
     let models = database.collection("models");
-    let users = database.collection("users");
 
-    let object_id = match ObjectId::with_string(&user_id) {
-        Ok(id) => id,
-        Err(_) => return Err(DodonaError::NotFound),
-    };
-
-    let found_user = users.find_one(doc! { "_id": &object_id}, None).await?;
-
-    if found_user.is_none() {
-        return Err(DodonaError::NotFound);
-    }
-    let filter = doc! { "user_id": &object_id };
+    let filter = doc! { "user_id": &claims.id };
     let cursor = models.find(filter, None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 

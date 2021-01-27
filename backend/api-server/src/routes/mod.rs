@@ -2,12 +2,13 @@
 
 use actix_web::{HttpResponse, Result};
 use mongodb::{
-    bson::{doc, oid::ObjectId},
+    bson::{de::from_document, doc, oid::ObjectId},
     Collection,
 };
 
 use crate::dodona_error::DodonaError;
 use crypto::clean_json;
+use models::projects::Project;
 
 pub mod clients;
 pub mod projects;
@@ -24,33 +25,26 @@ pub fn response_from_json<B: serde::Serialize>(body: B) -> Result<HttpResponse, 
     Ok(HttpResponse::Ok().json(body))
 }
 
-/// Checks whether a user exists with the given ID.
-pub async fn check_user_exists(id: &str, users: &Collection) -> Result<ObjectId, DodonaError> {
-    // Check the project ID to make sure it exists
-    let object_id = ObjectId::with_string(&id)?;
-    let query = doc! { "_id": &object_id };
-
-    users
-        .find_one(query, None)
-        .await?
-        .ok_or(DodonaError::NotFound)?;
-
-    Ok(object_id)
-}
-
-/// Checks whether a project exists with the given ID.
-pub async fn check_project_exists(
-    id: &str,
+/// Checks whether a project exists with the given ID and that the given user owns it.
+pub async fn check_user_owns_project(
+    user_id: &ObjectId,
+    project_id: &str,
     projects: &Collection,
 ) -> Result<ObjectId, DodonaError> {
     // Check the project ID to make sure it exists
-    let object_id = ObjectId::with_string(&id)?;
+    let object_id = ObjectId::with_string(&project_id)?;
     let query = doc! { "_id": &object_id};
 
-    projects
+    let project_doc = projects
         .find_one(query, None)
         .await?
         .ok_or(DodonaError::NotFound)?;
 
-    Ok(object_id)
+    let project: Project = from_document(project_doc)?;
+
+    if project.user_id == *user_id {
+        Ok(object_id)
+    } else {
+        Err(DodonaError::Unauthorized)
+    }
 }

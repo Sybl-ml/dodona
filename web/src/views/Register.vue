@@ -19,7 +19,7 @@
               { key: '5', title: '5. Create', disabled: false },
             ]"
           >
-            <<template v-slot:1>
+            <template v-slot:1>
               <b-card-text>To start with what is your name ...</b-card-text>
 
               <b-form-input
@@ -141,7 +141,7 @@
 <script>
 import IconLogo from "@/components/icons/IconLogo";
 import NavigatableTab from "@/components/NavigatableTab.vue";
-import axios from "axios";
+
 export default {
   data() {
     return {
@@ -204,7 +204,7 @@ export default {
     },
     async onSubmit() {
       this.submitted = true;
-      let response = await axios.post("http://localhost:3001/api/users/new", {
+      let response = await this.$http.post("http://localhost:3001/api/users/new", {
         email: this.email,
         password: this.password,
         firstName: this.firstName,
