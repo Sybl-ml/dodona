@@ -3,6 +3,8 @@ name: cargo test
 on:
   pull_request:
     branches: [ master, develop ]
+    paths:
+    - "backend/**"
 
 jobs:
   build:
