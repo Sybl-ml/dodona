@@ -3,7 +3,7 @@
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use mongodb::{
@@ -36,6 +36,52 @@ pub struct ClusterInfo {
     pub config: ClientMessage,
     /// Validation results
     pub validation_ans: HashMap<(ModelID, String), String>,
+}
+
+/// Memory which can be written back to from threads for
+/// prediction related data
+#[derive(Debug, Clone)]
+pub struct WriteBackMemory {
+    /// HashMap of predictions
+    pub predictions: Arc<Mutex<HashMap<(ModelID, String), String>>>,
+    /// HashMap of Errors
+    pub errors: Arc<Mutex<HashMap<ModelID, f64>>>,
+}
+
+impl WriteBackMemory {
+    /// Creates new instance of WriteBackMemory
+    pub fn new() -> WriteBackMemory {
+        WriteBackMemory {
+            predictions: Arc::new(Mutex::new(HashMap::new())),
+            errors: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    /// Function to write back a hashmap of (record_id, prediction) tuples
+    pub fn write_predictions(&self, id: ModelID, pred_map: HashMap<String, String>) {
+        let mut predictions = self.predictions.lock().unwrap();
+        for (record_id, prediction) in pred_map.into_iter() {
+            predictions.insert((id, record_id), prediction);
+        }
+    }
+
+    /// Function to write back error value
+    pub fn write_error(&self, id: ModelID, error: f64) {
+        let mut errors = self.errors.lock().unwrap();
+        errors.insert(id, error);
+    }
+
+    /// Gets cloned version of predictions
+    pub fn get_predictions(&self) -> HashMap<(ModelID, String), String> {
+        let predictions = self.predictions.lock().unwrap();
+        predictions.clone()
+    }
+
+    /// Gets cloned version of errors
+    pub fn get_errors(&self) -> HashMap<ModelID, f64> {
+        let errors = self.errors.lock().unwrap();
+        errors.clone()
+    }
 }
 
 /// Controlling structures for clusters
@@ -72,7 +118,8 @@ const TRAINING_BAG_SIZE: usize = 10;
 
 // TODO: Find a better way of identifying models
 
-type ModelID = usize;
+/// ModelID type
+pub type ModelID = usize;
 
 /// Starts up and runs the job end
 ///
@@ -238,11 +285,13 @@ async fn run_cluster(
 ) -> Result<()> {
     let cc: ClusterControl = ClusterControl::new(cluster.len());
     let mut counter: usize = 1;
+    let wbm: WriteBackMemory = WriteBackMemory::new();
 
     for (key, dcn) in cluster {
         let np_clone = Arc::clone(&nodepool);
         let database_clone = Arc::clone(&database);
         let info_clone = info.clone();
+        let wbm_clone = wbm.clone();
         let cc_clone = cc.clone();
         let train_predict = prediction_bag.get(&counter).unwrap().clone();
         counter += 1;
@@ -256,6 +305,7 @@ async fn run_cluster(
                 info_clone,
                 cc_clone,
                 train_predict,
+                wbm_clone,
             )
             .await
             .unwrap();
@@ -279,6 +329,7 @@ pub async fn dcl_protcol(
     info: ClusterInfo,
     cluster_control: ClusterControl,
     train_predict: (String, String),
+    write_back: WriteBackMemory,
 ) -> Result<()> {
     log::info!("Sending a job to node with key: {}", key);
 
