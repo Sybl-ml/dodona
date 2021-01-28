@@ -115,7 +115,10 @@ pub async fn run(
 
         log::info!("Built validation data");
 
+        // The test and train datasets associated for each model
         let mut bags: HashMap<ModelID, (String, String)> = HashMap::new();
+
+        // The validation record ids and answers for each model
         let mut validation_ans: HashMap<(ModelID, String), String> = HashMap::new();
 
         for m in 1..=CLUSTER_SIZE {
@@ -164,10 +167,20 @@ pub async fn run(
 
             let mut anon_valid_with_ans = anon_valid_with_ans.split("\n").collect::<Vec<_>>();
             let mut anon_valid: Vec<&str> = vec![];
-            anon_valid_with_ans.remove(0);
+            let headers = anon_valid_with_ans.remove(0);
+
+            // For now, we assume that the last column is the prediction column
+            let prediction_column = headers.split(',').last().unwrap();
+
+            // Remove validation answers and record them for model evaluation following predictions
             for (record, id) in anon_valid_with_ans.iter().zip(valid_rids.iter()) {
                 let values: Vec<_> = record.rsplitn(2, ',').collect();
-                validation_ans.insert((m, id.to_owned()), values[0].to_owned());
+                let ans = columns
+                    .get(prediction_column)
+                    .unwrap()
+                    .deanonymise(values[0].to_owned())
+                    .unwrap();
+                validation_ans.insert((m, id.to_owned()), ans.to_owned());
                 anon_valid.push(values[1]);
             }
 
@@ -306,7 +319,8 @@ pub async fn dcl_protcol(
 
     let predictions = deanonymise_dataset(&anonymised_predictions, &info.columns).unwrap();
 
-    let mut model_errors: HashMap<ModelID, i32> = HashMap::new();
+    // stores the total error penalty for each model
+    let mut model_errors: HashMap<ModelID, f64> = HashMap::new();
 
     for values in predictions
         .split('\n')
@@ -314,9 +328,10 @@ pub async fn dcl_protcol(
     {
         let (record_id, prediction) = (values[0], values[1]);
         // TODO: implement regression error calculations
+        // if the job is a classification problem, record an error if the predictions do not match
         if Some(&prediction.to_owned()) != info.validation_ans.get(&(1, record_id.to_owned())) {
-            // TODO: identify which model returned which predictions
-            *model_errors.entry(0).or_insert(0) += 1;
+            // TODO: fix this so model_errors is a shared memory reference
+            *model_errors.entry(0).or_insert(0.0) += 1.0;
         }
     }
 
