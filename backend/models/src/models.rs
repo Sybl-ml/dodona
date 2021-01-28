@@ -3,7 +3,7 @@
 use std::fmt;
 
 use chrono::{DateTime, Duration, Utc};
-use mongodb::bson::{self, oid::ObjectId, Binary, Bson};
+use mongodb::bson::{self, doc, oid::ObjectId, Binary, Bson};
 
 use crypto::generate_access_token;
 
@@ -109,5 +109,14 @@ impl ClientModel {
 
         // Check the user's token
         matches!(&self.access_token, Some(x) if x.token.bytes == token)
+    }
+
+    pub async fn delete(&self, database: &mongodb::Database) -> mongodb::error::Result<()> {
+        let models = database.collection("models");
+
+        let filter = doc! {"_id": &self.id};
+        models.delete_one(filter, None).await?;
+
+        Ok(())
     }
 }

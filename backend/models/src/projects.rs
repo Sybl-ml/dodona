@@ -1,8 +1,12 @@
 //! Defines the structure of projects in the `MongoDB` instance.
 
 use chrono::Utc;
-use mongodb::bson::{self, oid::ObjectId, Bson};
+use mongodb::bson::{self, doc, oid::ObjectId, Bson};
 use serde::{Deserialize, Serialize};
+use tokio_stream::StreamExt;
+
+use crate::datasets::Dataset;
+use crate::predictions::Prediction;
 
 #[allow(missing_docs)]
 /// Defines the status for a project
@@ -56,5 +60,33 @@ impl Project {
             user_id,
             status: Status::Unfinished,
         }
+    }
+
+    pub async fn delete(&self, database: &mongodb::Database) -> mongodb::error::Result<()> {
+        let projects = database.collection("projects");
+        let datasets = database.collection("datasets");
+        let predictions = database.collection("predictions");
+
+        let filter = doc! { "_id": &self.id };
+        // Remove project from database
+        projects.delete_one(filter, None).await?;
+
+        let dataset_filter = doc! { "project_id": &self.id};
+        let dataset = datasets.find_one(dataset_filter, None).await?;
+
+        if let Some(dataset) = dataset {
+            let dataset: Dataset = mongodb::bson::de::from_document(dataset).unwrap();
+            dataset.delete(&database).await?;
+        }
+
+        let predictions_filter = doc! { "project_id": &self.id};
+        let mut cursor = predictions.find(predictions_filter, None).await?;
+
+        while let Some(Ok(prediction_doc)) = cursor.next().await {
+            let prediction: Prediction = mongodb::bson::de::from_document(prediction_doc).unwrap();
+            prediction.delete(database).await?;
+        }
+
+        Ok(())
     }
 }
