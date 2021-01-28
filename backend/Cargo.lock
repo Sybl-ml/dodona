@@ -1758,6 +1758,7 @@ dependencies = [
  "mongodb",
  "serde",
  "serde_json",
+ "tokio-stream",
  "utils",
 ]
 
