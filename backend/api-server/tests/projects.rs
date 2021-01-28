@@ -1,11 +1,13 @@
-use actix_web::{middleware, test, web, App, Result};
+use actix_web::web::{delete, get, patch, post, put};
+use actix_web::{middleware, test, App, Result};
 use mongodb::bson::{doc, document::Document};
 use serde::{Deserialize, Serialize};
 
-use api_server::routes;
+use api_server::routes::projects;
 use models::dataset_details::DatasetDetails;
 use models::projects::Project;
 
+#[macro_use]
 mod common;
 
 use common::get_bearer_token;
@@ -23,19 +25,7 @@ pub struct DatasetResponse {
 
 #[actix_rt::test]
 async fn projects_can_be_fetched_for_a_user() -> Result<()> {
-    let state = common::initialise().await;
-
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .service(
-                web::resource("/api/projects")
-                    .route(web::get().to(routes::projects::get_user_projects)),
-            ),
-    )
-    .await;
-
+    let mut app = api_with! { get: "/api/projects" => projects::get_user_projects };
     let url = "/api/projects";
 
     let req = test::TestRequest::default()
@@ -64,18 +54,7 @@ async fn projects_can_be_fetched_for_a_user() -> Result<()> {
 
 #[actix_rt::test]
 async fn projects_can_be_fetched_by_identifier() -> Result<()> {
-    let state = common::initialise().await;
-
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .service(
-                web::resource("/api/projects/p/{project_id}")
-                    .route(web::get().to(routes::projects::get_project)),
-            ),
-    )
-    .await;
+    let mut app = api_with! { get: "/api/projects/p/{project_id}" => projects::get_project };
 
     let formatted = format!("/api/projects/p/{}", common::MAIN_PROJECT_ID);
     let req = test::TestRequest::default()
@@ -116,18 +95,7 @@ async fn projects_can_be_fetched_by_identifier() -> Result<()> {
 
 #[actix_rt::test]
 async fn projects_cannot_be_fetched_by_users_who_do_not_own_it() -> Result<()> {
-    let state = common::initialise().await;
-
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .service(
-                web::resource("/api/projects/p/{project_id}")
-                    .route(web::get().to(routes::projects::get_project)),
-            ),
-    )
-    .await;
+    let mut app = api_with! { get: "/api/projects/p/{project_id}" => projects::get_project };
 
     let formatted = format!("/api/projects/p/{}", common::MAIN_PROJECT_ID);
     let req = test::TestRequest::default()
@@ -145,18 +113,7 @@ async fn projects_cannot_be_fetched_by_users_who_do_not_own_it() -> Result<()> {
 
 #[actix_rt::test]
 async fn non_existent_projects_are_not_found() -> Result<()> {
-    let state = common::initialise().await;
-
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .service(
-                web::resource("/api/projects/p/{project_id}")
-                    .route(web::get().to(routes::projects::get_project)),
-            ),
-    )
-    .await;
+    let mut app = api_with! { get: "/api/projects/p/{project_id}" => projects::get_project };
 
     let formatted = format!("/api/projects/p/{}", common::NON_EXISTENT_PROJECT_ID);
     let req = test::TestRequest::default()
@@ -174,18 +131,7 @@ async fn non_existent_projects_are_not_found() -> Result<()> {
 
 #[actix_rt::test]
 async fn projects_cannot_be_found_with_invalid_identifiers() -> Result<()> {
-    let state = common::initialise().await;
-
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .service(
-                web::resource("/api/projects/p/{project_id}")
-                    .route(web::get().to(routes::projects::get_project)),
-            ),
-    )
-    .await;
+    let mut app = api_with! { get: "/api/projects/p/{project_id}" => projects::get_project };
 
     let url = "/api/projects/p/invalid";
     let req = test::TestRequest::default()
@@ -206,17 +152,7 @@ async fn projects_cannot_be_found_with_invalid_identifiers() -> Result<()> {
 
 #[actix_rt::test]
 async fn projects_can_be_created() -> Result<()> {
-    let state = common::initialise().await;
-
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .service(
-                web::resource("/api/projects/new").route(web::post().to(routes::projects::new)),
-            ),
-    )
-    .await;
+    let mut app = api_with! { post: "/api/projects/new" => projects::new };
 
     let doc = doc! {"name": "test", "description": "test"};
     let url = "/api/projects/new";
@@ -240,18 +176,7 @@ async fn projects_can_be_created() -> Result<()> {
 
 #[actix_rt::test]
 async fn datasets_can_be_added_to_projects() -> Result<()> {
-    let state = common::initialise().await;
-
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .service(
-                web::resource("/api/projects/p/{project_id}/data")
-                    .route(web::put().to(routes::projects::add_data)),
-            ),
-    )
-    .await;
+    let mut app = api_with! { put: "/api/projects/p/{project_id}/data" => projects::add_data };
 
     let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa", "name": "Freddie"};
     let url = format!("/api/projects/p/{}/data", common::MAIN_PROJECT_ID);
@@ -272,22 +197,10 @@ async fn datasets_can_be_added_to_projects() -> Result<()> {
 
 #[actix_rt::test]
 async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
-    let state = common::initialise().await;
-
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .route(
-                "/api/projects/p/{project_id}/data",
-                web::put().to(routes::projects::add_data),
-            )
-            .route(
-                "/api/projects/p/{project_id}/data",
-                web::get().to(routes::projects::get_data),
-            ),
-    )
-    .await;
+    let mut app = api_with! {
+        put: "/api/projects/p/{project_id}/data" => projects::add_data,
+        get: "/api/projects/p/{project_id}/data" => projects::get_data,
+    };
 
     let doc = doc! {"content": "age,sex,location\n23,M,Leamington Spa", "name": "Freddie"};
     let url = format!(
@@ -354,17 +267,7 @@ async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
 
 #[actix_rt::test]
 async fn datasets_cannot_be_added_if_projects_do_not_exist() -> Result<()> {
-    let state = common::initialise().await;
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .route(
-                "/api/projects/p/{project_id}/data",
-                web::put().to(routes::projects::add_data),
-            ),
-    )
-    .await;
+    let mut app = api_with! { put: "/api/projects/p/{project_id}/data" => projects::add_data };
 
     let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa", "name": "Freddie"};
     let url = format!("/api/projects/p/{}/data", common::NON_EXISTENT_PROJECT_ID);
@@ -386,21 +289,10 @@ async fn datasets_cannot_be_added_if_projects_do_not_exist() -> Result<()> {
 
 #[actix_rt::test]
 async fn dataset_can_be_taken_from_database() -> Result<()> {
-    let state = common::initialise().await;
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .route(
-                "/api/projects/p/{project_id}/data",
-                web::put().to(routes::projects::add_data),
-            )
-            .route(
-                "/api/projects/p/{project_id}/data",
-                web::get().to(routes::projects::get_data),
-            ),
-    )
-    .await;
+    let mut app = api_with! {
+        get: "/api/projects/p/{project_id}/data" => projects::get_data,
+        put: "/api/projects/p/{project_id}/data" => projects::add_data,
+    };
 
     let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa", "name": "Freddie"};
     let url = format!("/api/projects/p/{}/data", common::MAIN_PROJECT_ID);
@@ -429,21 +321,10 @@ async fn dataset_can_be_taken_from_database() -> Result<()> {
 
 #[actix_rt::test]
 async fn overview_of_dataset_can_be_returned() -> Result<()> {
-    let state = common::initialise().await;
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .route(
-                "/api/projects/p/{project_id}/data",
-                web::put().to(routes::projects::add_data),
-            )
-            .route(
-                "/api/projects/p/{project_id}/overview",
-                web::post().to(routes::projects::overview),
-            ),
-    )
-    .await;
+    let mut app = api_with! {
+        put: "/api/projects/p/{project_id}/data" => projects::add_data,
+        post: "/api/projects/p/{project_id}/overview" => projects::overview,
+    };
 
     let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa", "name": "Freddie"};
     let url = format!("/api/projects/p/{}/data", common::MAIN_PROJECT_ID);
@@ -472,21 +353,10 @@ async fn overview_of_dataset_can_be_returned() -> Result<()> {
 
 #[actix_rt::test]
 async fn projects_can_be_deleted() -> Result<()> {
-    let state = common::initialise().await;
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .route(
-                "/api/projects/p/{project_id}",
-                web::delete().to(routes::projects::delete_project),
-            )
-            .route(
-                "/api/projects/p/{project_id}/overview",
-                web::post().to(routes::projects::overview),
-            ),
-    )
-    .await;
+    let mut app = api_with! {
+        delete: "/api/projects/p/{project_id}" => projects::delete_project,
+        post: "/api/projects/p/{project_id}/overview" => projects::overview,
+    };
 
     let formatted = format!("/api/projects/p/{}", common::DELETABLE_PROJECT_ID);
     let req = test::TestRequest::default()
@@ -521,21 +391,10 @@ async fn projects_can_be_deleted() -> Result<()> {
 
 #[actix_rt::test]
 async fn projects_can_be_edited() -> Result<()> {
-    let state = common::initialise().await;
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .route(
-                "/api/projects/p/{project_id}",
-                web::patch().to(routes::projects::patch_project),
-            )
-            .route(
-                "/api/projects/p/{project_id}",
-                web::get().to(routes::projects::get_project),
-            ),
-    )
-    .await;
+    let mut app = api_with! {
+        patch: "/api/projects/p/{project_id}" => projects::patch_project,
+        get: "/api/projects/p/{project_id}" => projects::get_project,
+    };
 
     let formatted = format!("/api/projects/p/{}", common::EDITABLE_PROJECT_ID);
     let doc = doc! {"description": "new description"};

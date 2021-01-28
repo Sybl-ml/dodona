@@ -8,6 +8,27 @@ use config::Environment;
 use models::projects::Project;
 use models::users::User;
 
+macro_rules! api_with {
+    ($method:path: $route:literal => $handler:path) => {
+        test::init_service(
+            App::new()
+                .wrap(middleware::Logger::default())
+                .data(common::initialise().await)
+                .route($route, $method().to($handler)),
+        )
+        .await;
+    };
+    ($($method:path: $route:literal => $handler:path,)*) => {
+        test::init_service(
+            App::new()
+                .wrap(middleware::Logger::default())
+                .data(common::initialise().await)
+                $(.route($route, $method().to($handler)))*,
+        )
+        .await;
+    };
+}
+
 // Hardcoded random identifiers for various tests
 pub static MAIN_USER_ID: &str = "5f8ca1a80065f27b0089e8b5";
 pub static DELETE_UID: &str = "5fbe3239ea6cfda08a459622";
