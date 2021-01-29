@@ -1,6 +1,7 @@
 //! Contains authorisation primitives for the API server.
 
 use std::convert::TryFrom;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use actix_web::{dev::Payload, web::HttpRequest, FromRequest};
 use futures_util::future;
@@ -35,10 +36,27 @@ impl Claims {
         Self { id, exp }
     }
 
-    /// Creates a JWT for the given user identifier.
+    /// Creates a JWT for the given user identifier with a 2 week duration of usage.
     pub fn create_token(id: ObjectId) -> jsonwebtoken::errors::Result<String> {
+        // Tokens default to lasting 2 weeks
+        let duration = Duration::from_secs(2 * 7 * 24 * 60 * 60);
+
+        Self::create_token_with_duration(id, duration)
+    }
+
+    /// Creates a JWT for the given user identifier with a specified duration of usage.
+    ///
+    /// This allows tokens to expire after the given time period, meaning the API server will
+    /// reject them and force the user to login again.
+    pub fn create_token_with_duration(
+        id: ObjectId,
+        duration: Duration,
+    ) -> jsonwebtoken::errors::Result<String> {
+        let since_epoch = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let exp = (since_epoch + duration).as_secs();
+
         let header = Header::default();
-        let claims = Self::new(id, u64::MAX);
+        let claims = Self::new(id, exp);
         let key = get_encoding_key();
 
         jsonwebtoken::encode(&header, &claims, &key)
