@@ -1,5 +1,5 @@
 use std::convert::TryFrom;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use actix_web::test::TestRequest;
 use jsonwebtoken::{EncodingKey, Header};
@@ -93,21 +93,13 @@ fn request_with_valid_token_is_accepted() {
 
 #[test]
 fn jwt_tokens_can_expire() {
-    // Get the current timestamp since the epoch
-    let current = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-
     // Create a new user with a random ObjectId
     let id = ObjectId::new();
-    // Set the expiry to be 1 second from now
-    let user = Claims::new(id, current.as_secs());
-
-    // Setup the JWT with the same settings as above
-    let header = Header::default();
-    let key = get_encoding_key();
-    let encoded = jsonwebtoken::encode(&header, &user, &key).unwrap();
+    // Set the token to expire almost immediately, we can get 1 request in first
+    let token = Claims::create_token_with_duration(id, Duration::default()).unwrap();
 
     // Build the request with the produced token
-    let auth_value = format!("Bearer {}", encoded);
+    let auth_value = format!("Bearer {}", token);
     let request = TestRequest::default()
         .header("Authorization", auth_value)
         .to_http_request();
