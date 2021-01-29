@@ -13,7 +13,7 @@ config = { path = "../config" }
 models = { path = "../models" }
 utils = { path = "../utils" }
 messages = { path = "../messages" }
-mongodb = { git = "https://github.com/glebpom/mongo-rust-driver", branch = "tokio-1.0-fiix" }
+mongodb = { git = "https://github.com/mongodb/mongo-rust-driver", rev = "64e00e8" }
 tokio-stream = "0.1.1"
 anyhow = "1.0.37"
 

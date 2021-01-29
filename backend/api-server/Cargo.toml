@@ -29,6 +29,6 @@ messages = { path = "../messages" }
 crypto = { path = "../crypto" }
 models = { path = "../models" }
 utils = { path = "../utils" }
-mongodb = { git = "https://github.com/glebpom/mongo-rust-driver", branch = "tokio-1.0-fiix" }
+mongodb = { git = "https://github.com/mongodb/mongo-rust-driver", rev = "64e00e8" }
 futures-util = "0.3.12"
 jsonwebtoken = "7.2.0"
