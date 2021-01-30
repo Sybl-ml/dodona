@@ -38,6 +38,8 @@ pub struct ClusterInfo {
     pub config: ClientMessage,
     /// Validation results
     pub validation_ans: HashMap<(ModelID, String), String>,
+    /// Test record IDs
+    pub prediction_rids: HashMap<(ModelID, String), usize>,
 }
 
 /// Memory which can be written back to from threads for
@@ -45,7 +47,7 @@ pub struct ClusterInfo {
 #[derive(Debug, Clone)]
 pub struct WriteBackMemory {
     /// HashMap of predictions
-    pub predictions: Arc<Mutex<HashMap<(ModelID, String), String>>>,
+    pub predictions: Arc<Mutex<HashMap<(ModelID, usize), String>>>,
     /// HashMap of Errors
     pub errors: Arc<Mutex<HashMap<ModelID, f64>>>,
 }
@@ -59,11 +61,11 @@ impl WriteBackMemory {
         }
     }
 
-    /// Function to write back a hashmap of (record_id, prediction) tuples
-    pub fn write_predictions(&self, id: ModelID, pred_map: HashMap<String, String>) {
+    /// Function to write back a hashmap of (index, prediction) tuples
+    pub fn write_predictions(&self, id: ModelID, pred_map: HashMap<usize, String>) {
         let mut predictions = self.predictions.lock().unwrap();
-        for (record_id, prediction) in pred_map.into_iter() {
-            predictions.insert((id.clone(), record_id), prediction);
+        for (index, prediction) in pred_map.into_iter() {
+            predictions.insert((id.clone(), index), prediction);
         }
     }
 
@@ -74,7 +76,7 @@ impl WriteBackMemory {
     }
 
     /// Gets cloned version of predictions
-    pub fn get_predictions(&self) -> HashMap<(ModelID, String), String> {
+    pub fn get_predictions(&self) -> HashMap<(ModelID, usize), String> {
         let predictions = self.predictions.lock().unwrap();
         predictions.clone()
     }
@@ -170,6 +172,9 @@ pub async fn run(
         // The validation record ids and answers for each model
         let mut validation_ans: HashMap<(ModelID, String), String> = HashMap::new();
 
+        // The test record ids for each model
+        let mut prediction_rids: HashMap<(ModelID, String), usize> = HashMap::new();
+
         loop {
             if let Some(cluster) = nodepool.get_cluster(CLUSTER_SIZE, config.clone()).await {
                 log::info!("Created Cluster");
@@ -212,6 +217,12 @@ pub async fn run(
                     );
                     // Add record ids to test
                     let (anon_test, test_rids) = generate_ids(anon_test);
+
+                    // Record the index associated with each test record id
+                    for (i, rid) in test_rids.iter().enumerate() {
+                        prediction_rids.insert((key.clone(), rid.clone()), i);
+                    }
+
                     log::info!("IDs: {:?}\nAnonymised Test: {:?}", &test_rids, &anon_test);
                     // Add record ids to validation
                     let (anon_valid_ans, valid_rids) = generate_ids(anon_valid);
@@ -262,6 +273,7 @@ pub async fn run(
                     columns: columns.clone(),
                     config: config.clone(),
                     validation_ans: validation_ans.clone(),
+                    prediction_rids: prediction_rids.clone(),
                 };
 
                 let np_clone = Arc::clone(&nodepool);
@@ -375,7 +387,7 @@ pub async fn dcl_protcol(
 
     // stores the total error penalty for each model
     let mut model_error: f64 = 1.0;
-    let mut model_predictions: HashMap<String, String> = HashMap::new();
+    let mut model_predictions: HashMap<usize, String> = HashMap::new();
 
     // TODO: implement job type recognition through job config struct
     let job_type = "classification";
@@ -388,19 +400,24 @@ pub async fn dcl_protcol(
         let example = (key.clone(), record_id.clone());
         match (info.validation_ans.get(&example), job_type) {
             (Some(answer), "classification") => {
-                // if the job is a classification problem, record an error if the predictions do not match
+                // if this is a validation response and the job is a classification problem,
+                // record an error if the predictions do not match
                 if prediction != *answer {
                     model_error += 1.0;
                 }
             }
             (Some(answer), _) => {
-                // if the job is a regression problem, record the L2 error of the prediction
+                // if this is a validation response and the job is a classification problem,
+                // record the L2 error of the prediction
                 if let (Ok(p), Ok(a)) = (prediction.parse::<f64>(), answer.parse::<f64>()) {
                     model_error += (p - a).powf(2.0);
                 }
             }
             (None, _) => {
-                model_predictions.insert(record_id, prediction);
+                // otherwise, record the prediction based on its index in the original dataset
+                if let Some(i) = info.prediction_rids.get(&example) {
+                    model_predictions.insert(*i, prediction);
+                }
             }
         }
     }
