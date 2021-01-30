@@ -61,7 +61,7 @@ async fn test_write_back_errors() {
 async fn test_reimbuse_client() {
     let (database, _) = common::initialise_with_db().await;
     let database = Arc::new(database);
-    let pricing = Pricing::new(10.0, 5.0);
+    let pricing = Pricing::new(10.0, 0.1);
     let weight = 10.0;
     pricing
         .reimburse(
@@ -79,7 +79,8 @@ async fn test_reimbuse_client() {
 
     let user: User = mongodb::bson::de::from_document(user_doc).unwrap();
 
-    let amount: i32 = (((&pricing.revenue - &pricing.commision_rate) * weight) * 100.0) as i32;
+    let amount: i32 = (((&pricing.revenue - (&pricing.revenue * &pricing.commision_rate)) * weight)
+        * 100.0) as i32;
 
     assert_eq!(user.credits, amount);
 }

@@ -15,7 +15,7 @@ use models::users::User;
 pub struct Pricing {
     /// Revenue for a job
     pub revenue: f64,
-    /// Rate of commision charged by Sybl
+    /// Rate of commision charged by Sybl (percentage)
     pub commision_rate: f64,
 }
 
@@ -37,7 +37,8 @@ impl Pricing {
         user_id: ObjectId,
         weight: f64,
     ) -> Result<()> {
-        let amount: i32 = (((self.revenue - self.commision_rate) * weight) * 100.0) as i32;
+        let amount: i32 =
+            (((self.revenue - (self.revenue * self.commision_rate)) * weight) * 100.0) as i32;
         let users = database.collection("users");
 
         let filter = doc! { "_id": &user_id };
