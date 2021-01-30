@@ -25,6 +25,8 @@ use utils::compress::compress_bytes;
 use utils::generate_ids;
 use utils::Columns;
 
+pub mod finance;
+
 /// Struct to pass information for a cluster to function
 #[derive(Debug, Clone)]
 pub struct ClusterInfo {

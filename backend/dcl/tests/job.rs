@@ -1,7 +1,11 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
-use dcl::job_end::{ModelID, WriteBackMemory};
+use mongodb::bson::{doc, oid::ObjectId};
+
+use dcl::job_end::{finance::Pricing, ModelID, WriteBackMemory};
+use models::users::User;
 
 mod common;
 
@@ -51,4 +55,32 @@ async fn test_write_back_errors() {
     let errors = wb.get_errors();
     let error_val = errors.get(&model_id).unwrap();
     assert_eq!(&error, error_val);
+}
+
+#[tokio::test]
+async fn test_reimbuse_client() {
+    let (database, _) = common::initialise_with_db().await;
+    let database = Arc::new(database);
+    let pricing = Pricing::new(10.0, 0.1);
+    let weight = 10.0;
+    pricing
+        .reimburse(
+            database.clone(),
+            ObjectId::with_string(common::USER_ID).unwrap(),
+            weight,
+        )
+        .await
+        .unwrap();
+
+    let users = database.collection("users");
+
+    let filter = doc! { "_id": ObjectId::with_string(common::USER_ID).unwrap() };
+    let user_doc = users.find_one(filter.clone(), None).await.unwrap().unwrap();
+
+    let user: User = mongodb::bson::de::from_document(user_doc).unwrap();
+
+    let amount: i32 = (((&pricing.revenue - (&pricing.revenue * &pricing.commision_rate)) * weight)
+        * 100.0) as i32;
+
+    assert_eq!(user.credits, amount);
 }
