@@ -292,6 +292,47 @@ pub async fn get_data(
     response_from_json(doc! {"dataset": train, "predict": predict})
 }
 
+/// Removes the exisiting dataset linked to a project
+///
+/// Using the project id MongoDB is sent delete requests
+/// for both dataset and dataset_details
+/// Projects are reverted to Unfinshed status
+pub async fn remove_data(
+    claims: auth::Claims,
+    app_data: web::Data<AppState>,
+    project_id: web::Path<String>,
+) -> Result<HttpResponse, DodonaError> {
+    let database = app_data.client.database("sybl");
+    let datasets = database.collection("datasets");
+    let dataset_details = database.collection("dataset_details");
+    let projects = database.collection("projects");
+
+    let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
+    let filter = doc! { "project_id": &object_id };
+
+    // Remove the dataset associated with the project id in dataset
+    let dataset_removed = datasets.delete_one(filter, None).await?;
+
+    let filter = doc! { "project_id": &object_id };
+    // Remove the dataset associated with the project id in dataset_details
+    let dataset_details_removed = dataset_details.delete_one(filter, None).await?;
+
+    let filter = doc! { "_id": &object_id };
+    let update_doc = doc! { "$set": {"status":"Unfinished"} };
+    projects.update_one(filter, update_doc, None).await?;
+
+    log::info!(
+        "Removed {:?} records from datasets collection",
+        dataset_removed.deleted_count
+    );
+    log::info!(
+        "Removed {:?} records from dataset_details collection",
+        dataset_details_removed.deleted_count
+    );
+
+    response_from_json(doc! {"success": true})
+}
+
 /// Begins the processing of data associated with a project.
 ///
 /// Checks that the project exists, before sending the identifier of its dataset to the interface
