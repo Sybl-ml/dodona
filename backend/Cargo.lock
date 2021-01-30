@@ -1734,8 +1734,9 @@ dependencies = [
 
 [[package]]
 name = "mongodb"
-version = "1.1.1"
-source = "git+https://github.com/mongodb/mongo-rust-driver?rev=64e00e8#64e00e8bda290b56f3ff7b850373f2ed102ce4ad"
+version = "2.0.0-alpha"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "48b63adec24cd1347d765124a8d9b427207a69407fe28bf48d04d39e0ffcbe83"
 dependencies = [
  "async-trait",
  "base64 0.11.0",

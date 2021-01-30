@@ -23,7 +23,7 @@ models = { path = "../models" }
 utils = { path = "../utils" }
 messages = { path = "../messages" }
 chrono = "0.4.19"
-mongodb = { git = "https://github.com/mongodb/mongo-rust-driver", rev = "64e00e8" }
+mongodb = "2.0.0-alpha"
 
 [dev-dependencies]
 pbkdf2 = "0.5.0"
