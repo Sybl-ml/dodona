@@ -6,7 +6,7 @@
         <p>{{ description }}</p>
         <h4>Linked Dataset:</h4>
         <b-button-group size="sm" class="mb-3">
-          <b-button variant="secondary">{{ datasetName }}</b-button>
+          <b-button variant="secondary" @click="$emit('input-tab')">{{ datasetName }}</b-button>
           <b-button variant="outline-secondary" v-b-modal.deleteDataCheck
             >X</b-button
           >
@@ -119,7 +119,6 @@
 </style>
 
 <script>
-import Papa from "papaparse";
 
 export default {
   name: "ProjectOverview",
