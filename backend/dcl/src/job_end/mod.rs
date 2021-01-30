@@ -377,20 +377,29 @@ pub async fn dcl_protcol(
     let mut model_error: f64 = 1.0;
     let mut model_predictions: HashMap<String, String> = HashMap::new();
 
+    // TODO: implement job type recognition through job config struct
+    let job_type = "classification";
+
     for values in predictions
         .split('\n')
         .map(|s| s.split(',').collect::<Vec<_>>())
     {
         let (record_id, prediction) = (values[0].to_owned(), values[1].to_owned());
-        match info.validation_ans.get(&(key.clone(), record_id.clone())) {
-            // TODO: implement regression error calculations
-            Some(answer) => {
+        let example = (key.clone(), record_id.clone());
+        match (info.validation_ans.get(&example), job_type) {
+            (Some(answer), "classification") => {
                 // if the job is a classification problem, record an error if the predictions do not match
                 if prediction != *answer {
                     model_error += 1.0;
                 }
             }
-            None => {
+            (Some(answer), _) => {
+                // if the job is a regression problem, record the L2 error of the prediction
+                if let (Ok(p), Ok(a)) = (prediction.parse::<f64>(), answer.parse::<f64>()) {
+                    model_error += (p - a).powf(2.0);
+                }
+            }
+            (None, _) => {
                 model_predictions.insert(record_id, prediction);
             }
         }
