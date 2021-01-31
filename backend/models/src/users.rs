@@ -98,15 +98,14 @@ impl Client {
         let clients = database.collection("clients");
         let models = database.collection("models");
 
-        // might need to be self.user_id
         let filter = doc! {"_id": &self.id};
         clients.delete_one(filter, None).await?;
 
         let model_filter = doc! {"user_id": &self.user_id};
         let mut cursor = models.find(model_filter, None).await?;
 
-        while let Some(Ok(model_doc)) = cursor.next().await {
-            let model: ClientModel = mongodb::bson::de::from_document(model_doc).unwrap();
+        while let Some(Ok(model)) = cursor.next().await {
+            let model: ClientModel = mongodb::bson::de::from_document(model).unwrap();
             model.delete(database).await?;
         }
 
