@@ -316,22 +316,13 @@ pub async fn remove_data(
     let dataset_removed = datasets.find_one(filter, None).await?;
 
     if let Some(dataset_removed) = dataset_removed {
-        let dataset:Dataset = mongodb::bson::de::from_document(dataset_removed)?;
+        let dataset: Dataset = mongodb::bson::de::from_document(dataset_removed)?;
         dataset.delete(&database);
     }
 
     let filter = doc! { "_id": &object_id };
     let update_doc = doc! { "$set": {"status":"Unfinished"} };
     projects.update_one(filter, update_doc, None).await?;
-
-    log::info!(
-        "Removed {:?} records from datasets collection",
-        dataset_removed.deleted_count
-    );
-    log::info!(
-        "Removed {:?} records from dataset_details collection",
-        dataset_details_removed.deleted_count
-    );
 
     response_from_json(doc! {"success": true})
 }
