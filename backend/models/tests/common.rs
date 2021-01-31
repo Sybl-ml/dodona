@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use mongodb::bson::{self, document::Document, oid::ObjectId};
 
 use config::Environment;
