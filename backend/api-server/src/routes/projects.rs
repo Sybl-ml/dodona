@@ -191,7 +191,7 @@ pub async fn add_data(
     // If the project has data, delete the existing information
     if let Some(existing_data) = existing_data {
         log::info!("Project already has data: OVERWRITING");
-        let data: Dataset = mongodb::bson::de::from_document(existing_data).unwrap();
+        let data: Dataset = mongodb::bson::de::from_document(existing_data)?;
         data.delete(&database).await?;
     }
 

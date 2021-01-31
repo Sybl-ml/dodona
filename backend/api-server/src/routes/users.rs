@@ -182,7 +182,7 @@ pub async fn delete(
 
     // If the project has data, delete the existing information
     if let Some(user) = user {
-        let user: User = mongodb::bson::de::from_document(user).unwrap();
+        let user: User = mongodb::bson::de::from_document(user)?;
         user.delete(&database).await?;
     }
 
