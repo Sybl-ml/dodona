@@ -14,7 +14,7 @@ use utils::Columns;
 
 // Hardcoded random identifiers for various tests
 pub static USER_ID: &str = "60129e499dc3cc785ea1078b";
-pub static CLIENT_ID: &str = "60129e584e8a7634fd3f897f";
+pub static CLIENT_USER_ID: &str = "60129e584e8a7634fd3f897f";
 
 pub static PROJECT_ID: &str = "60129e654e8a7634fd3f8981";
 pub static PROJECT_ID_2: &str = "60129e6c4e8a7634fd3f8982";
@@ -159,7 +159,7 @@ async fn insert_test_users(database: &mongodb::Database) {
         "Smith",
     );
     let client = create_user_with_id(
-        CLIENT_ID,
+        CLIENT_USER_ID,
         "client@model.com",
         "password",
         "Create",
@@ -202,7 +202,7 @@ async fn insert_test_predictions(database: &mongodb::Database) {
 }
 
 async fn insert_test_models(database: &mongodb::Database) {
-    let model = create_model_with_id(MODEL_ID, "model_name", CLIENT_ID);
+    let model = create_model_with_id(MODEL_ID, "model_name", CLIENT_USER_ID);
 
     let models = database.collection("models");
     models.insert_one(model, None).await.unwrap();
