@@ -158,16 +158,23 @@ async fn insert_test_users(database: &mongodb::Database) {
         "Matthew",
         "Smith",
     );
-    let client = create_user_with_id(
+    let client_user = create_user_with_id(
         CLIENT_USER_ID,
         "client@model.com",
         "password",
         "Create",
         "Project",
     );
+
+    let client_user_id = ObjectId::with_string(CLIENT_USER_ID).unwrap();
+    let client: Client = Client::new(client_user_id, "public_key".to_string());
+    let client = bson::ser::to_document(&client).unwrap();
+
     let users = database.collection("users");
+    let clients = database.collection("clients");
     users.insert_one(matthew, None).await.unwrap();
-    users.insert_one(client, None).await.unwrap();
+    users.insert_one(client_user, None).await.unwrap();
+    clients.insert_one(client, None).await.unwrap();
 }
 
 async fn insert_test_projects(database: &mongodb::Database) {
