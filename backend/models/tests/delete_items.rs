@@ -1,7 +1,6 @@
 use mongodb::bson::{doc, oid::ObjectId};
 use mongodb::error::Result;
 
-use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
 use models::models::ClientModel;
 use models::predictions::Prediction;
@@ -36,28 +35,28 @@ async fn user_tree_can_be_deleted() -> mongodb::error::Result<()> {
     Ok(())
 }
 
-// #[tokio::test]
-// async fn client_users_can_be_deleted() -> Result<()> {
-//     let (db, _lock) = common::initialise().await;
-//     let users = db.collection("users");
-//     let clients = db.collection("clients");
-//     let models = db.collection("models");
+#[tokio::test]
+async fn client_users_can_be_deleted() -> Result<()> {
+    let (db, _lock) = common::initialise().await;
+    let users = db.collection("users");
+    let clients = db.collection("clients");
+    let models = db.collection("models");
 
-//     let cid = ObjectId::with_string(common::CLIENT_USER_ID).unwrap();
-//     let filter = doc! {"_id": cid};
-//     let client_doc = users.find_one(filter.clone(), None).await?.unwrap();
-//     let user: User = mongodb::bson::de::from_document(client_doc).unwrap();
+    let cid = ObjectId::with_string(common::CLIENT_USER_ID).unwrap();
+    let filter = doc! {"_id": cid};
+    let client_doc = users.find_one(filter.clone(), None).await?.unwrap();
+    let user: User = mongodb::bson::de::from_document(client_doc).unwrap();
 
-//     user.delete(&db).await?;
+    user.delete(&db).await?;
 
-//     assert!(
-//         users.find_one(filter, None).await?.is_none()
-//             && clients.find_one(None, None).await?.is_none()
-//     );
-//     assert!(models.find_one(None, None).await?.is_none());
+    assert!(
+        users.find_one(filter, None).await?.is_none()
+            && clients.find_one(None, None).await?.is_none()
+    );
+    assert!(models.find_one(None, None).await?.is_none());
 
-//     Ok(())
-// }
+    Ok(())
+}
 
 #[tokio::test]
 async fn project_tree_can_be_deleted() -> Result<()> {
@@ -166,7 +165,3 @@ async fn client_tree_can_be_deleted() -> Result<()> {
 
     Ok(())
 }
-
-// async fn user_can_be_deleted() -> Result<()> {
-//     Ok(())
-// }
