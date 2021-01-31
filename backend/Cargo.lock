@@ -1753,11 +1753,13 @@ name = "models"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "config",
  "crypto",
  "messages",
  "mongodb",
  "serde",
  "serde_json",
+ "tokio",
  "tokio-stream",
  "utils",
 ]
