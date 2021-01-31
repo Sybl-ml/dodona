@@ -13,8 +13,10 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio_stream::StreamExt;
 
+use crate::auth;
+
 use crate::dodona_error::DodonaError;
-use crate::routes::{check_project_exists, check_user_exists, response_from_json};
+use crate::routes::{check_user_owns_project, response_from_json};
 use crate::AppState;
 use crypto::clean;
 use messages::{InterfaceMessage, WriteLengthPrefix};
@@ -31,6 +33,7 @@ use utils::ColumnType;
 /// Given a project identifier, finds the project in the database and returns it as a JSON object.
 /// If the project does not exist, returns a 404 response code.
 pub async fn get_project(
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
@@ -38,7 +41,7 @@ pub async fn get_project(
     let projects = database.collection("projects");
     let details = database.collection("dataset_details");
 
-    let object_id = check_project_exists(&project_id, &projects).await?;
+    let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     let filter = doc! { "_id": &object_id };
     let doc = projects
@@ -50,24 +53,16 @@ pub async fn get_project(
     let filter = doc! { "project_id": &object_id };
     let details_doc = details.find_one(filter, None).await?;
 
-    let response = if let Some(details_doc) = details_doc {
-        log::info!("{:?}", &details_doc);
-        doc! {"project": doc, "details": details_doc}
-    } else {
-        log::info!("{:?}", &details_doc);
-        let dd = DatasetDetails {
-            id: None,
-            dataset_name: None,
-            project_id: None,
-            date_created: mongodb::bson::DateTime(chrono::Utc::now()),
-            head: None,
-            column_types: utils::Columns::new(),
-        };
+    // Begin by adding the project as we know we will respond with that
+    let mut response = doc! { "project": doc };
 
-        doc! {"project": doc, "details": mongodb::bson::ser::to_document(&dd)?}
-    };
+    if let Some(details_doc) = details_doc {
+        // Insert the details as well
+        response.insert("details", details_doc);
+    }
 
     log::info!("{:?}", &response);
+
     response_from_json(response)
 }
 
@@ -77,6 +72,7 @@ pub async fn get_project(
 /// matching new data
 /// If project does not exist return a 404
 pub async fn patch_project(
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
     doc: web::Json<Document>,
@@ -84,7 +80,7 @@ pub async fn patch_project(
     let database = app_data.client.database("sybl");
     let projects = database.collection("projects");
 
-    let object_id = check_project_exists(&project_id, &projects).await?;
+    let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     let filter = doc! { "_id": &object_id };
     let update_doc = doc! { "$set": doc.into_inner() };
@@ -101,16 +97,22 @@ pub async fn patch_project(
 ///
 /// Will not currently authenticate the userid
 pub async fn delete_project(
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
     let projects = database.collection("projects");
 
-    let object_id = check_project_exists(&project_id, &projects).await?;
+    let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     let filter = doc! { "_id": &object_id };
-    projects.delete_one(filter, None).await?;
+    let project = projects.find_one(filter, None).await?;
+
+    if let Some(project) = project {
+        let project: Project = mongodb::bson::de::from_document(project)?;
+        project.delete(&database).await?;
+    }
 
     Ok(HttpResponse::Ok().finish())
 }
@@ -120,16 +122,13 @@ pub async fn delete_project(
 /// Given a user identifier, finds all the projects in the database that the user owns. If the user
 /// doesn't exist or an invalid identifier is given, returns a 404 response.
 pub async fn get_user_projects(
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
-    user_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
     let projects = database.collection("projects");
-    let users = database.collection("users");
 
-    let object_id = check_user_exists(&user_id, &users).await?;
-
-    let filter = doc! { "user_id": &object_id };
+    let filter = doc! { "user_id": &claims.id };
     let cursor = projects.find(filter, None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 
@@ -142,22 +141,18 @@ pub async fn get_user_projects(
 /// be created and saved in the database. This can fail if the user id
 /// provided doesn't exist.
 pub async fn new(
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
-    user_id: web::Path<String>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
     let projects = database.collection("projects");
-    let users = database.collection("users");
-
-    // get user ID
-    let user_id = check_user_exists(&user_id, &users).await?;
 
     // get name
     let name = clean(doc.get_str("name")?);
     let description = clean(doc.get_str("description")?);
 
-    let project = Project::new(&name, &description, user_id);
+    let project = Project::new(&name, &description, claims.id.clone());
 
     let document = mongodb::bson::ser::to_document(&project)?;
     let id = projects.insert_one(document, None).await?.inserted_id;
@@ -174,6 +169,7 @@ pub async fn new(
 /// is an error finishing the compression stream. Both times an error
 /// will return a 404 to the caller.
 pub async fn add_data(
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
     doc: web::Json<Document>,
@@ -185,15 +181,19 @@ pub async fn add_data(
     let projects = database.collection("projects");
 
     let data = clean(doc.get_str("content")?);
-    let object_id = check_project_exists(&project_id, &projects).await?;
+    let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     // Check whether the project has data already
-    let project_has_data = datasets
+    let existing_data = datasets
         .find_one(doc! { "project_id": &object_id }, None)
-        .await?
-        .is_some();
+        .await?;
 
-    log::info!("Project already has data: {}", project_has_data);
+    // If the project has data, delete the existing information
+    if let Some(existing_data) = existing_data {
+        log::info!("Project already has data: OVERWRITING");
+        let data: Dataset = mongodb::bson::de::from_document(existing_data)?;
+        data.delete(&database).await?;
+    }
 
     let dataset_name = doc.get_str("name")?.to_string();
 
@@ -211,21 +211,14 @@ pub async fn add_data(
     let details = DatasetDetails::new(dataset_name, object_id.clone(), data_head, column_types);
     let dataset = Dataset::new(object_id.clone(), compressed, compressed_predict);
 
-    // If the project has data, delete the existing information
-    if project_has_data {
-        let query = doc! { "project_id": &object_id };
-        datasets.delete_one(query.clone(), None).await?;
-        dataset_details.delete_one(query, None).await?;
-    } else {
-        // Update the project status
-        projects
-            .update_one(
-                doc! { "_id": &object_id},
-                doc! {"$set": {"status": Status::Ready}},
-                None,
-            )
-            .await?;
-    }
+    // Update the project status
+    projects
+        .update_one(
+            doc! { "_id": &object_id},
+            doc! {"$set": {"status": Status::Ready}},
+            None,
+        )
+        .await?;
 
     // Insert the dataset details and the dataset itself
     let document = mongodb::bson::ser::to_document(&details)?;
@@ -242,6 +235,7 @@ pub async fn add_data(
 /// Project Id passed in as part of route and the dataset details
 /// for that project are returned from the database.
 pub async fn overview(
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
@@ -249,7 +243,7 @@ pub async fn overview(
     let dataset_details = database.collection("dataset_details");
     let projects = database.collection("projects");
 
-    let object_id = check_project_exists(&project_id, &projects).await?;
+    let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     let filter = doc! { "project_id": &object_id };
     let cursor = dataset_details.find(filter, None).await?;
@@ -265,6 +259,7 @@ pub async fn overview(
 /// and is decompressed before being sent in a response back to the
 /// user.
 pub async fn get_data(
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
@@ -272,7 +267,7 @@ pub async fn get_data(
     let datasets = database.collection("datasets");
     let projects = database.collection("projects");
 
-    let object_id = check_project_exists(&project_id, &projects).await?;
+    let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
     let filter = doc! { "project_id": &object_id };
 
     // Find the dataset in the database
@@ -299,12 +294,55 @@ pub async fn get_data(
     response_from_json(doc! {"dataset": train, "predict": predict})
 }
 
+/// Removes the exisiting dataset linked to a project
+///
+/// Using the project id MongoDB is sent delete requests
+/// for both dataset and dataset_details
+/// Projects are reverted to Unfinshed status
+pub async fn remove_data(
+    claims: auth::Claims,
+    app_data: web::Data<AppState>,
+    project_id: web::Path<String>,
+) -> Result<HttpResponse, DodonaError> {
+    let database = app_data.client.database("sybl");
+    let datasets = database.collection("datasets");
+    let dataset_details = database.collection("dataset_details");
+    let projects = database.collection("projects");
+
+    let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
+    let filter = doc! { "project_id": &object_id };
+
+    // Remove the dataset associated with the project id in dataset
+    let dataset_removed = datasets.find_one(filter, None).await?;
+
+    if let Some(dataset_removed) = dataset_removed {
+        let dataset:Dataset = mongodb::bson::de::from_document(dataset_removed)?;
+        dataset.delete(&database);
+    }
+
+    let filter = doc! { "_id": &object_id };
+    let update_doc = doc! { "$set": {"status":"Unfinished"} };
+    projects.update_one(filter, update_doc, None).await?;
+
+    log::info!(
+        "Removed {:?} records from datasets collection",
+        dataset_removed.deleted_count
+    );
+    log::info!(
+        "Removed {:?} records from dataset_details collection",
+        dataset_details_removed.deleted_count
+    );
+
+    response_from_json(doc! {"success": true})
+}
+
 /// Begins the processing of data associated with a project.
 ///
 /// Checks that the project exists, before sending the identifier of its dataset to the interface
 /// layer, which will then forward it to the DCL for processing. Updates the project state to
 /// `State::Processing`.
 pub async fn begin_processing(
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
     doc: web::Json<Document>,
@@ -318,7 +356,7 @@ pub async fn begin_processing(
     let timeout: i32 = doc.get_str("timeout")?.parse()?;
     log::info!("Timeout is here: {}", &timeout);
 
-    let object_id = check_project_exists(&project_id, &projects).await?;
+    let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     // Find the dataset in the database
     let filter = doc! { "project_id": &object_id };
@@ -329,9 +367,6 @@ pub async fn begin_processing(
 
     // Parse the dataset itself
     let dataset = mongodb::bson::de::from_document::<Dataset>(document)?;
-
-    // Send a request to the interface layer
-    let identifier = dataset.id.expect("Dataset with no identifier");
 
     let filter = doc! { "project_id": &object_id };
     let document = dataset_details
@@ -351,8 +386,9 @@ pub async fn begin_processing(
         })
         .collect();
 
+    // Send a request to the interface layer
     let config = InterfaceMessage::Config {
-        id: identifier.clone(),
+        id: dataset.id.clone(),
         timeout,
         column_types: types,
     };
@@ -376,6 +412,7 @@ pub async fn begin_processing(
 /// Queries the database for all [`Prediction`] instances for a given project identifier, before
 /// decompressing each and returning them.
 pub async fn get_predictions(
+    claims: auth::Claims,
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
@@ -387,7 +424,7 @@ pub async fn get_predictions(
     let predictions = database.collection("predictions");
 
     // Get the project identifier and check it exists
-    let object_id = check_project_exists(&project_id, &projects).await?;
+    let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     // Find the predictions for the given project
     let filter = doc! { "project_id": &object_id };

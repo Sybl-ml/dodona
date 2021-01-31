@@ -13,8 +13,6 @@
 <style>
 </style>
 <script>
-import axios from "axios";
-
 export default {
   name: "Settings",
   data() {
@@ -25,8 +23,8 @@ export default {
   async mounted() {
     let user_id = $cookies.get("token");
     try {
-      let data = await axios.get(
-        `http://localhost:3001/api/users/${user_id}`
+      let data = await this.$http.get(
+        `http://localhost:3001/api/users`
       );
       this.user_data = data.data
     } catch (err) {

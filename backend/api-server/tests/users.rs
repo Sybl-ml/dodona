@@ -1,12 +1,17 @@
-use serde::Deserialize;
+use actix_web::web::post;
+use actix_web::{middleware, test, App, Result};
+use api_server::routes::users;
+use mongodb::bson::{doc, document::Document};
 
 use models::users::User;
 
-use actix_web::{middleware, test, web, App, Result};
-use api_server::routes;
-use mongodb::bson::{doc, document::Document};
+#[macro_use]
+extern crate serde;
 
+#[macro_use]
 mod common;
+
+use common::get_bearer_token;
 
 #[derive(Deserialize, Debug)]
 struct AuthResponse {
@@ -15,14 +20,7 @@ struct AuthResponse {
 
 #[actix_rt::test]
 async fn users_can_register() -> Result<()> {
-    let state = common::initialise().await;
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .route("/api/users/new", web::post().to(routes::users::new)),
-    )
-    .await;
+    let mut app = api_with! { post: "/api/users/new" => users::new };
 
     let doc = doc! {
         "email": "johnsmith@email.com",
@@ -47,14 +45,7 @@ async fn users_can_register() -> Result<()> {
 
 #[actix_rt::test]
 async fn users_cannot_register_twice() -> Result<()> {
-    let state = common::initialise().await;
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .route("/api/users/new", web::post().to(routes::users::new)),
-    )
-    .await;
+    let mut app = api_with! { post: "/api/users/new" => users::new };
 
     let doc = doc! {
         "email": "matthewsmith@email.com",
@@ -79,14 +70,7 @@ async fn users_cannot_register_twice() -> Result<()> {
 
 #[actix_rt::test]
 async fn users_can_login() -> Result<()> {
-    let state = common::initialise().await;
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .route("/api/users/login", web::post().to(routes::users::login)),
-    )
-    .await;
+    let mut app = api_with! { post: "/api/users/login" => users::login };
 
     let doc = doc! {
         "email": "matthewsmith@email.com",
@@ -109,14 +93,7 @@ async fn users_can_login() -> Result<()> {
 
 #[actix_rt::test]
 async fn users_cannot_login_without_correct_password() -> Result<()> {
-    let state = common::initialise().await;
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .route("/api/users/login", web::post().to(routes::users::login)),
-    )
-    .await;
+    let mut app = api_with! { post: "/api/users/login" => users::login };
 
     let doc = doc! {
         "email": "matthewsmith@email.com",
@@ -136,14 +113,7 @@ async fn users_cannot_login_without_correct_password() -> Result<()> {
 
 #[actix_rt::test]
 async fn users_cannot_login_without_correct_email() -> Result<()> {
-    let state = common::initialise().await;
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .route("/api/users/login", web::post().to(routes::users::login)),
-    )
-    .await;
+    let mut app = api_with! { post: "/api/users/login" => users::login };
 
     let doc = doc! {
         "email": "incorrect@email.com",
@@ -163,14 +133,7 @@ async fn users_cannot_login_without_correct_email() -> Result<()> {
 
 #[actix_rt::test]
 async fn filter_finds_given_user_and_no_others() -> Result<()> {
-    let state = common::initialise().await;
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .route("/api/users/filter", web::post().to(routes::users::filter)),
-    )
-    .await;
+    let mut app = api_with! { post: "/api/users/filter" => users::filter };
 
     let doc = doc! {"email": "matthewsmith@email.com"};
     let req = test::TestRequest::default()
@@ -196,14 +159,7 @@ async fn filter_finds_given_user_and_no_others() -> Result<()> {
 
 #[actix_rt::test]
 async fn non_existent_users_are_not_found() -> Result<()> {
-    let state = common::initialise().await;
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .route("/api/users/filter", web::post().to(routes::users::filter)),
-    )
-    .await;
+    let mut app = api_with! { post: "/api/users/filter" => users::filter };
 
     let doc = doc! {"email": "nonexistent@email.com"};
     let req = test::TestRequest::default()
@@ -223,15 +179,10 @@ async fn non_existent_users_are_not_found() -> Result<()> {
 
 #[actix_rt::test]
 async fn users_can_be_deleted() -> Result<()> {
-    let state = common::initialise().await;
-    let mut app = test::init_service(
-        App::new()
-            .wrap(middleware::Logger::default())
-            .data(state)
-            .route("/api/users/filter", web::post().to(routes::users::filter))
-            .route("/api/users/delete", web::post().to(routes::users::delete)),
-    )
-    .await;
+    let mut app = api_with! {
+        post: "/api/users/filter" => users::filter,
+        post: "/api/users/delete" => users::delete,
+    };
 
     // Find the user
     let doc = doc! {"email": "delete@me.com"};
@@ -248,11 +199,10 @@ async fn users_can_be_deleted() -> Result<()> {
     let user = &users[0];
 
     // Delete the user
-    let doc = doc! {"id": user.id.as_ref().unwrap().to_string() };
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
+        .header("Authorization", get_bearer_token(&user.id.to_string()))
         .uri("/api/users/delete")
-        .set_json(&doc)
         .to_request();
 
     let res = test::call_service(&mut app, req).await;

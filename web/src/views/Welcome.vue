@@ -115,7 +115,6 @@
 
 <script>
 import PlaceHolder from "@/components/icons/PlaceHolder";
-import axios from "axios";
 import { KerasIcon, TensorFlowIcon } from "vue-simple-icons";
 
 export default {

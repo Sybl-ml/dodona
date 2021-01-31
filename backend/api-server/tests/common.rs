@@ -3,10 +3,31 @@ use std::sync::Arc;
 
 use mongodb::bson::{self, document::Document, oid::ObjectId};
 
-use api_server::AppState;
+use api_server::{auth, AppState};
 use config::Environment;
 use models::projects::Project;
 use models::users::User;
+
+macro_rules! api_with {
+    ($method:path: $route:literal => $handler:path) => {
+        test::init_service(
+            App::new()
+                .wrap(middleware::Logger::default())
+                .data(common::initialise().await)
+                .route($route, $method().to($handler)),
+        )
+        .await;
+    };
+    ($($method:path: $route:literal => $handler:path,)*) => {
+        test::init_service(
+            App::new()
+                .wrap(middleware::Logger::default())
+                .data(common::initialise().await)
+                $(.route($route, $method().to($handler)))*,
+        )
+        .await;
+    };
+}
 
 // Hardcoded random identifiers for various tests
 pub static MAIN_USER_ID: &str = "5f8ca1a80065f27b0089e8b5";
@@ -34,7 +55,7 @@ static MUTEX: tokio::sync::Mutex<bool> = tokio::sync::Mutex::const_new(true);
 /// As the database can be initialised before running, this allows tests to be run in any order
 /// provided they don't require the result of a previous test.
 pub async fn initialise() -> AppState {
-    // Aquire the mutex
+    // Acquire the mutex
     let mut lock = MUTEX.lock().await;
 
     // Check whether this is the first time being run
@@ -89,6 +110,13 @@ pub async fn build_app_state() -> AppState {
     }
 }
 
+pub fn get_bearer_token(identifier: &str) -> String {
+    // Create a user for authentication
+    let encoded = auth::Claims::create_token(ObjectId::with_string(identifier).unwrap()).unwrap();
+
+    format!("Bearer {}", encoded)
+}
+
 fn create_user_with_id(
     id: &str,
     email: &str,
@@ -98,7 +126,7 @@ fn create_user_with_id(
 ) -> bson::Document {
     let mut user = User::new(email, hash, first_name, last_name);
 
-    user.id = Some(ObjectId::with_string(id).unwrap());
+    user.id = ObjectId::with_string(id).unwrap();
 
     bson::ser::to_document(&user).unwrap()
 }
@@ -106,7 +134,7 @@ fn create_user_with_id(
 fn create_project_with_id(id: &str, name: &str, desc: &str, uid: &str) -> bson::Document {
     let mut project = Project::new(name, desc, ObjectId::with_string(uid).unwrap());
 
-    project.id = Some(ObjectId::with_string(id).unwrap());
+    project.id = ObjectId::with_string(id).unwrap();
 
     bson::ser::to_document(&project).unwrap()
 }
