@@ -114,6 +114,10 @@ pub async fn build_server() -> Result<()> {
                 web::get().to(routes::projects::get_data),
             )
             .route(
+                "/api/projects/p/{project_id}/data",
+                web::delete().to(routes::projects::remove_data),
+            )
+            .route(
                 "/api/projects/p/{project_id}/process",
                 web::post().to(routes::projects::begin_processing),
             )

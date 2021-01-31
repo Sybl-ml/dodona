@@ -6,7 +6,7 @@
     </b-row>
     <b-row>
       <b-col v-if="!data && !loading" class="text-center">
-        <b-row class="input-table">
+        <b-row class="head-input-table">
         <b-table hover striped :items="this.dataHead.data" />
       </b-row>
       <b-button @click="$emit('get-data')" variant="primary" class="px-5"
@@ -32,11 +32,12 @@
   height: calc(50px * 12);
   overflow-y: scroll;
 }
+.head-input-table {
+  height: calc(52px * 6);
+}
 </style>
 
 <script>
-import Papa from "papaparse";
-
 export default {
   name: "ProjectInput",
   props: {

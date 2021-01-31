@@ -34,9 +34,18 @@
         description="WARNING: This is permanent all data and analysis will be deleted"
         class="font-weight-bold"
       >
-        <b-button id="delete" variant="secondary" @click="deleteProject"
+        <b-button id="delete" variant="secondary"  v-b-modal.deleteCheck
           >DELETE</b-button
         >
+
+        <b-modal id="deleteCheck" ref="deleteCheck" title="Are your sure?" hide-footer>
+          <p>You are removing this project: {{name}}</p>
+          <p> Please confirm you are happy to continue</p>
+          <b-row class="justify-content-center text-center">
+            <b-button class="m-2" variant="success" @click="deleteProject">Confirm</b-button>
+            <b-button class="m-2" variant="warning" @click="$bvModal.hide('deleteCheck')">Cancel</b-button>
+          </b-row>
+        </b-modal>
       </b-form-group>
     </b-card>
   </b-container>
@@ -103,6 +112,7 @@ export default {
         console.log(err);
       }
 
+      this.$refs['deleteCheck'].hide();
       this.$router.replace("/dashboard");
     },
   },
