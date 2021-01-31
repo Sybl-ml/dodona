@@ -107,7 +107,12 @@ pub async fn delete_project(
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     let filter = doc! { "_id": &object_id };
-    projects.delete_one(filter, None).await?;
+    let project = projects.find_one(filter, None).await?;
+
+    if let Some(project) = project {
+        let project: Project = mongodb::bson::de::from_document(project).unwrap();
+        project.delete(&database).await?;
+    }
 
     Ok(HttpResponse::Ok().finish())
 }
@@ -179,12 +184,16 @@ pub async fn add_data(
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     // Check whether the project has data already
-    let project_has_data = datasets
+    let existing_data = datasets
         .find_one(doc! { "project_id": &object_id }, None)
-        .await?
-        .is_some();
+        .await?;
 
-    log::info!("Project already has data: {}", project_has_data);
+    // If the project has data, delete the existing information
+    if let Some(existing_data) = existing_data {
+        log::info!("Project already has data: OVERWRITING");
+        let data: Dataset = mongodb::bson::de::from_document(existing_data).unwrap();
+        data.delete(&database).await?;
+    }
 
     let dataset_name = doc.get_str("name")?.to_string();
 
@@ -202,21 +211,14 @@ pub async fn add_data(
     let details = DatasetDetails::new(dataset_name, object_id.clone(), data_head, column_types);
     let dataset = Dataset::new(object_id.clone(), compressed, compressed_predict);
 
-    // If the project has data, delete the existing information
-    if project_has_data {
-        let query = doc! { "project_id": &object_id };
-        datasets.delete_one(query.clone(), None).await?;
-        dataset_details.delete_one(query, None).await?;
-    } else {
-        // Update the project status
-        projects
-            .update_one(
-                doc! { "_id": &object_id},
-                doc! {"$set": {"status": Status::Ready}},
-                None,
-            )
-            .await?;
-    }
+    // Update the project status
+    projects
+        .update_one(
+            doc! { "_id": &object_id},
+            doc! {"$set": {"status": Status::Ready}},
+            None,
+        )
+        .await?;
 
     // Insert the dataset details and the dataset itself
     let document = mongodb::bson::ser::to_document(&details)?;
