@@ -3,6 +3,7 @@ use mongodb::bson::{doc, oid::ObjectId};
 use serde::{Deserialize, Serialize};
 use tokio_stream::StreamExt;
 
+use crate::models::ClientModel;
 use crate::projects::Project;
 
 /// Defines the information that should be stored with a user in the database.
@@ -105,7 +106,7 @@ impl Client {
         let mut cursor = models.find(model_filter, None).await?;
 
         while let Some(Ok(model_doc)) = cursor.next().await {
-            let model: Project = mongodb::bson::de::from_document(model_doc).unwrap();
+            let model: ClientModel = mongodb::bson::de::from_document(model_doc).unwrap();
             model.delete(database).await?;
         }
 
