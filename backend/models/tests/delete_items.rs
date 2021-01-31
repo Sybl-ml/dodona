@@ -25,13 +25,11 @@ async fn user_tree_can_be_deleted() -> mongodb::error::Result<()> {
 
     user.delete(&db).await?;
 
-    assert!(
-        users.find_one(filter, None).await?.is_none()
-            && projects.find_one(None, None).await?.is_none()
-            && datasets.find_one(None, None).await?.is_none()
-            && details.find_one(None, None).await?.is_none()
-            && predictions.find_one(None, None).await?.is_none()
-    );
+    assert!(users.find_one(filter, None).await?.is_none());
+    assert!(projects.find_one(None, None).await?.is_none());
+    assert!(datasets.find_one(None, None).await?.is_none());
+    assert!(details.find_one(None, None).await?.is_none());
+    assert!(predictions.find_one(None, None).await?.is_none());
     Ok(())
 }
 
@@ -49,10 +47,8 @@ async fn client_users_can_be_deleted() -> Result<()> {
 
     user.delete(&db).await?;
 
-    assert!(
-        users.find_one(filter, None).await?.is_none()
-            && clients.find_one(None, None).await?.is_none()
-    );
+    assert!(users.find_one(filter, None).await?.is_none());
+    assert!(clients.find_one(None, None).await?.is_none());
     assert!(models.find_one(None, None).await?.is_none());
 
     Ok(())
@@ -73,12 +69,10 @@ async fn project_tree_can_be_deleted() -> Result<()> {
     project.delete(&db).await?;
     let pid_filter = doc! {"project_id": &pid};
 
-    assert!(
-        projects.find_one(filter, None).await?.is_none()
-            && datasets.find_one(pid_filter.clone(), None).await?.is_none()
-            && details.find_one(pid_filter.clone(), None).await?.is_none()
-            && predictions.find_one(pid_filter, None).await?.is_none()
-    );
+    assert!(projects.find_one(filter, None).await?.is_none());
+    assert!(datasets.find_one(pid_filter.clone(), None).await?.is_none());
+    assert!(details.find_one(pid_filter.clone(), None).await?.is_none());
+    assert!(predictions.find_one(pid_filter, None).await?.is_none());
 
     let pid_2 = ObjectId::with_string(common::PROJECT_ID_2).unwrap();
     assert!(projects
@@ -120,13 +114,11 @@ async fn dataset_can_be_deleted() -> Result<()> {
     let dataset: Dataset = mongodb::bson::de::from_document(data_doc).unwrap();
     dataset.delete(&db).await?;
 
-    assert!(
-        datasets.find_one(filter, None).await?.is_none()
-            && details
-                .find_one(doc! {"project_id": pid}, None)
-                .await?
-                .is_none()
-    );
+    assert!(datasets.find_one(filter, None).await?.is_none());
+    assert!(details
+        .find_one(doc! {"project_id": pid}, None)
+        .await?
+        .is_none());
     Ok(())
 }
 
