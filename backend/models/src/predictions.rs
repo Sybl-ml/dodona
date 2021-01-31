@@ -1,6 +1,6 @@
 //! Defines the structure of predictions in the `MongoDB` instance.
 
-use mongodb::bson::{self, oid::ObjectId, Binary};
+use mongodb::bson::{self, doc, oid::ObjectId, Binary};
 
 /// Defines the information that should be stored with a dataset in the database.
 #[derive(Debug, Serialize, Deserialize)]
@@ -25,5 +25,14 @@ impl Prediction {
                 bytes: predictions,
             },
         }
+    }
+
+    pub async fn delete(&self, database: &mongodb::Database) -> mongodb::error::Result<()> {
+        let predictions = database.collection("predictions");
+
+        let filter = doc! {"_id": &self.id};
+        predictions.delete_one(filter, None).await?;
+
+        Ok(())
     }
 }

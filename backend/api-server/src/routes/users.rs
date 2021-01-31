@@ -178,7 +178,13 @@ pub async fn delete(
     let users = database.collection("users");
 
     let filter = doc! { "_id": claims.id };
-    users.find_one_and_delete(filter, None).await?;
+    let user = users.find_one(filter, None).await?;
+
+    // If the project has data, delete the existing information
+    if let Some(user) = user {
+        let user: User = mongodb::bson::de::from_document(user)?;
+        user.delete(&database).await?;
+    }
 
     response_from_json(doc! {"status": "deleted"})
 }

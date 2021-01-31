@@ -1,8 +1,7 @@
 //! Defines the dataset details for a given dataset and project in the `MongoDB` instance.
 
 use chrono::Utc;
-use mongodb::bson;
-use mongodb::bson::oid::ObjectId;
+use mongodb::bson::{self, doc, oid::ObjectId};
 use utils::Columns;
 
 /// Defines the information that should be stored as details for a project
@@ -39,5 +38,14 @@ impl DatasetDetails {
             head: Some(head),
             column_types,
         }
+    }
+
+    pub async fn delete(&self, database: &mongodb::Database) -> mongodb::error::Result<()> {
+        let dataset_details = database.collection("dataset_details");
+
+        let filter = doc! {"_id": &self.id};
+        dataset_details.delete_one(filter, None).await?;
+
+        Ok(())
     }
 }

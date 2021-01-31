@@ -1,6 +1,8 @@
 //! Defines the structure of datasets in the `MongoDB` instance.
 
-use mongodb::bson::{self, oid::ObjectId, Binary};
+use mongodb::bson::{self, doc, oid::ObjectId, Binary};
+
+use crate::dataset_details::DatasetDetails;
 
 /// Defines the information that should be stored with a dataset in the database.
 #[derive(Debug, Serialize, Deserialize)]
@@ -31,5 +33,25 @@ impl Dataset {
                 bytes: predict,
             }),
         }
+    }
+
+    pub async fn delete(&self, database: &mongodb::Database) -> mongodb::error::Result<()> {
+        let datasets = database.collection("datasets");
+        let dataset_details = database.collection("dataset_details");
+
+        let filter = doc! { "_id": &self.id };
+        // Remove project from database
+        datasets.delete_one(filter, None).await?;
+
+        let dataset_det_filter = doc! { "dataset_id": &self.id};
+        let dataset_details = dataset_details.find_one(dataset_det_filter, None).await?;
+
+        if let Some(dataset_details) = dataset_details {
+            let dataset_details: DatasetDetails =
+                mongodb::bson::de::from_document(dataset_details).unwrap();
+            dataset_details.delete(&database).await?;
+        }
+
+        Ok(())
     }
 }
