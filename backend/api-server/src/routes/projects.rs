@@ -110,7 +110,7 @@ pub async fn delete_project(
     let project = projects.find_one(filter, None).await?;
 
     if let Some(project) = project {
-        let project: Project = mongodb::bson::de::from_document(project).unwrap();
+        let project: Project = mongodb::bson::de::from_document(project)?;
         project.delete(&database).await?;
     }
 
