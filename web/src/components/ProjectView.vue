@@ -1,68 +1,60 @@
 <template>
-  <b-overlay :show="!name" opacity="0.96" rounded="lg">
-    <template #overlay>
-      <div class="text-center">
-        <b-icon icon="stopwatch" font-scale="3" animation="cylon"></b-icon>
-        <p id="cancel-label">Please wait...</p>
-      </div>
-    </template>
-    <b-container fluid>
-      <b-card style="height:7rem;border:none;box-shadow:none">
-        <h2>{{ name }}</h2>
-        <p>{{ getProjectDate }}</p>
-      </b-card>
-      <b-card no-body class="shadow">
-        <b-tabs pills card>
-          <b-tab title="Overview" active lazy ref="overviewTab">
-            <project-overview
-              :projectId="projectId"
-              :description="description"
-              :datasetName="datasetName"
-              :key="projectId"
-              :dataHead="dataHead"
-              :dataDate="datasetDate"
-              :dataTypes="dataTypes"
-              :ready="status == 'Ready'"
-              @update:project="updateProject"
-              v-on:input-tab="viewInput"
-            />
-          </b-tab>
-          <b-tab title="Input" ref="inputTab">
-            <project-input
-              :projectId="projectId"
-              :key="projectId"
-              :dataHead="dataHead"
-              @get-data="fetchData"
-              :data="data"
-              :datasetName="datasetName"
-              :loading="loading"
-            />
-          </b-tab>
-          <b-tab title="Output" lazy>
-            <project-output
-              :disabled="!results"
-              :projectId="projectId"
-              :key="projectId"
-              @get-results="fetchResults"
-              :results="results"
-              :loading="results_loading"
-            />
-          </b-tab>
-          <b-tab title="Settings" lazy>
-            <project-settings
-              :projectId="projectId"
-              :key="projectId"
-              :name="name"
-              :description="description"
-              @update:name="updateName"
-              @update:description="updateDescription"
-              @delete:project="$emit('delete:project', projectId)"
-            />
-          </b-tab>
-        </b-tabs>
-      </b-card>
-    </b-container>
-  </b-overlay>
+  <b-container fluid>
+    <b-card style="height:7rem;border:none;box-shadow:none">
+      <h2>{{ name }}</h2>
+      <p>{{ getProjectDate }}</p>
+    </b-card>
+    <b-card no-body class="shadow">
+      <b-tabs pills card>
+        <b-tab title="Overview" active lazy ref="overviewTab">
+          <project-overview
+            :projectId="projectId"
+            :description="description"
+            :datasetName="datasetName"
+            :key="projectId"
+            :dataHead="dataHead"
+            :dataDate="datasetDate"
+            :dataTypes="dataTypes"
+            :ready="status == 'Ready'"
+            @update:project="updateProject"
+            v-on:input-tab="viewInput"
+          />
+        </b-tab>
+        <b-tab title="Input" ref="inputTab">
+          <project-input
+            :projectId="projectId"
+            :key="projectId"
+            :dataHead="dataHead"
+            @get-data="fetchData"
+            :data="data"
+            :datasetName="datasetName"
+            :loading="loading"
+          />
+        </b-tab>
+        <b-tab title="Output" lazy>
+          <project-output
+            :disabled="!results"
+            :projectId="projectId"
+            :key="projectId"
+            @get-results="fetchResults"
+            :results="results"
+            :loading="results_loading"
+          />
+        </b-tab>
+        <b-tab title="Settings" lazy>
+          <project-settings
+            :projectId="projectId"
+            :key="projectId"
+            :name="name"
+            :description="description"
+            @update:name="updateName"
+            @update:description="updateDescription"
+            @delete:project="$emit('delete:project', projectId)"
+          />
+        </b-tab>
+      </b-tabs>
+    </b-card>
+  </b-container>
 </template>
 
 <script>
@@ -122,10 +114,6 @@ export default {
       let project_details = project_response.data.details;
       let project_info = project_response.data.project;
 
-      await new Promise((resolve) => {
-          setTimeout(resolve, 400);
-      });
-
       this.name = project_info.name;
       this.description = project_info.description;
       this.dateCreated = new Date(project_info.date_created.$date);
@@ -159,16 +147,16 @@ export default {
       this.results_loading = false;
     },
     resetProject() {
-      this.name = "";
-      this.description = "";
-      this.dateCreated = new Date();
+      // this.name = "";
+      // this.description = "";
+      // this.dateCreated = new Date();
 
-      this.datasetName = "";
-      this.datasetDate = new Date();
-      this.dataHead = {};
-      this.dataTypes = {};
+      // this.datasetName = "";
+      // this.datasetDate = new Date();
+      // this.dataHead = {};
+      // this.dataTypes = {};
 
-      this.data = null;
+      // this.data = null;
       this.loading = false;
     },
     viewInput() {
@@ -189,8 +177,8 @@ export default {
   },
   computed: {
     getProjectDate() {
-      if (!this.name){
-        return ""
+      if (!this.name) {
+        return "";
       }
       return `${this.dateCreated.toLocaleString("en-GB", {
         dateStyle: "short",
