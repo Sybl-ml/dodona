@@ -303,7 +303,7 @@ async fn run_cluster(
     let cc: ClusterControl = ClusterControl::new(cluster.len());
     let wbm: WriteBackMemory = WriteBackMemory::new();
 
-    for (key, dcn) in cluster {
+    for (key, dcn) in cluster.clone() {
         let np_clone = Arc::clone(&nodepool);
         let database_clone = Arc::clone(&database);
         let info_clone = info.clone();
@@ -331,6 +331,67 @@ async fn run_cluster(
 
     cc.notify.notified().await;
     log::info!("All Jobs Complete!");
+
+    let mut weights = wbm.get_errors();
+    let model_predictions = wbm.get_predictions();
+    // Find the inverse of the square error of each model
+    weights.values_mut().for_each(|v| *v = 1.0 / (v.powf(2.0)));
+    let total: f64 = weights.values().sum();
+    // Normalise weights to sum to 1
+    weights.values_mut().for_each(|v| *v = *v / total);
+
+    let mut indexes: Vec<&usize> = info.prediction_rids.values().collect();
+    indexes.sort();
+
+    // TODO: implement job type recognition through job config struct
+    let job_type = "classification";
+
+    let mut predictions: Vec<String> = vec![];
+
+    match job_type {
+        "classification" => {
+            for i in indexes.iter() {
+                // Add the weight of each model to each possible prediction
+                let mut possible: HashMap<&str, f64> = HashMap::new();
+                for (model, _) in &cluster {
+                    if let Some(prediction) = model_predictions.get(&(model.clone(), **i)) {
+                        let weighting = possible.entry(prediction).or_insert(0.0);
+                        *weighting += *weights.get(model).unwrap();
+                    }
+                }
+                // Select the prediction with the most weighted votes
+                predictions.push(
+                    possible
+                        .iter()
+                        .max_by(|(_, v1), (_, v2)| v1.partial_cmp(v2).unwrap())
+                        .and_then(|(k, _)| Some(k.to_string()))
+                        .unwrap_or("No predictions made".to_owned()),
+                );
+            }
+        }
+        _ => {
+            for i in indexes.iter() {
+                // Create a weighted average taken from all model predictions
+                let mut weighted_average: f64 = 0.0;
+                for (model, _) in &cluster {
+                    if let Some(prediction) = model_predictions.get(&(model.clone(), **i)) {
+                        let value: f64 = prediction.parse().unwrap();
+                        weighted_average += value * weights.get(model).unwrap();
+                    }
+                }
+                // The weighted average does not need to be normalised as the weights sum to 1
+                predictions.push(weighted_average.to_string());
+            }
+        }
+    }
+
+    // TODO: reintegrate predictions with user-supplied test dataset (?)
+    let csv: String = predictions.join("\n");
+
+    write_predictions(database.clone(), info.id, csv.as_bytes())
+        .await
+        .unwrap_or_else(|error| log::error!("Error writing predictions to DB: {}", error));
+
     change_status(database, project_id, Status::Complete).await?;
     Ok(())
 }
@@ -425,16 +486,8 @@ pub async fn dcl_protcol(
     write_back.write_error(key.clone(), model_error);
     write_back.write_predictions(key.clone(), model_predictions);
 
-    // Write the predictions back to the database
-    write_predictions(database, info.id, &key, predictions.as_bytes())
-        .await
-        .unwrap_or_else(|error| {
-            log::error!(
-                "(Node: {}) Error writing predictions to DB: {}",
-                &key,
-                error
-            )
-        });
+    // TODO: Give additional feedback to the model
+    increment_run_count(database, &key).await?;
 
     log::info!("(Node: {}) Computed Data: {}", &key, predictions);
 
@@ -449,7 +502,6 @@ pub async fn dcl_protcol(
 pub async fn write_predictions(
     database: Arc<Database>,
     id: ObjectId,
-    model_id: &str,
     dataset: &[u8],
 ) -> Result<()> {
     let predictions = database.collection("predictions");
@@ -461,8 +513,6 @@ pub async fn write_predictions(
     // Convert to a document and insert it
     let document = mongodb::bson::ser::to_document(&prediction)?;
     predictions.insert_one(document, None).await?;
-
-    increment_run_count(database, model_id).await?;
 
     Ok(())
 }
