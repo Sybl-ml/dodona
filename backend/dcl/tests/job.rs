@@ -12,11 +12,10 @@ mod common;
 #[tokio::test]
 async fn test_write_back_predictions() {
     let model_id: ModelID = ModelID::from("ModelID1");
-    let id1 = String::from("rd1");
     let val1 = String::from("pred1");
 
     let mut pred_map = HashMap::new();
-    pred_map.insert(id1.clone(), val1.clone());
+    pred_map.insert(1, val1.clone());
 
     let wb: WriteBackMemory = WriteBackMemory::new();
 
@@ -31,7 +30,7 @@ async fn test_write_back_predictions() {
     tokio::time::sleep(Duration::from_secs(1)).await;
 
     let predictions = wb.get_predictions();
-    let pred_val = predictions.get(&(model_id, id1.clone())).unwrap();
+    let pred_val = predictions.get(&(model_id, 1)).unwrap();
     assert_eq!(&val1, pred_val);
 }
 
