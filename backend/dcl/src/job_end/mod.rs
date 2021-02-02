@@ -26,6 +26,7 @@ use utils::generate_ids;
 use utils::Columns;
 
 pub mod finance;
+pub mod ml;
 
 /// Struct to pass information for a cluster to function
 #[derive(Debug, Clone)]
@@ -332,58 +333,10 @@ async fn run_cluster(
     cc.notify.notified().await;
     log::info!("All Jobs Complete!");
 
-    let mut weights = wbm.get_errors();
-    let model_predictions = wbm.get_predictions();
-    // Find the inverse of the square error of each model
-    weights.values_mut().for_each(|v| *v = 1.0 / (v.powf(2.0)));
-    let total: f64 = weights.values().sum();
-    // Normalise weights to sum to 1
-    weights.values_mut().for_each(|v| *v = *v / total);
+    let (weights, predictions) = ml::weight_predictions(wbm.get_predictions(), wbm.get_errors());
 
-    let mut indexes: Vec<&usize> = info.prediction_rids.values().collect();
-    indexes.sort();
-
-    // TODO: implement job type recognition through job config struct
-    let job_type = "classification";
-
-    let mut predictions: Vec<String> = vec![];
-
-    match job_type {
-        "classification" => {
-            for i in indexes.iter() {
-                // Add the weight of each model to each possible prediction
-                let mut possible: HashMap<&str, f64> = HashMap::new();
-                for (model, _) in &cluster {
-                    if let Some(prediction) = model_predictions.get(&(model.clone(), **i)) {
-                        let weighting = possible.entry(prediction).or_insert(0.0);
-                        *weighting += *weights.get(model).unwrap();
-                    }
-                }
-                // Select the prediction with the most weighted votes
-                predictions.push(
-                    possible
-                        .iter()
-                        .max_by(|(_, v1), (_, v2)| v1.partial_cmp(v2).unwrap())
-                        .and_then(|(k, _)| Some(k.to_string()))
-                        .unwrap_or("No predictions made".to_owned()),
-                );
-            }
-        }
-        _ => {
-            for i in indexes.iter() {
-                // Create a weighted average taken from all model predictions
-                let mut weighted_average: f64 = 0.0;
-                for (model, _) in &cluster {
-                    if let Some(prediction) = model_predictions.get(&(model.clone(), **i)) {
-                        let value: f64 = prediction.parse().unwrap();
-                        weighted_average += value * weights.get(model).unwrap();
-                    }
-                }
-                // The weighted average does not need to be normalised as the weights sum to 1
-                predictions.push(weighted_average.to_string());
-            }
-        }
-    }
+    // TODO: reimburse clients based on weights
+    log::info!("Model weights: {:?}", weights);
 
     // TODO: reintegrate predictions with user-supplied test dataset (?)
     let csv: String = predictions.join("\n");
@@ -446,42 +399,7 @@ pub async fn dcl_protcol(
 
     let predictions = deanonymise_dataset(&anonymised_predictions, &info.columns).unwrap();
 
-    // stores the total error penalty for each model
-    let mut model_error: f64 = 1.0;
-    let mut model_predictions: HashMap<usize, String> = HashMap::new();
-
-    // TODO: implement job type recognition through job config struct
-    let job_type = "classification";
-
-    for values in predictions
-        .split('\n')
-        .map(|s| s.split(',').collect::<Vec<_>>())
-    {
-        let (record_id, prediction) = (values[0].to_owned(), values[1].to_owned());
-        let example = (key.clone(), record_id.clone());
-        match (info.validation_ans.get(&example), job_type) {
-            (Some(answer), "classification") => {
-                // if this is a validation response and the job is a classification problem,
-                // record an error if the predictions do not match
-                if prediction != *answer {
-                    model_error += 1.0;
-                }
-            }
-            (Some(answer), _) => {
-                // if this is a validation response and the job is a classification problem,
-                // record the L2 error of the prediction
-                if let (Ok(p), Ok(a)) = (prediction.parse::<f64>(), answer.parse::<f64>()) {
-                    model_error += (p - a).powf(2.0);
-                }
-            }
-            (None, _) => {
-                // otherwise, record the prediction based on its index in the original dataset
-                if let Some(i) = info.prediction_rids.get(&example) {
-                    model_predictions.insert(*i, prediction);
-                }
-            }
-        }
-    }
+    let (model_predictions, model_error) = ml::evaluate_model(&key, &predictions, &info);
 
     write_back.write_error(key.clone(), model_error);
     write_back.write_predictions(key.clone(), model_predictions);
