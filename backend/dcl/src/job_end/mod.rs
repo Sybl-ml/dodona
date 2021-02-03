@@ -161,7 +161,7 @@ pub async fn run(
         log::info!("{:?}", &train);
         log::info!("{}", &train.len());
 
-        for _ in 1..=VALIDATION_SIZE {
+        for _ in 0..VALIDATION_SIZE {
             validation.push(train.swap_remove(thread_rng().gen_range(0..train.len())));
         }
 
@@ -304,7 +304,7 @@ async fn run_cluster(
     let cc: ClusterControl = ClusterControl::new(cluster.len());
     let wbm: WriteBackMemory = WriteBackMemory::new();
 
-    for (key, dcn) in cluster.clone() {
+    for (key, dcn) in cluster {
         let np_clone = Arc::clone(&nodepool);
         let database_clone = Arc::clone(&database);
         let info_clone = info.clone();
