@@ -1,10 +1,14 @@
 use std::collections::HashMap;
+use std::iter::FromIterator;
 use std::sync::Arc;
 use std::time::Duration;
 
 use mongodb::bson::{doc, oid::ObjectId};
 
-use dcl::job_end::{finance::Pricing, ModelID, WriteBackMemory};
+use dcl::job_end::finance::Pricing;
+use dcl::job_end::ml::{evaluate_model, weight_predictions};
+use dcl::job_end::{ClusterInfo, ModelID, WriteBackMemory};
+use messages::ClientMessage;
 use models::users::User;
 
 mod common;
@@ -12,11 +16,10 @@ mod common;
 #[tokio::test]
 async fn test_write_back_predictions() {
     let model_id: ModelID = ModelID::from("ModelID1");
-    let id1 = String::from("rd1");
     let val1 = String::from("pred1");
 
     let mut pred_map = HashMap::new();
-    pred_map.insert(id1.clone(), val1.clone());
+    pred_map.insert(1, val1.clone());
 
     let wb: WriteBackMemory = WriteBackMemory::new();
 
@@ -31,7 +34,7 @@ async fn test_write_back_predictions() {
     tokio::time::sleep(Duration::from_secs(1)).await;
 
     let predictions = wb.get_predictions();
-    let pred_val = predictions.get(&(model_id, id1.clone())).unwrap();
+    let pred_val = predictions.get(&(model_id, 1)).unwrap();
     assert_eq!(&val1, pred_val);
 }
 
@@ -55,6 +58,122 @@ async fn test_write_back_errors() {
     let errors = wb.get_errors();
     let error_val = errors.get(&model_id).unwrap();
     assert_eq!(&error, error_val);
+}
+
+#[test]
+fn test_evaluate_model() {
+    let id = ModelID::from("ModelID1");
+
+    let validation = vec![
+        ((id.clone(), "1".to_string()), "1".to_string()),
+        ((id.clone(), "2".to_string()), "2".to_string()),
+        ((id.clone(), "3".to_string()), "3".to_string()),
+        ((id.clone(), "4".to_string()), "4".to_string()),
+    ];
+    let rids = vec![
+        ((id.clone(), "5".to_string()), 1),
+        ((id.clone(), "6".to_string()), 2),
+        ((id.clone(), "7".to_string()), 3),
+        ((id.clone(), "8".to_string()), 4),
+    ];
+    let test = vec![
+        (1, "5".to_string()),
+        (2, "6".to_string()),
+        (3, "7".to_string()),
+        (4, "8".to_string()),
+    ];
+
+    let validation_ans: HashMap<(ModelID, String), String> =
+        HashMap::from_iter(validation.into_iter());
+    let prediction_rids: HashMap<(ModelID, String), usize> = HashMap::from_iter(rids.into_iter());
+    let test_predictions: HashMap<usize, String> = HashMap::from_iter(test.into_iter());
+
+    let info = ClusterInfo {
+        id: ObjectId::with_string(common::USER_ID).unwrap(),
+        columns: HashMap::new(),
+        config: ClientMessage::Alive { timestamp: 0 },
+        validation_ans: validation_ans,
+        prediction_rids: prediction_rids,
+    };
+
+    let predictions = "1,4\n2,3\n3,2\n4,1".to_owned();
+    let (_, model_error) = evaluate_model(&id, &predictions, &info);
+    assert_eq!(model_error, 5.0);
+
+    let predictions = "1,1\n2,3\n3,2\n4,4".to_owned();
+    let (_, model_error) = evaluate_model(&id, &predictions, &info);
+    assert_eq!(model_error, 3.0);
+
+    let predictions = "1,1\n2,2\n3,3\n4,4\n5,5\n6,6\n7,7\n8,8".to_owned();
+    let (model_predictions, model_error) = evaluate_model(&id, &predictions, &info);
+    assert_eq!(model_error, 1.0);
+    assert_eq!(model_predictions, test_predictions);
+}
+
+#[test]
+fn test_weight_predictions() {
+    let ids = vec![
+        ModelID::from("Good"),
+        ModelID::from("Bad"),
+        ModelID::from("Ugly"),
+    ];
+
+    let validation = ids
+        .iter()
+        .map(|id| {
+            vec![
+                ((id.clone(), "1"), "1"),
+                ((id.clone(), "2"), "2"),
+                ((id.clone(), "3"), "3"),
+                ((id.clone(), "4"), "4"),
+            ]
+        })
+        .flatten()
+        .map(|((id, n), p)| ((id.clone(), n.to_string()), p.to_string()));
+    let rids = ids
+        .iter()
+        .map(|id| {
+            vec![
+                ((id.clone(), "5"), 1),
+                ((id.clone(), "6"), 2),
+                ((id.clone(), "7"), 3),
+                ((id.clone(), "8"), 4),
+            ]
+        })
+        .flatten()
+        .map(|((id, n), u)| ((id, n.to_string()), u as usize));
+
+    let validation_ans: HashMap<(ModelID, String), String> = HashMap::from_iter(validation);
+    let prediction_rids: HashMap<(ModelID, String), usize> = HashMap::from_iter(rids);
+
+    let info = ClusterInfo {
+        id: ObjectId::with_string(common::USER_ID).unwrap(),
+        columns: HashMap::new(),
+        config: ClientMessage::Alive { timestamp: 0 },
+        validation_ans: validation_ans,
+        prediction_rids: prediction_rids,
+    };
+
+    let predictions = vec![
+        "1,1\n2,2\n3,3\n4,4\n5,5\n6,6\n7,7\n8,8",
+        "1,0\n2,0\n3,0\n4,0\n5,0\n6,0\n7,0\n8,0",
+        "1,1\n2,2\n3,0\n4,0\n5,0\n6,0\n7,0\n8,0",
+    ];
+
+    let mut model_predictions: HashMap<(ModelID, usize), String> = HashMap::new();
+    let mut model_errors: HashMap<ModelID, f64> = HashMap::new();
+
+    for (model, prediction) in ids.iter().zip(predictions.iter()) {
+        let (test, model_error) = evaluate_model(&model, &prediction.to_string(), &info);
+        for (index, prediction) in test.into_iter() {
+            model_predictions.insert((model.clone(), index), prediction);
+        }
+        model_errors.insert(model.to_string(), model_error);
+    }
+
+    let (weights, final_predictions) = weight_predictions(model_predictions, model_errors);
+    assert_eq!(weights.values().sum::<f64>(), 1.0);
+    assert_eq!(final_predictions.join("\n"), "5\n6\n7\n8");
 }
 
 #[tokio::test]

@@ -26,6 +26,7 @@ use utils::generate_ids;
 use utils::Columns;
 
 pub mod finance;
+pub mod ml;
 
 /// Struct to pass information for a cluster to function
 #[derive(Debug, Clone)]
@@ -303,7 +304,7 @@ async fn run_cluster(
     let cc: ClusterControl = ClusterControl::new(cluster.len());
     let wbm: WriteBackMemory = WriteBackMemory::new();
 
-    for (key, dcn) in cluster {
+    for (key, dcn) in cluster.clone() {
         let np_clone = Arc::clone(&nodepool);
         let database_clone = Arc::clone(&database);
         let info_clone = info.clone();
@@ -331,6 +332,19 @@ async fn run_cluster(
 
     cc.notify.notified().await;
     log::info!("All Jobs Complete!");
+
+    let (weights, predictions) = ml::weight_predictions(wbm.get_predictions(), wbm.get_errors());
+
+    // TODO: reimburse clients based on weights
+    log::info!("Model weights: {:?}", weights);
+
+    // TODO: reintegrate predictions with user-supplied test dataset (?)
+    let csv: String = predictions.join("\n");
+
+    write_predictions(database.clone(), info.id, csv.as_bytes())
+        .await
+        .unwrap_or_else(|error| log::error!("Error writing predictions to DB: {}", error));
+
     change_status(database, project_id, Status::Complete).await?;
     Ok(())
 }
@@ -385,56 +399,13 @@ pub async fn dcl_protcol(
 
     let predictions = deanonymise_dataset(&anonymised_predictions, &info.columns).unwrap();
 
-    // stores the total error penalty for each model
-    let mut model_error: f64 = 1.0;
-    let mut model_predictions: HashMap<usize, String> = HashMap::new();
-
-    // TODO: implement job type recognition through job config struct
-    let job_type = "classification";
-
-    for values in predictions
-        .split('\n')
-        .map(|s| s.split(',').collect::<Vec<_>>())
-    {
-        let (record_id, prediction) = (values[0].to_owned(), values[1].to_owned());
-        let example = (key.clone(), record_id.clone());
-        match (info.validation_ans.get(&example), job_type) {
-            (Some(answer), "classification") => {
-                // if this is a validation response and the job is a classification problem,
-                // record an error if the predictions do not match
-                if prediction != *answer {
-                    model_error += 1.0;
-                }
-            }
-            (Some(answer), _) => {
-                // if this is a validation response and the job is a classification problem,
-                // record the L2 error of the prediction
-                if let (Ok(p), Ok(a)) = (prediction.parse::<f64>(), answer.parse::<f64>()) {
-                    model_error += (p - a).powf(2.0);
-                }
-            }
-            (None, _) => {
-                // otherwise, record the prediction based on its index in the original dataset
-                if let Some(i) = info.prediction_rids.get(&example) {
-                    model_predictions.insert(*i, prediction);
-                }
-            }
-        }
-    }
+    let (model_predictions, model_error) = ml::evaluate_model(&key, &predictions, &info);
 
     write_back.write_error(key.clone(), model_error);
     write_back.write_predictions(key.clone(), model_predictions);
 
-    // Write the predictions back to the database
-    write_predictions(database, info.id, &key, predictions.as_bytes())
-        .await
-        .unwrap_or_else(|error| {
-            log::error!(
-                "(Node: {}) Error writing predictions to DB: {}",
-                &key,
-                error
-            )
-        });
+    // TODO: Give additional feedback to the model
+    increment_run_count(database, &key).await?;
 
     log::info!("(Node: {}) Computed Data: {}", &key, predictions);
 
@@ -449,7 +420,6 @@ pub async fn dcl_protcol(
 pub async fn write_predictions(
     database: Arc<Database>,
     id: ObjectId,
-    model_id: &str,
     dataset: &[u8],
 ) -> Result<()> {
     let predictions = database.collection("predictions");
@@ -461,8 +431,6 @@ pub async fn write_predictions(
     // Convert to a document and insert it
     let document = mongodb::bson::ser::to_document(&prediction)?;
     predictions.insert_one(document, None).await?;
-
-    increment_run_count(database, model_id).await?;
 
     Ok(())
 }
