@@ -306,7 +306,6 @@ pub async fn remove_data(
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
     let datasets = database.collection("datasets");
-    let dataset_details = database.collection("dataset_details");
     let projects = database.collection("projects");
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
@@ -317,7 +316,7 @@ pub async fn remove_data(
 
     if let Some(dataset_removed) = dataset_removed {
         let dataset: Dataset = mongodb::bson::de::from_document(dataset_removed)?;
-        dataset.delete(&database);
+        dataset.delete(&database).await?;
     }
 
     let filter = doc! { "_id": &object_id };
