@@ -3,6 +3,7 @@ use std::iter::FromIterator;
 use std::sync::Arc;
 use std::time::Duration;
 
+use float_cmp::approx_eq;
 use mongodb::bson::{doc, oid::ObjectId};
 
 use dcl::job_end::finance::Pricing;
@@ -98,15 +99,15 @@ fn test_evaluate_model() {
 
     let predictions = "1,4\n2,3\n3,2\n4,1".to_owned();
     let (_, model_error) = evaluate_model(&id, &predictions, &info);
-    assert_eq!(model_error, 5.0);
+    assert!(approx_eq!(f64, model_error, 5.0, ulps = 2));
 
     let predictions = "1,1\n2,3\n3,2\n4,4".to_owned();
     let (_, model_error) = evaluate_model(&id, &predictions, &info);
-    assert_eq!(model_error, 3.0);
+    assert!(approx_eq!(f64, model_error, 3.0, ulps = 2));
 
     let predictions = "1,1\n2,2\n3,3\n4,4\n5,5\n6,6\n7,7\n8,8".to_owned();
     let (model_predictions, model_error) = evaluate_model(&id, &predictions, &info);
-    assert_eq!(model_error, 1.0);
+    assert!(approx_eq!(f64, model_error, 1.0, ulps = 2));
     assert_eq!(model_predictions, test_predictions);
 }
 
@@ -172,7 +173,8 @@ fn test_weight_predictions() {
     }
 
     let (weights, final_predictions) = weight_predictions(model_predictions, model_errors);
-    assert_eq!(weights.values().sum::<f64>(), 1.0);
+    let sum = weights.values().sum::<f64>();
+    assert!(approx_eq!(f64, sum, 1.0, ulps = 2));
     assert_eq!(final_predictions.join("\n"), "5\n6\n7\n8");
 }
 
