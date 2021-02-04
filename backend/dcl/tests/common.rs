@@ -59,12 +59,12 @@ pub async fn initialise_with_db() -> (Database, Params) {
     let matthew = bson::doc! {
         "_id": ObjectId::with_string(USER_ID).unwrap(),
         "email": "matthewsmith@email.com",
-        "password": hash,
+        "hash": hash,
         "first_name": "Matthew",
         "last_name": "Smith",
         "api_key": "",
         "client": false,
-        "credits" : 100,
+        "credits" : 0,
     };
 
     let users = database.collection("users");
