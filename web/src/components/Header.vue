@@ -16,7 +16,7 @@
       <b-nav-item disabled>{{ credits }} Credits</b-nav-item>
       <b-nav-item-dropdown right>
         <template #button-content>
-          <img :src="avatar" class="img-circle" />
+          <b-avatar size="1.75em"></b-avatar>
           {{ name }}
         </template>
         <b-dropdown-item disabled>{{ email }}</b-dropdown-item>
@@ -53,7 +53,6 @@
 <script>
 import IconBase from "./IconBase";
 import IconLogo from "./icons/IconLogo";
-import axios from "axios";
 
 export default {
   name: "Header",
@@ -61,14 +60,12 @@ export default {
     IconLogo,
   },
   data() {
-    let randNo = Math.floor(Math.random() * 6) + 1;
     return {
       name: "",
       email: "",
       client: false,
       time: "",
       credits: 0,
-      avatar: "https://www.w3schools.com/w3images/avatar" + randNo + ".png",
       loggedIn: false,
       logoRoute: "/",
       atDashboard: false,
@@ -86,8 +83,8 @@ export default {
         return;
       }
       try {
-        let user_data = await axios.get(
-          `http://localhost:3001/api/users/${user_id}`
+        let user_data = await this.$http.get(
+          `http://localhost:3001/api/users`
         );
         this.name = user_data.data.first_name + " " + user_data.data.last_name;
         this.email = user_data.data.email;

@@ -8,14 +8,17 @@ use serde::Serialize;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
-use crate::messages::Message;
+use messages::{ClientMessage, RawMessage, ReadLengthPrefix, WriteLengthPrefix};
+
+#[cfg(test)]
+mod tests;
 
 /// The internal state for the protocol.
 #[derive(Debug)]
 pub struct Handler<'a> {
     stream: &'a mut TcpStream,
     buffer: [u8; 4096],
-    current_msg: Option<Message>,
+    current_msg: Option<ClientMessage>,
 }
 
 impl<'a> Handler<'a> {
@@ -29,7 +32,7 @@ impl<'a> Handler<'a> {
     }
 
     /// Peeks at the current message in the channel.
-    async fn peek_message(&mut self) -> Result<&Message> {
+    async fn peek_message(&mut self) -> Result<&ClientMessage> {
         if self.current_msg.is_none() {
             let msg = self.read_message().await?;
             self.current_msg = Some(msg);
@@ -49,8 +52,8 @@ impl<'a> Handler<'a> {
     }
 
     /// Reads a [`Message`] from the TCP stream.
-    async fn read_message(&mut self) -> Result<Message> {
-        Message::from_stream(&mut self.stream, &mut self.buffer).await
+    async fn read_message(&mut self) -> Result<ClientMessage> {
+        ClientMessage::from_stream(&mut self.stream, &mut self.buffer).await
     }
 
     /// Gets the access token for the user.
@@ -58,24 +61,22 @@ impl<'a> Handler<'a> {
     /// Begins the protocol either by getting a [`Message::NewModel`] and setting up the model for
     /// them along with the challenge response, or by instantly receiving a [`Message::AccessToken`]
     /// from the user.
-    pub async fn get_access_token(&mut self) -> Result<(String, String)> {
-        match self.peek_message().await? {
-            Message::NewModel { .. } => {
-                self.register_new_model().await?;
-                self.authenticate_challenge_response().await?;
-            }
-            _ => (),
+    pub async fn get_access_token(&mut self) -> Result<Option<(String, String)>> {
+        if let ClientMessage::NewModel { .. } = self.peek_message().await? {
+            self.register_new_model().await?;
+            self.authenticate_challenge_response().await?;
+            return Ok(None);
         };
 
         let (id, token) = self.verify_access_token().await?;
 
-        Ok((id, token))
+        Ok(Some((id, token)))
     }
 
     /// Registers a new model with the API server.
     async fn register_new_model(&mut self) -> Result<()> {
         let (model_name, email) = match self.current_msg.take().unwrap() {
-            Message::NewModel { model_name, email } => (model_name, email),
+            ClientMessage::NewModel { model_name, email } => (model_name, email),
             _ => unreachable!(),
         };
 
@@ -90,7 +91,7 @@ impl<'a> Handler<'a> {
         let endpoint = "/api/clients/m/new";
         let text = get_response_text(endpoint, body).await?;
 
-        let message = Message::RawJSON { content: text };
+        let message = RawMessage::new(text);
 
         // Send the response back to the client
         self.respond(&message.as_bytes()).await?;
@@ -101,7 +102,7 @@ impl<'a> Handler<'a> {
     /// Authenticates a user's challenge response with the API server.
     async fn authenticate_challenge_response(&mut self) -> Result<()> {
         let (response, email, model_name) = match self.peek_message().await? {
-            Message::ChallengeResponse {
+            ClientMessage::ChallengeResponse {
                 response,
                 email,
                 model_name,
@@ -121,10 +122,10 @@ impl<'a> Handler<'a> {
         let endpoint = "/api/clients/m/verify";
         let text = get_response_text(endpoint, body).await?;
 
-        let message = Message::RawJSON { content: text };
+        let message = RawMessage::new(text);
 
         // Send the response back to the client
-        self.respond(&message.as_bytes()).await?;
+        self.stream.write(&message.as_bytes()).await?;
 
         Ok(())
     }
@@ -132,7 +133,7 @@ impl<'a> Handler<'a> {
     /// Verifies a user's access token with the API server.
     async fn verify_access_token(&mut self) -> Result<(String, String)> {
         let (id, token) = match self.peek_message().await? {
-            Message::AccessToken { id, token } => (id.to_string(), token.to_string()),
+            ClientMessage::AccessToken { id, token } => (id.to_string(), token.to_string()),
             _ => unreachable!(),
         };
 
@@ -147,7 +148,9 @@ impl<'a> Handler<'a> {
         let endpoint = "/api/clients/m/authenticate";
         let text = get_response_text(endpoint, body).await?;
 
-        let message = Message::RawJSON { content: text };
+        let message = RawMessage::new(text);
+
+        log::info!("RAW MESSAGE: {:?}", &message);
 
         // Send the response back to the client
         self.stream.write(&message.as_bytes()).await?;
@@ -158,16 +161,19 @@ impl<'a> Handler<'a> {
 
 /// Queries the API server and returns the response text.
 pub async fn get_response_text<S: Display + Serialize>(endpoint: &str, body: S) -> Result<String> {
+    #[cfg(test)]
+    let base = mockito::server_url();
+
+    #[cfg(not(test))]
     let base = "http://localhost:3001";
+
     let url = format!("{}{}", base, endpoint);
 
     log::debug!("Sending: {} to {}", &body, &url);
 
-    let text = reqwest::blocking::Client::new()
-        .post(&url)
-        .json(&body)
-        .send()?
-        .text()?;
+    let request = reqwest::Client::new().post(&url).json(&body);
+    let response = request.send().await?;
+    let text = response.text().await?;
 
     log::debug!("Response body: {:?}", text);
 

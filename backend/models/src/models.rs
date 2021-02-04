@@ -1,10 +1,11 @@
-//! Defines the details for a model in the MongoDB instance.
+//! Defines the details for a model in the `MongoDB` instance.
 
 use std::fmt;
 
 use chrono::{DateTime, Duration, Utc};
+use mongodb::bson::{self, doc, oid::ObjectId, Binary, Bson};
+
 use crypto::generate_access_token;
-use mongodb::bson::{self, oid::ObjectId, Binary};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Status {
@@ -13,13 +14,13 @@ pub enum Status {
     NotStarted,
 }
 
-impl fmt::Display for Status {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Status::Running => write!(f, "Running"),
-            Status::Stopped => write!(f, "Stopped"),
-            Status::NotStarted => write!(f, "NotStarted"),
-        }
+impl From<Status> for Bson {
+    fn from(status: Status) -> Self {
+        Self::from(match status {
+            Status::Running => "Running",
+            Status::Stopped => "Stopped",
+            Status::NotStarted => "NotStarted",
+        })
     }
 }
 
@@ -41,6 +42,12 @@ impl AccessToken {
     }
 }
 
+impl Default for AccessToken {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl fmt::Display for AccessToken {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -56,14 +63,14 @@ impl fmt::Display for AccessToken {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClientModel {
     /// The unique identifier for the client model
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<ObjectId>,
+    #[serde(rename = "_id")]
+    pub id: ObjectId,
     /// The user id which this models belongs to
     pub user_id: ObjectId,
     /// name provided for the model
     pub name: String,
     /// Status of the model
-    pub status: Option<Status>,
+    pub status: Status,
     /// The access token for the model, if set
     pub access_token: Option<AccessToken>,
     /// false if the model has been unlocked through web
@@ -77,6 +84,23 @@ pub struct ClientModel {
 }
 
 impl ClientModel {
+    pub fn new(user_id: ObjectId, name: String, challenge: Vec<u8>) -> Self {
+        Self {
+            id: ObjectId::new(),
+            user_id,
+            name,
+            status: Status::NotStarted,
+            access_token: None,
+            locked: true,
+            authenticated: false,
+            challenge: Some(Binary {
+                subtype: bson::spec::BinarySubtype::Generic,
+                bytes: challenge,
+            }),
+            times_run: 0,
+        }
+    }
+
     pub fn is_authenticated(&self, token: &[u8]) -> bool {
         // Check the easy conditions
         if !self.authenticated || self.locked {
@@ -84,9 +108,15 @@ impl ClientModel {
         }
 
         // Check the user's token
-        match &self.access_token {
-            Some(x) if x.token.bytes == token => true,
-            _ => false,
-        }
+        matches!(&self.access_token, Some(x) if x.token.bytes == token)
+    }
+
+    pub async fn delete(&self, database: &mongodb::Database) -> mongodb::error::Result<()> {
+        let models = database.collection("models");
+
+        let filter = doc! {"_id": &self.id};
+        models.delete_one(filter, None).await?;
+
+        Ok(())
     }
 }

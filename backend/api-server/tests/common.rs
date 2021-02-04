@@ -1,10 +1,33 @@
 use std::str::FromStr;
+use std::sync::Arc;
 
 use mongodb::bson::{self, document::Document, oid::ObjectId};
 
+use api_server::{auth, AppState};
 use config::Environment;
 use models::projects::Project;
 use models::users::User;
+
+macro_rules! api_with {
+    ($method:path: $route:literal => $handler:path) => {
+        test::init_service(
+            App::new()
+                .wrap(middleware::Logger::default())
+                .data(common::initialise().await)
+                .route($route, $method().to($handler)),
+        )
+        .await;
+    };
+    ($($method:path: $route:literal => $handler:path,)*) => {
+        test::init_service(
+            App::new()
+                .wrap(middleware::Logger::default())
+                .data(common::initialise().await)
+                $(.route($route, $method().to($handler)))*,
+        )
+        .await;
+    };
+}
 
 // Hardcoded random identifiers for various tests
 pub static MAIN_USER_ID: &str = "5f8ca1a80065f27b0089e8b5";
@@ -21,7 +44,7 @@ pub static DELETABLE_PROJECT_ID: &str = "5fb2b4049d524e99ac7f1c41";
 pub static EDITABLE_PROJECT_ID: &str = "5fb2c4e4b4b7becc1e81e278";
 
 /// Allows for the setup of the database prior to testing.
-static INIT: std::sync::Once = std::sync::Once::new();
+static MUTEX: tokio::sync::Mutex<bool> = tokio::sync::Mutex::const_new(true);
 
 /// Defines the initialisation function for the tests.
 ///
@@ -31,38 +54,67 @@ static INIT: std::sync::Once = std::sync::Once::new();
 ///
 /// As the database can be initialised before running, this allows tests to be run in any order
 /// provided they don't require the result of a previous test.
-pub fn initialise() {
-    INIT.call_once(|| {
-        async_std::task::block_on(async {
-            // Setup the environment variables
-            let config = config::ConfigFile::from_filesystem();
-            let resolved = config.resolve(Environment::Testing);
-            resolved.populate_environment();
+pub async fn initialise() -> AppState {
+    // Acquire the mutex
+    let mut lock = MUTEX.lock().await;
 
-            // Connect to the database
-            let conn_str = std::env::var("CONN_STR").expect("CONN_STR must be set");
+    // Check whether this is the first time being run
+    if *lock {
+        let config = config::ConfigFile::from_filesystem();
+        let resolved = config.resolve(Environment::Testing);
+        resolved.populate_environment();
 
-            // Ensure that we aren't using the Atlas instance
-            assert!(
-                !conn_str.starts_with("mongodb+srv"),
-                "Please setup a local MongoDB instance for running the tests"
-            );
+        // Connect to the database
+        let conn_str = std::env::var("CONN_STR").expect("CONN_STR must be set");
 
-            let client = mongodb::Client::with_uri_str(&conn_str).await.unwrap();
-            let database = client.database("sybl");
-            let collection_names = database.list_collection_names(None).await.unwrap();
+        // Ensure that we aren't using the Atlas instance
+        assert!(
+            !conn_str.starts_with("mongodb+srv"),
+            "Please setup a local MongoDB instance for running the tests"
+        );
+        let client = mongodb::Client::with_uri_str(&conn_str).await.unwrap();
+        let database = client.database("sybl");
+        let collection_names = database.list_collection_names(None).await.unwrap();
 
-            // Delete all records currently in the database
-            for name in collection_names {
-                let collection = database.collection(&name);
-                collection.delete_many(Document::new(), None).await.unwrap();
-            }
+        // Delete all records currently in the database
+        for name in collection_names {
+            let collection = database.collection(&name);
+            collection.delete_many(Document::new(), None).await.unwrap();
+        }
 
-            // Insert some test data
-            insert_test_users(&database).await;
-            insert_test_projects(&database).await;
-        });
-    });
+        // Insert some test data
+        insert_test_users(&database).await;
+        insert_test_projects(&database).await;
+
+        // Update the lock
+        *lock = false;
+    }
+
+    build_app_state().await
+}
+
+pub async fn build_app_state() -> AppState {
+    let conn_str = std::env::var("CONN_STR").expect("CONN_STR must be set");
+    let pepper = std::env::var("PEPPER").expect("PEPPER must be set");
+    let pbkdf2_iterations =
+        std::env::var("PBKDF2_ITERATIONS").expect("PBKDF2_ITERATIONS must be set");
+
+    let client = mongodb::Client::with_uri_str(&conn_str).await.unwrap();
+
+    AppState {
+        client: Arc::new(client.clone()),
+        db_name: Arc::new(String::from("sybl")),
+        pepper: Arc::new(pepper.clone()),
+        pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)
+            .expect("PBKDF2_ITERATIONS must be parseable as an integer"),
+    }
+}
+
+pub fn get_bearer_token(identifier: &str) -> String {
+    // Create a user for authentication
+    let encoded = auth::Claims::create_token(ObjectId::with_string(identifier).unwrap()).unwrap();
+
+    format!("Bearer {}", encoded)
 }
 
 fn create_user_with_id(
@@ -74,7 +126,7 @@ fn create_user_with_id(
 ) -> bson::Document {
     let mut user = User::new(email, hash, first_name, last_name);
 
-    user.id = Some(ObjectId::with_string(id).unwrap());
+    user.id = ObjectId::with_string(id).unwrap();
 
     bson::ser::to_document(&user).unwrap()
 }
@@ -82,7 +134,7 @@ fn create_user_with_id(
 fn create_project_with_id(id: &str, name: &str, desc: &str, uid: &str) -> bson::Document {
     let mut project = Project::new(name, desc, ObjectId::with_string(uid).unwrap());
 
-    project.id = Some(ObjectId::with_string(id).unwrap());
+    project.id = ObjectId::with_string(id).unwrap();
 
     bson::ser::to_document(&project).unwrap()
 }
@@ -156,26 +208,4 @@ async fn insert_test_projects(database: &mongodb::Database) {
     projects.insert_one(overwritten_data, None).await.unwrap();
     projects.insert_one(deletable, None).await.unwrap();
     projects.insert_one(editable, None).await.unwrap();
-}
-
-pub fn build_json_request(url: &str, body: &str) -> tide::http::Request {
-    let full_url = format!("localhost:{}", url);
-    let url = tide::http::Url::parse(&full_url).unwrap();
-    let mut req = tide::http::Request::new(tide::http::Method::Post, url);
-
-    req.set_body(body);
-    req.set_content_type(tide::http::mime::JSON);
-
-    req
-}
-
-pub fn build_json_put_request(url: &str, body: &str) -> tide::http::Request {
-    let full_url = format!("localhost:{}", url);
-    let url = tide::http::Url::parse(&full_url).unwrap();
-    let mut req = tide::http::Request::new(tide::http::Method::Put, url);
-
-    req.set_body(body);
-    req.set_content_type(tide::http::mime::JSON);
-
-    req
 }

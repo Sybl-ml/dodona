@@ -1,11 +1,13 @@
 //! Defines the routes specific to user operations.
 
-use async_std::stream::StreamExt;
-use mongodb::bson::{doc, document::Document, oid::ObjectId};
-use tide::Request;
+use actix_web::{web, HttpResponse};
+use mongodb::bson::{doc, document::Document};
+use tokio_stream::StreamExt;
 
-use crate::routes::{check_user_exists, get_from_doc, response_from_json, tide_err};
-use crate::State;
+use crate::auth;
+use crate::dodona_error::DodonaError;
+use crate::routes::response_from_json;
+use crate::AppState;
 use crypto::clean;
 use models::users::User;
 
@@ -13,17 +15,17 @@ use models::users::User;
 ///
 /// Given a user identifier, finds the user in the database and returns them as a JSON object. If
 /// the user does not exist, the handler will panic.
-pub async fn get(req: Request<State>) -> tide::Result {
-    let database = req.state().client.database("sybl");
+pub async fn get(
+    claims: auth::Claims,
+    app_data: web::Data<AppState>,
+) -> Result<HttpResponse, DodonaError> {
+    let database = app_data.client.database("sybl");
     let users = database.collection("users");
 
-    let user_id: String = req.param("user_id")?;
-    let object_id = check_user_exists(&user_id, &users).await?;
+    let filter: Document = doc! { "_id": claims.id };
+    let document = users.find_one(filter, None).await?;
 
-    let filter = doc! { "_id": object_id };
-    let document = users.find_one(filter, None).await?.unwrap();
-
-    Ok(response_from_json(document))
+    response_from_json(document)
 }
 
 /// Gets all users who match a filter.
@@ -31,17 +33,19 @@ pub async fn get(req: Request<State>) -> tide::Result {
 /// Given a filter query, finds all users who match the filter and returns them as a JSON array of
 /// objects. For example, given `{"first_name", "John"}`, finds all the users with the first name
 /// John.
-pub async fn filter(mut req: Request<State>) -> tide::Result {
-    let database = req.state().client.database("sybl");
+pub async fn filter(
+    app_data: web::Data<AppState>,
+    filter: web::Json<Document>,
+) -> Result<HttpResponse, DodonaError> {
+    let database = app_data.client.database("sybl");
     let users = database.collection("users");
-    let filter: Document = req.body_json().await?;
 
     println!("Filter: {:?}", &filter);
 
-    let cursor = users.find(filter, None).await?;
+    let cursor = users.find(filter.into_inner(), None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 
-    Ok(response_from_json(documents.unwrap()))
+    response_from_json(documents?)
 }
 
 /// Creates a new user given the form information.
@@ -50,20 +54,21 @@ pub async fn filter(mut req: Request<State>) -> tide::Result {
 /// then gets stored in the Mongo database with a randomly generated user identifier. If the user's
 /// email already exists, the route will not register any user.
 /// The user's client status will be false which can be later changed
-pub async fn new(mut req: Request<State>) -> tide::Result {
-    let doc: Document = req.body_json().await?;
+pub async fn new(
+    app_data: web::Data<AppState>,
+    doc: web::Json<Document>,
+) -> Result<HttpResponse, DodonaError> {
     log::debug!("Document received: {:?}", &doc);
 
-    let state = req.state();
-    let pepper = &state.pepper;
+    let pepper = app_data.pepper.clone();
 
-    let database = state.client.database("sybl");
+    let database = app_data.client.database("sybl");
     let users = database.collection("users");
 
-    let password = get_from_doc(&doc, "password")?;
-    let email = clean(get_from_doc(&doc, "email")?);
-    let first_name = clean(get_from_doc(&doc, "firstName")?);
-    let last_name = clean(get_from_doc(&doc, "lastName")?);
+    let password = doc.get_str("password")?;
+    let email = clean(doc.get_str("email")?);
+    let first_name = clean(doc.get_str("firstName")?);
+    let last_name = clean(doc.get_str("lastName")?);
 
     log::info!("Email: {}, Password: {}", email, password);
     log::info!("Name: {} {}", first_name, last_name);
@@ -74,55 +79,55 @@ pub async fn new(mut req: Request<State>) -> tide::Result {
 
     if users.find_one(filter, None).await?.is_some() {
         log::error!("Found a user with email '{}' already", &email);
-        return Ok(response_from_json(doc! {"token": "null"}));
+        return response_from_json(doc! {"token": "null"});
     }
 
     log::info!("User does not exist, registering them now");
 
     let peppered = format!("{}{}", &password, &pepper);
-    let hash = pbkdf2::pbkdf2_simple(&peppered, state.pbkdf2_iterations)
-        .map_err(|_| tide_err(500, "failed to get random bytes"))?;
+    let hash = pbkdf2::pbkdf2_simple(&peppered, app_data.pbkdf2_iterations)
+        .expect("Failed to hash the user's password");
 
     log::info!("Hash: {:?}", hash);
 
     let user = User::new(email, hash, first_name, last_name);
 
-    let document = mongodb::bson::ser::to_document(&user).unwrap();
+    let document = mongodb::bson::ser::to_document(&user)?;
     let id = users.insert_one(document, None).await?.inserted_id;
 
-    Ok(response_from_json(
-        doc! {"token": id.as_object_id().unwrap().to_string()},
-    ))
+    let jwt = auth::Claims::create_token(id.as_object_id().unwrap().clone())?;
+    response_from_json(doc! {"token": jwt})
 }
 
 /// Edits a user in the database and updates their information.
 ///
 /// Given a user identifier, finds the user in the database and updates their information based on
 /// the JSON provided, returning a message based on whether it was updated.
-pub async fn edit(mut req: Request<State>) -> tide::Result {
-    let state = req.state();
-    let database = state.client.database("sybl");
+pub async fn edit(
+    claims: auth::Claims,
+    app_data: web::Data<AppState>,
+    doc: web::Json<Document>,
+) -> Result<HttpResponse, DodonaError> {
+    let database = app_data.client.database("sybl");
     let users = database.collection("users");
 
-    let doc: Document = req.body_json().await?;
-    let user_id = clean(get_from_doc(&doc, "id")?);
-    let object_id = check_user_exists(&user_id, &users).await?;
-
     // Get the user from the database
-    let filter = doc! { "_id": &object_id };
-    let user_doc = users.find_one(filter.clone(), None).await?.unwrap();
+    let filter = doc! { "_id": &claims.id };
+    let user_doc = users
+        .find_one(filter.clone(), None)
+        .await?
+        .ok_or(DodonaError::NotFound)?;
 
-    let mut user: User = mongodb::bson::de::from_document(user_doc)
-        .map_err(|_| tide_err(422, "user failed to parse"))?;
+    let mut user: User = mongodb::bson::de::from_document(user_doc)?;
 
     if let Ok(email) = doc.get_str("email") {
         user.email = clean(email);
     }
 
-    let document = mongodb::bson::ser::to_document(&user).unwrap();
+    let document = mongodb::bson::ser::to_document(&user)?;
     users.update_one(filter, document, None).await?;
 
-    Ok(response_from_json(doc! {"status": "changed"}))
+    response_from_json(doc! {"status": "changed"})
 }
 
 /// Verifies a user's password against the one in the database.
@@ -130,53 +135,56 @@ pub async fn edit(mut req: Request<State>) -> tide::Result {
 /// Given an email and password, finds the user in the database and checks that the two hashes
 /// match. If they don't, or the user does not exist, it will not authenticate them and send back a
 /// null token.
-pub async fn login(mut req: Request<State>) -> tide::Result {
-    let doc: Document = req.body_json().await?;
-
-    let state = req.state();
-    let database = state.client.database("sybl");
-    let pepper = &state.pepper;
+pub async fn login(
+    app_data: web::Data<AppState>,
+    doc: web::Json<Document>,
+) -> Result<HttpResponse, DodonaError> {
+    let database = app_data.client.database("sybl");
+    let pepper = app_data.pepper.clone();
 
     let users = database.collection("users");
 
-    let password = get_from_doc(&doc, "password")?;
-    let email = clean(get_from_doc(&doc, "email")?);
+    let password = doc.get_str("password")?;
+    let email = clean(doc.get_str("email")?);
 
     println!("{}, {}", &email, &password);
 
     let filter = doc! {"email": email};
-    let user = users
+    let user_doc = users
         .find_one(filter, None)
         .await?
-        .map(|doc| mongodb::bson::de::from_document::<User>(doc).unwrap());
+        .ok_or(DodonaError::NotFound)?;
+    let user: User = mongodb::bson::de::from_document(user_doc)?;
 
-    let user = user.ok_or_else(|| tide_err(404, "user not found"))?;
     let peppered = format!("{}{}", password, pepper);
 
     // Check the user's password
-    pbkdf2::pbkdf2_check(&peppered, &user.hash).map_err(|_| tide_err(401, "invalid password"))?;
+    pbkdf2::pbkdf2_check(&peppered, &user.hash)?;
 
     log::info!("Logged in: {:?}", user);
 
-    let identifier = user.id.unwrap().to_string();
-    Ok(response_from_json(doc! {"token": identifier}))
+    let jwt = auth::Claims::create_token(user.id)?;
+    response_from_json(doc! {"token": jwt})
 }
 
 /// Deletes a user from the database.
 ///
 /// Given a user identifier, deletes the related user from the database if they exist.
-pub async fn delete(mut req: Request<State>) -> tide::Result {
-    let doc: Document = req.body_json().await?;
-
-    let state = &req.state();
-    let database = &state.client.database("sybl");
+pub async fn delete(
+    claims: auth::Claims,
+    app_data: web::Data<AppState>,
+) -> Result<HttpResponse, DodonaError> {
+    let database = app_data.client.database("sybl");
     let users = database.collection("users");
 
-    let object_id = clean(get_from_doc(&doc, "id")?);
-    let id = ObjectId::with_string(&object_id).map_err(|_| tide_err(422, "invalid object id"))?;
-    let filter = doc! {"_id": id};
+    let filter = doc! { "_id": claims.id };
+    let user = users.find_one(filter, None).await?;
 
-    users.find_one_and_delete(filter, None).await.unwrap();
+    // If the project has data, delete the existing information
+    if let Some(user) = user {
+        let user: User = mongodb::bson::de::from_document(user)?;
+        user.delete(&database).await?;
+    }
 
-    Ok(response_from_json(doc! {"status": "deleted"}))
+    response_from_json(doc! {"status": "deleted"})
 }

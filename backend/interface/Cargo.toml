@@ -9,4 +9,14 @@ edition = "2018"
 [dependencies]
 crossbeam = "0.8.0"
 log = "0.4.11"
-pretty_env_logger = "0.4.0"
+config = { path = "../config" }
+models = { path = "../models" }
+utils = { path = "../utils" }
+messages = { path = "../messages" }
+mongodb = "2.0.0-alpha"
+tokio-stream = "0.1.1"
+anyhow = "1.0.37"
+
+[dependencies.tokio]
+version = "1"
+features = ["full"]

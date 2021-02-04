@@ -6,6 +6,9 @@ use mongodb::Database;
 use std::env;
 use std::str::FromStr;
 
+use models::projects::Status;
+use utils::compress::compress_data;
+
 pub static USER_ID: &str = "5f8ca1a80065f27b0089e8b5";
 pub static PROJECT_ID: &str = "5f8ca1a80065f27c0089e8b5";
 pub static DATASET_ID: &str = "5f8ca1a80065f27b0089e8b6";
@@ -56,12 +59,12 @@ pub async fn initialise_with_db() -> (Database, Params) {
     let matthew = bson::doc! {
         "_id": ObjectId::with_string(USER_ID).unwrap(),
         "email": "matthewsmith@email.com",
-        "password": hash,
+        "hash": hash,
         "first_name": "Matthew",
         "last_name": "Smith",
         "api_key": "",
         "client": false,
-        "credits" : 100,
+        "credits" : 0,
     };
 
     let users = database.collection("users");
@@ -73,7 +76,7 @@ pub async fn initialise_with_db() -> (Database, Params) {
         "description": "Test Description",
         "date_created": bson::Bson::DateTime(chrono::Utc.timestamp_millis(0)),
         "user_id": ObjectId::with_string(USER_ID).unwrap(),
-        "status": "Ready"
+        "status": Status::Ready,
     };
 
     let projects = database.collection("projects");
@@ -84,11 +87,11 @@ pub async fn initialise_with_db() -> (Database, Params) {
         "project_id": ObjectId::with_string(PROJECT_ID).unwrap(),
         "dataset": Binary {
             subtype: bson::spec::BinarySubtype::Generic,
-            bytes: utils::compress_data(DATASET).unwrap(),
+            bytes: compress_data(DATASET).unwrap(),
         },
         "predict": Binary {
             subtype: bson::spec::BinarySubtype::Generic,
-            bytes: utils::compress_data(DATASET).unwrap(),
+            bytes: compress_data(DATASET).unwrap(),
         },
     };
 

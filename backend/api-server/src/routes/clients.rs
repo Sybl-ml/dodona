@@ -1,44 +1,42 @@
 //! Defines routes specific to client operations
-use async_std::stream::StreamExt;
-use mongodb::bson::{self, doc, document::Document, oid::ObjectId, Binary};
-use tide::{Request, Response};
 
-use crate::routes::{get_from_doc, response_from_json, tide_err};
-use crate::State;
+use actix_web::{web, HttpResponse};
 use chrono::Utc;
-use models::models::{AccessToken, ClientModel, Status};
+use models::models::{AccessToken, ClientModel};
 use models::users::{Client, User};
 use mongodb::bson::de::from_document;
 use mongodb::bson::ser::to_document;
+use mongodb::bson::{self, doc, document::Document, oid::ObjectId, Binary};
+use tokio_stream::StreamExt;
+
+use crate::auth;
+use crate::dodona_error::DodonaError;
+use crate::routes::response_from_json;
+use crate::AppState;
 
 /// Template for registering a new client
 ///
-/// Will check the provided user_id matches with the
-/// provided email and password
-pub async fn register(mut req: Request<State>) -> tide::Result {
-    let doc: Document = req.body_json().await?;
-    let state = req.state();
-    let database = state.client.database("sybl");
-    let pepper = &state.pepper;
+/// Will check the provided `user_id` matches with the provided email and password
+pub async fn register(
+    claims: auth::Claims,
+    app_data: web::Data<AppState>,
+    doc: web::Json<Document>,
+) -> Result<HttpResponse, DodonaError> {
+    let database = app_data.client.database("sybl");
+    let pepper = app_data.pepper.clone();
     let users = database.collection("users");
     let clients = database.collection("clients");
 
-    let password = get_from_doc(&doc, "password")?;
-    let email = crypto::clean(get_from_doc(&doc, "email")?);
-    let id = get_from_doc(&doc, "id")?;
+    let password = doc.get_str("password")?;
+    let email = crypto::clean(doc.get_str("email")?);
 
-    let object_id = ObjectId::with_string(&id).map_err(|_| tide_err(422, "invalid object id"))?;
+    let filter = doc! { "_id": &claims.id };
+    let user_doc = users.find_one(filter, None).await?;
 
-    let filter = doc! { "_id": &object_id };
-    let user = users
-        .find_one(filter, None)
-        .await?
-        .map(|doc| from_document::<User>(doc).unwrap());
-
-    let user = user.ok_or_else(|| tide_err(404, "failed to find user"))?;
+    let user: User = from_document(user_doc.ok_or(DodonaError::NotFound)?)?;
 
     if user.client {
-        return Ok(response_from_json(doc! {"privKey": "null"}));
+        return response_from_json(doc! {"privKey": "null"});
     }
 
     let peppered = format!("{}{}", password, pepper);
@@ -51,28 +49,23 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
         // create a new client object
         users
             .update_one(
-                doc! { "_id": &object_id },
+                doc! { "_id": &claims.id },
                 doc! {"$set": {"client": true}},
                 None,
             )
             .await?;
 
-        // update user as client
-        let client = Client {
-            id: Some(ObjectId::new()),
-            user_id: object_id,
-            public_key,
-        };
+        // Update the user to be a client
+        let client = Client::new(claims.id, public_key);
+
         // store client object in db
-        let document = to_document(&client).unwrap();
+        let document = to_document(&client)?;
         clients.insert_one(document, None).await?;
 
         // reponse with private key
-        Ok(response_from_json(doc! {"privKey": private_key}))
+        response_from_json(doc! {"privKey": private_key})
     } else {
-        Ok(Response::builder(403)
-            .body("email or password incorrect")
-            .build())
+        Err(DodonaError::Forbidden)
     }
 }
 
@@ -81,62 +74,46 @@ pub async fn register(mut req: Request<State>) -> tide::Result {
 /// provided an email check the user exists and is a client
 /// If validated generate a challenge and insert a new temp model
 /// Respond with the encoded challenge
-pub async fn new_model(mut req: Request<State>) -> tide::Result {
-    let doc: Document = req.body_json().await?;
-    let state = req.state();
-    let database = state.client.database("sybl");
+pub async fn new_model(
+    app_data: web::Data<AppState>,
+    doc: web::Json<Document>,
+) -> Result<HttpResponse, DodonaError> {
+    let database = app_data.client.database("sybl");
     let users = database.collection("users");
     let models = database.collection("models");
 
-    let email = crypto::clean(doc.get_str("email").unwrap());
-    let model_name = get_from_doc(&doc, "model_name")?.to_string();
+    let email = crypto::clean(doc.get_str("email")?);
+    let model_name = doc.get_str("model_name")?.to_string();
 
     let filter = doc! { "email": &email };
     let user = match users.find_one(filter, None).await? {
-        Some(u) => from_document::<User>(u).unwrap(),
-        None => return Ok(Response::builder(404).body("User not found").build()),
+        Some(u) => from_document::<User>(u)?,
+        None => return Err(DodonaError::NotFound),
     };
-    let user_id = user.id.expect("ID is none");
 
     if !user.client {
-        return Ok(Response::builder(403)
-            .body("User not a client found")
-            .build());
+        return Err(DodonaError::Forbidden);
     }
 
-    let filter = doc! { "user_id": &user_id, "name": &model_name };
+    let filter = doc! { "user_id": &user.id, "name": &model_name };
     if models.find_one(filter, None).await?.is_some() {
-        return Err(tide_err(409, "model with duplicate name"));
+        return Err(DodonaError::Conflict);
     }
 
     // Generate challenge
     let challenge = crypto::generate_challenge();
-    // Make new model
-    let temp_model = ClientModel {
-        id: Some(ObjectId::new()),
-        user_id: user_id.clone(),
-        name: model_name,
-        status: Some(Status::NotStarted),
-        access_token: None,
-        locked: false,
-        authenticated: false,
-        challenge: Some(Binary {
-            subtype: bson::spec::BinarySubtype::Generic,
-            bytes: challenge.clone(),
-        }),
-        times_run: 0,
-    };
+    let temp_model = ClientModel::new(user.id, model_name, challenge.clone());
 
     // insert model into database
-    let document = to_document(&temp_model).unwrap();
+    let document = to_document(&temp_model)?;
     models.insert_one(document, None).await?;
 
     // return challenge
-    Ok(response_from_json(doc! {
+    response_from_json(doc! {
         "Challenge": {
             "challenge": base64::encode(challenge),
         }
-    }))
+    })
 }
 
 /// Verifies a challenge response from a model
@@ -145,54 +122,48 @@ pub async fn new_model(mut req: Request<State>) -> tide::Result {
 /// `challenge_response` matches the `challenge` with respect to the `client`'s public key.
 /// Returns a new access token for the `new_model` if verification is successful.
 /// Returns a 404 error if the `client` or `model` is not found, or 401 if verification fails.
-pub async fn verify_challenge(mut req: Request<State>) -> tide::Result {
-    let doc: Document = req.body_json().await?;
-    let database = req.state().client.database("sybl");
+pub async fn verify_challenge(
+    app_data: web::Data<AppState>,
+    doc: web::Json<Document>,
+) -> Result<HttpResponse, DodonaError> {
+    let database = app_data.client.database("sybl");
     let users = database.collection("users");
     let clients = database.collection("clients");
     let models = database.collection("models");
 
-    let model_name = get_from_doc(&doc, "model_name")?.to_string();
-    let email = crypto::clean(doc.get_str("email").unwrap());
+    let model_name = doc.get_str("model_name")?.to_string();
+    let email = crypto::clean(doc.get_str("email")?);
     let filter = doc! { "email": &email };
-    let user = users
+
+    let user_doc = users
         .find_one(filter, None)
         .await?
-        .map(|doc| from_document::<User>(doc).unwrap());
+        .ok_or(DodonaError::NotFound)?;
+    let user: User = from_document(user_doc)?;
 
-    let user = user.ok_or_else(|| tide_err(404, "failed to find user"))?;
-    let user_id = user.id.expect("User ID is none");
     // get clients public key matching with that users id
-    let filter = doc! { "user_id": &user_id };
-    let client = clients
+    let filter = doc! { "user_id": &user.id };
+    let client_doc = clients
         .find_one(filter, None)
         .await?
-        .map(|doc| from_document::<Client>(doc).unwrap());
-    let client = client.ok_or_else(|| tide_err(404, "failed to find client"))?;
+        .ok_or(DodonaError::NotFound)?;
+    let client: Client = from_document(client_doc)?;
 
-    let filter = doc! { "user_id": &user_id, "name": &model_name };
-    let model = models
+    let filter = doc! { "user_id": &user.id, "name": &model_name };
+    let model_doc = models
         .find_one(filter, None)
         .await?
-        .map(|doc| from_document::<ClientModel>(doc).unwrap());
-    let mut model = model.ok_or_else(|| tide_err(404, "failed to find model"))?;
+        .ok_or(DodonaError::NotFound)?;
+    let mut model: ClientModel = from_document(model_doc)?;
 
     let public_key = client.public_key;
-
-    let challenge = &model
-        .challenge
-        .ok_or_else(|| tide_err(401, "No challenge set"))?
-        .bytes;
+    let challenge = &model.challenge.ok_or(DodonaError::Unauthorized)?.bytes;
 
     // needs converting to Vec<u8>
-    let challenge_response = base64::decode(get_from_doc(&doc, "challenge_response")?).unwrap();
+    let challenge_response = base64::decode(doc.get_str("challenge_response")?)?;
 
     if !crypto::verify_challenge(challenge.to_vec(), challenge_response, public_key) {
-        return Err(tide_err(
-            401,
-            "Invalid signature, please use OpenSSL to sign the provided challenge \
-            with your private key and the SHA256 message digest function",
-        ));
+        return Err(DodonaError::Unauthorized);
     }
 
     let access_token = AccessToken::new();
@@ -200,18 +171,18 @@ pub async fn verify_challenge(mut req: Request<State>) -> tide::Result {
     model.access_token = Some(access_token.clone());
     model.challenge = None;
 
-    let filter = doc! { "user_id": &user_id, "name": &model_name };
-    let update = doc! { "$set": to_document(&model).unwrap() };
+    let filter = doc! { "user_id": &user.id, "name": &model_name };
+    let update = doc! { "$set": to_document(&model)? };
     models.find_one_and_update(filter, update, None).await?;
 
     // return the access token to the model
-    Ok(response_from_json(doc! {
+    response_from_json(doc! {
         "AccessToken": {
-            "id": model.id.expect("Model ID is none").to_string(),
+            "id": model.id.to_string(),
             "token": base64::encode(access_token.clone().token.bytes),
             "expires": access_token.expires.to_rfc3339()
         }
-    }))
+    })
 }
 
 /// Unlocks a model using MFA
@@ -220,32 +191,55 @@ pub async fn verify_challenge(mut req: Request<State>) -> tide::Result {
 /// then given a model `id`, unlocks the model for authentication and use by the DCL.
 /// TODO: implement safeguards, such as a OTP request parameter, to prevent clients
 /// (or mailicious actors) contacting this endpoint from outside of the dashboard.
-pub async fn unlock_model(mut req: Request<State>) -> tide::Result {
-    let database = req.state().client.database("sybl");
-    let doc: Document = req.body_json().await?;
+///
+/// To unlock a model, the frontend must query this endpoint with a valid model id `id`
+/// and the password `password` of the user to whom the model is registered.
+/// The model must be authenticated using `verify_challenge` before being unlocked
+pub async fn unlock_model(
+    claims: auth::Claims,
+    app_data: web::Data<AppState>,
+    doc: web::Json<Document>,
+) -> Result<HttpResponse, DodonaError> {
+    let database = app_data.client.database("sybl");
     let models = database.collection("models");
-    let msg = "Error unlocking model";
+    let users = database.collection("users");
 
-    let model_id =
-        ObjectId::with_string(&get_from_doc(&doc, "id")?).map_err(|_| tide_err(401, &msg))?;
+    let model_id = ObjectId::with_string(doc.get_str("id")?)?;
     let filter = doc! { "_id": &model_id };
-    let model = models
+    let model_doc = models
         .find_one(filter, None)
         .await?
-        .map(|doc| from_document::<ClientModel>(doc).unwrap());
-    let mut model = model.ok_or_else(|| tide_err(401, &msg))?;
+        .ok_or(DodonaError::Unauthorized)?;
+    let mut model: ClientModel = from_document(model_doc)?;
 
-    //TODO: implement additional safeguards to prevent arbitrary access and unlocking
+    // Check the current user owns this model
+    if model.user_id != claims.id {
+        return Err(DodonaError::Unauthorized);
+    }
+
+    let password = doc.get_str("password")?;
+    let pepper = &app_data.pepper;
+
+    let filter = doc! { "_id": &claims.id };
+    let user_doc = users
+        .find_one(filter, None)
+        .await?
+        .ok_or(DodonaError::Unauthorized)?;
+    let user: User = from_document(user_doc)?;
+
+    let peppered = format!("{}{}", password, pepper);
+
+    if !model.authenticated || pbkdf2::pbkdf2_check(&peppered, &user.hash).is_err() {
+        return Err(DodonaError::Unauthorized);
+    }
 
     model.locked = false;
 
     let filter = doc! { "_id": &model_id };
-    let update = doc! { "$set": to_document(&model).unwrap() };
+    let update = doc! { "$set": to_document(&model)? };
     models.find_one_and_update(filter, update, None).await?;
 
-    Ok(Response::builder(200)
-        .body("Model successfully unlocked")
-        .build())
+    Ok(HttpResponse::Ok().body("Model successfully unlocked"))
 }
 
 /// Authenticates a model using an access token
@@ -255,25 +249,25 @@ pub async fn unlock_model(mut req: Request<State>) -> tide::Result {
 /// has expired, the model should be asked to reauthenticate using a challenge response.
 /// Returns 200 if authentication is successful and a new challenge if the token has expired.
 /// Returns a 401 error if the model is not found or if authentication fails.
-pub async fn authenticate_model(mut req: Request<State>) -> tide::Result {
-    let database = req.state().client.database("sybl");
-    let doc: Document = req.body_json().await?;
+pub async fn authenticate_model(
+    app_data: web::Data<AppState>,
+    doc: web::Json<Document>,
+) -> Result<HttpResponse, DodonaError> {
+    let database = app_data.client.database("sybl");
     let models = database.collection("models");
-    let msg = "Model not found, not authenticated or locked";
 
-    let model_id =
-        ObjectId::with_string(&get_from_doc(&doc, "id")?).map_err(|_| tide_err(401, &msg))?;
+    let model_id = ObjectId::with_string(&doc.get_str("id")?)?;
     let filter = doc! { "_id": &model_id };
-    let model = models
+    let model_doc = models
         .find_one(filter, None)
         .await?
-        .map(|doc| from_document::<ClientModel>(doc).unwrap());
-    let mut model = model.ok_or_else(|| tide_err(401, &msg))?;
+        .ok_or(DodonaError::Unauthorized)?;
+    let mut model: ClientModel = from_document(model_doc)?;
 
-    let token = base64::decode(get_from_doc(&doc, "token")?).unwrap();
+    let token = base64::decode(doc.get_str("token")?)?;
 
     if !model.is_authenticated(&token) {
-        return Err(tide_err(401, &msg));
+        return Err(DodonaError::Unauthorized);
     }
 
     if model.access_token.clone().unwrap().expires < Utc::now() {
@@ -285,17 +279,13 @@ pub async fn authenticate_model(mut req: Request<State>) -> tide::Result {
         });
 
         let filter = doc! { "_id": &model_id };
-        let update = doc! { "$set": to_document(&model).unwrap() };
+        let update = doc! { "$set": to_document(&model)? };
         models.find_one_and_update(filter, update, None).await?;
 
-        Ok(response_from_json(
-            doc! {"challenge": base64::encode(challenge)},
-        ))
+        response_from_json(doc! {"challenge": base64::encode(challenge)})
     } else {
         // TODO: authenticate the model in the session
-        Ok(response_from_json(
-            doc! {"message": "Authentication successful"},
-        ))
+        response_from_json(doc! {"message": "Authentication successful"})
     }
 }
 
@@ -303,26 +293,16 @@ pub async fn authenticate_model(mut req: Request<State>) -> tide::Result {
 ///
 /// Given a user identifier, finds all the models in the database that the user owns. If the user
 /// doesn't exist or an invalid identifier is given, returns a 404 response.
-pub async fn get_user_models(req: Request<State>) -> tide::Result {
-    let database = req.state().client.database("sybl");
+pub async fn get_user_models(
+    claims: auth::Claims,
+    app_data: web::Data<AppState>,
+) -> Result<HttpResponse, DodonaError> {
+    let database = app_data.client.database("sybl");
     let models = database.collection("models");
-    let users = database.collection("users");
 
-    let user_id: String = req.param("user_id")?;
-
-    let object_id = match ObjectId::with_string(&user_id) {
-        Ok(id) => id,
-        Err(_) => return Ok(Response::builder(404).body("invalid user id").build()),
-    };
-
-    let found_user = users.find_one(doc! { "_id": &object_id}, None).await?;
-
-    if found_user.is_none() {
-        return Ok(Response::builder(404).body("user not found").build());
-    }
-    let filter = doc! { "user_id": &object_id };
+    let filter = doc! { "user_id": &claims.id };
     let cursor = models.find(filter, None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 
-    Ok(response_from_json(documents.unwrap()))
+    response_from_json(documents?)
 }

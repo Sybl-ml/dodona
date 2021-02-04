@@ -1,8 +1,12 @@
 <template>
-  <b-container fluid class="mt-3">
+  <b-container fluid >
+    <b-row>
+      <h4>{{this.datasetName}}
+      </h4>
+    </b-row>
     <b-row>
       <b-col v-if="!data && !loading" class="text-center">
-        <b-row class="input-table">
+        <b-row class="head-input-table">
         <b-table hover striped :items="this.dataHead.data" />
       </b-row>
       <b-button @click="$emit('get-data')" variant="primary" class="px-5"
@@ -28,16 +32,17 @@
   height: calc(50px * 12);
   overflow-y: scroll;
 }
+.head-input-table {
+  height: calc(52px * 6);
+}
 </style>
 
 <script>
-import axios from "axios";
-import Papa from "papaparse";
-
 export default {
   name: "ProjectInput",
   props: {
     projectId: String,
+    datasetName: String,
     data: Object,
     dataHead: Object,
     loading: Boolean,

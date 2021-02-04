@@ -34,9 +34,18 @@
         description="WARNING: This is permanent all data and analysis will be deleted"
         class="font-weight-bold"
       >
-        <b-button id="delete" variant="secondary" @click="deleteProject"
+        <b-button id="delete" variant="secondary"  v-b-modal.deleteCheck
           >DELETE</b-button
         >
+
+        <b-modal id="deleteCheck" ref="deleteCheck" title="Are your sure?" hide-footer>
+          <p>You are removing this project: {{name}}</p>
+          <p> Please confirm you are happy to continue</p>
+          <b-row class="justify-content-center text-center">
+            <b-button class="m-2" variant="success" @click="deleteProject">Confirm</b-button>
+            <b-button class="m-2" variant="warning" @click="$bvModal.hide('deleteCheck')">Cancel</b-button>
+          </b-row>
+        </b-modal>
       </b-form-group>
     </b-card>
   </b-container>
@@ -50,8 +59,6 @@
 </style>
 
 <script>
-import axios from "axios";
-
 export default {
   name: "ProjectSettings",
   data() {
@@ -70,7 +77,7 @@ export default {
       this.$emit("update:name", this.newName);
 
       try {
-        let project_response = await axios.patch(
+        let project_response = await this.$http.patch(
           `http://localhost:3001/api/projects/p/${this.projectId}`,
           {
             name: this.newName,
@@ -84,7 +91,7 @@ export default {
       this.$emit("update:description", this.newDescription);
 
       try {
-        let project_response = await axios.patch(
+        let project_response = await this.$http.patch(
           `http://localhost:3001/api/projects/p/${this.projectId}`,
           {
             description: this.newDescription,
@@ -98,13 +105,14 @@ export default {
       this.$emit("delete:project", this.projectId);
 
       try {
-        let project_response = await axios.delete(
+        let project_response = await this.$http.delete(
           `http://localhost:3001/api/projects/p/${this.projectId}`
         );
       } catch (err) {
         console.log(err);
       }
 
+      this.$refs['deleteCheck'].hide();
       this.$router.replace("/dashboard");
     },
   },

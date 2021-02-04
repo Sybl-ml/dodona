@@ -7,16 +7,15 @@ use anyhow::Result;
 use mongodb::bson::{doc, oid::ObjectId};
 use mongodb::Database;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::str::from_utf8;
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::prelude::*;
 use tokio::sync::mpsc::Sender;
+use utils::compress::decompress_data;
 
 use crate::DatasetPair;
+use messages::{ClientMessage, InterfaceMessage, ReadLengthPrefix};
 use models::datasets::Dataset;
 
-type OId = [u8; 24];
 /// Starts up interface server
 ///
 /// Takes in socket, db connection and transmitter end of mpsc chaneel and will
@@ -26,17 +25,18 @@ type OId = [u8; 24];
 pub async fn run(
     socket: u16,
     db_conn: Arc<Database>,
-    tx: Sender<(ObjectId, DatasetPair)>,
+    tx: Sender<(ObjectId, DatasetPair, ClientMessage)>,
 ) -> Result<()> {
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
-    log::info!("Socket: {:?}", socket);
-
+    log::info!("Interface Socket: {:?}", socket);
     let listener = TcpListener::bind(&socket).await?;
-    log::info!("RUNNING INTERFACE SERVER");
+
     while let Ok((inbound, _)) = listener.accept().await {
-        log::info!("INTERFACE CONNECTION");
+        log::info!("Interface Connection: {}", inbound.peer_addr()?);
+
         let db_conn_clone = Arc::clone(&db_conn);
         let tx_clone = tx.clone();
+
         tokio::spawn(async move {
             process_connection(inbound, db_conn_clone, tx_clone)
                 .await
@@ -49,44 +49,61 @@ pub async fn run(
 async fn process_connection(
     mut stream: TcpStream,
     db_conn: Arc<Database>,
-    tx: Sender<(ObjectId, DatasetPair)>,
+    tx: Sender<(ObjectId, DatasetPair, ClientMessage)>,
 ) -> Result<()> {
-    let mut buffer: OId = [0_u8; 24];
-    stream.read(&mut buffer).await?;
-    let dataset_id = from_utf8(&buffer)?;
+    let mut buffer = [0_u8; 4096];
+    let (object_id, timeout, column_types) =
+        match InterfaceMessage::from_stream(&mut stream, &mut buffer).await? {
+            InterfaceMessage::Config {
+                id,
+                timeout,
+                column_types,
+            } => (id, timeout, column_types),
+        };
 
-    log::info!("Dataset identifier: {}", dataset_id);
+    log::info!("Received a message from the interface:");
+    log::debug!("\tIdentifier: {}", object_id);
+    log::debug!("\tTimeout: {}", timeout);
+    log::debug!("\tColumn types: {:?}", column_types);
 
     let datasets = db_conn.collection("datasets");
 
-    let object_id = ObjectId::with_string(&dataset_id)?;
     let filter = doc! { "_id": object_id };
+    log::debug!("Finding datasets with filter: {:?}", &filter);
 
-    log::info!("{:?}", &filter);
+    let doc = datasets
+        .find_one(filter, None)
+        .await?
+        .expect("Failed to find a document with the previous filter");
+    let dataset: Dataset = mongodb::bson::de::from_document(doc)?;
 
-    let doc = datasets.find_one(filter, None).await?.unwrap();
-    let dataset: Dataset = mongodb::bson::de::from_document(doc).unwrap();
-
-    log::info!("{:?}", &dataset);
+    log::debug!("{:?}", &dataset);
 
     // Get the data from the struct
     let comp_train = dataset.dataset.unwrap().bytes;
     let comp_predict = dataset.predict.unwrap().bytes;
 
     // Decompress it
-    let train_bytes = utils::decompress_data(&comp_train)?;
-    let predict_bytes = utils::decompress_data(&comp_predict)?;
+    let train_bytes = decompress_data(&comp_train)?;
+    let predict_bytes = decompress_data(&comp_predict)?;
 
     // Convert it to a string
     let train = std::str::from_utf8(&train_bytes)?.to_string();
     let predict = std::str::from_utf8(&predict_bytes)?.to_string();
 
-    log::info!("Decompressed train: {:?}", &train);
-    log::info!("Decompressed predict: {:?}", &predict);
+    log::debug!("Decompressed train: {:?}", &train);
+    log::debug!("Decompressed predict: {:?}", &predict);
 
-    tx.send((dataset.project_id.unwrap(), DatasetPair { train, predict }))
-        .await
-        .unwrap();
+    tx.send((
+        dataset.project_id,
+        DatasetPair { train, predict },
+        ClientMessage::JobConfig {
+            timeout,
+            column_types,
+        },
+    ))
+    .await
+    .unwrap_or_else(|error| log::error!("Error while sending over MPSC: {}", error));
 
     Ok(())
 }

@@ -1,69 +1,124 @@
 <template>
   <b-container fluid>
     <b-row class="justify-content-center text-center">
-      <b-col lg="2" md="6" sm="8" xs="12">
-        <br/><br/>
-        <icon-logo height="5em" width="5em" :show_text="false" />
-        <h1>Sign In To Sybl</h1>
-        <b-form class="mt-5 mb-3" @submit.prevent="onSubmit">
-          <b-form-input
-            class="mb-3"
-            type="email"
-            required
-            placeholder="Enter Email"
-            v-model="email"
-          />
-          <b-form-input
-            type="password"
-            required
-            placeholder="Password"
-            class="mb-3"
-            v-model="password"
-          />
-          <b-form-checkbox value="me" class="mb-3" v-model="remember_password"
-            >Remember Me</b-form-checkbox
-          >
-          <b-button variant="primary" type="submit" block> SIGN IN </b-button>
-        </b-form>
-        <a href="/forgot">Forgotten Password?</a>
-        <p v-show="!valid_credentials">Incorrect Username or Password</p>
+      <b-col lg="4" md="6" sm="8" xs="12">
+        <icon-logo
+          class="mt-5 mb-3"
+          height="10em"
+          width="10em"
+          :show_text="false"
+        />
+        <h1 class="mb-3"><strong>Please Sign in</strong></h1>
+        <b-card bordered-variant="primary" class="text-center mt-3 mb-5">
+          <b-form class="mt-3 mb-3" @submit.prevent="onSubmit">
+            <b-input-group class="mb-3" prepend="@">
+              <b-form-input
+                type="email"
+                required
+                placeholder="Enter Email"
+                v-model="email"
+              />
+            </b-input-group>
+
+            <b-input-group class="mb-3" prepend="#">
+              <b-form-input
+                :type="passwordType"
+                required
+                placeholder="Password"
+                v-model="password"
+                pattern="^.{1,32}$"
+                title="Password must contain at least eight characters"
+              />
+              <template #append>
+                <b-input-group-text>
+                  <b-icon
+                    style="cursor: pointer;"
+                    :icon="passwordIcon"
+                    @click="hidePassword = !hidePassword"
+                  />
+                </b-input-group-text>
+              </template>
+            </b-input-group>
+
+            <b-form-checkbox
+              style="display:none;"
+              value="me"
+              class="mb-3"
+              v-model="remember_password"
+              >Remember Me</b-form-checkbox
+            >
+            <b-button class="mb-3" variant="primary" type="submit" block>
+              SIGN IN
+              <b-spinner v-show="submitted" small></b-spinner>
+            </b-button>
+            <a href="/forgot">Forgotten Password?</a>
+          </b-form>
+        </b-card>
       </b-col>
+      
+    </b-row>
+    <b-row class="justify-content-center text-center">
+      <b-alert v-model="failed" variant="danger" dismissible>
+        Incorrect Username or Password
+      </b-alert>
     </b-row>
   </b-container>
 </template>
 
 <script>
 import IconLogo from "@/components/icons/IconLogo";
-import axios from "axios";
 export default {
   data() {
     return {
       email: "",
       password: "",
       remember_password: false,
-
-      valid_credentials: true,
+      hidePassword: true,
+      submitted: false,
+      failed: false,
     };
   },
   components: {
     IconLogo,
   },
+  computed: {
+    passwordType() {
+      return this.hidePassword ? "password" : "text";
+    },
+    passwordIcon() {
+      return this.hidePassword ? "eye-fill" : "eye-slash-fill";
+    },
+  },
   methods: {
-    async onSubmit() {
-      let response = await axios.post("http://localhost:3001/api/users/login", {
-        email: this.email,
-        password: this.password,
+    sleep(ms) {
+      return new Promise((resolve) => {
+        setTimeout(resolve, ms);
       });
+    },
+    async onSubmit(e) {
+      this.submitted = true;
+      let response = await this.$http
+        .post("http://localhost:3001/api/users/login", {
+          email: this.email,
+          password: this.password,
+        })
+        .catch((error) => {
+          console.log(error.response.data.error);
+        });
 
-      response = response.data;
-
-      if (response.token === "null") {
-        this.authenticated = false;
-      } else {
-        this.authenticated = true;
-        $cookies.set("token", response.token, { path: "/", sameSite: true });
-        this.$router.push("dashboard");
+      if (response) {
+        response = response.data;
+        if (response.token === "null") {
+          this.failed = true;
+        } else {
+          this.failed = false;
+          $cookies.set("token", response.token, { path: "/", sameSite: true });
+          this.$router.push("dashboard");
+        }
       }
+      await this.sleep(1000);
+      this.failed = true;
+      this.submitted = false;
     },
   },
 };
