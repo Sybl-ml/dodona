@@ -155,7 +155,7 @@ pub async fn run(
 
         let mut train = msg.train.split('\n').collect::<Vec<_>>();
         let headers = train.remove(0);
-        let mut validation = vec![];
+        let mut validation = Vec::new();
         let test = msg.predict.split('\n').skip(1).collect::<Vec<_>>();
 
         log::info!("{:?}", &train);
@@ -210,14 +210,14 @@ pub async fn run(
                         anonymise_dataset(&model_anon_valid.join("\n"), &columns).unwrap();
 
                     // Add record ids to train
-                    let (anon_train, train_rids) = generate_ids(anon_train);
+                    let (anon_train, train_rids) = generate_ids(&anon_train);
                     log::info!(
                         "IDs: {:?}\nAnonymised Train: {:?}",
                         &train_rids,
                         &anon_train
                     );
                     // Add record ids to test
-                    let (anon_test, test_rids) = generate_ids(anon_test);
+                    let (anon_test, test_rids) = generate_ids(&anon_test);
 
                     // Record the index associated with each test record id
                     for (i, rid) in test_rids.iter().enumerate() {
@@ -226,7 +226,7 @@ pub async fn run(
 
                     log::info!("IDs: {:?}\nAnonymised Test: {:?}", &test_rids, &anon_test);
                     // Add record ids to validation
-                    let (anon_valid_ans, valid_rids) = generate_ids(anon_valid);
+                    let (anon_valid_ans, valid_rids) = generate_ids(&anon_valid);
                     log::info!(
                         "IDs: {:?}\nAnonymised Valid: {:?}",
                         &valid_rids,
@@ -234,7 +234,7 @@ pub async fn run(
                     );
 
                     let mut anon_valid_ans: Vec<_> = anon_valid_ans.split("\n").collect();
-                    let mut anon_valid: Vec<&str> = vec![];
+                    let mut anon_valid: Vec<&str> = Vec::new();
                     let headers = anon_valid_ans.remove(0);
 
                     // For now, we assume that the last column is the prediction column

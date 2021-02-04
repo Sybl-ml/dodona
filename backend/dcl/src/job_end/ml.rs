@@ -27,7 +27,7 @@ pub fn weight_predictions(
     // TODO: implement job type recognition through job config struct
     let job_type = "classification";
 
-    let mut predictions: Vec<String> = vec![];
+    let mut predictions: Vec<String> = Vec::new();
 
     match job_type {
         "classification" => {

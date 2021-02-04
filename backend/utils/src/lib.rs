@@ -56,7 +56,7 @@ impl Column {
     /// Returns None if the `value` is not in the domain of the `Column` (e.g. it is non-numerical
     /// data in a numerical column or is an unrecognised value in a categorical column)
     pub fn anonymise(&self, value: String) -> Option<String> {
-        if value.len() == 0 {
+        if value.is_empty() {
             Some(value)
         } else {
             match &self.column_type {
@@ -79,19 +79,14 @@ impl Column {
     ///
     /// Returns None if no match was found for the pseudonym `value` in the `Column`
     pub fn deanonymise(&self, value: String) -> Option<String> {
-        if value.len() == 0 {
+        if value.is_empty() {
             Some(value)
         } else {
             match &self.column_type {
                 // if this `Column` holds categorical data, find the original name for this `value`
-                ColumnType::Categorical(mapping) => Some(
-                    mapping
-                        .iter()
-                        .filter(|(_, v)| **v == value)
-                        .next()?
-                        .0
-                        .to_string(),
-                ),
+                ColumnType::Categorical(mapping) => {
+                    Some(mapping.iter().find(|(_, v)| **v == value)?.0.to_string())
+                }
                 // if this `Column` holds numerical data, denormalise `value` to its true range
                 ColumnType::Numerical(min, max) => {
                     Some(Column::denormalise(f64::from_str(&value).ok()?, *min, *max).to_string())
@@ -121,7 +116,7 @@ impl Column {
     }
 
     // Given a `value`, create a random pseudonym for this value
-    pub fn obfuscate(value: String) -> String {
+    pub fn obfuscate(value: &str) -> String {
         let mut hasher = DefaultHasher::new();
         value.hash(&mut hasher);
         generate_string(64).hash(&mut hasher);
@@ -130,18 +125,12 @@ impl Column {
 
     // Returns true if and only if this `Column` represents categorical data
     pub fn is_categorical(&self) -> bool {
-        match self.column_type {
-            ColumnType::Categorical(_) => true,
-            _ => false,
-        }
+        matches!(self.column_type, ColumnType::Categorical(_))
     }
 
     // Returns true if and only if this `Column` represents numerical data
     pub fn is_numerical(&self) -> bool {
-        match self.column_type {
-            ColumnType::Numerical(_, _) => true,
-            _ => false,
-        }
+        matches!(self.column_type, ColumnType::Numerical(_, _))
     }
 }
 
@@ -149,48 +138,45 @@ impl From<ColumnValues> for Column {
     // Creates a new `Column` object based on its `name` and `values`
     fn from((name, values): ColumnValues) -> Column {
         // check if all values in the column are numerical
-        match values
+        if let Ok(numerical) = values
             .iter()
             .map(|v| f64::from_str(v))
             .collect::<Result<Vec<_>, _>>()
         {
-            Ok(numerical) => {
-                let column_type = ColumnType::Numerical(
-                    // identify the minimum value of the column
-                    *numerical
-                        .iter()
-                        .min_by(|x, y| x.partial_cmp(&y).unwrap())
-                        .unwrap(),
-                    // identify the maximum value of the column
-                    *numerical
-                        .iter()
-                        .max_by(|x, y| x.partial_cmp(&y).unwrap())
-                        .unwrap(),
-                );
-                // return a `Column` with a `name`, a random `pseudonym` and numerical `column_type`
-                Column {
-                    name: name,
-                    pseudonym: generate_string(16),
-                    column_type: column_type,
-                }
+            let column_type = ColumnType::Numerical(
+                // identify the minimum value of the column
+                *numerical
+                    .iter()
+                    .min_by(|x, y| x.partial_cmp(&y).unwrap())
+                    .unwrap(),
+                // identify the maximum value of the column
+                *numerical
+                    .iter()
+                    .max_by(|x, y| x.partial_cmp(&y).unwrap())
+                    .unwrap(),
+            );
+            // return a `Column` with a `name`, a random `pseudonym` and numerical `column_type`
+            Column {
+                name,
+                pseudonym: generate_string(16),
+                column_type,
             }
-            Err(_) => {
-                let column_type = ColumnType::Categorical(
-                    values
-                        .iter()
-                        // obfuscate each value in the column with a random pseudonym
-                        .zip(values.iter().map(|v| Column::obfuscate(v.to_string())))
-                        .map(|(v, o)| (v.to_string(), o))
-                        // when collected into a `HashMap`, conflicting pseudonyms for
-                        // the same unique value are automatically resolved
-                        .collect(),
-                );
-                // return a `Column` with a `name`, a random `pseudonym` and categorical `column_type`
-                Column {
-                    name: name,
-                    pseudonym: generate_string(16),
-                    column_type: column_type,
-                }
+        } else {
+            let column_type = ColumnType::Categorical(
+                values
+                    .iter()
+                    // obfuscate each value in the column with a random pseudonym
+                    .zip(values.iter().map(|v| Column::obfuscate(v)))
+                    .map(|(v, o)| (v.to_string(), o))
+                    // when collected into a `HashMap`, conflicting pseudonyms for
+                    // the same unique value are automatically resolved
+                    .collect(),
+            );
+            // return a `Column` with a `name`, a random `pseudonym` and categorical `column_type`
+            Column {
+                name,
+                pseudonym: generate_string(16),
+                column_type,
             }
         }
     }
@@ -317,7 +303,7 @@ pub fn parse_body<R: std::io::Read>(reader: &mut Reader<R>, n: usize) -> String 
 /// When a CSV is sent to a client, they should be given
 /// the ids of the records so that they can be matched up upon
 /// being returned.
-pub fn generate_ids(dataset: String) -> (String, Vec<String>) {
+pub fn generate_ids(dataset: &str) -> (String, Vec<String>) {
     // Break dataset
     let mut record_ids = Vec::new();
     let mut reader = Reader::from_reader(dataset.as_bytes());

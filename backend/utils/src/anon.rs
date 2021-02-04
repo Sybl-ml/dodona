@@ -3,7 +3,7 @@
 use crate::{infer_columns, Columns};
 use csv::{Reader, StringRecord, Writer};
 
-pub fn infer_dataset_columns(dataset: &String) -> Option<Columns> {
+pub fn infer_dataset_columns(dataset: &str) -> Option<Columns> {
     // identify the types and range (numerical) or unique values (categorical) of each column
     let mut reader = Reader::from_reader(dataset.as_bytes());
     infer_columns(&mut reader).ok()
@@ -17,7 +17,7 @@ pub fn infer_dataset_columns(dataset: &String) -> Option<Columns> {
 ///
 /// Returns `None` if headers cannot be parsed or the output CSV cannot be `String`-encoded.
 /// Ignores and removes any records which cannot be anonymised
-pub fn anonymise_dataset(dataset: &String, columns: &Columns) -> Option<String> {
+pub fn anonymise_dataset(dataset: &str, columns: &Columns) -> Option<String> {
     // read each record of the data and anonymise each value based on its column
     let mut reader = Reader::from_reader(dataset.as_bytes());
     let headers = reader.headers().ok()?.to_owned();
@@ -73,7 +73,7 @@ pub fn anonymise_row(
 ///
 /// Returns `None` if headers cannot be parsed or the output CSV cannot be `String`-encoded.
 /// Ignores and removes any records which cannot be deanonymised
-pub fn deanonymise_dataset(dataset: &String, columns: &Columns) -> Option<String> {
+pub fn deanonymise_dataset(dataset: &str, columns: &Columns) -> Option<String> {
     // identify the pseudonyms used to anonymise the data
     let mut reader = Reader::from_reader(dataset.as_bytes());
     let pseudonyms = reader.headers().ok()?.to_owned();
@@ -87,8 +87,7 @@ pub fn deanonymise_dataset(dataset: &String, columns: &Columns) -> Option<String
             "record_id" => p,
             _ => columns
                 .values()
-                .filter(|c| c.pseudonym == p)
-                .next()
+                .find(|c| c.pseudonym == p)
                 .unwrap()
                 .name
                 .as_str(),
