@@ -8,6 +8,7 @@ use config::Environment;
 use models::projects::Project;
 use models::users::User;
 
+#[allow(unused_macros)]
 macro_rules! api_with {
     ($method:path: $route:literal => $handler:path) => {
         test::init_service(
@@ -38,6 +39,7 @@ pub static DELETES_PROJECT_UID: &str = "5fb2b3fa9d524e99ac7f1c40";
 
 pub static MAIN_PROJECT_ID: &str = "5f8ca1a80065f27c0089e8b5";
 pub static USERLESS_PROJECT_ID: &str = "5f8ca1a80065f27b0089e8b6";
+#[allow(dead_code)]
 pub static NON_EXISTENT_PROJECT_ID: &str = "5f8ca1a80065f27b0089e8a5";
 pub static OVERWRITTEN_DATA_PROJECT_ID: &str = "5fb784e4ead1758e1ce67bcd";
 pub static DELETABLE_PROJECT_ID: &str = "5fb2b4049d524e99ac7f1c41";
