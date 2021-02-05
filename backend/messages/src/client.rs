@@ -1,5 +1,7 @@
 //! Contains the builder functions used to generate message for DCL-DCN protcol
 
+use crate::PredictionType;
+
 /// Different messages to be passed between DCL and DCN
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum ClientMessage {
@@ -14,6 +16,10 @@ pub enum ClientMessage {
         timeout: i32,
         /// Types of each column in dataset for job
         column_types: Vec<String>,
+        /// The name of the prediction column
+        prediction_column: String,
+        /// If the problem is Regression or Classification
+        prediction_type: PredictionType,
     },
     /// A request to setup a new model
     NewModel {

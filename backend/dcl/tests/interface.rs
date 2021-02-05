@@ -7,7 +7,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 
-use messages::{InterfaceMessage, WriteLengthPrefix};
+use messages::{InterfaceMessage, PredictionType, WriteLengthPrefix};
 
 mod common;
 
@@ -44,6 +44,8 @@ async fn test_interface_end() {
         id: ObjectId::with_string(common::DATASET_ID).unwrap(),
         timeout: 10,
         column_types: Vec::new(),
+        prediction_column: "".to_string(),
+        prediction_type: PredictionType::Classification,
     };
     stream.write(&config.as_bytes()).await.unwrap();
     tokio::time::sleep(Duration::from_secs(1)).await;

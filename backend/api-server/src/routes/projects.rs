@@ -19,7 +19,7 @@ use crate::dodona_error::DodonaError;
 use crate::routes::{check_user_owns_project, response_from_json};
 use crate::AppState;
 use crypto::clean;
-use messages::{InterfaceMessage, WriteLengthPrefix};
+use messages::{InterfaceMessage, PredictionType, WriteLengthPrefix};
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
 use models::jobs::Job;
@@ -344,7 +344,15 @@ pub async fn begin_processing(
     let dataset_details = database.collection("dataset_details");
 
     let timeout: i32 = doc.get_str("timeout")?.parse()?;
-    log::info!("Timeout is here: {}", &timeout);
+    log::info!("Timeout is: {}", &timeout);
+
+    let prediction_type: PredictionType = match doc.get_str("predictionType")? {
+        "classification" => PredictionType::Classification,
+        "regression" => PredictionType::Regression,
+        _ => return Err(DodonaError::UnprocessableEntity),
+    };
+
+    let prediction_column: String = doc.get_str("predictionColumn")?.to_string();
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
@@ -367,7 +375,7 @@ pub async fn begin_processing(
     // Parse the dataset detail itself
     let dataset_detail = mongodb::bson::de::from_document::<DatasetDetails>(document)?;
 
-    let types = dataset_detail
+    let column_types = dataset_detail
         .column_types
         .values()
         .map(|x| match x.column_type {
@@ -380,7 +388,9 @@ pub async fn begin_processing(
     let config = InterfaceMessage::Config {
         id: dataset.id.clone(),
         timeout,
-        column_types: types,
+        column_types,
+        prediction_column,
+        prediction_type,
     };
 
     if forward_to_interface(&config).await.is_err() {
