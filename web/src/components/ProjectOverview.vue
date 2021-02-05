@@ -203,7 +203,7 @@ export default {
           `http://localhost:3001/api/projects/p/${this.projectId}/process`,
           {
             timeout: this.timeout,
-            problemType: this.problemType,
+            predictionType: this.problemType,
             predictionColumn: this.predColumn,
           }
         );
