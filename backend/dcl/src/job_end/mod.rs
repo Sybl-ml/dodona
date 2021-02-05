@@ -1,7 +1,9 @@
 //! Part of DCL that takes a DCN and a dataset and comunicates with node
 
+use rand::seq::SliceRandom;
+use rand::{thread_rng, Rng};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use mongodb::{
@@ -18,9 +20,13 @@ use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
 use models::predictions::Prediction;
 use models::projects::Status;
 
-use utils::anon::{anonymise_dataset, deanonymise_dataset};
+use utils::anon::{anonymise_dataset, deanonymise_dataset, infer_dataset_columns};
 use utils::compress::compress_bytes;
-use utils::{infer_train_and_predict, Columns};
+use utils::generate_ids;
+use utils::Columns;
+
+pub mod finance;
+pub mod ml;
 
 /// Struct to pass information for a cluster to function
 #[derive(Debug, Clone)]
@@ -29,12 +35,58 @@ pub struct ClusterInfo {
     pub id: ObjectId,
     /// Columns in dataset
     pub columns: Columns,
-    /// Training CSV
-    pub train: String,
-    /// Prediction CSV
-    pub predict: String,
     /// Config
     pub config: ClientMessage,
+    /// Validation results
+    pub validation_ans: HashMap<(ModelID, String), String>,
+    /// Test record IDs
+    pub prediction_rids: HashMap<(ModelID, String), usize>,
+}
+
+/// Memory which can be written back to from threads for
+/// prediction related data
+#[derive(Debug, Clone)]
+pub struct WriteBackMemory {
+    /// HashMap of predictions
+    pub predictions: Arc<Mutex<HashMap<(ModelID, usize), String>>>,
+    /// HashMap of Errors
+    pub errors: Arc<Mutex<HashMap<ModelID, f64>>>,
+}
+
+impl WriteBackMemory {
+    /// Creates new instance of WriteBackMemory
+    pub fn new() -> WriteBackMemory {
+        WriteBackMemory {
+            predictions: Arc::new(Mutex::new(HashMap::new())),
+            errors: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    /// Function to write back a hashmap of (index, prediction) tuples
+    pub fn write_predictions(&self, id: ModelID, pred_map: HashMap<usize, String>) {
+        let mut predictions = self.predictions.lock().unwrap();
+        for (index, prediction) in pred_map.into_iter() {
+            predictions.insert((id.clone(), index), prediction);
+        }
+    }
+
+    /// Function to write back error value
+    pub fn write_error(&self, id: ModelID, error: f64) {
+        let mut errors = self.errors.lock().unwrap();
+        errors.insert(id, error);
+    }
+
+    /// Gets cloned version of predictions
+    pub fn get_predictions(&self) -> HashMap<(ModelID, usize), String> {
+        let predictions = self.predictions.lock().unwrap();
+        predictions.clone()
+    }
+
+    /// Gets cloned version of errors
+    pub fn get_errors(&self) -> HashMap<ModelID, f64> {
+        let errors = self.errors.lock().unwrap();
+        errors.clone()
+    }
 }
 
 /// Controlling structures for clusters
@@ -65,6 +117,15 @@ impl ClusterControl {
     }
 }
 
+const CLUSTER_SIZE: usize = 1;
+const VALIDATION_SIZE: usize = 10;
+const TRAINING_BAG_SIZE: usize = 10;
+
+// TODO: Find a better way of identifying models
+
+/// ModelID type
+pub type ModelID = String;
+
 /// Starts up and runs the job end
 ///
 /// Takes in nodepool and mpsc receiver and will listen for incoming datasets.
@@ -89,25 +150,143 @@ pub async fn run(
             .chain(msg.predict.split('\n').skip(1))
             .collect::<Vec<_>>()
             .join("\n");
-        let (anon, columns) = anonymise_dataset(data).unwrap();
-        let (anon_train, anon_predict) = infer_train_and_predict(&anon);
-        let (anon_train_csv, anon_predict_csv) = (anon_train.join("\n"), anon_predict.join("\n"));
 
-        let info = ClusterInfo {
-            id: id.clone(),
-            columns: columns.clone(),
-            train: anon_train_csv.clone(),
-            predict: anon_predict_csv.clone(),
-            config: config.clone(),
-        };
+        let columns = infer_dataset_columns(&data).unwrap();
+
+        let mut train = msg.train.split('\n').collect::<Vec<_>>();
+        let headers = train.remove(0);
+        let mut validation = Vec::new();
+        let test = msg.predict.split('\n').skip(1).collect::<Vec<_>>();
+
+        log::info!("{:?}", &train);
+        log::info!("{}", &train.len());
+
+        for _ in 0..VALIDATION_SIZE {
+            validation.push(train.swap_remove(thread_rng().gen_range(0..train.len())));
+        }
+
+        log::info!("Built validation data");
+
+        // The test and train datasets associated for each model
+        let mut bags: HashMap<ModelID, (String, String)> = HashMap::new();
+
+        // The validation record ids and answers for each model
+        let mut validation_ans: HashMap<(ModelID, String), String> = HashMap::new();
+
+        // The test record ids for each model
+        let mut prediction_rids: HashMap<(ModelID, String), usize> = HashMap::new();
 
         loop {
-            if let Some(cluster) = nodepool.get_cluster(1, info.config.clone()).await {
+            if let Some(cluster) = nodepool.get_cluster(CLUSTER_SIZE, config.clone()).await {
                 log::info!("Created Cluster");
+
+                for (key, _) in &cluster {
+                    log::info!("BOOTSTRAPPING");
+                    let model_train: Vec<_> = train
+                        .choose_multiple(&mut thread_rng(), TRAINING_BAG_SIZE)
+                        .map(|s| s.to_owned())
+                        .collect();
+
+                    // Create new train set with headers
+                    let mut model_anon_train = vec![headers.clone()];
+                    model_anon_train.extend_from_slice(&model_train);
+
+                    // Create new test set with headers
+                    let mut model_anon_test = vec![headers.clone()];
+                    model_anon_test.extend_from_slice(&test);
+
+                    // Create new validation set with headers
+                    let mut model_anon_valid = vec![headers.clone()];
+                    model_anon_valid.extend_from_slice(&validation);
+
+                    // Anonymise train data
+                    let anon_train =
+                        anonymise_dataset(&model_anon_train.join("\n"), &columns).unwrap();
+                    // Anonymise test data
+                    let anon_test =
+                        anonymise_dataset(&model_anon_test.join("\n"), &columns).unwrap();
+                    // Anonymise validation data
+                    let anon_valid =
+                        anonymise_dataset(&model_anon_valid.join("\n"), &columns).unwrap();
+
+                    // Add record ids to train
+                    let (anon_train, train_rids) = generate_ids(&anon_train);
+                    log::info!(
+                        "IDs: {:?}\nAnonymised Train: {:?}",
+                        &train_rids,
+                        &anon_train
+                    );
+                    // Add record ids to test
+                    let (anon_test, test_rids) = generate_ids(&anon_test);
+
+                    // Record the index associated with each test record id
+                    for (i, rid) in test_rids.iter().enumerate() {
+                        prediction_rids.insert((key.clone(), rid.clone()), i);
+                    }
+
+                    log::info!("IDs: {:?}\nAnonymised Test: {:?}", &test_rids, &anon_test);
+                    // Add record ids to validation
+                    let (anon_valid_ans, valid_rids) = generate_ids(&anon_valid);
+                    log::info!(
+                        "IDs: {:?}\nAnonymised Valid: {:?}",
+                        &valid_rids,
+                        &anon_valid_ans
+                    );
+
+                    let mut anon_valid_ans: Vec<_> = anon_valid_ans.split("\n").collect();
+                    let mut anon_valid: Vec<&str> = Vec::new();
+                    let headers = anon_valid_ans.remove(0);
+
+                    // For now, we assume that the last column is the prediction column
+                    let prediction_column = headers.split(',').last().unwrap();
+
+                    // Remove validation answers and record them for evaluation
+                    for (record, id) in anon_valid_ans.iter().zip(valid_rids.iter()) {
+                        let values: Vec<_> = record.rsplitn(2, ',').collect();
+                        let ans = columns
+                            .get(prediction_column)
+                            .unwrap()
+                            .deanonymise(values[0].to_owned())
+                            .unwrap();
+                        validation_ans.insert((key.clone(), id.to_owned()), ans.to_owned());
+                        anon_valid.push(values[1]);
+                    }
+
+                    let mut anon_test = anon_test.split("\n").collect::<Vec<_>>();
+
+                    // Get the new anonymised headers for test set
+                    let new_headers = anon_test.remove(0);
+
+                    // Combine validation with test
+                    anon_test.append(&mut anon_valid);
+                    anon_test.shuffle(&mut thread_rng());
+                    let mut final_anon_test = vec![new_headers];
+                    final_anon_test.extend_from_slice(&anon_test);
+
+                    log::info!("Anonymised Test with Validation: {:?}", &final_anon_test);
+
+                    // Add to bag
+                    bags.insert(key.clone(), (anon_train, final_anon_test.join("\n")));
+                }
+
+                let info = ClusterInfo {
+                    id: id.clone(),
+                    columns: columns.clone(),
+                    config: config.clone(),
+                    validation_ans: validation_ans.clone(),
+                    prediction_rids: prediction_rids.clone(),
+                };
 
                 let np_clone = Arc::clone(&nodepool);
                 let database_clone = Arc::clone(&database);
-                run_cluster(np_clone, database_clone, cluster, info.clone()).await?;
+                run_cluster(
+                    np_clone,
+                    database_clone,
+                    cluster,
+                    info.clone(),
+                    bags.clone(),
+                )
+                .await?;
                 break;
             }
         }
@@ -120,19 +299,32 @@ async fn run_cluster(
     database: Arc<Database>,
     cluster: HashMap<String, Arc<RwLock<TcpStream>>>,
     info: ClusterInfo,
+    prediction_bag: HashMap<ModelID, (String, String)>,
 ) -> Result<()> {
     let cc: ClusterControl = ClusterControl::new(cluster.len());
+    let wbm: WriteBackMemory = WriteBackMemory::new();
 
     for (key, dcn) in cluster {
         let np_clone = Arc::clone(&nodepool);
         let database_clone = Arc::clone(&database);
         let info_clone = info.clone();
+        let wbm_clone = wbm.clone();
         let cc_clone = cc.clone();
+        let train_predict = prediction_bag.get(&key).unwrap().clone();
 
         tokio::spawn(async move {
-            dcl_protcol(np_clone, database_clone, key, dcn, info_clone, cc_clone)
-                .await
-                .unwrap();
+            dcl_protcol(
+                np_clone,
+                database_clone,
+                key,
+                dcn,
+                info_clone,
+                cc_clone,
+                train_predict,
+                wbm_clone,
+            )
+            .await
+            .unwrap();
         });
     }
 
@@ -140,6 +332,19 @@ async fn run_cluster(
 
     cc.notify.notified().await;
     log::info!("All Jobs Complete!");
+
+    let (weights, predictions) = ml::weight_predictions(wbm.get_predictions(), wbm.get_errors());
+
+    // TODO: reimburse clients based on weights
+    log::info!("Model weights: {:?}", weights);
+
+    // TODO: reintegrate predictions with user-supplied test dataset (?)
+    let csv: String = predictions.join("\n");
+
+    write_predictions(database.clone(), info.id, csv.as_bytes())
+        .await
+        .unwrap_or_else(|error| log::error!("Error writing predictions to DB: {}", error));
+
     change_status(database, project_id, Status::Complete).await?;
     Ok(())
 }
@@ -152,16 +357,19 @@ pub async fn dcl_protcol(
     stream: Arc<RwLock<TcpStream>>,
     info: ClusterInfo,
     cluster_control: ClusterControl,
+    train_predict: (String, String),
+    write_back: WriteBackMemory,
 ) -> Result<()> {
     log::info!("Sending a job to node with key: {}", key);
 
     let mut dcn_stream = stream.write().await;
 
     let mut buffer = [0_u8; 1024];
+    let (train, predict) = train_predict;
 
     let dataset_message = ClientMessage::Dataset {
-        train: info.train,
-        predict: info.predict,
+        train: train,
+        predict: predict,
     };
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
@@ -187,18 +395,17 @@ pub async fn dcl_protcol(
         _ => unreachable!(),
     };
 
-    let predictions = deanonymise_dataset(anonymised_predictions, info.columns).unwrap();
+    log::info!("Predictions: {:?}", &anonymised_predictions);
 
-    // Write the predictions back to the database
-    write_predictions(database, info.id, &key, predictions.as_bytes())
-        .await
-        .unwrap_or_else(|error| {
-            log::error!(
-                "(Node: {}) Error writing predictions to DB: {}",
-                &key,
-                error
-            )
-        });
+    let predictions = deanonymise_dataset(&anonymised_predictions, &info.columns).unwrap();
+
+    let (model_predictions, model_error) = ml::evaluate_model(&key, &predictions, &info);
+
+    write_back.write_error(key.clone(), model_error);
+    write_back.write_predictions(key.clone(), model_predictions);
+
+    // TODO: Give additional feedback to the model
+    increment_run_count(database, &key).await?;
 
     log::info!("(Node: {}) Computed Data: {}", &key, predictions);
 
@@ -213,7 +420,6 @@ pub async fn dcl_protcol(
 pub async fn write_predictions(
     database: Arc<Database>,
     id: ObjectId,
-    model_id: &str,
     dataset: &[u8],
 ) -> Result<()> {
     let predictions = database.collection("predictions");
@@ -225,8 +431,6 @@ pub async fn write_predictions(
     // Convert to a document and insert it
     let document = mongodb::bson::ser::to_document(&prediction)?;
     predictions.insert_one(document, None).await?;
-
-    increment_run_count(database, model_id).await?;
 
     Ok(())
 }
