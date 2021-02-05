@@ -4,14 +4,14 @@ services:
   web:
     build: ./web
     volumes:
-      - ./web:/usr/src/app
+      - "./web:/usr/src/app"
       - "/usr/src/app/node_modules"
     expose:
       - 3000
     ports:
       - "3000:8080"
     stdin_open: true
-    command: npm run serve
+    command: yarn run serve
     links:
       - api-server
 
