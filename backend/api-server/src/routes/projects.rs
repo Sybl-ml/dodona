@@ -315,13 +315,8 @@ pub async fn remove_data(
     let dataset_removed = datasets.find_one(filter, None).await?;
 
     if let Some(dataset_removed) = dataset_removed {
-<<<<<<< HEAD
-        let dataset:Dataset = mongodb::bson::de::from_document(dataset_removed)?;
-        dataset.delete(&database);
-=======
         let dataset: Dataset = mongodb::bson::de::from_document(dataset_removed)?;
         dataset.delete(&database).await?;
->>>>>>> 2ee40d581edc643d1db4fdee3ba277107b3e3a5e
     }
 
     let filter = doc! { "_id": &object_id };
