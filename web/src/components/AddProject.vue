@@ -34,7 +34,7 @@
           </b-card-text>
           <b-form-file
             class="mb-3"
-            placeholder="Upload a dataset"
+            placeholder="Choose a file or drop it here..."
             drop-placeholder="Drop file here..."
             v-model="file"
           />
