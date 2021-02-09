@@ -32,7 +32,7 @@ pub mod ml;
 #[derive(Debug, Clone)]
 pub struct ClusterInfo {
     /// Id of project
-    pub id: ObjectId,
+    pub project_id: ObjectId,
     /// Columns in dataset
     pub columns: Columns,
     /// Config
@@ -45,7 +45,7 @@ pub struct ClusterInfo {
 
 /// Memory which can be written back to from threads for
 /// prediction related data
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct WriteBackMemory {
     /// HashMap of predictions
     pub predictions: Arc<Mutex<HashMap<(ModelID, usize), String>>>,
@@ -56,10 +56,7 @@ pub struct WriteBackMemory {
 impl WriteBackMemory {
     /// Creates new instance of WriteBackMemory
     pub fn new() -> WriteBackMemory {
-        WriteBackMemory {
-            predictions: Arc::new(Mutex::new(HashMap::new())),
-            errors: Arc::new(Mutex::new(HashMap::new())),
-        }
+        Self::default()
     }
 
     /// Function to write back a hashmap of (index, prediction) tuples
@@ -139,7 +136,7 @@ pub async fn run(
 ) -> Result<()> {
     log::info!("Job End Running");
 
-    while let Some((id, msg, config)) = rx.recv().await {
+    while let Some((project_id, msg, config)) = rx.recv().await {
         log::info!("Train: {}", &msg.train);
         log::info!("Predict: {}", &msg.predict);
         log::info!("Job Config: {:?}", &config);
@@ -270,7 +267,7 @@ pub async fn run(
                 }
 
                 let info = ClusterInfo {
-                    id: id.clone(),
+                    project_id: project_id.clone(),
                     columns: columns.clone(),
                     config: config.clone(),
                     validation_ans: validation_ans.clone(),
@@ -304,20 +301,20 @@ async fn run_cluster(
     let cc: ClusterControl = ClusterControl::new(cluster.len());
     let wbm: WriteBackMemory = WriteBackMemory::new();
 
-    for (key, dcn) in cluster {
+    for (model_id, dcn_stream) in cluster {
         let np_clone = Arc::clone(&nodepool);
         let database_clone = Arc::clone(&database);
         let info_clone = info.clone();
         let wbm_clone = wbm.clone();
         let cc_clone = cc.clone();
-        let train_predict = prediction_bag.get(&key).unwrap().clone();
+        let train_predict = prediction_bag.get(&model_id).unwrap().clone();
 
         tokio::spawn(async move {
             dcl_protcol(
                 np_clone,
                 database_clone,
-                key,
-                dcn,
+                model_id,
+                dcn_stream,
                 info_clone,
                 cc_clone,
                 train_predict,
@@ -328,7 +325,7 @@ async fn run_cluster(
         });
     }
 
-    let project_id = info.id.clone();
+    let project_id = info.project_id.clone();
 
     cc.notify.notified().await;
     log::info!("All Jobs Complete!");
@@ -341,7 +338,7 @@ async fn run_cluster(
     // TODO: reintegrate predictions with user-supplied test dataset (?)
     let csv: String = predictions.join("\n");
 
-    write_predictions(database.clone(), info.id, csv.as_bytes())
+    write_predictions(database.clone(), info.project_id, csv.as_bytes())
         .await
         .unwrap_or_else(|error| log::error!("Error writing predictions to DB: {}", error));
 
@@ -353,14 +350,14 @@ async fn run_cluster(
 pub async fn dcl_protcol(
     nodepool: Arc<NodePool>,
     database: Arc<Database>,
-    key: String,
+    model_id: String,
     stream: Arc<RwLock<TcpStream>>,
     info: ClusterInfo,
     cluster_control: ClusterControl,
     train_predict: (String, String),
     write_back: WriteBackMemory,
 ) -> Result<()> {
-    log::info!("Sending a job to node with key: {}", key);
+    log::info!("Sending a job to node with key: {}", &model_id);
 
     let mut dcn_stream = stream.write().await;
 
@@ -377,12 +374,12 @@ pub async fn dcl_protcol(
     let prediction_message = match ClientMessage::from_stream(&mut dcn_stream, &mut buffer).await {
         Ok(pm) => pm,
         Err(error) => {
-            nodepool.update_node(&key, false).await?;
+            nodepool.update_node(&model_id, false).await?;
             cluster_control.decrement().await;
 
             log::error!(
                 "(Node {}) Error dealing with node predictions: {}",
-                &key,
+                &model_id,
                 error
             );
 
@@ -399,17 +396,17 @@ pub async fn dcl_protcol(
 
     let predictions = deanonymise_dataset(&anonymised_predictions, &info.columns).unwrap();
 
-    let (model_predictions, model_error) = ml::evaluate_model(&key, &predictions, &info);
+    let (model_predictions, model_error) = ml::evaluate_model(&model_id, &predictions, &info);
 
-    write_back.write_error(key.clone(), model_error);
-    write_back.write_predictions(key.clone(), model_predictions);
+    write_back.write_error(model_id.clone(), model_error);
+    write_back.write_predictions(model_id.clone(), model_predictions);
 
     // TODO: Give additional feedback to the model
-    increment_run_count(database, &key).await?;
+    increment_run_count(database, &model_id).await?;
 
-    log::info!("(Node: {}) Computed Data: {}", &key, predictions);
+    log::info!("(Node: {}) Computed Data: {}", &model_id, predictions);
 
-    nodepool.end(&key).await?;
+    nodepool.end(&model_id).await?;
 
     cluster_control.decrement().await;
 
