@@ -45,7 +45,7 @@ pub struct ClusterInfo {
 
 /// Memory which can be written back to from threads for
 /// prediction related data
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct WriteBackMemory {
     /// HashMap of predictions
     pub predictions: Arc<Mutex<HashMap<(ModelID, usize), String>>>,
@@ -56,10 +56,7 @@ pub struct WriteBackMemory {
 impl WriteBackMemory {
     /// Creates new instance of WriteBackMemory
     pub fn new() -> WriteBackMemory {
-        WriteBackMemory {
-            predictions: Arc::new(Mutex::new(HashMap::new())),
-            errors: Arc::new(Mutex::new(HashMap::new())),
-        }
+        Self::default()
     }
 
     /// Function to write back a hashmap of (index, prediction) tuples
