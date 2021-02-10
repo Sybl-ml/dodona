@@ -235,9 +235,6 @@ pub async fn run(
                     let mut anon_valid: Vec<&str> = Vec::new();
                     let _headers = anon_valid_ans.remove(0);
 
-                    // For now, we assume that the last column is the prediction column
-                    // let prediction_column = headers.split(',').last().unwrap();
-
                     // Remove validation answers and record them for evaluation
                     for (record, id) in anon_valid_ans.iter().zip(valid_rids.iter()) {
                         let values: Vec<_> = record.rsplitn(2, ',').collect();

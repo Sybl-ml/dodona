@@ -138,10 +138,10 @@ pub async fn model_performance(
     project_id: ObjectId,
 ) -> Result<()> {
     let job_performances = database.collection("job_performances");
-    let model_num = weights.len() - 1;
+    let model_num = weights.len();
     let mut job_perf_vec: Vec<Document> = Vec::new();
     for (model, weight) in weights.iter() {
-        let val = weight * (model_num as f64);
+        let val = (weight * model_num as f64) - 1.0;
         let perf: f64 = 0.5 * ((2.0 * val).tanh()) + 0.5;
         log::info!(
             "Model: {:?}, Weight: {:?}, Performance: {:?}",
