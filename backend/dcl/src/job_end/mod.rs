@@ -376,12 +376,12 @@ pub async fn dcl_protcol(
         match ClientMessage::from_stream(dcn_stream.deref_mut(), &mut buffer).await {
             Ok(pm) => pm,
             Err(error) => {
-                nodepool.update_node(&key, false).await?;
+                nodepool.update_node(&model_id, false).await?;
                 cluster_control.decrement().await;
 
                 log::error!(
                     "(Node {}) Error dealing with node predictions: {}",
-                    &key,
+                    &model_id,
                     error
                 );
 
