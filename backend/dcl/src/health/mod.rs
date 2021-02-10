@@ -116,7 +116,7 @@ pub async fn heartbeat(stream_lock: Arc<RwLock<TcpStream>>) -> bool {
 ///
 pub async fn change_model_status(
     database: Arc<Database>,
-    model_id: &String,
+    model_id: &str,
     status: Status,
 ) -> Result<()> {
     let models = database.collection("model");

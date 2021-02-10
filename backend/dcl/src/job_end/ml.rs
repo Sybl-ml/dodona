@@ -135,7 +135,7 @@ pub fn evaluate_model(
 pub async fn model_performance(
     database: Arc<Database>,
     weights: HashMap<ModelID, f64>,
-    project_id: ObjectId,
+    project_id: &ObjectId,
 ) -> Result<()> {
     let job_performances = database.collection("job_performances");
     let model_num = weights.len();

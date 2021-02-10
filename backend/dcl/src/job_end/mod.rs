@@ -335,7 +335,7 @@ async fn run_cluster(
 
     // TODO: store percentage difference between model weight and number of models for job
     let database_clone = Arc::clone(&database);
-    ml::model_performance(database_clone, weights, info.project_id.clone()).await?;
+    ml::model_performance(database_clone, weights, &info.project_id).await?;
 
     // TODO: reintegrate predictions with user-supplied test dataset (?)
     let csv: String = predictions.join("\n");
