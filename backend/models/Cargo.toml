@@ -15,6 +15,7 @@ utils = { path = "../utils" }
 crypto = { path = "../crypto" }
 config = { path = "../config" }
 mongodb = "2.0.0-alpha"
+bytes = "1.0.1"
 
 [dev-dependencies]
 tokio = { version = "1.4.0", features = ["sync"] }
