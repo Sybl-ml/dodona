@@ -152,6 +152,7 @@ pub async fn run(
 
         let mut train = msg.train.split('\n').collect::<Vec<_>>();
         let headers = train.remove(0);
+        let prediction_column = headers.split(',').last().unwrap();
         let mut validation = Vec::new();
         let test = msg.predict.split('\n').skip(1).collect::<Vec<_>>();
 
@@ -232,10 +233,10 @@ pub async fn run(
 
                     let mut anon_valid_ans: Vec<_> = anon_valid_ans.split("\n").collect();
                     let mut anon_valid: Vec<&str> = Vec::new();
-                    let headers = anon_valid_ans.remove(0);
+                    let _headers = anon_valid_ans.remove(0);
 
                     // For now, we assume that the last column is the prediction column
-                    let prediction_column = headers.split(',').last().unwrap();
+                    // let prediction_column = headers.split(',').last().unwrap();
 
                     // Remove validation answers and record them for evaluation
                     for (record, id) in anon_valid_ans.iter().zip(valid_rids.iter()) {
@@ -335,6 +336,8 @@ async fn run_cluster(
     // TODO: reimburse clients based on weights
     log::info!("Model weights: {:?}", weights);
 
+    // TODO: store percentage difference between model weight and number of models for job
+
     // TODO: reintegrate predictions with user-supplied test dataset (?)
     let csv: String = predictions.join("\n");
 
@@ -368,6 +371,8 @@ pub async fn dcl_protcol(
         train: train,
         predict: predict,
     };
+
+    log::info!("DATA SENT TO CLIENT: {:?}", &dataset_message);
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
     // TODO: Propagate this error forward to the frontend so that it can say a node has failed

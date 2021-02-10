@@ -85,6 +85,7 @@ pub fn evaluate_model(
     let job_type = "classification";
 
     for values in predictions
+        .trim()
         .split('\n')
         .map(|s| s.split(',').collect::<Vec<_>>())
     {
