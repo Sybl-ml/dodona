@@ -18,8 +18,8 @@
             </b-col>
             <b-col style="text-align: right" md="2">
               <b-button
-                variant="dark"
-                style="background: none; border: none; margin: 0; padding: 0;"
+                variant="primary"
+                style="background: #fbb000; border: none; margin: 0; padding: 0;"
               >
                 <b-icon-clipboard-plus
                   @click="copy(private_key)"
