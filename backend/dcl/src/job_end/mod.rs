@@ -233,7 +233,7 @@ pub async fn run(
 
                     let mut anon_valid_ans: Vec<_> = anon_valid_ans.split("\n").collect();
                     let mut anon_valid: Vec<&str> = Vec::new();
-                    let _headers = anon_valid_ans.remove(0);
+                    anon_valid_ans.remove(0);
 
                     // Remove validation answers and record them for evaluation
                     for (record, id) in anon_valid_ans.iter().zip(valid_rids.iter()) {
