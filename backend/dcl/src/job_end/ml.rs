@@ -2,9 +2,11 @@
 use crate::job_end::{ClusterInfo, ModelID};
 use models::job_performance::JobPerformance;
 use mongodb::{
-    bson::{doc, oid::ObjectId},
+    bson::{document::Document, oid::ObjectId},
     Database,
 };
+
+use anyhow::Result;
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -125,12 +127,19 @@ pub fn evaluate_model(
 }
 
 /// Function for calculating model performance
-pub fn model_performance(
+///
+/// Will take in a HashMap of model ids and their
+/// weight in the ensemble model. It will then
+/// calculate their performance on the problem
+/// and will upload it to the database.
+pub async fn model_performance(
     database: Arc<Database>,
     weights: HashMap<ModelID, f64>,
     project_id: ObjectId,
-) {
+) -> Result<()> {
+    let job_performances = database.collection("job_performances");
     let model_num = weights.len() - 1;
+    let mut job_perf_vec: Vec<Document> = Vec::new();
     for (model, weight) in weights.iter() {
         let val = weight * (model_num as f64);
         let perf: f64 = 0.5 * ((2.0 * val).tanh()) + 0.5;
@@ -140,5 +149,15 @@ pub fn model_performance(
             &weight,
             &perf
         );
+        let job_performance = JobPerformance::new(
+            project_id.clone(),
+            ObjectId::with_string(&model).unwrap(),
+            perf,
+        );
+
+        job_perf_vec.push(mongodb::bson::ser::to_document(&job_performance).unwrap());
     }
+    job_performances.insert_many(job_perf_vec, None).await?;
+
+    Ok(())
 }

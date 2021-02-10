@@ -14,3 +14,15 @@ pub struct JobPerformance {
     /// Model Performance
     pub performance: f64,
 }
+
+impl JobPerformance {
+    /// Creates a new instance of [`JobPerformance`].
+    pub fn new(project_id: ObjectId, model_id: ObjectId, performance: f64) -> Self {
+        Self {
+            id: ObjectId::new(),
+            project_id,
+            model_id,
+            performance,
+        }
+    }
+}
