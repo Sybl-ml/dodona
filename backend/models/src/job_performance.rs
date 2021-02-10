@@ -1,5 +1,5 @@
 //! Defines the job performance for a job and model in the `MongoDB` instance.
-use mongodb::bson::{self, doc, oid::ObjectId};
+use mongodb::bson::{doc, oid::ObjectId};
 
 /// Defines the information that should be stored as details for a project
 #[derive(Debug, Serialize, Deserialize)]
