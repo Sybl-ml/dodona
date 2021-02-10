@@ -337,6 +337,8 @@ async fn run_cluster(
     log::info!("Model weights: {:?}", weights);
 
     // TODO: store percentage difference between model weight and number of models for job
+    let database_clone = Arc::clone(&database);
+    ml::model_performance(database_clone, weights, info.project_id.clone());
 
     // TODO: reintegrate predictions with user-supplied test dataset (?)
     let csv: String = predictions.join("\n");
@@ -372,7 +374,6 @@ pub async fn dcl_protcol(
         predict: predict,
     };
 
-    log::info!("DATA SENT TO CLIENT: {:?}", &dataset_message);
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
     // TODO: Propagate this error forward to the frontend so that it can say a node has failed

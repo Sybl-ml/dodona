@@ -1,7 +1,13 @@
 //! Handles Machine Learning and Distributed Consensus for the DCL
 use crate::job_end::{ClusterInfo, ModelID};
+use models::job_performance::JobPerformance;
+use mongodb::{
+    bson::{doc, oid::ObjectId},
+    Database,
+};
 
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 /// Weights the predictions made by models in `model_predictions`
 /// based on their errors in validation examples `model_errors`
@@ -116,4 +122,23 @@ pub fn evaluate_model(
     }
 
     (model_predictions, model_error)
+}
+
+/// Function for calculating model performance
+pub fn model_performance(
+    database: Arc<Database>,
+    weights: HashMap<ModelID, f64>,
+    project_id: ObjectId,
+) {
+    let model_num = weights.len() - 1;
+    for (model, weight) in weights.iter() {
+        let val = weight * (model_num as f64);
+        let perf: f64 = 0.5 * ((2.0 * val).tanh()) + 0.5;
+        log::info!(
+            "Model: {:?}, Weight: {:?}, Performance: {:?}",
+            &model,
+            &weight,
+            &perf
+        );
+    }
 }
