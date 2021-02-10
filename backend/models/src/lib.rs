@@ -6,6 +6,7 @@ extern crate serde;
 pub mod dataset_analysis;
 pub mod dataset_details;
 pub mod datasets;
+pub mod gridfs;
 pub mod job_performance;
 pub mod jobs;
 pub mod models;

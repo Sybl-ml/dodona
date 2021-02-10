@@ -4,6 +4,7 @@ use std::env;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::str::FromStr;
 
+use actix_multipart::Multipart;
 use actix_web::{web, HttpResponse};
 use mongodb::{
     bson::{de::from_document, doc, document::Document, oid::ObjectId, ser::to_document},
@@ -17,6 +18,7 @@ use tokio_stream::StreamExt;
 
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
+use models::gridfs;
 use models::jobs::{Job, JobConfiguration};
 use models::predictions::Prediction;
 use models::projects::{Project, Status};
@@ -166,12 +168,43 @@ pub async fn add_data(
     state: web::Data<State>,
     project_id: web::Path<String>,
     payload: web::Json<payloads::UploadDatasetOptions>,
+    mut dataset: Multipart,
 ) -> ServerResponse {
     let datasets = state.database.collection("datasets");
     let dataset_details = state.database.collection("dataset_details");
     let projects = state.database.collection("projects");
 
+    // let data = clean(doc.get_str("content")?);
+    let data = "";
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
+
+    // Read the dataset from the upload
+    let mut field = dataset
+        .try_next()
+        .await?
+        .ok_or(ServerError::UnprocessableEntity)?;
+
+    let content_disposition = field
+        .content_disposition()
+        .ok_or(ServerError::UnprocessableEntity)?;
+
+    let filename = content_disposition
+        .get_filename()
+        .ok_or(ServerError::UnprocessableEntity)?;
+
+    // Create a new instance of our GridFS files
+    log::info!("Creating a new file with name: {}", filename);
+    let mut file = gridfs::File::new(String::from(filename));
+
+    // Stream the data into it
+    while let Some(Ok(chunk)) = field.next().await {
+        log::debug!("Uploading a chunk of size: {}", chunk.len());
+        file.upload_chunk(&state.database, &chunk).await?;
+    }
+
+    // Finalise the file and upload its data
+    log::debug!("Uploading the file itself");
+    file.finalise(&state.database).await?;
 
     // Check whether the project has data already
     let existing_data = datasets
@@ -185,7 +218,6 @@ pub async fn add_data(
         data.delete(&state.database).await?;
     }
 
-    let data = crypto::clean(&payload.content.trim());
     let analysis = utils::analysis::analyse(&data);
     let (train, predict) = utils::infer_train_and_predict(&data);
     let column_types = analysis.types;
