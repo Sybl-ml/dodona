@@ -3,6 +3,7 @@
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
+use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
@@ -371,21 +372,22 @@ pub async fn dcl_protcol(
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
     // TODO: Propagate this error forward to the frontend so that it can say a node has failed
-    let prediction_message = match ClientMessage::from_stream(&mut dcn_stream, &mut buffer).await {
-        Ok(pm) => pm,
-        Err(error) => {
-            nodepool.update_node(&model_id, false).await?;
-            cluster_control.decrement().await;
+    let prediction_message =
+        match ClientMessage::from_stream(dcn_stream.deref_mut(), &mut buffer).await {
+            Ok(pm) => pm,
+            Err(error) => {
+                nodepool.update_node(&model_id, false).await?;
+                cluster_control.decrement().await;
 
-            log::error!(
-                "(Node {}) Error dealing with node predictions: {}",
-                &model_id,
-                error
-            );
+                log::error!(
+                    "(Node {}) Error dealing with node predictions: {}",
+                    &model_id,
+                    error
+                );
 
-            return Ok(());
-        }
-    };
+                return Ok(());
+            }
+        };
 
     let anonymised_predictions = match prediction_message {
         ClientMessage::Predictions(s) => s,
