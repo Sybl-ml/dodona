@@ -13,7 +13,6 @@ tokio-stream = "0.1"
 utils = { path = "../utils" }
 config = { path = "../config" }
 crypto = { path = "../crypto" }
-messages = { path = "../messages" }
 mongodb = "2.0.0-alpha"
 
 [dev-dependencies]

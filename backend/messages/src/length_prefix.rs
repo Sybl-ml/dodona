@@ -8,14 +8,16 @@ use serde::{de::DeserializeOwned, Serialize};
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 
-use crate::{ClientMessage, InterfaceMessage};
+use crate::ClientMessage;
+
+use models::jobs::Job;
 
 // Implement reading and writing for our 2 message types
 impl ReadLengthPrefix for ClientMessage {}
-impl ReadLengthPrefix for InterfaceMessage {}
+impl ReadLengthPrefix for Job {}
 
 impl WriteLengthPrefix for ClientMessage {}
-impl WriteLengthPrefix for InterfaceMessage {}
+impl WriteLengthPrefix for Job {}
 
 /// Allows any object that is [`DeserializeOwned`] to be deserialized from length prefixed form.
 #[async_trait]
