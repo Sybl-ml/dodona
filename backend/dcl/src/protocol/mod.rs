@@ -8,7 +8,7 @@ use serde::Serialize;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
-use messages::{ClientMessage, RawMessage, ReadLengthPrefix, WriteLengthPrefix};
+use messages::{ClientMessage, RawMessage, ReadLengthPrefix};
 
 #[cfg(test)]
 mod tests;
