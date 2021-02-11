@@ -211,32 +211,98 @@ impl NodePool {
         config: ClientMessage,
     ) -> Option<HashMap<String, Arc<RwLock<TcpStream>>>> {
         let nodes_read = self.nodes.read().await;
-        let mut accepted_job: Vec<String> = Vec::new();
+        let mut accepted_job: Vec<(String, f64)> = Vec::new();
+        let mut better_nodes: Vec<(String, f64)> = Vec::new();
         let mut info_write = self.info.write().await;
 
+        // Ask all alive and free nodes if they want the job
+        // If they do, their ID is added to accepted_job
         for (id, info) in info_write.iter_mut() {
             if info.alive && !info.using {
                 info.using = true;
                 let stream = nodes_read.get(id).unwrap().get_tcp();
+
                 if NodePool::job_accepted(stream.clone(), config.clone(), id.clone()).await {
-                    accepted_job.push(id.clone());
+                    accepted_job.push((id.clone(), info.performance));
+
+                    if info.performance > 0.5 {
+                        better_nodes.push((id.clone(), info.performance));
+                    }
                 }
             }
         }
 
+        // Buidling actual cluster
         let mut cluster: HashMap<String, Arc<RwLock<TcpStream>>> = HashMap::new();
+        let mut cluster_performance: f64 = 0.0;
 
+        // Build cluster of size
         while cluster.len() < size {
-            // If cluster average performance is < 0.5 and good_models.len() > 0, get good model
-            // Else, take random model
+            // Choose a node which has accepted job
+            let (chosen_node, performance) = NodePool::choose_random_node(
+                &mut accepted_job,
+                &mut better_nodes,
+                cluster_performance,
+            );
+
+            // Get the node stream
+            let stream = nodes_read.get(&chosen_node).unwrap().get_tcp();
+
+            // Add node id with stream to cluster
+            cluster.insert(chosen_node.clone(), stream);
+            cluster_performance = (cluster_performance + performance) / cluster.len() as f64;
 
             // If accepted_job.len() == 0, output cluster
+            if accepted_job.len() == 0 {
+                break;
+            }
         }
+
+        log::info!(
+            "\nBuilt Cluster: {:?}\nAverage Performance: {}\n",
+            &cluster,
+            &cluster_performance
+        );
 
         // output cluster
         match cluster.len() {
             0 => None,
             _ => Some(cluster),
+        }
+    }
+
+    /// Returns random model id from list
+    ///
+    /// Function is given a list of nodes which are prepared to do
+    /// Job. This will randomly choose one of them, remove them from the
+    /// list and will return its ID, along with its performance level.
+    pub fn choose_random_node(
+        nodes: &mut Vec<(String, f64)>,
+        better_nodes: &mut Vec<(String, f64)>,
+        cluster_performance: f64,
+    ) -> (String, f64) {
+        let index = (rand::random::<f32>() * nodes.len() as f32).floor() as usize;
+        if cluster_performance == 0.0 || cluster_performance > 0.5 || better_nodes.len() == 0 {
+            let value = nodes.remove(index);
+
+            // Remove from better nodes if exists
+            better_nodes.retain(|item| match value == *item {
+                true => false,
+                _ => true,
+            });
+
+            return value;
+        } else {
+            // Get node which has performance of 0.5 or better
+            let value = better_nodes.remove(index);
+
+            // Remove from nodes
+            nodes.retain(|item| match value == *item {
+                true => false,
+                _ => true,
+            });
+
+            return value;
         }
     }
 
