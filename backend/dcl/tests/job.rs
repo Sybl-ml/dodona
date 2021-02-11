@@ -4,10 +4,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use float_cmp::approx_eq;
+use futures::stream::StreamExt;
 use mongodb::bson::{doc, oid::ObjectId};
 
 use dcl::job_end::finance::Pricing;
-use dcl::job_end::ml::{evaluate_model, weight_predictions};
+use dcl::job_end::ml::{evaluate_model, model_performance, weight_predictions};
 use dcl::job_end::{ClusterInfo, ModelID, WriteBackMemory};
 use messages::ClientMessage;
 use models::users::User;
@@ -180,7 +181,7 @@ fn test_weight_predictions() {
 
 #[tokio::test]
 async fn test_reimbuse_client() {
-    let (database, _) = common::initialise_with_db().await;
+    let (database, _) = common::initialise_with_db().await.unwrap();
     let database = Arc::new(database);
     let pricing = Pricing::new(10.0, 0.1);
     let weight = 10.0;
@@ -204,4 +205,59 @@ async fn test_reimbuse_client() {
         * 100.0) as i32;
 
     assert_eq!(user.credits, amount);
+}
+
+#[tokio::test]
+async fn test_model_performance() {
+    let (database, _) = common::initialise_with_db().await.unwrap();
+
+    let model_weights: HashMap<ModelID, f64> = [
+        (String::from(common::MODEL1_ID), 0.45),
+        (String::from(common::MODEL2_ID), 0.55),
+    ]
+    .iter()
+    .cloned()
+    .collect();
+
+    let database = Arc::new(database);
+    let proj_id = ObjectId::with_string(common::PROJECT_ID).unwrap();
+
+    model_performance(Arc::clone(&database), model_weights.clone(), &proj_id)
+        .await
+        .unwrap();
+
+    // working out what they should be
+    let mut job_perf_vec: Vec<f64> = Vec::new();
+    for (_, weight) in model_weights.iter() {
+        let val = (weight * (model_weights.len()) as f64) - 1.0;
+        let perf: f64 = 0.5 * ((2.0 * val).tanh()) + 0.5;
+
+        job_perf_vec.push(perf);
+    }
+
+    let job_perfs = database.collection("job_performances");
+    let filter = doc! {"project_id": ObjectId::with_string(common::PROJECT_ID).unwrap()};
+    let mut cursor = job_perfs.find(filter, None).await.unwrap();
+
+    let mut db_vec: Vec<f64> = Vec::new();
+    while let Some(doc) = cursor.next().await {
+        db_vec.push(doc.unwrap().get_f64("performance").unwrap());
+    }
+
+    for res in job_perf_vec.iter() {
+        let mut flag: bool = false;
+        for val in db_vec.iter() {
+            if approx_eq!(f64, *res, *val, ulps = 2) {
+                flag = true;
+            }
+        }
+        assert!(flag);
+    }
+
+    assert!(approx_eq!(
+        f64,
+        job_perf_vec.iter().sum(),
+        db_vec.iter().sum(),
+        ulps = 2
+    ));
 }
