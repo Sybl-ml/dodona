@@ -1,6 +1,7 @@
 //! Defines the structure of jobs in the `MongoDB` instance.
 
-use mongodb::bson::oid::ObjectId;
+use chrono::Utc;
+use mongodb::bson::{self, oid::ObjectId};
 
 /// Parameters required for configuring a job.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -23,6 +24,8 @@ pub struct Job {
     pub config: JobConfiguration,
     /// Whether the job has been processed by the interface or not
     pub processed: bool,
+    /// The timestamp at which the [`Job`] was created
+    pub date_created: bson::DateTime,
 }
 
 impl Job {
@@ -32,6 +35,7 @@ impl Job {
             id: ObjectId::new(),
             config,
             processed: false,
+            date_created: bson::DateTime(Utc::now()),
         }
     }
 }
