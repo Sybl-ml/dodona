@@ -281,8 +281,8 @@ impl NodePool {
         better_nodes: &mut Vec<(String, f64)>,
         cluster_performance: f64,
     ) -> (String, f64) {
-        let index = (rand::random::<f32>() * nodes.len() as f32).floor() as usize;
         if cluster_performance == 0.0 || cluster_performance > 0.5 || better_nodes.len() == 0 {
+            let index = (rand::random::<f32>() * nodes.len() as f32).floor() as usize;
             let value = nodes.remove(index);
 
             // Remove from better nodes if exists
@@ -293,6 +293,7 @@ impl NodePool {
 
             return value;
         } else {
+            let index = (rand::random::<f32>() * better_nodes.len() as f32).floor() as usize;
             // Get node which has performance of 0.5 or better
             let value = better_nodes.remove(index);
 
@@ -342,11 +343,11 @@ impl NodePool {
         Ok(())
     }
 
-    /// Updates a [`NodeInfo`] object
+    /// Updates a [`NodeInfo`] object about its status
     ///
     /// Gets the correct [`NodeInfo`] struct and updates its alive field by inverting what it
     /// currently is.
-    pub async fn update_node(&self, id: &str, status: bool) -> Result<()> {
+    pub async fn update_node_alive(&self, id: &str, status: bool) -> Result<()> {
         let mut info_write = self.info.write().await;
         let node_info = info_write.get_mut(id).unwrap();
 
@@ -364,6 +365,21 @@ impl NodePool {
         let node_info = info_read.get(id).unwrap();
 
         node_info.using
+    }
+
+    /// Updates a [`NodeInfo`] object
+    ///
+    /// Gets the correct [`NodeInfo`] struct and updates its average performance.
+    /// New performance has the greatest impact on the stored model performance
+    /// meaning recent performance has a significant bearing on current appearance,
+    /// while retaining historical performance.
+    pub async fn update_node_performance(&self, id: &str, performance: f64) -> Result<()> {
+        let mut info_write = self.info.write().await;
+        let node_info = info_write.get_mut(id).unwrap();
+
+        node_info.performance = (performance + node_info.performance) / 2.0;
+
+        Ok(())
     }
 }
 

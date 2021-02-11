@@ -222,7 +222,7 @@ async fn test_model_performance() {
     let database = Arc::new(database);
     let proj_id = ObjectId::with_string(common::PROJECT_ID).unwrap();
 
-    model_performance(Arc::clone(&database), model_weights.clone(), &proj_id)
+    model_performance(Arc::clone(&database), model_weights.clone(), &proj_id, None)
         .await
         .unwrap();
 
