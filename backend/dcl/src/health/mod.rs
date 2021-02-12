@@ -6,6 +6,10 @@
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
+use mongodb::{
+    bson::{doc, oid::ObjectId},
+    Database,
+};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::RwLock;
@@ -15,18 +19,19 @@ use anyhow::Result;
 
 use crate::node_end::NodePool;
 use messages::{ClientMessage, WriteLengthPrefix};
+use models::models::Status;
 
 /// Runner for health checking
 ///
 /// Runs the health checking framework to go through each node that is not currently being used and
 /// makes sure it is still alive. This will be run every <delay> seconds.
-pub async fn health_runner(nodepool: Arc<NodePool>, delay: u64) {
+pub async fn health_runner(database: Arc<Database>, nodepool: Arc<NodePool>, delay: u64) {
     log::info!("Health Checking Running");
     let mut interval = tokio::time::interval(Duration::from_secs(delay));
 
     loop {
         let np = Arc::clone(&nodepool);
-        let total = check_health(np).await.unwrap();
+        let total = check_health(Arc::clone(&database), np).await.unwrap();
 
         if total > 0 {
             log::info!("Checked {} nodes", total);
@@ -40,7 +45,7 @@ pub async fn health_runner(nodepool: Arc<NodePool>, delay: u64) {
 ///
 /// Loops through all nodes and checks to see if they are alive.  This information is saved [`in`]
 /// [`NodeInfo`].
-pub async fn check_health(nodepool: Arc<NodePool>) -> Result<u8> {
+pub async fn check_health(database: Arc<Database>, nodepool: Arc<NodePool>) -> Result<u8> {
     let mut nodes = nodepool.nodes.write().await;
     let mut clean_list: Vec<String> = Vec::new();
     let mut total: u8 = 0;
@@ -56,6 +61,13 @@ pub async fn check_health(nodepool: Arc<NodePool>) -> Result<u8> {
 
                 if node.get_counter().await == 10 {
                     log::info!("(Node {}) Removing", node.get_model_id());
+
+                    change_model_status(
+                        Arc::clone(&database),
+                        node.get_model_id(),
+                        Status::Stopped,
+                    )
+                    .await?;
 
                     clean_list.push(id.clone());
                 }
@@ -99,6 +111,20 @@ pub async fn heartbeat(stream_lock: Arc<RwLock<TcpStream>>) -> bool {
     let future = stream.read(&mut buffer);
 
     timeout(wait, future).await.is_ok()
+}
+
+///
+pub async fn change_model_status(
+    database: Arc<Database>,
+    model_id: &str,
+    status: Status,
+) -> Result<()> {
+    let models = database.collection("model");
+
+    let query = doc! {"_id": ObjectId::with_string(model_id).unwrap()};
+    let update = doc! {"$set": {"status": status}};
+    models.update_one(query, update, None).await?;
+    Ok(())
 }
 
 #[cfg(test)]

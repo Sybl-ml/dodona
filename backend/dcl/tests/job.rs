@@ -90,7 +90,7 @@ fn test_evaluate_model() {
     let test_predictions: HashMap<usize, String> = HashMap::from_iter(test.into_iter());
 
     let info = ClusterInfo {
-        id: ObjectId::with_string(common::USER_ID).unwrap(),
+        project_id: ObjectId::with_string(common::USER_ID).unwrap(),
         columns: HashMap::new(),
         config: ClientMessage::Alive { timestamp: 0 },
         validation_ans: validation_ans,
@@ -148,7 +148,7 @@ fn test_weight_predictions() {
     let prediction_rids: HashMap<(ModelID, String), usize> = HashMap::from_iter(rids);
 
     let info = ClusterInfo {
-        id: ObjectId::with_string(common::USER_ID).unwrap(),
+        project_id: ObjectId::with_string(common::USER_ID).unwrap(),
         columns: HashMap::new(),
         config: ClientMessage::Alive { timestamp: 0 },
         validation_ans: validation_ans,
