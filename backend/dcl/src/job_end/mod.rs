@@ -180,7 +180,7 @@ pub async fn run(
         let mut prediction_rids: HashMap<(ModelID, String), usize> = HashMap::new();
 
         loop {
-            if let Some(cluster) = nodepool.get_cluster(CLUSTER_SIZE, config.clone()).await {
+            if let Some(cluster) = nodepool.build_cluster(CLUSTER_SIZE, config.clone()).await {
                 log::info!("Created Cluster");
 
                 for (key, _) in &cluster {
@@ -340,7 +340,13 @@ async fn run_cluster(
 
     // TODO: store percentage difference between model weight and number of models for job
     let database_clone = Arc::clone(&database);
-    ml::model_performance(database_clone, weights, &info.project_id).await?;
+    ml::model_performance(
+        database_clone,
+        weights,
+        &info.project_id,
+        Some(Arc::clone(&nodepool)),
+    )
+    .await?;
 
     // TODO: reintegrate predictions with user-supplied test dataset (?)
     let csv: String = predictions.join("\n");
@@ -383,7 +389,7 @@ pub async fn dcl_protcol(
         match ClientMessage::from_stream(dcn_stream.deref_mut(), &mut buffer).await {
             Ok(pm) => pm,
             Err(error) => {
-                nodepool.update_node(&model_id, false).await?;
+                nodepool.update_node_alive(&model_id, false).await;
                 cluster_control.decrement().await;
 
                 log::error!(

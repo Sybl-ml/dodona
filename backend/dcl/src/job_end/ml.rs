@@ -11,6 +11,8 @@ use anyhow::Result;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use crate::node_end::NodePool;
+
 /// Weights the predictions made by models in `model_predictions`
 /// based on their errors in validation examples `model_errors`
 pub fn weight_predictions(
@@ -136,6 +138,7 @@ pub async fn model_performance(
     database: Arc<Database>,
     weights: HashMap<ModelID, f64>,
     project_id: &ObjectId,
+    nodepool: Option<Arc<NodePool>>,
 ) -> Result<()> {
     let job_performances = database.collection("job_performances");
     let model_num = weights.len();
@@ -154,6 +157,10 @@ pub async fn model_performance(
             ObjectId::with_string(&model).unwrap(),
             perf,
         );
+
+        if let Some(np) = &nodepool {
+            np.update_node_performance(&model, perf).await;
+        }
 
         job_perf_vec.push(mongodb::bson::ser::to_document(&job_performance).unwrap());
     }
