@@ -307,13 +307,11 @@ impl NodePool {
     ///
     /// Gets the correct [`NodeInfo`] struct and updates its alive field by inverting what it
     /// currently is.
-    pub async fn update_node_alive(&self, id: &str, status: bool) -> Result<()> {
+    pub async fn update_node_alive(&self, id: &str, status: bool) {
         let mut info_write = self.info.write().await;
         let node_info = info_write.get_mut(id).unwrap();
 
         node_info.alive = status;
-
-        Ok(())
     }
 
     /// Checks if a node is being used
@@ -333,7 +331,7 @@ impl NodePool {
     /// New performance has the greatest impact on the stored model performance
     /// meaning recent performance has a significant bearing on current appearance,
     /// while retaining historical performance.
-    pub async fn update_node_performance(&self, id: &str, performance: f64) -> Result<()> {
+    pub async fn update_node_performance(&self, id: &str, performance: f64) {
         let mut info_write = self.info.write().await;
         let node_info = info_write.get_mut(id).unwrap();
 
@@ -342,8 +340,6 @@ impl NodePool {
         } else {
             node_info.performance = (performance + node_info.performance) / 2.0;
         }
-
-        Ok(())
     }
 }
 

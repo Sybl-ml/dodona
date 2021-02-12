@@ -181,7 +181,7 @@ fn test_weight_predictions() {
 
 #[tokio::test]
 async fn test_reimbuse_client() {
-    let (database, _) = common::initialise_with_db().await.unwrap();
+    let (database, _) = common::initialise_with_db().await;
     let database = Arc::new(database);
     let pricing = Pricing::new(10.0, 0.1);
     let weight = 10.0;
@@ -209,7 +209,7 @@ async fn test_reimbuse_client() {
 
 #[tokio::test]
 async fn test_model_performance() {
-    let (database, _) = common::initialise_with_db().await.unwrap();
+    let (database, _) = common::initialise_with_db().await;
 
     let model_weights: HashMap<ModelID, f64> = [
         (String::from(common::MODEL1_ID), 0.45),

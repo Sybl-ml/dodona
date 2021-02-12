@@ -14,7 +14,7 @@ mod common;
 #[tokio::test]
 async fn test_interface_end() {
     // Create user/project/dataset in database.
-    let (database, params) = common::initialise_with_db().await.unwrap();
+    let (database, params) = common::initialise_with_db().await;
 
     let database = Arc::new(database);
     let is_clone = params.interface_socket.clone();

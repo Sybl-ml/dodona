@@ -42,18 +42,18 @@ pub fn initialise() -> Params {
     }
 }
 
-pub async fn initialise_with_db() -> Option<(Database, Params)> {
+pub async fn initialise_with_db() -> (Database, Params) {
     // Acquire the mutex
-    let lock = MUTEX.lock().await;
+    let mut lock = MUTEX.lock().await;
+
+    let params = initialise();
+    let client = mongodb::Client::with_uri_str(&params.conn_str)
+        .await
+        .unwrap();
+    let database = client.database("sybl");
 
     // Check whether this is the first time being run
     if *lock {
-        let params = initialise();
-        let client = mongodb::Client::with_uri_str(&params.conn_str)
-            .await
-            .unwrap();
-        let database = client.database("sybl");
-
         let collection_names = database.list_collection_names(None).await.unwrap();
 
         // Delete all records currently in the database
@@ -132,7 +132,9 @@ pub async fn initialise_with_db() -> Option<(Database, Params)> {
             )
             .await
             .unwrap();
-        return Some((database, params));
+
+        // Update the lock
+        *lock = false;
     }
-    None
+    return (database, params);
 }

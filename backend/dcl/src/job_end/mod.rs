@@ -385,7 +385,7 @@ pub async fn dcl_protcol(
         match ClientMessage::from_stream(dcn_stream.deref_mut(), &mut buffer).await {
             Ok(pm) => pm,
             Err(error) => {
-                nodepool.update_node_alive(&model_id, false).await?;
+                nodepool.update_node_alive(&model_id, false).await;
                 cluster_control.decrement().await;
 
                 log::error!(

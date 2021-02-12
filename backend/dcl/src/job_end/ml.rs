@@ -159,7 +159,7 @@ pub async fn model_performance(
         );
 
         if let Some(np) = &nodepool {
-            np.update_node_performance(&model, perf).await?;
+            np.update_node_performance(&model, perf).await;
         }
 
         job_perf_vec.push(mongodb::bson::ser::to_document(&job_performance).unwrap());
