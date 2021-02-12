@@ -53,7 +53,6 @@ async fn process_connection(
 ) -> Result<()> {
     let mut buffer = [0_u8; 4096];
     let (object_id, timeout, column_types, prediction_column, prediction_type) =
-
         match InterfaceMessage::from_stream(&mut stream, &mut buffer).await? {
             InterfaceMessage::Config {
                 id,
