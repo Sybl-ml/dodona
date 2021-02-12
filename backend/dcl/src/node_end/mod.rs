@@ -169,41 +169,6 @@ impl NodePool {
     /// It is given a cluster size and searches the nodepool for available clusters and builds the
     /// cluster as a hashmap.  When the size is reached, the cluster is output. If it is empty then
     /// the None Option is returned. If it has nodes in it, but less than the size of the cluster,
-    /// it is still returned.
-    pub async fn get_cluster(
-        &self,
-        size: usize,
-        config: ClientMessage,
-    ) -> Option<HashMap<String, Arc<RwLock<TcpStream>>>> {
-        let nodes_read = self.nodes.read().await;
-        let mut cluster: HashMap<String, Arc<RwLock<TcpStream>>> = HashMap::new();
-        let mut info_write = self.info.write().await;
-
-        for (key, info) in info_write.iter_mut() {
-            if info.alive && !info.using {
-                info.using = true;
-                let stream = nodes_read.get(key).unwrap().get_tcp();
-                if NodePool::job_accepted(stream.clone(), config.clone(), key.clone()).await {
-                    cluster.insert(key.clone(), stream);
-                }
-
-                if cluster.len() == size {
-                    return Some(cluster);
-                }
-            }
-        }
-
-        match cluster.len() {
-            0 => None,
-            _ => Some(cluster),
-        }
-    }
-
-    /// Creates a cluster of `size` nodes to use
-    ///
-    /// It is given a cluster size and searches the nodepool for available clusters and builds the
-    /// cluster as a hashmap.  When the size is reached, the cluster is output. If it is empty then
-    /// the None Option is returned. If it has nodes in it, but less than the size of the cluster,
     /// it is still returned. This also uses the performance metric to build well performing clusters.
     pub async fn build_cluster(
         &self,
