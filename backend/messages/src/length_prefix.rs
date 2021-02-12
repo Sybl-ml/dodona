@@ -6,7 +6,6 @@ use anyhow::Result;
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::io::AsyncReadExt;
-use tokio::net::TcpStream;
 
 use crate::{ClientMessage, InterfaceMessage};
 
@@ -21,7 +20,10 @@ impl WriteLengthPrefix for InterfaceMessage {}
 #[async_trait]
 pub trait ReadLengthPrefix: DeserializeOwned {
     /// Reads a [`Message`] from a raw stream of bytes, dealing with length prefixing.
-    async fn from_stream<'a>(stream: &mut TcpStream, mut buffer: &mut [u8]) -> Result<Self> {
+    async fn from_stream<R: AsyncReadExt + Send + Unpin>(
+        stream: &mut R,
+        mut buffer: &mut [u8],
+    ) -> Result<Self> {
         log::info!("Reading a message");
 
         // Read the size of the message

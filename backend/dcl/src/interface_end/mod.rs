@@ -53,6 +53,7 @@ async fn process_connection(
 ) -> Result<()> {
     let mut buffer = [0_u8; 4096];
     let (object_id, timeout, column_types, prediction_column, prediction_type) =
+
         match InterfaceMessage::from_stream(&mut stream, &mut buffer).await? {
             InterfaceMessage::Config {
                 id,
@@ -70,13 +71,13 @@ async fn process_connection(
         };
 
     log::info!("Received a message from the interface:");
-    log::debug!("\tIdentifier: {}", object_id);
+    log::debug!("\tDataset Identifier: {}", dataset_id);
     log::debug!("\tTimeout: {}", timeout);
     log::debug!("\tColumn types: {:?}", column_types);
 
     let datasets = db_conn.collection("datasets");
 
-    let filter = doc! { "_id": object_id };
+    let filter = doc! { "_id": dataset_id };
     log::debug!("Finding datasets with filter: {:?}", &filter);
 
     let doc = datasets

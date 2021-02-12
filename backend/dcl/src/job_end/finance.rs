@@ -7,8 +7,6 @@ use mongodb::{
     Database,
 };
 
-use models::users::User;
-
 /// Pricing struct to contain information about
 /// the pricing of a job
 #[derive(Debug, Clone, Copy)]
@@ -41,15 +39,9 @@ impl Pricing {
             (((self.revenue - (self.revenue * self.commision_rate)) * weight) * 100.0) as i32;
         let users = database.collection("users");
 
-        let filter = doc! { "_id": &user_id };
-        let user_doc = users.find_one(filter.clone(), None).await?.unwrap();
-
-        let mut user: User = mongodb::bson::de::from_document(user_doc)?;
-
-        user.credits += amount;
-
-        let document = mongodb::bson::ser::to_document(&user)?;
-        users.update_one(filter, document, None).await?;
+        let query = doc! { "_id": &user_id };
+        let update = doc! {"$inc": {"credits": amount}};
+        users.update_one(query, update, None).await?;
 
         Ok(())
     }
