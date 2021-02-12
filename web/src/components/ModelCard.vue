@@ -76,6 +76,12 @@
             </b-card>
             <b-card class="shadow" v-else>
                 <b-card-text>Number of Uses: {{data.times_run}}</b-card-text>
+                <model-performance
+                v-for="(m, index) in performance"
+                :key="index"
+                :data="m"
+                :i="index"
+                />
             </b-card>
         </b-collapse>
     </b-row>
@@ -91,12 +97,13 @@
 <script>
 export default {
     name: "ModelCard",
-    props: {
+    props: { 
         data: Object,
         i: Number,
     },
     data() {
         return {
+            performance: [],
             password: "",
         }
     },
@@ -106,6 +113,7 @@ export default {
                 `http://localhost:3001/api/clients/m/performance`, {id: this.data._id.$oid}
             );
             console.log(data.data);
+            performance = data.data;
 
         } catch (err) {
             console.log(err);
