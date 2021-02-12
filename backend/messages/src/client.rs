@@ -1,6 +1,6 @@
 //! Contains the builder functions used to generate message for DCL-DCN protcol
 
-use crate::PredictionType;
+use models::jobs::PredictionType;
 
 /// Different messages to be passed between DCL and DCN
 #[derive(Debug, Serialize, Deserialize, Clone)]

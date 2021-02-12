@@ -13,8 +13,9 @@ use tokio::sync::mpsc::Sender;
 use utils::compress::decompress_data;
 
 use crate::DatasetPair;
-use messages::{ClientMessage, InterfaceMessage, ReadLengthPrefix};
+use messages::{ClientMessage, ReadLengthPrefix};
 use models::datasets::Dataset;
+use models::jobs::{Job, JobConfiguration};
 
 /// Starts up interface server
 ///
@@ -52,22 +53,16 @@ async fn process_connection(
     tx: Sender<(ObjectId, DatasetPair, ClientMessage)>,
 ) -> Result<()> {
     let mut buffer = [0_u8; 4096];
-    let (dataset_id, timeout, column_types, prediction_column, prediction_type) =
-        match InterfaceMessage::from_stream(&mut stream, &mut buffer).await? {
-            InterfaceMessage::Config {
-                id,
-                timeout,
-                column_types,
-                prediction_column,
-                prediction_type,
-            } => (
-                id,
-                timeout,
-                column_types,
-                prediction_column,
-                prediction_type,
-            ),
-        };
+
+    let job = Job::from_stream(&mut stream, &mut buffer).await?;
+
+    let JobConfiguration {
+        dataset_id,
+        timeout,
+        column_types,
+        prediction_column,
+        prediction_type,
+    } = job.config;
 
     log::info!("Received a message from the interface:");
     log::debug!("\tDataset Identifier: {}", dataset_id);

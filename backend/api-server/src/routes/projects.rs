@@ -19,10 +19,10 @@ use crate::dodona_error::DodonaError;
 use crate::routes::{check_user_owns_project, response_from_json};
 use crate::AppState;
 use crypto::clean;
-use messages::{InterfaceMessage, PredictionType, WriteLengthPrefix};
+use messages::WriteLengthPrefix;
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
-use models::jobs::Job;
+use models::jobs::{Job, JobConfiguration, PredictionType};
 use models::predictions::Prediction;
 use models::projects::{Project, Status};
 use utils::compress::{compress_vec, decompress_data};
@@ -395,17 +395,20 @@ pub async fn begin_processing(
         .collect();
 
     // Send a request to the interface layer
-    let config = InterfaceMessage::Config {
-        id: dataset.id.clone(),
+    let config = JobConfiguration {
+        dataset_id: dataset.id.clone(),
         timeout,
         column_types,
         prediction_column: doc.prediction_column.clone(),
         prediction_type,
     };
+    let job = Job::new(config);
 
-    if forward_to_interface(&config).await.is_err() {
-        log::warn!("Failed to forward: {:?}", config);
-        insert_to_queue(&config, database.collection("jobs")).await?;
+    // Insert to MongoDB first, so the interface can immediately mark as processed if needed
+    insert_to_queue(&job, database.collection("jobs")).await?;
+
+    if forward_to_interface(&job).await.is_err() {
+        log::warn!("Failed to forward: {:?}", job);
     }
 
     // Mark the project as processing
@@ -455,8 +458,8 @@ pub async fn get_predictions(
     response_from_json(doc! {"predictions": decompressed})
 }
 
-async fn forward_to_interface(msg: &InterfaceMessage) -> tokio::io::Result<()> {
-    log::debug!("Forwarding an message to the interface: {:?}", msg);
+async fn forward_to_interface(job: &Job) -> tokio::io::Result<()> {
+    log::debug!("Forwarding a message to the interface: {:?}", job);
 
     // Get the environment variable for the interface listener
     let var = env::var("INTERFACE_LISTEN").expect("INTERFACE_LISTEN must be set");
@@ -468,26 +471,23 @@ async fn forward_to_interface(msg: &InterfaceMessage) -> tokio::io::Result<()> {
 
     log::info!("Connected to: {}", addr);
 
-    stream.write(&msg.as_bytes()).await?;
+    stream.write(&job.as_bytes()).await?;
 
-    log::info!("Forwarded a message to the interface: {:?}", msg);
+    log::info!("Forwarded a message to the interface: {:?}", job);
 
     Ok(())
 }
 
-async fn insert_to_queue(
-    msg: &InterfaceMessage,
-    collection: Collection,
-) -> mongodb::error::Result<()> {
-    log::debug!("Inserting {:?} to the MongoDB interface queue", msg);
+/// Inserts an [`JobConfiguration`] into MongoDB and returns the ID of the job.
+async fn insert_to_queue(job: &Job, collection: Collection) -> mongodb::error::Result<()> {
+    log::debug!("Inserting {:?} to the MongoDB interface queue", job);
 
-    let job = Job::new(msg.clone());
     let document = mongodb::bson::ser::to_document(&job)?;
 
     if collection.insert_one(document, None).await.is_ok() {
-        log::info!("Inserted {:?} to the MongoDB queue", msg);
+        log::info!("Inserted {:?} to the MongoDB queue", job);
     } else {
-        log::error!("Failed to insert {:?} to the MongoDB queue", msg);
+        log::error!("Failed to insert {:?} to the MongoDB queue", job);
     }
 
     Ok(())

@@ -1,11 +1,7 @@
-//! Defines a message that can be sent without length prefixing, generally for raw JSON.
+//! Defines a message that can be sent without the struct name, generally for raw JSON.
 
-use serde::Serialize;
-
-use crate::WriteLengthPrefix;
-
-/// Defines a message that will not be length prefixed when being sent.
-#[derive(Serialize, Debug)]
+/// Defines a message that will not serialize the struct name into the result.
+#[derive(Debug)]
 pub struct RawMessage {
     content: String,
 }
@@ -15,10 +11,9 @@ impl RawMessage {
     pub fn new(content: String) -> Self {
         Self { content }
     }
-}
 
-impl WriteLengthPrefix for RawMessage {
-    fn as_bytes(&self) -> Vec<u8> {
+    /// Converts the inner content to bytes.
+    pub fn as_bytes(&self) -> Vec<u8> {
         log::info!("Writing a message");
 
         // Convert the message to bytes
