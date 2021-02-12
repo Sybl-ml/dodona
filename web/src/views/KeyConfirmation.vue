@@ -17,10 +17,7 @@
               <code class="rsaDisplay">{{ private_key }}</code>
             </b-col>
             <b-col style="text-align: right" md="2">
-              <b-button
-                variant="primary"
-                style="background: #fbb000; border: none; margin: 0; padding: 0;"
-              >
+              <b-button variant="body">
                 <b-icon-clipboard-plus
                   @click="copy(private_key)"
                 ></b-icon-clipboard-plus>
