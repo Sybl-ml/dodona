@@ -377,7 +377,11 @@ impl NodePool {
         let mut info_write = self.info.write().await;
         let node_info = info_write.get_mut(id).unwrap();
 
-        node_info.performance = (performance + node_info.performance) / 2.0;
+        if node_info.performance == 0.0 {
+            node_info.performance = performance
+        } else {
+            node_info.performance = (performance + node_info.performance) / 2.0;
+        }
 
         Ok(())
     }
