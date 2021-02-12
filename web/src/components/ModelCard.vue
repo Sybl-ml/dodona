@@ -77,10 +77,9 @@
             <b-card class="shadow" v-else>
                 <b-card-text>Number of Uses: {{data.times_run}}</b-card-text>
                 <model-performance
-                v-for="(m, index) in performance"
-                :key="index"
-                :data="m"
-                :i="index"
+                v-for="data in test_performance"
+                :key="data.performance"
+                :data="data.performance"
                 />
             </b-card>
         </b-collapse>
@@ -95,6 +94,8 @@
 </style>
 
 <script>
+import ModelPerformance from "@/components/ModelPerformance";
+
 export default {
     name: "ModelCard",
     props: { 
@@ -103,9 +104,13 @@ export default {
     },
     data() {
         return {
+            test_performance: [{"performance": 0.5}, {"performance": 0.4}],
             performance: [],
             password: "",
         }
+    },
+    components: {
+        ModelPerformance,
     },
     async mounted(){
         try {
@@ -114,6 +119,7 @@ export default {
             );
             console.log(data.data);
             performance = data.data;
+            console.log(performance)
 
         } catch (err) {
             console.log(err);

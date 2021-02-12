@@ -1,7 +1,7 @@
 <template>
 <b-container fluid>
     <b-row class="justify-content-center">
-        FUCCKKKKKK
+        {{data}}
     </b-row>
 </b-container>
 </template>
@@ -16,11 +16,7 @@
 export default {
     name: "ModelPerformance",
     props: {
-        data: Object,
-        i: Number,
-    },
-    mounted (){
-        console.log(data)
+        data: Number,
     },
     computed: {
         status_variant() {
