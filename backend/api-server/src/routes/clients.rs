@@ -323,12 +323,11 @@ pub async fn get_model_performance(
 
     let cursor = job_performances.find(filter, None).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.take(5).collect().await;
-    let mut documents: Vec<Document> = documents?;
-    for document in documents.iter_mut() {
-        document.remove("project_id");
-        document.remove("_id");
-        document.remove("model_id");
+    let documents: Vec<Document> = documents?;
+    let mut performances: Vec<f64> = Vec::new();
+    for document in documents.iter() {
+        performances.push(document.get_f64("performance").unwrap());
     }
 
-    response_from_json(documents)
+    response_from_json(performances)
 }

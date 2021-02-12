@@ -77,9 +77,7 @@
             <b-card class="shadow" v-else>
                 <b-card-text>Number of Uses: {{data.times_run}}</b-card-text>
                 <model-performance
-                v-for="data in performance"
-                :key="data.performance"
-                :data="data.performance"
+                :data=performance
                 />
             </b-card>
         </b-collapse>

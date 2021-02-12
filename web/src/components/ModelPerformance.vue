@@ -1,7 +1,9 @@
 <template>
 <b-container fluid>
     <b-row class="justify-content-center">
-        {{data}}
+        Model Performance: {{this.data}}
+        <line-chart :chartdata="chartdata" :options="options"/>
+
     </b-row>
 </b-container>
 </template>
@@ -13,24 +15,49 @@
 </style>
 
 <script>
+import LineChart from '@/components/charts/LineChart.vue'
+
 export default {
     name: "ModelPerformance",
     props: {
-        data: Number,
+        data: Array,
     },
-    computed: {
-        status_variant() {
-          console.log(this.data._id.$oid)
-            if (this.data.status === "NotStarted") {
-                return "primary";
-            } else if (this.data.status === "Running") {
-                return "completed";
-            } else if (this.data.status === "Stopped") {
-                return "warning";
-            } else {
-                return "secondary";
+    data() {
+        return {
+            performance: [],
+            password: "",
+            chartdata: {
+                labels: [1, 2, 3, 4, 5],
+                datasets: [{
+                            label: 'Performance',
+                            backgroundColor: '#f87979',
+                            data: []
+                        }
+                    ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
             }
-        },
+        }
     },
+    components: {
+      LineChart
+    },
+    mounted() {
+
+        this.chartdata = {
+            labels: [1, 2, 3, 4, 5],
+            datasets:[{
+                            label: 'Performance',
+                            backgroundColor: '#f87979',
+                            data: this.data
+
+                        }
+                    ] 
+        }
+
+    }
+
 };
 </script>
