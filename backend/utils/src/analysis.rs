@@ -120,9 +120,8 @@ pub fn analyse_project(dataset: &str, column_data: Vec<(String, String)>) {
         match tracker.columns.get_mut(header).unwrap() {
             ColumnAnalysis::Numerical(content) => {
                 content.avg = content.sum as f64 / dataset_length as f64;
-                0
             }
-            _ => 0,
+            _ => {}
         };
     });
 
