@@ -260,10 +260,7 @@ impl NodePool {
             let value = better_nodes.remove(index);
 
             // Remove from nodes
-            nodes.retain(|item| match value == *item {
-                true => false,
-                _ => true,
-            });
+            nodes.retain(|item| value != *item);
 
             return value;
         }
