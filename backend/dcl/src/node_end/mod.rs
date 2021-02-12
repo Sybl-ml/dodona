@@ -251,10 +251,7 @@ impl NodePool {
             let value = nodes.remove(index);
 
             // Remove from better nodes if exists
-            better_nodes.retain(|item| match value == *item {
-                true => false,
-                _ => true,
-            });
+            better_nodes.retain(|item| value != *item);
 
             return value;
         } else {
