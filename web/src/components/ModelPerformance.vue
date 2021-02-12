@@ -1,8 +1,7 @@
 <template>
   <b-container fluid>
     <b-row class="justify-content-center">
-      Model Performance: {{ this.data }}
-      <bar-chart :chartdata="chartdata" :options="options" ref="chart" />
+      <bar-chart ref="chart" />
     </b-row>
   </b-container>
 </template>
@@ -25,20 +24,6 @@ export default {
     return {
       performance: [],
       password: "",
-      chartdata: {
-        labels: [1, 2, 3, 4, 5],
-        datasets: [
-          {
-            label: "Performance",
-            backgroundColor: "#f87979",
-            data: [0.5, 0.3, 0.1, 0],
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-      },
       chartLoaded: false,
     };
   },
@@ -48,7 +33,7 @@ export default {
   methods: {
     show() {
       if (!this.chartLoaded) {
-        this.$refs.chart.renderChartOnCollapse();
+        this.$refs.chart.renderChartOnCollapse(this.data);
         this.chartLoaded = true;
       }
     },

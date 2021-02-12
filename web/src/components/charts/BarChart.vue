@@ -3,19 +3,27 @@ import { Bar } from "vue-chartjs";
 
 export default {
   extends: Bar,
-  props: {
-    chartdata: {
-      type: Object,
-      default: null,
-    },
-    options: {
-      type: Object,
-      default: null,
-    },
+  data() {
+    return {
+      options: {
+          responsive: true,
+          maintainAspectRatio: false,
+        },
+    }
   },
   methods: {
-    renderChartOnCollapse() {
-      this.renderChart(this.chartdata, this.options);
+    renderChartOnCollapse(dataset) {
+      let render_data = {
+          labels: [1, 2, 3, 4, 5],
+          datasets: [
+            {
+              label: "Performance",
+              backgroundColor: "#f87979",
+              data: dataset,
+            },
+          ],
+        }
+      this.renderChart(render_data, this.options);
     },
   },
 };
