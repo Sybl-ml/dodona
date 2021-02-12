@@ -123,8 +123,20 @@ pub fn evaluate_model(
         }
     }
 
-    let predicted: HashSet<&str> = predictions.trim().split('\n').map(|s| s.split(',').next().unwrap()).collect();
-    if predicted == info.validation_ans.keys().chain(info.prediction_rids.keys()).filter(|(m, _)| m == id).map(|(_, r)| r.as_str()).collect() {
+    let predicted: HashSet<&str> = predictions
+        .trim()
+        .split('\n')
+        .map(|s| s.split(',').next().unwrap())
+        .collect();
+    if predicted
+        == info
+            .validation_ans
+            .keys()
+            .chain(info.prediction_rids.keys())
+            .filter(|(m, _)| m == id)
+            .map(|(_, r)| r.as_str())
+            .collect()
+    {
         Some((model_predictions, model_error))
     } else {
         None

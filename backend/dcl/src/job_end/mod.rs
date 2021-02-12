@@ -401,13 +401,15 @@ pub async fn dcl_protcol(
 
     let predictions = deanonymise_dataset(&anonymised_predictions, &info.columns).unwrap();
 
-    if let Some((model_predictions, model_error)) = ml::evaluate_model(&model_id, &predictions, &info) {
+    if let Some((model_predictions, model_error)) =
+        ml::evaluate_model(&model_id, &predictions, &info)
+    {
         write_back.write_error(model_id.clone(), model_error);
         write_back.write_predictions(model_id.clone(), model_predictions);
         log::info!("(Node: {}) Computed Data: {}", &model_id, predictions);
     } else {
         // TODO: Penalise model for giving incomplete predictions
-        log::info!("(Node: {}) Failed to respond to all test examples", &model_id);
+        log::info!("(Node: {}) Failed to respond to all examples", &model_id);
     }
 
     // TODO: Give additional feedback to the model
