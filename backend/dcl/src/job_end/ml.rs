@@ -1,7 +1,17 @@
 //! Handles Machine Learning and Distributed Consensus for the DCL
 use crate::job_end::{ClusterInfo, ModelID};
+use models::job_performance::JobPerformance;
+use mongodb::{
+    bson::{document::Document, oid::ObjectId},
+    Database,
+};
+
+use anyhow::Result;
 
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+
+use crate::node_end::NodePool;
 
 /// Weights the predictions made by models in `model_predictions`
 /// based on their errors in validation examples `model_errors`
@@ -85,6 +95,7 @@ pub fn evaluate_model(
     let job_type = "classification";
 
     for values in predictions
+        .trim()
         .split('\n')
         .map(|s| s.split(',').collect::<Vec<_>>())
     {
@@ -115,4 +126,45 @@ pub fn evaluate_model(
     }
 
     (model_predictions, model_error)
+}
+
+/// Function for calculating model performance
+///
+/// Will take in a HashMap of model ids and their
+/// weight in the ensemble model. It will then
+/// calculate their performance on the problem
+/// and will upload it to the database.
+pub async fn model_performance(
+    database: Arc<Database>,
+    weights: HashMap<ModelID, f64>,
+    project_id: &ObjectId,
+    nodepool: Option<Arc<NodePool>>,
+) -> Result<()> {
+    let job_performances = database.collection("job_performances");
+    let model_num = weights.len();
+    let mut job_perf_vec: Vec<Document> = Vec::new();
+    for (model, weight) in weights.iter() {
+        let val = (weight * model_num as f64) - 1.0;
+        let perf: f64 = 0.5 * ((2.0 * val).tanh()) + 0.5;
+        log::info!(
+            "Model: {:?}, Weight: {:?}, Performance: {:?}",
+            &model,
+            &weight,
+            &perf
+        );
+        let job_performance = JobPerformance::new(
+            project_id.clone(),
+            ObjectId::with_string(&model).unwrap(),
+            perf,
+        );
+
+        if let Some(np) = &nodepool {
+            np.update_node_performance(&model, perf).await;
+        }
+
+        job_perf_vec.push(mongodb::bson::ser::to_document(&job_performance).unwrap());
+    }
+    job_performances.insert_many(job_perf_vec, None).await?;
+
+    Ok(())
 }

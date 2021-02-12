@@ -8,7 +8,7 @@ use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 
 use messages::WriteLengthPrefix;
-use models::jobs::{Job, JobConfiguration};
+use models::jobs::{Job, JobConfiguration, PredictionType};
 
 mod common;
 
@@ -45,6 +45,8 @@ async fn test_interface_end() {
         dataset_id: ObjectId::with_string(common::DATASET_ID).unwrap(),
         timeout: 10,
         column_types: Vec::new(),
+        prediction_column: "".to_string(),
+        prediction_type: PredictionType::Classification,
     };
 
     let job = Job::new(config);

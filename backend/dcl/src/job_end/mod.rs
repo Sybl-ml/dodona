@@ -3,6 +3,7 @@
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
+use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
@@ -118,6 +119,9 @@ const CLUSTER_SIZE: usize = 1;
 const VALIDATION_SIZE: usize = 10;
 const TRAINING_BAG_SIZE: usize = 10;
 
+// inclusion probability used for Bernoulli sampling
+const INCLUSION_PROBABILITY: f64 = 0.95;
+
 // TODO: Find a better way of identifying models
 
 /// ModelID type
@@ -144,6 +148,7 @@ pub async fn run(
         let data = msg
             .train
             .split('\n')
+            .filter(|_| thread_rng().gen::<f64>() < INCLUSION_PROBABILITY)
             .chain(msg.predict.split('\n').skip(1))
             .collect::<Vec<_>>()
             .join("\n");
@@ -152,6 +157,7 @@ pub async fn run(
 
         let mut train = msg.train.split('\n').collect::<Vec<_>>();
         let headers = train.remove(0);
+        let prediction_column = headers.split(',').last().unwrap();
         let mut validation = Vec::new();
         let test = msg.predict.split('\n').skip(1).collect::<Vec<_>>();
 
@@ -174,7 +180,7 @@ pub async fn run(
         let mut prediction_rids: HashMap<(ModelID, String), usize> = HashMap::new();
 
         loop {
-            if let Some(cluster) = nodepool.get_cluster(CLUSTER_SIZE, config.clone()).await {
+            if let Some(cluster) = nodepool.build_cluster(CLUSTER_SIZE, config.clone()).await {
                 log::info!("Created Cluster");
 
                 for (key, _) in &cluster {
@@ -232,10 +238,7 @@ pub async fn run(
 
                     let mut anon_valid_ans: Vec<_> = anon_valid_ans.split("\n").collect();
                     let mut anon_valid: Vec<&str> = Vec::new();
-                    let headers = anon_valid_ans.remove(0);
-
-                    // For now, we assume that the last column is the prediction column
-                    let prediction_column = headers.split(',').last().unwrap();
+                    anon_valid_ans.remove(0);
 
                     // Remove validation answers and record them for evaluation
                     for (record, id) in anon_valid_ans.iter().zip(valid_rids.iter()) {
@@ -335,6 +338,16 @@ async fn run_cluster(
     // TODO: reimburse clients based on weights
     log::info!("Model weights: {:?}", weights);
 
+    // TODO: store percentage difference between model weight and number of models for job
+    let database_clone = Arc::clone(&database);
+    ml::model_performance(
+        database_clone,
+        weights,
+        &info.project_id,
+        Some(Arc::clone(&nodepool)),
+    )
+    .await?;
+
     // TODO: reintegrate predictions with user-supplied test dataset (?)
     let csv: String = predictions.join("\n");
 
@@ -368,24 +381,26 @@ pub async fn dcl_protcol(
         train: train,
         predict: predict,
     };
+
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
     // TODO: Propagate this error forward to the frontend so that it can say a node has failed
-    let prediction_message = match ClientMessage::from_stream(&mut dcn_stream, &mut buffer).await {
-        Ok(pm) => pm,
-        Err(error) => {
-            nodepool.update_node(&model_id, false).await?;
-            cluster_control.decrement().await;
+    let prediction_message =
+        match ClientMessage::from_stream(dcn_stream.deref_mut(), &mut buffer).await {
+            Ok(pm) => pm,
+            Err(error) => {
+                nodepool.update_node_alive(&model_id, false).await;
+                cluster_control.decrement().await;
 
-            log::error!(
-                "(Node {}) Error dealing with node predictions: {}",
-                &model_id,
-                error
-            );
+                log::error!(
+                    "(Node {}) Error dealing with node predictions: {}",
+                    &model_id,
+                    error
+                );
 
-            return Ok(());
-        }
-    };
+                return Ok(());
+            }
+        };
 
     let anonymised_predictions = match prediction_message {
         ClientMessage::Predictions(s) => s,

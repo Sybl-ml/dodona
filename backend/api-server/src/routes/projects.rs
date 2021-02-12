@@ -22,11 +22,23 @@ use crypto::clean;
 use messages::WriteLengthPrefix;
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
-use models::jobs::{Job, JobConfiguration};
+use models::jobs::{Job, JobConfiguration, PredictionType};
 use models::predictions::Prediction;
 use models::projects::{Project, Status};
 use utils::compress::{compress_vec, decompress_data};
 use utils::ColumnType;
+
+/// Stores the options for beginning processing of a dataset.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProcessingOptions {
+    /// The timeout for the job
+    pub timeout: u32,
+    /// The type of prediction category this is
+    pub prediction_type: String,
+    /// The column to use for prediction
+    pub prediction_column: String,
+}
 
 /// Finds a project in the database given an identifier.
 ///
@@ -335,7 +347,7 @@ pub async fn begin_processing(
     claims: auth::Claims,
     app_data: web::Data<AppState>,
     project_id: web::Path<String>,
-    doc: web::Json<Document>,
+    doc: web::Json<ProcessingOptions>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
 
@@ -343,8 +355,14 @@ pub async fn begin_processing(
     let datasets = database.collection("datasets");
     let dataset_details = database.collection("dataset_details");
 
-    let timeout: i32 = doc.get_str("timeout")?.parse()?;
-    log::info!("Timeout is here: {}", &timeout);
+    let timeout = doc.timeout as i32;
+    log::info!("Timeout is: {}", &timeout);
+
+    let prediction_type: PredictionType = match doc.prediction_type.as_str() {
+        "classification" => PredictionType::Classification,
+        "regression" => PredictionType::Regression,
+        _ => return Err(DodonaError::UnprocessableEntity),
+    };
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
@@ -367,7 +385,7 @@ pub async fn begin_processing(
     // Parse the dataset detail itself
     let dataset_detail = mongodb::bson::de::from_document::<DatasetDetails>(document)?;
 
-    let types = dataset_detail
+    let column_types = dataset_detail
         .column_types
         .values()
         .map(|x| match x.column_type {
@@ -380,7 +398,9 @@ pub async fn begin_processing(
     let config = JobConfiguration {
         dataset_id: dataset.id.clone(),
         timeout,
-        column_types: types,
+        column_types,
+        prediction_column: doc.prediction_column.clone(),
+        prediction_type,
     };
     let job = Job::new(config);
 

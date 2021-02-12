@@ -3,6 +3,15 @@
 use chrono::Utc;
 use mongodb::bson::{self, oid::ObjectId};
 
+/// Different types of problem Sybl can accept
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum PredictionType {
+    /// Predicting a class of data
+    Classification,
+    /// Predicting a numerical value for data
+    Regression,
+}
+
 /// Parameters required for configuring a job.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct JobConfiguration {
@@ -12,6 +21,10 @@ pub struct JobConfiguration {
     pub timeout: i32,
     /// The types of each column in the dataset
     pub column_types: Vec<String>,
+    /// The column to predict during evaluation
+    pub prediction_column: String,
+    /// The type of problem we are being asked to solve
+    pub prediction_type: PredictionType,
 }
 
 /// Defines the information that should be stored with a job in the database.

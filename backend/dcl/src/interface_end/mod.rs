@@ -60,6 +60,8 @@ async fn process_connection(
         dataset_id,
         timeout,
         column_types,
+        prediction_column,
+        prediction_type,
     } = job.config;
 
     log::info!("Received a message from the interface:");
@@ -101,6 +103,8 @@ async fn process_connection(
         ClientMessage::JobConfig {
             timeout,
             column_types,
+            prediction_column,
+            prediction_type,
         },
     ))
     .await
