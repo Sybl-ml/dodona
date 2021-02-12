@@ -77,7 +77,7 @@
             <b-card class="shadow" v-else>
                 <b-card-text>Number of Uses: {{data.times_run}}</b-card-text>
                 <model-performance
-                v-for="data in test_performance"
+                v-for="data in performance"
                 :key="data.performance"
                 :data="data.performance"
                 />
@@ -117,9 +117,7 @@ export default {
             let data = await this.$http.post(
                 `http://localhost:3001/api/clients/m/performance`, {id: this.data._id.$oid}
             );
-            console.log(data.data);
-            performance = data.data;
-            console.log(performance)
+            this.performance = data.data;
 
         } catch (err) {
             console.log(err);
