@@ -255,7 +255,7 @@ impl NodePool {
 
             return value;
         } else {
-            let index = (rand::random::<f32>() * better_nodes.len() as f32).floor() as usize;
+            let index = rand::thread_rng().gen_range(0..better_nodes.len());
             // Get node which has performance of 0.5 or better
             let value = better_nodes.remove(index);
 
