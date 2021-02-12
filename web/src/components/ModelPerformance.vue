@@ -2,7 +2,7 @@
 <b-container fluid>
     <b-row class="justify-content-center">
         Model Performance: {{this.data}}
-        <line-chart :chartdata="chartdata" :options="options"/>
+        <bar-chart :chartdata="chartdata" :options="options"/>
 
     </b-row>
 </b-container>
@@ -15,7 +15,7 @@
 </style>
 
 <script>
-import LineChart from '@/components/charts/LineChart.vue'
+import BarChart from '@/components/charts/BarChart.vue'
 
 export default {
     name: "ModelPerformance",
@@ -31,9 +31,10 @@ export default {
                 datasets: [{
                             label: 'Performance',
                             backgroundColor: '#f87979',
-                            data: []
+                            data: [0.5, 0.4, 0.1, 0]
                         }
-                    ]
+                    ],
+
             },
             options: {
                 responsive: true,
@@ -42,7 +43,7 @@ export default {
         }
     },
     components: {
-      LineChart
+      BarChart
     },
     mounted() {
 
@@ -54,7 +55,8 @@ export default {
                             data: this.data
 
                         }
-                    ] 
+                    ],
+
         }
 
     }
