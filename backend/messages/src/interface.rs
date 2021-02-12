@@ -2,6 +2,8 @@
 
 use mongodb::bson::oid::ObjectId;
 
+use crate::PredictionType;
+
 /// Different messages to be passed between Interface and DCL
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum InterfaceMessage {
@@ -13,5 +15,9 @@ pub enum InterfaceMessage {
         timeout: i32,
         /// The columns in the dataset
         column_types: Vec<String>,
+        /// The name of the prediction column
+        prediction_column: String,
+        /// If the problem is Regression or Classification
+        prediction_type: PredictionType,
     },
 }
