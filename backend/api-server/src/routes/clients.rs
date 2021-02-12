@@ -306,3 +306,29 @@ pub async fn get_user_models(
 
     response_from_json(documents?)
 }
+
+/// Gets model performance for last 5 jobs
+///
+/// Gets the performance of a model on the last 5 jobs
+/// that is has been run on.
+pub async fn get_model_performance(
+    doc: web::Json<Document>,
+    app_data: web::Data<AppState>,
+) -> Result<HttpResponse, DodonaError> {
+    let database = app_data.client.database("sybl");
+    let job_performances = database.collection("job_performances");
+    let model_id = doc.get_str("id")?;
+
+    let filter = doc! {"model_id": ObjectId::with_string(model_id)?};
+
+    let cursor = job_performances.find(filter, None).await?;
+    let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.take(5).collect().await;
+    let mut documents: Vec<Document> = documents?;
+    for document in documents.iter_mut() {
+        document.remove("project_id");
+        document.remove("_id");
+        document.remove("model_id");
+    }
+
+    response_from_json(documents)
+}

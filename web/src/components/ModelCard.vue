@@ -100,6 +100,17 @@ export default {
             password: "",
         }
     },
+    async mounted(){
+        try {
+            let data = await this.$http.post(
+                `http://localhost:3001/api/clients/m/performance`, {id: this.data._id.$oid}
+            );
+            console.log(data.data);
+
+        } catch (err) {
+            console.log(err);
+        }
+    },
     computed: {
         status_variant() {
           console.log(this.data._id.$oid)
