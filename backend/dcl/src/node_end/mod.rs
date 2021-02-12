@@ -247,7 +247,7 @@ impl NodePool {
         cluster_performance: f64,
     ) -> (String, f64) {
         if cluster_performance == 0.0 || cluster_performance > 0.5 || better_nodes.len() == 0 {
-            let index = (rand::random::<f32>() * nodes.len() as f32).floor() as usize;
+            let index = rand::thread_rng().gen_range(0..nodes.len());
             let value = nodes.remove(index);
 
             // Remove from better nodes if exists
