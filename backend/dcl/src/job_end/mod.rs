@@ -119,6 +119,9 @@ const CLUSTER_SIZE: usize = 1;
 const VALIDATION_SIZE: usize = 10;
 const TRAINING_BAG_SIZE: usize = 10;
 
+// inclusion probability used for Bernoulli sampling
+const INCLUSION_PROBABILITY: f64 = 0.95;
+
 // TODO: Find a better way of identifying models
 
 /// ModelID type
@@ -145,6 +148,7 @@ pub async fn run(
         let data = msg
             .train
             .split('\n')
+            .filter(|_| thread_rng().gen::<f64>() < INCLUSION_PROBABILITY)
             .chain(msg.predict.split('\n').skip(1))
             .collect::<Vec<_>>()
             .join("\n");
