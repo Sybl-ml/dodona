@@ -98,16 +98,22 @@ fn test_evaluate_model() {
         prediction_rids: prediction_rids,
     };
 
-    let predictions = "1,4\n2,3\n3,2\n4,1".to_owned();
-    let (_, model_error) = evaluate_model(&id, &predictions, &info);
+    let predictions = "2,3\n3,2\n4,1\n5,0\n6,0\n7,0\n8,0".to_owned();
+    assert!(evaluate_model(&id, &predictions, &info).is_none());
+
+    let predictions = "1,4\n2,3\n3,2\n4,1\n5,0\n6,0\n7,0".to_owned();
+    assert!(evaluate_model(&id, &predictions, &info).is_none());
+
+    let predictions = "1,4\n2,3\n3,2\n4,1\n5,0\n6,0\n7,0\n8,0".to_owned();
+    let (_, model_error) = evaluate_model(&id, &predictions, &info).unwrap();
     assert!(approx_eq!(f64, model_error, 5.0, ulps = 2));
 
-    let predictions = "1,1\n2,3\n3,2\n4,4".to_owned();
-    let (_, model_error) = evaluate_model(&id, &predictions, &info);
+    let predictions = "1,1\n2,3\n3,2\n4,4\n5,0\n6,0\n7,0\n8,0".to_owned();
+    let (_, model_error) = evaluate_model(&id, &predictions, &info).unwrap();
     assert!(approx_eq!(f64, model_error, 3.0, ulps = 2));
 
     let predictions = "1,1\n2,2\n3,3\n4,4\n5,5\n6,6\n7,7\n8,8".to_owned();
-    let (model_predictions, model_error) = evaluate_model(&id, &predictions, &info);
+    let (model_predictions, model_error) = evaluate_model(&id, &predictions, &info).unwrap();
     assert!(approx_eq!(f64, model_error, 1.0, ulps = 2));
     assert_eq!(model_predictions, test_predictions);
 }
@@ -166,7 +172,7 @@ fn test_weight_predictions() {
     let mut model_errors: HashMap<ModelID, f64> = HashMap::new();
 
     for (model, prediction) in ids.iter().zip(predictions.iter()) {
-        let (test, model_error) = evaluate_model(&model, &prediction.to_string(), &info);
+        let (test, model_error) = evaluate_model(&model, &prediction.to_string(), &info).unwrap();
         for (index, prediction) in test.into_iter() {
             model_predictions.insert((model.clone(), index), prediction);
         }

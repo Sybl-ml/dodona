@@ -86,7 +86,7 @@ pub fn evaluate_model(
     id: &ModelID,
     predictions: &String,
     info: &ClusterInfo,
-) -> (HashMap<usize, String>, f64) {
+) -> Option<(HashMap<usize, String>, f64)> {
     // stores the total error penalty for each model
     let mut model_error: f64 = 1.0;
     let mut model_predictions: HashMap<usize, String> = HashMap::new();
@@ -125,7 +125,24 @@ pub fn evaluate_model(
         }
     }
 
-    (model_predictions, model_error)
+    let predicted: HashSet<&str> = predictions
+        .trim()
+        .split('\n')
+        .map(|s| s.split(',').next().unwrap())
+        .collect();
+    if predicted
+        == info
+            .validation_ans
+            .keys()
+            .chain(info.prediction_rids.keys())
+            .filter(|(m, _)| m == id)
+            .map(|(_, r)| r.as_str())
+            .collect()
+    {
+        Some((model_predictions, model_error))
+    } else {
+        None
+    }
 }
 
 /// Function for calculating model performance
