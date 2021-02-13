@@ -321,7 +321,11 @@ pub async fn get_model_performance(
 
     let filter = doc! {"model_id": ObjectId::with_string(model_id)?};
 
-    let cursor = job_performances.find(filter, None).await?;
+    let build_options = mongodb::options::FindOptions::builder()
+        .sort(doc! {"date_created": -1})
+        .build();
+
+    let cursor = job_performances.find(filter, Some(build_options)).await?;
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.take(5).collect().await;
     let documents: Vec<Document> = documents?;
     let mut performances: Vec<f64> = Vec::new();

@@ -1,5 +1,6 @@
 //! Defines the job performance for a job and model in the `MongoDB` instance.
-use mongodb::bson::{doc, oid::ObjectId};
+use chrono::Utc;
+use mongodb::bson::{self, doc, oid::ObjectId};
 
 /// Defines the information that should be stored as details for a project
 #[derive(Debug, Serialize, Deserialize)]
@@ -13,6 +14,8 @@ pub struct JobPerformance {
     pub model_id: ObjectId,
     /// Model Performance
     pub performance: f64,
+    /// Date Job Happened
+    pub date_created: bson::DateTime,
 }
 
 impl JobPerformance {
@@ -23,6 +26,7 @@ impl JobPerformance {
             project_id,
             model_id,
             performance,
+            date_created: bson::DateTime(Utc::now()),
         }
     }
 }
