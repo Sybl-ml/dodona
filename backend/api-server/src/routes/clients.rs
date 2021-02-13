@@ -2,12 +2,14 @@
 
 use actix_web::{web, HttpResponse};
 use chrono::Utc;
-use models::models::{AccessToken, ClientModel};
-use models::users::{Client, User};
 use mongodb::bson::de::from_document;
 use mongodb::bson::ser::to_document;
 use mongodb::bson::{self, doc, document::Document, oid::ObjectId, Binary};
 use tokio_stream::StreamExt;
+
+use models::job_performance::JobPerformance;
+use models::models::{AccessToken, ClientModel};
+use models::users::{Client, User};
 
 use crate::auth;
 use crate::dodona_error::DodonaError;
@@ -326,12 +328,18 @@ pub async fn get_model_performance(
         .build();
 
     let cursor = job_performances.find(filter, Some(build_options)).await?;
-    let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.take(5).collect().await;
-    let documents: Vec<Document> = documents?;
-    let mut performances: Vec<f64> = Vec::new();
-    for document in documents.iter() {
-        performances.push(document.get_f64("performance").unwrap());
-    }
+
+    let get_performance = |doc: Document| -> Result<f64, DodonaError> {
+        let job_performance: JobPerformance = from_document(doc)?;
+        Ok(job_performance.performance)
+    };
+
+    let performances: Vec<_> = cursor
+        .take(5)
+        .filter_map(Result::ok)
+        .map(get_performance)
+        .collect::<Result<_, _>>()
+        .await?;
 
     response_from_json(performances)
 }
