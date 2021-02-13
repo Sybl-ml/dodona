@@ -2,6 +2,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use mongodb::bson::{self, document::Document, oid::ObjectId};
+use tokio::time::{sleep, Duration};
 
 use api_server::{auth, AppState};
 use config::Environment;
@@ -213,6 +214,7 @@ async fn insert_test_projects(database: &mongodb::Database) {
 
     let results: Vec<f64> = vec![0.6, 0.5, 0.4];
     let job_performances = database.collection("job_performances");
+
     let res1 = JobPerformance::new(
         ObjectId::with_string(MAIN_PROJECT_ID).unwrap(),
         ObjectId::with_string(MODEL_ID).unwrap(),
@@ -223,6 +225,8 @@ async fn insert_test_projects(database: &mongodb::Database) {
         .await
         .unwrap();
 
+    sleep(Duration::from_millis(5)).await;
+
     let res2 = JobPerformance::new(
         ObjectId::with_string(MAIN_PROJECT_ID).unwrap(),
         ObjectId::with_string(MODEL_ID).unwrap(),
@@ -232,6 +236,8 @@ async fn insert_test_projects(database: &mongodb::Database) {
         .insert_one(bson::ser::to_document(&res2).unwrap(), None)
         .await
         .unwrap();
+
+    sleep(Duration::from_millis(5)).await;
 
     let res3 = JobPerformance::new(
         ObjectId::with_string(MAIN_PROJECT_ID).unwrap(),
