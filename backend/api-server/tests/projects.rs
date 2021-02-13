@@ -3,7 +3,7 @@ use actix_web::{middleware, test, App, Result};
 use mongodb::bson::{doc, document::Document};
 use serde::{Deserialize, Serialize};
 
-use api_server::routes::{clients, projects};
+use api_server::routes::projects;
 use models::dataset_details::DatasetDetails;
 use models::projects::Project;
 
