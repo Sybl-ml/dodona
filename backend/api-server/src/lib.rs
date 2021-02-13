@@ -151,8 +151,8 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
                 web::get().to(routes::clients::get_user_models),
             )
             .route(
-                "/api/clients/m/performance",
-                web::post().to(routes::clients::get_model_performance),
+                "/api/clients/m/{model_id}/performance",
+                web::get().to(routes::clients::get_model_performance),
             )
             // users
             .route("/api/users", web::get().to(routes::users::get))

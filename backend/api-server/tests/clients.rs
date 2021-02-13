@@ -1,4 +1,4 @@
-use actix_web::web::post;
+use actix_web::web::get;
 use actix_web::{middleware, test, App};
 use mongodb::bson::doc;
 
@@ -12,16 +12,19 @@ use common::get_bearer_token;
 #[actix_rt::test]
 async fn test_get_model_performance() {
     let mut app = api_with! {
-        post: "/api/clients/m/performance" => clients::get_model_performance,
+        get: "/api/clients/m/{model_id}/performance" => clients::get_model_performance,
     };
 
     let results: Vec<f64> = vec![0.4, 0.5, 0.6];
     let doc = doc! {"id": common::MODEL_ID};
+
+    let url = format!("/api/clients/m/{}/performance", common::MODEL_ID);
+
     let req = test::TestRequest::default()
-        .method(actix_web::http::Method::POST)
+        .method(actix_web::http::Method::GET)
         .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
         .set_json(&doc)
-        .uri("/api/clients/m/performance")
+        .uri(&url)
         .to_request();
 
     let res = test::call_service(&mut app, req).await;
