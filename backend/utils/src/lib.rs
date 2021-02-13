@@ -357,6 +357,16 @@ pub fn generate_ids(dataset: &str) -> (String, Vec<String>) {
 /// output based on the level of the message. It also suppresses output from libraries unless they
 /// are warnings or errors, and enables all log levels for the current binary.
 pub fn setup_logger(lvl_for: &'static str) {
+    let levels = vec![(lvl_for, log::LevelFilter::Trace)];
+
+    setup_logger_with_filters(levels)
+}
+
+pub fn setup_logger_with_filters<Conditions, Name>(conditions: Conditions)
+where
+    Conditions: IntoIterator<Item = (Name, log::LevelFilter)>,
+    Name: Into<String>,
+{
     let colours_line = ColoredLevelConfig::new()
         .error(Color::Red)
         .warn(Color::Yellow)
@@ -364,7 +374,7 @@ pub fn setup_logger(lvl_for: &'static str) {
         .debug(Color::Blue)
         .trace(Color::BrightBlack);
 
-    fern::Dispatch::new()
+    let mut dispatch = fern::Dispatch::new()
         .format(move |out, message, record| {
             out.finish(format_args!(
                 "{colours_line}[{date}][{target}][{level}]\x1B[0m {message}",
@@ -378,8 +388,13 @@ pub fn setup_logger(lvl_for: &'static str) {
                 message = message,
             ));
         })
-        .level(log::LevelFilter::Warn)
-        .level_for(lvl_for, log::LevelFilter::Trace)
+        .level(log::LevelFilter::Warn);
+
+    for (module_name, level) in conditions {
+        dispatch = dispatch.level_for(module_name.into(), level);
+    }
+
+    dispatch
         .chain(std::io::stdout())
         .apply()
         .expect("Failed to initialise the logger");

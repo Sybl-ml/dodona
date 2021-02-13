@@ -38,6 +38,11 @@ pub struct AppState {
     pub pbkdf2_iterations: u32,
 }
 
+/// Builds the default logging middleware for request logging.
+fn build_logging_middleware() -> middleware::Logger {
+    middleware::Logger::new("%s @ %r")
+}
+
 /// Builds the `actix-web` server.
 ///
 /// Creates a new `actix-web` server instance and adds the API routes to it, along with setting up
@@ -76,7 +81,7 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
         // launch http server
         App::new()
             .wrap(cors_middleware)
-            .wrap(middleware::Logger::default())
+            .wrap(build_logging_middleware())
             .data(AppState {
                 client: Arc::new(client.clone()),
                 db_name: Arc::new(String::from("sybl")),
