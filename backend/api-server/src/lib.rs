@@ -38,11 +38,11 @@ pub struct AppState {
     pub pbkdf2_iterations: u32,
 }
 
-/// Builds the Tide server.
+/// Builds the `actix-web` server.
 ///
-/// Creates a new Tide server instance and adds the API routes to it, along with setting up the
-/// [`State`] that each request has access to. This allows the server to be set up externally more
-/// easily, by simply building it and then calling the `listen` method.
+/// Creates a new `actix-web` server instance and adds the API routes to it, along with setting up
+/// the [`State`] that each request has access to. This allows the server to be set up externally
+/// more easily, by simply building it and then calling the `listen` method.
 ///
 /// # Examples
 ///
@@ -54,7 +54,7 @@ pub struct AppState {
 ///     Ok(())
 /// }
 /// ```
-pub async fn build_server() -> Result<()> {
+pub async fn build_server() -> Result<actix_web::dev::Server> {
     let conn_str = env::var("CONN_STR").expect("CONN_STR must be set");
     let app_name = env::var("APP_NAME").expect("APP_NAME must be set");
     let pepper = env::var("PEPPER").expect("PEPPER must be set");
@@ -65,7 +65,7 @@ pub async fn build_server() -> Result<()> {
 
     let client = Client::with_options(client_options).unwrap();
 
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         // cors
         let cors_middleware = Cors::default()
             .allow_any_origin()
@@ -163,9 +163,7 @@ pub async fn build_server() -> Result<()> {
             .route("/api/users/delete", web::post().to(routes::users::delete))
     })
     .bind("0.0.0.0:3001")?
-    .run()
-    .await
-    .unwrap();
+    .run();
 
-    Ok(())
+    Ok(server)
 }
