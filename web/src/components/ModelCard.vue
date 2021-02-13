@@ -5,7 +5,7 @@
         <b-card
           class="mb-4 shadow"
           no-body
-          v-b-toggle="'collapse-' + String(this.i)"
+          v-b-toggle="`collapse-${this.i}`"
           :border-variant="status_variant"
           style="border-width: 0.15rem"
           onfocus="this.blur();"
