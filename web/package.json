@@ -9,16 +9,18 @@
   "dependencies": {
     "axios": "^0.21.1",
     "bootstrap-vue": "^2.17.3",
+    "chart.js": "^2.9.4",
     "dayjs": "^1.9.4",
+    "highlight.js": ">=10.4.1",
     "node-sass": "^4.14.1",
     "papaparse": "^5.3.0",
     "sass-loader": "^10.0.2",
     "vue": "^2.6.11",
+    "vue-chartjs": "^3.5.1",
     "vue-cookies": "^1.7.4",
     "vue-router": "^3.2.0",
     "vue-simple-icons": "^3.10.0",
-    "vuex": "^3.4.0",
-    "highlight.js": ">=10.4.1"
+    "vuex": "^3.4.0"
   },
   "devDependencies": {
     "@vue/cli-plugin-router": "~4.5.0",
@@ -30,5 +32,7 @@
     "> 1%",
     "last 2 versions",
     "not dead"
-  ]
+  ],
+  "main": "index.js",
+  "license": "MIT"
 }

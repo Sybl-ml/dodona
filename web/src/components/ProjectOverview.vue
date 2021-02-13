@@ -6,7 +6,9 @@
         <p>{{ description }}</p>
         <h4>Linked Dataset:</h4>
         <b-button-group size="sm" class="mb-3">
-          <b-button variant="secondary" @click="$emit('input-tab')">{{ datasetName }}</b-button>
+          <b-button variant="secondary" @click="$emit('input-tab')">{{
+            datasetName
+          }}</b-button>
           <b-button variant="outline-secondary" v-b-modal.deleteDataCheck
             >X</b-button
           >
@@ -41,42 +43,59 @@
           show-progress
           animated
         ></b-progress>
-        <br />
-        <h3>Almost Done!</h3>
-        <p>To start computation click the button below</p>
-        <br />
-        <b-dropdown
-          id="dropdown-form"
-          text="Job Configuration"
-          block
-          variant="outline-primary"
-          ref="dropdown"
-          class="m-2"
-          menu-class="w-100"
-        >
-          <b-dropdown-text
-            >This is where you configure how the job should be
-            run</b-dropdown-text
-          >
-          <b-dropdown-form>
-            <b-form-group
-              label="Timeout (mins)"
-              label-for="dropdown-form-timeout"
-            >
-              <b-form-input
-                id="dropdown-form-timeout"
-                size="sm"
-                type="number"
-                v-model="timeout"
-              ></b-form-input>
-            </b-form-group>
-          </b-dropdown-form>
-        </b-dropdown>
-        <br />
+        <b-container fluid>
+          <b-row class="mt-4">
+            <b-col>
+              <b-form-group
+                label="Timeout (mins)"
+                label-for="dropdown-form-timeout"
+              >
+                <b-form-input
+                  id="dropdown-form-timeout"
+                  size="sm"
+                  type="number"
+                  v-model="timeout"
+                ></b-form-input>
+              </b-form-group>
+            </b-col>
+          </b-row>
+          <b-row>
+            <b-col>
+              <b-form-group label="Problem Type" label-for="dropdown-form-type">
+                <b-form-select
+                  id="dropdown-form-type"
+                  size="sm"
+                  :options="problemTypeOptions"
+                  v-model="problemType"
+                />
+              </b-form-group>
+            </b-col>
+          </b-row>
+          <b-row>
+            <b-col>
+              <b-form-group
+                label="Prediction Column"
+                label-for="dropdown-pred-col"
+              >
+                <b-form-select
+                  id="dropdown-pred-col"
+                  size="sm"
+                  :options="getColumnNames"
+                  v-model="predColumn"
+                />
+              </b-form-group>
+            </b-col>
+          </b-row>
+        </b-container>
+        <h4>To start computation click the button below</h4>
         <p class="display-1 text-center">
-          <b-link @click="start">
-            <b-icon-play-fill variant="success" />
-          </b-link>
+          <b-button
+            @click="start"
+            :disabled="startDisabled"
+            class="empty-button"
+          >
+            <b-icon-play-fill font-scale="7.5" variant="success" />
+          </b-button>
         </p>
       </b-col>
 
@@ -92,22 +111,6 @@
         />
         <b-button variant="secondary" @click="addData">Upload</b-button>
       </b-col>
-      <!-- <b-col xs="12" lg="4">
-        <b-card class="mb-2 shadow-sm">
-          <h3>Data Analysis</h3>
-          <p>Number of Entires: 1900</p>
-          <p>Number of Attributes: 12</p>
-          <img
-            style="width:100%"
-            src="https://www.conceptdraw.com/How-To-Guide/picture/Vertical-bar-chart-Global-competitiveness-index-infrastructure-score.png"
-          />
-          <img
-            style="width:100%"
-            src="https://www.conceptdraw.com/How-To-Guide/picture/Vertical-bar-chart-Global-competitiveness-index-infrastructure-score.png"
-          />
-          <p>INSERT MORE WEKA-LIKE STUFF</p>
-        </b-card>
-      </b-col> -->
     </b-row>
   </b-container>
 </template>
@@ -116,10 +119,14 @@
 .input-table {
   overflow-y: scroll;
 }
+
+.empty-button {
+  background-color: white !important;
+  border-color: white !important;
+}
 </style>
 
 <script>
-
 export default {
   name: "ProjectOverview",
   data() {
@@ -127,6 +134,23 @@ export default {
       timeout: 10,
       value: 64,
       file: null,
+      problemType: null,
+      predColumn: null,
+
+      problemTypeOptions: [
+        {
+          value: null,
+          text: "Please Choose Classification or Regression",
+        },
+        {
+          value: "classification",
+          text: "Classification",
+        },
+        {
+          value: "regression",
+          text: "Regression",
+        },
+      ],
     };
   },
   props: {
@@ -157,15 +181,30 @@ export default {
         return "ready";
       }
     },
+    getColumnNames() {
+      let keys = Object.keys(this.dataTypes);
+      let options = [
+        {
+          value: null,
+          text: "Please select the column to predict",
+        },
+      ];
+      keys.forEach((key) => options.push({ value: key, text: key }));
+      return options;
+    },
+    startDisabled() {
+      return this.predColumn == null || this.problemType == null;
+    },
   },
   methods: {
     async start() {
-      let user_id = $cookies.get("token");
       try {
         await this.$http.post(
           `http://localhost:3001/api/projects/p/${this.projectId}/process`,
           {
             timeout: this.timeout,
+            predictionType: this.problemType,
+            predictionColumn: this.predColumn,
           }
         );
       } catch (err) {

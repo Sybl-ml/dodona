@@ -77,14 +77,14 @@ pub async fn run() -> Result<()> {
 
     let nodepool_clone = Arc::clone(&nodepool);
     let job_client = Arc::clone(&client);
-
     tokio::spawn(async move {
         job_end::run(nodepool_clone, job_client, rx).await.unwrap();
     });
 
+    let health_client = Arc::clone(&client);
     let nodepool_clone = Arc::clone(&nodepool);
     tokio::spawn(async move {
-        health::health_runner(nodepool_clone, health).await;
+        health::health_runner(health_client, nodepool_clone, health).await;
     })
     .await?;
 

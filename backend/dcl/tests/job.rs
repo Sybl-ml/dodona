@@ -4,10 +4,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use float_cmp::approx_eq;
+use futures::stream::StreamExt;
 use mongodb::bson::{doc, oid::ObjectId};
 
 use dcl::job_end::finance::Pricing;
-use dcl::job_end::ml::{evaluate_model, weight_predictions};
+use dcl::job_end::ml::{evaluate_model, model_performance, weight_predictions};
 use dcl::job_end::{ClusterInfo, ModelID, WriteBackMemory};
 use messages::ClientMessage;
 use models::users::User;
@@ -90,23 +91,29 @@ fn test_evaluate_model() {
     let test_predictions: HashMap<usize, String> = HashMap::from_iter(test.into_iter());
 
     let info = ClusterInfo {
-        id: ObjectId::with_string(common::USER_ID).unwrap(),
+        project_id: ObjectId::with_string(common::USER_ID).unwrap(),
         columns: HashMap::new(),
         config: ClientMessage::Alive { timestamp: 0 },
         validation_ans: validation_ans,
         prediction_rids: prediction_rids,
     };
 
-    let predictions = "1,4\n2,3\n3,2\n4,1".to_owned();
-    let (_, model_error) = evaluate_model(&id, &predictions, &info);
+    let predictions = "2,3\n3,2\n4,1\n5,0\n6,0\n7,0\n8,0".to_owned();
+    assert!(evaluate_model(&id, &predictions, &info).is_none());
+
+    let predictions = "1,4\n2,3\n3,2\n4,1\n5,0\n6,0\n7,0".to_owned();
+    assert!(evaluate_model(&id, &predictions, &info).is_none());
+
+    let predictions = "1,4\n2,3\n3,2\n4,1\n5,0\n6,0\n7,0\n8,0".to_owned();
+    let (_, model_error) = evaluate_model(&id, &predictions, &info).unwrap();
     assert!(approx_eq!(f64, model_error, 5.0, ulps = 2));
 
-    let predictions = "1,1\n2,3\n3,2\n4,4".to_owned();
-    let (_, model_error) = evaluate_model(&id, &predictions, &info);
+    let predictions = "1,1\n2,3\n3,2\n4,4\n5,0\n6,0\n7,0\n8,0".to_owned();
+    let (_, model_error) = evaluate_model(&id, &predictions, &info).unwrap();
     assert!(approx_eq!(f64, model_error, 3.0, ulps = 2));
 
     let predictions = "1,1\n2,2\n3,3\n4,4\n5,5\n6,6\n7,7\n8,8".to_owned();
-    let (model_predictions, model_error) = evaluate_model(&id, &predictions, &info);
+    let (model_predictions, model_error) = evaluate_model(&id, &predictions, &info).unwrap();
     assert!(approx_eq!(f64, model_error, 1.0, ulps = 2));
     assert_eq!(model_predictions, test_predictions);
 }
@@ -148,7 +155,7 @@ fn test_weight_predictions() {
     let prediction_rids: HashMap<(ModelID, String), usize> = HashMap::from_iter(rids);
 
     let info = ClusterInfo {
-        id: ObjectId::with_string(common::USER_ID).unwrap(),
+        project_id: ObjectId::with_string(common::USER_ID).unwrap(),
         columns: HashMap::new(),
         config: ClientMessage::Alive { timestamp: 0 },
         validation_ans: validation_ans,
@@ -165,7 +172,7 @@ fn test_weight_predictions() {
     let mut model_errors: HashMap<ModelID, f64> = HashMap::new();
 
     for (model, prediction) in ids.iter().zip(predictions.iter()) {
-        let (test, model_error) = evaluate_model(&model, &prediction.to_string(), &info);
+        let (test, model_error) = evaluate_model(&model, &prediction.to_string(), &info).unwrap();
         for (index, prediction) in test.into_iter() {
             model_predictions.insert((model.clone(), index), prediction);
         }
@@ -204,4 +211,59 @@ async fn test_reimbuse_client() {
         * 100.0) as i32;
 
     assert_eq!(user.credits, amount);
+}
+
+#[tokio::test]
+async fn test_model_performance() {
+    let (database, _) = common::initialise_with_db().await;
+
+    let model_weights: HashMap<ModelID, f64> = [
+        (String::from(common::MODEL1_ID), 0.45),
+        (String::from(common::MODEL2_ID), 0.55),
+    ]
+    .iter()
+    .cloned()
+    .collect();
+
+    let database = Arc::new(database);
+    let proj_id = ObjectId::with_string(common::PROJECT_ID).unwrap();
+
+    model_performance(Arc::clone(&database), model_weights.clone(), &proj_id, None)
+        .await
+        .unwrap();
+
+    // working out what they should be
+    let mut job_perf_vec: Vec<f64> = Vec::new();
+    for (_, weight) in model_weights.iter() {
+        let val = (weight * (model_weights.len()) as f64) - 1.0;
+        let perf: f64 = 0.5 * ((2.0 * val).tanh()) + 0.5;
+
+        job_perf_vec.push(perf);
+    }
+
+    let job_perfs = database.collection("job_performances");
+    let filter = doc! {"project_id": ObjectId::with_string(common::PROJECT_ID).unwrap()};
+    let mut cursor = job_perfs.find(filter, None).await.unwrap();
+
+    let mut db_vec: Vec<f64> = Vec::new();
+    while let Some(doc) = cursor.next().await {
+        db_vec.push(doc.unwrap().get_f64("performance").unwrap());
+    }
+
+    for res in job_perf_vec.iter() {
+        let mut flag: bool = false;
+        for val in db_vec.iter() {
+            if approx_eq!(f64, *res, *val, ulps = 2) {
+                flag = true;
+            }
+        }
+        assert!(flag);
+    }
+
+    assert!(approx_eq!(
+        f64,
+        job_perf_vec.iter().sum(),
+        db_vec.iter().sum(),
+        ulps = 2
+    ));
 }

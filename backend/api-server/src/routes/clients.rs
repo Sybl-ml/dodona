@@ -2,12 +2,14 @@
 
 use actix_web::{web, HttpResponse};
 use chrono::Utc;
-use models::models::{AccessToken, ClientModel};
-use models::users::{Client, User};
 use mongodb::bson::de::from_document;
 use mongodb::bson::ser::to_document;
 use mongodb::bson::{self, doc, document::Document, oid::ObjectId, Binary};
 use tokio_stream::StreamExt;
+
+use models::job_performance::JobPerformance;
+use models::models::{AccessToken, ClientModel};
+use models::users::{Client, User};
 
 use crate::auth;
 use crate::dodona_error::DodonaError;
@@ -305,4 +307,39 @@ pub async fn get_user_models(
     let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
 
     response_from_json(documents?)
+}
+
+/// Gets model performance for last 5 jobs
+///
+/// Gets the performance of a model on the last 5 jobs
+/// that is has been run on.
+pub async fn get_model_performance(
+    doc: web::Json<Document>,
+    app_data: web::Data<AppState>,
+) -> Result<HttpResponse, DodonaError> {
+    let database = app_data.client.database("sybl");
+    let job_performances = database.collection("job_performances");
+    let model_id = doc.get_str("id")?;
+
+    let filter = doc! {"model_id": ObjectId::with_string(model_id)?};
+
+    let build_options = mongodb::options::FindOptions::builder()
+        .sort(doc! {"date_created": -1})
+        .build();
+
+    let cursor = job_performances.find(filter, Some(build_options)).await?;
+
+    let get_performance = |doc: Document| -> Result<f64, DodonaError> {
+        let job_performance: JobPerformance = from_document(doc)?;
+        Ok(job_performance.performance)
+    };
+
+    let performances: Vec<_> = cursor
+        .take(5)
+        .filter_map(Result::ok)
+        .map(get_performance)
+        .collect::<Result<_, _>>()
+        .await?;
+
+    response_from_json(performances)
 }
