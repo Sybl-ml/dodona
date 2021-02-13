@@ -4,6 +4,8 @@ use crate::{infer_columns, parse_body, Column};
 use csv::{Position, Reader};
 use std::collections::HashMap;
 
+// use mongodb::bson::oid::ObjectId;
+use std::str::FromStr;
 /// Represents what is returned from Analysis function
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Analysis {
@@ -26,8 +28,6 @@ pub fn analyse(dataset: &str) -> Analysis {
     log::info!("Header: {}", header);
     Analysis { types, header }
 }
-
-use std::str::FromStr;
 
 #[derive(Debug)]
 struct DatasetAnalysis {
@@ -64,6 +64,8 @@ impl Default for NumericalAnalysis {
         }
     }
 }
+
+// pub fn prepare_dataset(dataset_id: &ObjectId) {}
 
 /// Basic Dataset Analysis
 ///
