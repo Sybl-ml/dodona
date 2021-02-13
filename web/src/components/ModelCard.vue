@@ -66,7 +66,8 @@
         </b-card>
       </b-col>
     </b-row>
-    <b-row>
+    <b-row class="justify-content-center">
+      <b-col xs="12" lg="7">
       <b-collapse
         :id="`collapse-${i}`"
         class="mb-4 nodeExpansion"
@@ -99,14 +100,18 @@
           <b-card-title>Ready to Start</b-card-title>
           <b-card-text>Run your model script to begin!</b-card-text>
         </b-card>
-        <b-card class="shadow" v-else>
-          <b-card-text>Number of Uses: {{ data.times_run }}</b-card-text>
-          <model-performance
-            :data="performance"
-            :ref="`model-performance-${i}`"
-          />
+        <b-card 
+          class="shadow-sm p-3 mb-5 bg-white rounded"
+          style="border-width: 0.15rem" 
+          v-else>
+            <model-performance
+              :data="performance"
+              :ref="`model-performance-${i}`"
+            />
+            <b-card-text>Total Runs: {{ data.times_run }}</b-card-text>
         </b-card>
       </b-collapse>
+      </b-col>
     </b-row>
   </b-container>
 </template>

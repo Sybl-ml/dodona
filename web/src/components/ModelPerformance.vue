@@ -1,7 +1,7 @@
 <template>
   <b-container fluid>
     <b-row class="justify-content-center">
-      <bar-chart ref="chart" />
+      <performance-chart ref="chart" />
     </b-row>
   </b-container>
 </template>
@@ -13,7 +13,7 @@
 </style>
 
 <script>
-import BarChart from "@/components/charts/BarChart.vue";
+import PerformanceChart from "@/components/charts/PerformanceChart.vue";
 
 export default {
   name: "ModelPerformance",
@@ -28,7 +28,7 @@ export default {
     };
   },
   components: {
-    BarChart,
+    PerformanceChart,
   },
   methods: {
     show() {
