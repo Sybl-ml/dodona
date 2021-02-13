@@ -150,6 +150,10 @@ pub async fn build_server() -> Result<()> {
                 "/api/clients",
                 web::get().to(routes::clients::get_user_models),
             )
+            .route(
+                "/api/clients/m/performance",
+                web::post().to(routes::clients::get_model_performance),
+            )
             // users
             .route("/api/users", web::get().to(routes::users::get))
             .route("/api/users/filter", web::post().to(routes::users::filter))

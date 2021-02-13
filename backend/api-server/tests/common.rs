@@ -2,9 +2,11 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use mongodb::bson::{self, document::Document, oid::ObjectId};
+use tokio::time::{sleep, Duration};
 
 use api_server::{auth, AppState};
 use config::Environment;
+use models::job_performance::JobPerformance;
 use models::projects::Project;
 use models::users::User;
 
@@ -44,6 +46,7 @@ pub static NON_EXISTENT_PROJECT_ID: &str = "5f8ca1a80065f27b0089e8a5";
 pub static OVERWRITTEN_DATA_PROJECT_ID: &str = "5fb784e4ead1758e1ce67bcd";
 pub static DELETABLE_PROJECT_ID: &str = "5fb2b4049d524e99ac7f1c41";
 pub static EDITABLE_PROJECT_ID: &str = "5fb2c4e4b4b7becc1e81e278";
+pub static MODEL_ID: &str = "5fb2c4e4b4b7becc1e81e279";
 
 /// Allows for the setup of the database prior to testing.
 static MUTEX: tokio::sync::Mutex<bool> = tokio::sync::Mutex::const_new(true);
@@ -210,4 +213,41 @@ async fn insert_test_projects(database: &mongodb::Database) {
     projects.insert_one(overwritten_data, None).await.unwrap();
     projects.insert_one(deletable, None).await.unwrap();
     projects.insert_one(editable, None).await.unwrap();
+
+    let results: Vec<f64> = vec![0.6, 0.5, 0.4];
+    let job_performances = database.collection("job_performances");
+
+    let res1 = JobPerformance::new(
+        ObjectId::with_string(MAIN_PROJECT_ID).unwrap(),
+        ObjectId::with_string(MODEL_ID).unwrap(),
+        results[0],
+    );
+    job_performances
+        .insert_one(bson::ser::to_document(&res1).unwrap(), None)
+        .await
+        .unwrap();
+
+    sleep(Duration::from_millis(5)).await;
+
+    let res2 = JobPerformance::new(
+        ObjectId::with_string(MAIN_PROJECT_ID).unwrap(),
+        ObjectId::with_string(MODEL_ID).unwrap(),
+        results[1],
+    );
+    job_performances
+        .insert_one(bson::ser::to_document(&res2).unwrap(), None)
+        .await
+        .unwrap();
+
+    sleep(Duration::from_millis(5)).await;
+
+    let res3 = JobPerformance::new(
+        ObjectId::with_string(MAIN_PROJECT_ID).unwrap(),
+        ObjectId::with_string(MODEL_ID).unwrap(),
+        results[2],
+    );
+    job_performances
+        .insert_one(bson::ser::to_document(&res3).unwrap(), None)
+        .await
+        .unwrap();
 }
