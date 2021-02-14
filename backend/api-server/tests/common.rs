@@ -4,7 +4,7 @@ use std::sync::Arc;
 use mongodb::bson::{self, document::Document, oid::ObjectId};
 use tokio::time::{sleep, Duration};
 
-use api_server::{auth, AppState};
+use api_server::{auth, State};
 use config::Environment;
 use models::job_performance::JobPerformance;
 use models::projects::Project;
@@ -59,7 +59,7 @@ static MUTEX: tokio::sync::Mutex<bool> = tokio::sync::Mutex::const_new(true);
 ///
 /// As the database can be initialised before running, this allows tests to be run in any order
 /// provided they don't require the result of a previous test.
-pub async fn initialise() -> AppState {
+pub async fn initialise() -> State {
     // Acquire the mutex
     let mut lock = MUTEX.lock().await;
 
@@ -98,16 +98,17 @@ pub async fn initialise() -> AppState {
     build_app_state().await
 }
 
-pub async fn build_app_state() -> AppState {
+pub async fn build_app_state() -> State {
     let conn_str = std::env::var("CONN_STR").expect("CONN_STR must be set");
     let pepper = std::env::var("PEPPER").expect("PEPPER must be set");
     let pbkdf2_iterations =
         std::env::var("PBKDF2_ITERATIONS").expect("PBKDF2_ITERATIONS must be set");
 
     let client = mongodb::Client::with_uri_str(&conn_str).await.unwrap();
+    let database = Arc::new(client.database("sybl"));
 
-    AppState {
-        client: Arc::new(client.clone()),
+    State {
+        database: Arc::clone(&database),
         db_name: Arc::new(String::from("sybl")),
         pepper: Arc::new(pepper.clone()),
         pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)

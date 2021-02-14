@@ -15,11 +15,9 @@ use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use mongodb::options::ClientOptions;
-use mongodb::Client;
-
 use actix_cors::Cors;
 use actix_web::{middleware, web, App, HttpServer, Result};
+use mongodb::{options::ClientOptions, Client, Database};
 
 pub mod auth;
 pub mod dodona_error;
@@ -27,9 +25,9 @@ pub mod routes;
 
 /// Defines the state for each request to access.
 #[derive(Clone, Debug)]
-pub struct AppState {
-    /// An instance of the MongoDB client
-    pub client: Arc<Client>,
+pub struct State {
+    /// An instance of the MongoDB database
+    pub database: Arc<Database>,
     /// The name of the database to access
     pub db_name: Arc<String>,
     /// The pepper to use when hashing
@@ -69,6 +67,7 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
     client_options.app_name = Some(app_name);
 
     let client = Client::with_options(client_options).unwrap();
+    let database = Arc::new(client.database("sybl"));
 
     let server = HttpServer::new(move || {
         // cors
@@ -82,8 +81,8 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
         App::new()
             .wrap(cors_middleware)
             .wrap(build_logging_middleware())
-            .data(AppState {
-                client: Arc::new(client.clone()),
+            .data(State {
+                database: Arc::clone(&database),
                 db_name: Arc::new(String::from("sybl")),
                 pepper: Arc::new(pepper.clone()),
                 pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)

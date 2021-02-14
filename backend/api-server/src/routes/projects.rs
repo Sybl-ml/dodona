@@ -17,7 +17,7 @@ use crate::auth;
 
 use crate::dodona_error::DodonaError;
 use crate::routes::{check_user_owns_project, response_from_json};
-use crate::AppState;
+use crate::State;
 use crypto::clean;
 use messages::WriteLengthPrefix;
 use models::dataset_details::DatasetDetails;
@@ -46,12 +46,11 @@ pub struct ProcessingOptions {
 /// If the project does not exist, returns a 404 response code.
 pub async fn get_project(
     claims: auth::Claims,
-    app_data: web::Data<AppState>,
+    state: web::Data<State>,
     project_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let projects = database.collection("projects");
-    let details = database.collection("dataset_details");
+    let projects = state.database.collection("projects");
+    let details = state.database.collection("dataset_details");
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
@@ -85,12 +84,11 @@ pub async fn get_project(
 /// If project does not exist return a 404
 pub async fn patch_project(
     claims: auth::Claims,
-    app_data: web::Data<AppState>,
+    state: web::Data<State>,
     project_id: web::Path<String>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let projects = database.collection("projects");
+    let projects = state.database.collection("projects");
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
@@ -110,11 +108,10 @@ pub async fn patch_project(
 /// Will not currently authenticate the userid
 pub async fn delete_project(
     claims: auth::Claims,
-    app_data: web::Data<AppState>,
+    state: web::Data<State>,
     project_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let projects = database.collection("projects");
+    let projects = state.database.collection("projects");
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
@@ -123,7 +120,7 @@ pub async fn delete_project(
 
     if let Some(project) = project {
         let project: Project = mongodb::bson::de::from_document(project)?;
-        project.delete(&database).await?;
+        project.delete(&state.database).await?;
     }
 
     Ok(HttpResponse::Ok().finish())
@@ -135,10 +132,9 @@ pub async fn delete_project(
 /// doesn't exist or an invalid identifier is given, returns a 404 response.
 pub async fn get_user_projects(
     claims: auth::Claims,
-    app_data: web::Data<AppState>,
+    state: web::Data<State>,
 ) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let projects = database.collection("projects");
+    let projects = state.database.collection("projects");
 
     let filter = doc! { "user_id": &claims.id };
     let cursor = projects.find(filter, None).await?;
@@ -154,11 +150,10 @@ pub async fn get_user_projects(
 /// provided doesn't exist.
 pub async fn new(
     claims: auth::Claims,
-    app_data: web::Data<AppState>,
+    state: web::Data<State>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let projects = database.collection("projects");
+    let projects = state.database.collection("projects");
 
     // get name
     let name = clean(doc.get_str("name")?);
@@ -182,15 +177,13 @@ pub async fn new(
 /// will return a 404 to the caller.
 pub async fn add_data(
     claims: auth::Claims,
-    app_data: web::Data<AppState>,
+    state: web::Data<State>,
     project_id: web::Path<String>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-
-    let datasets = database.collection("datasets");
-    let dataset_details = database.collection("dataset_details");
-    let projects = database.collection("projects");
+    let datasets = state.database.collection("datasets");
+    let dataset_details = state.database.collection("dataset_details");
+    let projects = state.database.collection("projects");
 
     let data = clean(doc.get_str("content")?);
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
@@ -204,7 +197,7 @@ pub async fn add_data(
     if let Some(existing_data) = existing_data {
         log::info!("Project already has data: OVERWRITING");
         let data: Dataset = mongodb::bson::de::from_document(existing_data)?;
-        data.delete(&database).await?;
+        data.delete(&state.database).await?;
     }
 
     let dataset_name = doc.get_str("name")?.to_string();
@@ -248,12 +241,11 @@ pub async fn add_data(
 /// for that project are returned from the database.
 pub async fn overview(
     claims: auth::Claims,
-    app_data: web::Data<AppState>,
+    state: web::Data<State>,
     project_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let dataset_details = database.collection("dataset_details");
-    let projects = database.collection("projects");
+    let dataset_details = state.database.collection("dataset_details");
+    let projects = state.database.collection("projects");
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
@@ -272,12 +264,11 @@ pub async fn overview(
 /// user.
 pub async fn get_data(
     claims: auth::Claims,
-    app_data: web::Data<AppState>,
+    state: web::Data<State>,
     project_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let datasets = database.collection("datasets");
-    let projects = database.collection("projects");
+    let datasets = state.database.collection("datasets");
+    let projects = state.database.collection("projects");
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
     let filter = doc! { "project_id": &object_id };
@@ -313,12 +304,11 @@ pub async fn get_data(
 /// Projects are reverted to Unfinshed status
 pub async fn remove_data(
     claims: auth::Claims,
-    app_data: web::Data<AppState>,
+    state: web::Data<State>,
     project_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let datasets = database.collection("datasets");
-    let projects = database.collection("projects");
+    let datasets = state.database.collection("datasets");
+    let projects = state.database.collection("projects");
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
     let filter = doc! { "project_id": &object_id };
@@ -328,7 +318,7 @@ pub async fn remove_data(
 
     if let Some(dataset_removed) = dataset_removed {
         let dataset: Dataset = mongodb::bson::de::from_document(dataset_removed)?;
-        dataset.delete(&database).await?;
+        dataset.delete(&state.database).await?;
     }
 
     let filter = doc! { "_id": &object_id };
@@ -345,15 +335,13 @@ pub async fn remove_data(
 /// `State::Processing`.
 pub async fn begin_processing(
     claims: auth::Claims,
-    app_data: web::Data<AppState>,
+    state: web::Data<State>,
     project_id: web::Path<String>,
     doc: web::Json<ProcessingOptions>,
 ) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-
-    let projects = database.collection("projects");
-    let datasets = database.collection("datasets");
-    let dataset_details = database.collection("dataset_details");
+    let projects = state.database.collection("projects");
+    let datasets = state.database.collection("datasets");
+    let dataset_details = state.database.collection("dataset_details");
 
     let timeout = doc.timeout as i32;
     log::info!("Timeout is: {}", &timeout);
@@ -405,7 +393,7 @@ pub async fn begin_processing(
     let job = Job::new(config);
 
     // Insert to MongoDB first, so the interface can immediately mark as processed if needed
-    insert_to_queue(&job, database.collection("jobs")).await?;
+    insert_to_queue(&job, state.database.collection("jobs")).await?;
 
     if forward_to_interface(&job).await.is_err() {
         log::warn!("Failed to forward: {:?}", job);
@@ -426,15 +414,12 @@ pub async fn begin_processing(
 /// decompressing each and returning them.
 pub async fn get_predictions(
     claims: auth::Claims,
-    app_data: web::Data<AppState>,
+    state: web::Data<State>,
     project_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
-    // Get the database instance
-    let database = app_data.client.database("sybl");
-
     // Get the projects and the predictions collections
-    let projects = database.collection("projects");
-    let predictions = database.collection("predictions");
+    let projects = state.database.collection("projects");
+    let predictions = state.database.collection("predictions");
 
     // Get the project identifier and check it exists
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;

@@ -14,20 +14,19 @@ use models::users::{Client, User};
 use crate::auth;
 use crate::dodona_error::DodonaError;
 use crate::routes::response_from_json;
-use crate::AppState;
+use crate::State;
 
 /// Template for registering a new client
 ///
 /// Will check the provided `user_id` matches with the provided email and password
 pub async fn register(
     claims: auth::Claims,
-    app_data: web::Data<AppState>,
+    state: web::Data<State>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let pepper = app_data.pepper.clone();
-    let users = database.collection("users");
-    let clients = database.collection("clients");
+    let pepper = state.pepper.clone();
+    let users = state.database.collection("users");
+    let clients = state.database.collection("clients");
 
     let password = doc.get_str("password")?;
     let email = crypto::clean(doc.get_str("email")?);
@@ -77,12 +76,11 @@ pub async fn register(
 /// If validated generate a challenge and insert a new temp model
 /// Respond with the encoded challenge
 pub async fn new_model(
-    app_data: web::Data<AppState>,
+    state: web::Data<State>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let users = database.collection("users");
-    let models = database.collection("models");
+    let users = state.database.collection("users");
+    let models = state.database.collection("models");
 
     let email = crypto::clean(doc.get_str("email")?);
     let model_name = doc.get_str("model_name")?.to_string();
@@ -125,13 +123,12 @@ pub async fn new_model(
 /// Returns a new access token for the `new_model` if verification is successful.
 /// Returns a 404 error if the `client` or `model` is not found, or 401 if verification fails.
 pub async fn verify_challenge(
-    app_data: web::Data<AppState>,
+    state: web::Data<State>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let users = database.collection("users");
-    let clients = database.collection("clients");
-    let models = database.collection("models");
+    let users = state.database.collection("users");
+    let clients = state.database.collection("clients");
+    let models = state.database.collection("models");
 
     let model_name = doc.get_str("model_name")?.to_string();
     let email = crypto::clean(doc.get_str("email")?);
@@ -199,12 +196,11 @@ pub async fn verify_challenge(
 /// The model must be authenticated using `verify_challenge` before being unlocked
 pub async fn unlock_model(
     claims: auth::Claims,
-    app_data: web::Data<AppState>,
+    state: web::Data<State>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let models = database.collection("models");
-    let users = database.collection("users");
+    let models = state.database.collection("models");
+    let users = state.database.collection("users");
 
     let model_id = ObjectId::with_string(doc.get_str("id")?)?;
     let filter = doc! { "_id": &model_id };
@@ -220,7 +216,7 @@ pub async fn unlock_model(
     }
 
     let password = doc.get_str("password")?;
-    let pepper = &app_data.pepper;
+    let pepper = &state.pepper;
 
     let filter = doc! { "_id": &claims.id };
     let user_doc = users
@@ -252,11 +248,10 @@ pub async fn unlock_model(
 /// Returns 200 if authentication is successful and a new challenge if the token has expired.
 /// Returns a 401 error if the model is not found or if authentication fails.
 pub async fn authenticate_model(
-    app_data: web::Data<AppState>,
+    state: web::Data<State>,
     doc: web::Json<Document>,
 ) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let models = database.collection("models");
+    let models = state.database.collection("models");
 
     let model_id = ObjectId::with_string(&doc.get_str("id")?)?;
     let filter = doc! { "_id": &model_id };
@@ -297,10 +292,9 @@ pub async fn authenticate_model(
 /// doesn't exist or an invalid identifier is given, returns a 404 response.
 pub async fn get_user_models(
     claims: auth::Claims,
-    app_data: web::Data<AppState>,
+    state: web::Data<State>,
 ) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let models = database.collection("models");
+    let models = state.database.collection("models");
 
     let filter = doc! { "user_id": &claims.id };
     let cursor = models.find(filter, None).await?;
@@ -314,11 +308,10 @@ pub async fn get_user_models(
 /// Gets the performance of a model on the last 5 jobs
 /// that is has been run on.
 pub async fn get_model_performance(
-    app_data: web::Data<AppState>,
+    state: web::Data<State>,
     model_id: web::Path<String>,
 ) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let job_performances = database.collection("job_performances");
+    let job_performances = state.database.collection("job_performances");
 
     let filter = doc! {"model_id": ObjectId::with_string(&model_id)?};
 
