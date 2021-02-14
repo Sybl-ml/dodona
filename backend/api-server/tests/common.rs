@@ -109,7 +109,6 @@ pub async fn build_app_state() -> State {
 
     State {
         database: Arc::clone(&database),
-        db_name: Arc::new(String::from("sybl")),
         pepper: Arc::new(pepper.clone()),
         pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)
             .expect("PBKDF2_ITERATIONS must be parseable as an integer"),

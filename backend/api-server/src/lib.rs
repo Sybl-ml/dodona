@@ -28,8 +28,6 @@ pub mod routes;
 pub struct State {
     /// An instance of the MongoDB database
     pub database: Arc<Database>,
-    /// The name of the database to access
-    pub db_name: Arc<String>,
     /// The pepper to use when hashing
     pub pepper: Arc<String>,
     /// The number of iterations to use for hashing
@@ -83,7 +81,6 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
             .wrap(build_logging_middleware())
             .data(State {
                 database: Arc::clone(&database),
-                db_name: Arc::new(String::from("sybl")),
                 pepper: Arc::new(pepper.clone()),
                 pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)
                     .expect("PBKDF2_ITERATIONS must be parseable as an integer"),
