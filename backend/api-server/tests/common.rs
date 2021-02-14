@@ -2,7 +2,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use mongodb::bson::{self, document::Document, oid::ObjectId};
-use tokio::time::{sleep, Duration};
 
 use api_server::{auth, State};
 use config::Environment;
@@ -90,6 +89,7 @@ pub async fn initialise() -> State {
         // Insert some test data
         insert_test_users(&database).await;
         insert_test_projects(&database).await;
+        insert_test_job_performances(&database).await;
 
         // Update the lock
         *lock = false;
@@ -213,41 +213,27 @@ async fn insert_test_projects(database: &mongodb::Database) {
     projects.insert_one(overwritten_data, None).await.unwrap();
     projects.insert_one(deletable, None).await.unwrap();
     projects.insert_one(editable, None).await.unwrap();
+}
 
-    let results: Vec<f64> = vec![0.6, 0.5, 0.4];
+async fn insert_test_job_performances(database: &mongodb::Database) {
     let job_performances = database.collection("job_performances");
+    let results: Vec<f64> = vec![0.6, 0.5, 0.4];
+    let time = chrono::Utc::now();
 
-    let res1 = JobPerformance::new(
-        ObjectId::with_string(MAIN_PROJECT_ID).unwrap(),
-        ObjectId::with_string(MODEL_ID).unwrap(),
-        results[0],
-    );
-    job_performances
-        .insert_one(bson::ser::to_document(&res1).unwrap(), None)
-        .await
-        .unwrap();
+    let project_id = ObjectId::with_string(MAIN_PROJECT_ID).unwrap();
+    let model_id = ObjectId::with_string(MODEL_ID).unwrap();
 
-    sleep(Duration::from_millis(5)).await;
+    let performances = results.iter().enumerate().map(|(i, r)| {
+        let mut job_performance = JobPerformance::new(project_id.clone(), model_id.clone(), *r);
 
-    let res2 = JobPerformance::new(
-        ObjectId::with_string(MAIN_PROJECT_ID).unwrap(),
-        ObjectId::with_string(MODEL_ID).unwrap(),
-        results[1],
-    );
-    job_performances
-        .insert_one(bson::ser::to_document(&res2).unwrap(), None)
-        .await
-        .unwrap();
+        let offset = chrono::Duration::milliseconds(i as i64);
+        job_performance.date_created = bson::DateTime(time + offset);
 
-    sleep(Duration::from_millis(5)).await;
+        job_performance
+    });
 
-    let res3 = JobPerformance::new(
-        ObjectId::with_string(MAIN_PROJECT_ID).unwrap(),
-        ObjectId::with_string(MODEL_ID).unwrap(),
-        results[2],
-    );
-    job_performances
-        .insert_one(bson::ser::to_document(&res3).unwrap(), None)
-        .await
-        .unwrap();
+    for instance in performances {
+        let serialized = bson::ser::to_document(&instance).unwrap();
+        job_performances.insert_one(serialized, None).await.unwrap();
+    }
 }
