@@ -1,7 +1,6 @@
 //! Defines routes specific to client operations
 
 use actix_web::{web, HttpResponse};
-use chrono::Utc;
 use mongodb::bson::de::from_document;
 use mongodb::bson::ser::to_document;
 use mongodb::bson::{self, doc, document::Document, oid::ObjectId, Binary};
@@ -267,7 +266,11 @@ pub async fn authenticate_model(
         return Err(DodonaError::Unauthorized);
     }
 
-    if model.access_token.clone().unwrap().expires < Utc::now() {
+    // Check whether their token has expired
+    if model.token_has_not_expired() {
+        // TODO: authenticate the model in the session
+        response_from_json(doc! {"message": "Authentication successful"})
+    } else {
         let challenge = crypto::generate_challenge();
         model.authenticated = false;
         model.challenge = Some(Binary {
@@ -280,9 +283,6 @@ pub async fn authenticate_model(
         models.find_one_and_update(filter, update, None).await?;
 
         response_from_json(doc! {"challenge": base64::encode(challenge)})
-    } else {
-        // TODO: authenticate the model in the session
-        response_from_json(doc! {"message": "Authentication successful"})
     }
 }
 

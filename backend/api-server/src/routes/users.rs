@@ -90,9 +90,11 @@ pub async fn new(
     let user = User::new(email, hash, first_name, last_name);
 
     let document = mongodb::bson::ser::to_document(&user)?;
-    let id = users.insert_one(document, None).await?.inserted_id;
+    let inserted_id = users.insert_one(document, None).await?.inserted_id;
 
-    let jwt = auth::Claims::create_token(id.as_object_id().unwrap().clone())?;
+    let identifier = inserted_id.as_object_id().ok_or(DodonaError::Unknown)?;
+    let jwt = auth::Claims::create_token(identifier.clone())?;
+
     response_from_json(doc! {"token": jwt})
 }
 

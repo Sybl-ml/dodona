@@ -111,6 +111,19 @@ impl ClientModel {
         matches!(&self.access_token, Some(x) if x.token.bytes == token)
     }
 
+    /// Checks whether the client's token has not expired.
+    ///
+    /// If the client does not have a token, immediately return `false` as a base condition.
+    /// Otherwise, check the timestamp against the current time.
+    pub fn token_has_not_expired(&self) -> bool {
+        let token = match &self.access_token {
+            Some(token) => token,
+            None => return false,
+        };
+
+        token.expires > Utc::now()
+    }
+
     pub async fn delete(&self, database: &mongodb::Database) -> mongodb::error::Result<()> {
         let models = database.collection("models");
 

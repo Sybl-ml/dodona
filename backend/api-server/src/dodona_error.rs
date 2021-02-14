@@ -57,6 +57,7 @@ macro_rules! error_map {
 
 error_map! {
     std::str::Utf8Error => UnprocessableEntity,
+    std::string::FromUtf8Error => UnprocessableEntity,
     std::num::ParseIntError => UnprocessableEntity,
     bson::oid::Error => UnprocessableEntity,
     bson::document::ValueAccessError => UnprocessableEntity,

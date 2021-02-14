@@ -428,17 +428,20 @@ pub async fn get_predictions(
     let filter = doc! { "project_id": &object_id };
     let cursor = predictions.find(filter, None).await?;
 
+    // Given a document, extract the predictions and decompress them
+    let extract = |document: Document| -> Result<String, DodonaError> {
+        let prediction: Prediction = mongodb::bson::de::from_document(document)?;
+        let decompressed = decompress_data(&prediction.predictions.bytes)?;
+
+        Ok(String::from_utf8(decompressed)?)
+    };
+
     // Decompress the predictions for each instance found
     let decompressed: Vec<_> = cursor
         .filter_map(Result::ok)
-        .map(|document| {
-            let prediction: Prediction = mongodb::bson::de::from_document(document).unwrap();
-            let decompressed = decompress_data(&prediction.predictions.bytes).unwrap();
-
-            String::from_utf8(decompressed).unwrap()
-        })
-        .collect()
-        .await;
+        .map(extract)
+        .collect::<Result<_, _>>()
+        .await?;
 
     response_from_json(doc! {"predictions": decompressed})
 }

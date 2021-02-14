@@ -52,7 +52,9 @@ impl Claims {
         id: ObjectId,
         duration: Duration,
     ) -> jsonwebtoken::errors::Result<String> {
-        let since_epoch = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let since_epoch = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards");
         let exp = (since_epoch + duration).as_secs();
 
         let header = Header::default();
