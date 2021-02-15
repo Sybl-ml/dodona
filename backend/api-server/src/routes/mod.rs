@@ -1,12 +1,12 @@
 //! Defines the routes for the API server.
 
-use actix_web::{HttpResponse, Result};
+use actix_web::HttpResponse;
 use mongodb::{
     bson::{de::from_document, doc, oid::ObjectId},
     Collection,
 };
 
-use crate::dodona_error::DodonaError;
+use crate::error::{ServerError, ServerResponse, ServerResult};
 use crypto::clean_json;
 use models::projects::Project;
 
@@ -20,7 +20,7 @@ pub mod users;
 /// request. As many API functions take and return JSON, this reduces repetition when the route has
 /// been processed correctly.
 ///
-pub fn response_from_json<B: serde::Serialize>(body: B) -> Result<HttpResponse, DodonaError> {
+pub fn response_from_json<B: serde::Serialize>(body: B) -> ServerResponse {
     let body = clean_json(json!(body));
     Ok(HttpResponse::Ok().json(body))
 }
@@ -30,7 +30,7 @@ pub async fn check_user_owns_project(
     user_id: &ObjectId,
     project_id: &str,
     projects: &Collection,
-) -> Result<ObjectId, DodonaError> {
+) -> ServerResult<ObjectId> {
     // Check the project ID to make sure it exists
     let object_id = ObjectId::with_string(&project_id)?;
     let query = doc! { "_id": &object_id};
@@ -38,13 +38,13 @@ pub async fn check_user_owns_project(
     let project_doc = projects
         .find_one(query, None)
         .await?
-        .ok_or(DodonaError::NotFound)?;
+        .ok_or(ServerError::NotFound)?;
 
     let project: Project = from_document(project_doc)?;
 
     if project.user_id == *user_id {
         Ok(object_id)
     } else {
-        Err(DodonaError::Unauthorized)
+        Err(ServerError::Unauthorized)
     }
 }

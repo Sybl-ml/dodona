@@ -1,11 +1,11 @@
 //! Defines the routes specific to user operations.
 
-use actix_web::{web, HttpResponse};
+use actix_web::web;
 use mongodb::bson::{doc, document::Document};
 use tokio_stream::StreamExt;
 
 use crate::auth;
-use crate::dodona_error::DodonaError;
+use crate::error::{ServerError, ServerResponse};
 use crate::routes::response_from_json;
 use crate::State;
 use crypto::clean;
@@ -15,10 +15,7 @@ use models::users::User;
 ///
 /// Given a user identifier, finds the user in the database and returns them as a JSON object. If
 /// the user does not exist, the handler will panic.
-pub async fn get(
-    claims: auth::Claims,
-    state: web::Data<State>,
-) -> Result<HttpResponse, DodonaError> {
+pub async fn get(claims: auth::Claims, state: web::Data<State>) -> ServerResponse {
     let users = state.database.collection("users");
 
     let filter: Document = doc! { "_id": claims.id };
@@ -32,18 +29,15 @@ pub async fn get(
 /// Given a filter query, finds all users who match the filter and returns them as a JSON array of
 /// objects. For example, given `{"first_name", "John"}`, finds all the users with the first name
 /// John.
-pub async fn filter(
-    state: web::Data<State>,
-    filter: web::Json<Document>,
-) -> Result<HttpResponse, DodonaError> {
+pub async fn filter(state: web::Data<State>, filter: web::Json<Document>) -> ServerResponse {
     let users = state.database.collection("users");
 
     println!("Filter: {:?}", &filter);
 
     let cursor = users.find(filter.into_inner(), None).await?;
-    let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
+    let documents: Vec<Document> = cursor.collect::<Result<_, _>>().await?;
 
-    response_from_json(documents?)
+    response_from_json(documents)
 }
 
 /// Creates a new user given the form information.
@@ -52,10 +46,7 @@ pub async fn filter(
 /// then gets stored in the Mongo database with a randomly generated user identifier. If the user's
 /// email already exists, the route will not register any user.
 /// The user's client status will be false which can be later changed
-pub async fn new(
-    state: web::Data<State>,
-    doc: web::Json<Document>,
-) -> Result<HttpResponse, DodonaError> {
+pub async fn new(state: web::Data<State>, doc: web::Json<Document>) -> ServerResponse {
     log::debug!("Document received: {:?}", &doc);
 
     let pepper = state.pepper.clone();
@@ -92,7 +83,7 @@ pub async fn new(
     let document = mongodb::bson::ser::to_document(&user)?;
     let inserted_id = users.insert_one(document, None).await?.inserted_id;
 
-    let identifier = inserted_id.as_object_id().ok_or(DodonaError::Unknown)?;
+    let identifier = inserted_id.as_object_id().ok_or(ServerError::Unknown)?;
     let jwt = auth::Claims::create_token(identifier.clone())?;
 
     response_from_json(doc! {"token": jwt})
@@ -106,7 +97,7 @@ pub async fn edit(
     claims: auth::Claims,
     state: web::Data<State>,
     doc: web::Json<Document>,
-) -> Result<HttpResponse, DodonaError> {
+) -> ServerResponse {
     let users = state.database.collection("users");
 
     // Get the user from the database
@@ -114,7 +105,7 @@ pub async fn edit(
     let user_doc = users
         .find_one(filter.clone(), None)
         .await?
-        .ok_or(DodonaError::NotFound)?;
+        .ok_or(ServerError::NotFound)?;
 
     let mut user: User = mongodb::bson::de::from_document(user_doc)?;
 
@@ -133,10 +124,7 @@ pub async fn edit(
 /// Given an email and password, finds the user in the database and checks that the two hashes
 /// match. If they don't, or the user does not exist, it will not authenticate them and send back a
 /// null token.
-pub async fn login(
-    state: web::Data<State>,
-    doc: web::Json<Document>,
-) -> Result<HttpResponse, DodonaError> {
+pub async fn login(state: web::Data<State>, doc: web::Json<Document>) -> ServerResponse {
     let users = state.database.collection("users");
     let pepper = state.pepper.clone();
 
@@ -149,7 +137,7 @@ pub async fn login(
     let user_doc = users
         .find_one(filter, None)
         .await?
-        .ok_or(DodonaError::NotFound)?;
+        .ok_or(ServerError::NotFound)?;
     let user: User = mongodb::bson::de::from_document(user_doc)?;
 
     let peppered = format!("{}{}", password, pepper);
@@ -166,10 +154,7 @@ pub async fn login(
 /// Deletes a user from the database.
 ///
 /// Given a user identifier, deletes the related user from the database if they exist.
-pub async fn delete(
-    claims: auth::Claims,
-    state: web::Data<State>,
-) -> Result<HttpResponse, DodonaError> {
+pub async fn delete(claims: auth::Claims, state: web::Data<State>) -> ServerResponse {
     let users = state.database.collection("users");
 
     let filter = doc! { "_id": claims.id };

@@ -8,7 +8,7 @@ use futures_util::future;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, TokenData, Validation};
 use mongodb::bson::oid::ObjectId;
 
-use crate::dodona_error::DodonaError;
+use crate::error::ServerError;
 
 /// Retrieves the encoding key used for JWT authentication.
 pub fn get_encoding_key() -> EncodingKey {
@@ -66,20 +66,20 @@ impl Claims {
 }
 
 impl TryFrom<&HttpRequest> for Claims {
-    type Error = DodonaError;
+    type Error = ServerError;
 
     fn try_from(req: &HttpRequest) -> Result<Self, Self::Error> {
         let value = req
             .headers()
             .get("Authorization")
-            .ok_or(DodonaError::Unauthorized)?;
+            .ok_or(ServerError::Unauthorized)?;
 
-        let token = value.to_str().map_err(|_| DodonaError::Unauthorized)?;
+        let token = value.to_str().map_err(|_| ServerError::Unauthorized)?;
 
         // Ensure it begins with "Bearer" and remove the prefix
         let token = token
             .strip_prefix("Bearer ")
-            .ok_or(DodonaError::Unauthorized)?;
+            .ok_or(ServerError::Unauthorized)?;
 
         // Get the secret key from the filesystem
         let key = get_decoding_key();
@@ -91,7 +91,7 @@ impl TryFrom<&HttpRequest> for Claims {
 }
 
 impl FromRequest for Claims {
-    type Error = DodonaError;
+    type Error = ServerError;
     type Future = future::Ready<Result<Self, Self::Error>>;
     type Config = ();
 

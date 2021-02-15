@@ -20,7 +20,7 @@ use actix_web::{middleware, web, App, HttpServer, Result};
 use mongodb::{options::ClientOptions, Client, Database};
 
 pub mod auth;
-pub mod dodona_error;
+pub mod error;
 pub mod routes;
 
 /// Defines the state for each request to access.

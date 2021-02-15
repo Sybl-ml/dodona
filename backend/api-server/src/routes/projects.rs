@@ -15,7 +15,7 @@ use tokio_stream::StreamExt;
 
 use crate::auth;
 
-use crate::dodona_error::DodonaError;
+use crate::error::{ServerError, ServerResponse, ServerResult};
 use crate::routes::{check_user_owns_project, response_from_json};
 use crate::State;
 use crypto::clean;
@@ -48,7 +48,7 @@ pub async fn get_project(
     claims: auth::Claims,
     state: web::Data<State>,
     project_id: web::Path<String>,
-) -> Result<HttpResponse, DodonaError> {
+) -> ServerResponse {
     let projects = state.database.collection("projects");
     let details = state.database.collection("dataset_details");
 
@@ -58,7 +58,7 @@ pub async fn get_project(
     let doc = projects
         .find_one(filter, None)
         .await?
-        .ok_or(DodonaError::NotFound)?;
+        .ok_or(ServerError::NotFound)?;
 
     // get that project from the projects collection
     let filter = doc! { "project_id": &object_id };
@@ -87,7 +87,7 @@ pub async fn patch_project(
     state: web::Data<State>,
     project_id: web::Path<String>,
     doc: web::Json<Document>,
-) -> Result<HttpResponse, DodonaError> {
+) -> ServerResponse {
     let projects = state.database.collection("projects");
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
@@ -110,7 +110,7 @@ pub async fn delete_project(
     claims: auth::Claims,
     state: web::Data<State>,
     project_id: web::Path<String>,
-) -> Result<HttpResponse, DodonaError> {
+) -> ServerResponse {
     let projects = state.database.collection("projects");
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
@@ -130,17 +130,14 @@ pub async fn delete_project(
 ///
 /// Given a user identifier, finds all the projects in the database that the user owns. If the user
 /// doesn't exist or an invalid identifier is given, returns a 404 response.
-pub async fn get_user_projects(
-    claims: auth::Claims,
-    state: web::Data<State>,
-) -> Result<HttpResponse, DodonaError> {
+pub async fn get_user_projects(claims: auth::Claims, state: web::Data<State>) -> ServerResponse {
     let projects = state.database.collection("projects");
 
     let filter = doc! { "user_id": &claims.id };
     let cursor = projects.find(filter, None).await?;
-    let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
+    let documents: Vec<Document> = cursor.collect::<Result<_, _>>().await?;
 
-    response_from_json(documents?)
+    response_from_json(documents)
 }
 
 /// Creates a new project related to a given user.
@@ -152,7 +149,7 @@ pub async fn new(
     claims: auth::Claims,
     state: web::Data<State>,
     doc: web::Json<Document>,
-) -> Result<HttpResponse, DodonaError> {
+) -> ServerResponse {
     let projects = state.database.collection("projects");
 
     // get name
@@ -180,7 +177,7 @@ pub async fn add_data(
     state: web::Data<State>,
     project_id: web::Path<String>,
     doc: web::Json<Document>,
-) -> Result<HttpResponse, DodonaError> {
+) -> ServerResponse {
     let datasets = state.database.collection("datasets");
     let dataset_details = state.database.collection("dataset_details");
     let projects = state.database.collection("projects");
@@ -243,7 +240,7 @@ pub async fn overview(
     claims: auth::Claims,
     state: web::Data<State>,
     project_id: web::Path<String>,
-) -> Result<HttpResponse, DodonaError> {
+) -> ServerResponse {
     let dataset_details = state.database.collection("dataset_details");
     let projects = state.database.collection("projects");
 
@@ -251,9 +248,9 @@ pub async fn overview(
 
     let filter = doc! { "project_id": &object_id };
     let cursor = dataset_details.find(filter, None).await?;
-    let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
+    let documents: Vec<Document> = cursor.collect::<Result<_, _>>().await?;
 
-    response_from_json(documents?)
+    response_from_json(documents)
 }
 
 /// Route returns back uncompressed dataset
@@ -266,7 +263,7 @@ pub async fn get_data(
     claims: auth::Claims,
     state: web::Data<State>,
     project_id: web::Path<String>,
-) -> Result<HttpResponse, DodonaError> {
+) -> ServerResponse {
     let datasets = state.database.collection("datasets");
     let projects = state.database.collection("projects");
 
@@ -277,7 +274,7 @@ pub async fn get_data(
     let document = datasets
         .find_one(filter, None)
         .await?
-        .ok_or(DodonaError::NotFound)?;
+        .ok_or(ServerError::NotFound)?;
 
     // Parse the dataset itself
     let dataset = mongodb::bson::de::from_document::<Dataset>(document)?;
@@ -306,7 +303,7 @@ pub async fn remove_data(
     claims: auth::Claims,
     state: web::Data<State>,
     project_id: web::Path<String>,
-) -> Result<HttpResponse, DodonaError> {
+) -> ServerResponse {
     let datasets = state.database.collection("datasets");
     let projects = state.database.collection("projects");
 
@@ -338,7 +335,7 @@ pub async fn begin_processing(
     state: web::Data<State>,
     project_id: web::Path<String>,
     doc: web::Json<ProcessingOptions>,
-) -> Result<HttpResponse, DodonaError> {
+) -> ServerResponse {
     let projects = state.database.collection("projects");
     let datasets = state.database.collection("datasets");
     let dataset_details = state.database.collection("dataset_details");
@@ -349,7 +346,7 @@ pub async fn begin_processing(
     let prediction_type: PredictionType = match doc.prediction_type.as_str() {
         "classification" => PredictionType::Classification,
         "regression" => PredictionType::Regression,
-        _ => return Err(DodonaError::UnprocessableEntity),
+        _ => return Err(ServerError::UnprocessableEntity),
     };
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
@@ -359,7 +356,7 @@ pub async fn begin_processing(
     let document = datasets
         .find_one(filter, None)
         .await?
-        .ok_or(DodonaError::NotFound)?;
+        .ok_or(ServerError::NotFound)?;
 
     // Parse the dataset itself
     let dataset = mongodb::bson::de::from_document::<Dataset>(document)?;
@@ -368,7 +365,7 @@ pub async fn begin_processing(
     let document = dataset_details
         .find_one(filter, None)
         .await?
-        .ok_or(DodonaError::NotFound)?;
+        .ok_or(ServerError::NotFound)?;
 
     // Parse the dataset detail itself
     let dataset_detail = mongodb::bson::de::from_document::<DatasetDetails>(document)?;
@@ -416,7 +413,7 @@ pub async fn get_predictions(
     claims: auth::Claims,
     state: web::Data<State>,
     project_id: web::Path<String>,
-) -> Result<HttpResponse, DodonaError> {
+) -> ServerResponse {
     // Get the projects and the predictions collections
     let projects = state.database.collection("projects");
     let predictions = state.database.collection("predictions");
@@ -429,7 +426,7 @@ pub async fn get_predictions(
     let cursor = predictions.find(filter, None).await?;
 
     // Given a document, extract the predictions and decompress them
-    let extract = |document: Document| -> Result<String, DodonaError> {
+    let extract = |document: Document| -> ServerResult<String> {
         let prediction: Prediction = mongodb::bson::de::from_document(document)?;
         let decompressed = decompress_data(&prediction.predictions.bytes)?;
 
@@ -467,7 +464,7 @@ async fn forward_to_interface(job: &Job) -> tokio::io::Result<()> {
 }
 
 /// Inserts an [`JobConfiguration`] into MongoDB and returns the ID of the job.
-async fn insert_to_queue(job: &Job, collection: Collection) -> mongodb::error::Result<()> {
+async fn insert_to_queue(job: &Job, collection: Collection) -> ServerResult<()> {
     log::debug!("Inserting {:?} to the MongoDB interface queue", job);
 
     let document = mongodb::bson::ser::to_document(&job)?;
