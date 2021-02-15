@@ -4,7 +4,6 @@ use actix_web::web;
 use mongodb::bson::{doc, document::Document};
 use tokio_stream::StreamExt;
 
-use crypto::clean;
 use models::users::User;
 
 use crate::{
@@ -57,9 +56,9 @@ pub async fn new(state: web::Data<State>, doc: web::Json<Document>) -> ServerRes
     let users = state.database.collection("users");
 
     let password = doc.get_str("password")?;
-    let email = clean(doc.get_str("email")?);
-    let first_name = clean(doc.get_str("firstName")?);
-    let last_name = clean(doc.get_str("lastName")?);
+    let email = crypto::clean(doc.get_str("email")?);
+    let first_name = crypto::clean(doc.get_str("firstName")?);
+    let last_name = crypto::clean(doc.get_str("lastName")?);
 
     log::info!("Email: {}, Password: {}", email, password);
     log::info!("Name: {} {}", first_name, last_name);
@@ -113,7 +112,7 @@ pub async fn edit(
     let mut user: User = mongodb::bson::de::from_document(user_doc)?;
 
     if let Ok(email) = doc.get_str("email") {
-        user.email = clean(email);
+        user.email = crypto::clean(email);
     }
 
     let document = mongodb::bson::ser::to_document(&user)?;
@@ -132,7 +131,7 @@ pub async fn login(state: web::Data<State>, doc: web::Json<Document>) -> ServerR
     let pepper = state.pepper.clone();
 
     let password = doc.get_str("password")?;
-    let email = clean(doc.get_str("email")?);
+    let email = crypto::clean(doc.get_str("email")?);
 
     println!("{}, {}", &email, &password);
 

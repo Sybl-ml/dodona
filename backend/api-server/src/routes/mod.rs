@@ -6,7 +6,6 @@ use mongodb::{
     Collection,
 };
 
-use crypto::clean_json;
 use models::projects::Project;
 
 use crate::error::{ServerError, ServerResponse, ServerResult};
@@ -22,7 +21,7 @@ pub mod users;
 /// been processed correctly.
 ///
 pub fn response_from_json<B: serde::Serialize>(body: B) -> ServerResponse {
-    let body = clean_json(json!(body));
+    let body = crypto::clean_json(json!(body));
     Ok(HttpResponse::Ok().json(body))
 }
 

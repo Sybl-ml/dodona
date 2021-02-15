@@ -13,7 +13,6 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio_stream::StreamExt;
 
-use crypto::clean;
 use messages::WriteLengthPrefix;
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
@@ -155,8 +154,8 @@ pub async fn new(
     let projects = state.database.collection("projects");
 
     // get name
-    let name = clean(doc.get_str("name")?);
-    let description = clean(doc.get_str("description")?);
+    let name = crypto::clean(doc.get_str("name")?);
+    let description = crypto::clean(doc.get_str("description")?);
 
     let project = Project::new(&name, &description, claims.id.clone());
 
@@ -184,7 +183,7 @@ pub async fn add_data(
     let dataset_details = state.database.collection("dataset_details");
     let projects = state.database.collection("projects");
 
-    let data = clean(doc.get_str("content")?);
+    let data = crypto::clean(doc.get_str("content")?);
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     // Check whether the project has data already
@@ -287,8 +286,8 @@ pub async fn get_data(
     let decomp_train = decompress_data(&comp_train)?;
     let decomp_predict = decompress_data(&comp_predict)?;
 
-    let train = clean(std::str::from_utf8(&decomp_train)?);
-    let predict = clean(std::str::from_utf8(&decomp_predict)?);
+    let train = crypto::clean(std::str::from_utf8(&decomp_train)?);
+    let predict = crypto::clean(std::str::from_utf8(&decomp_predict)?);
 
     log::info!("Training data: {:?}", &train);
     log::info!("Prediction data: {:?}", &predict);
