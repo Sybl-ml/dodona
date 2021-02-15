@@ -13,7 +13,7 @@ use models::users::{Client, User};
 use crate::{
     auth,
     error::{ServerError, ServerResponse, ServerResult},
-    routes::response_from_json,
+    routes::{payloads, response_from_json},
     State,
 };
 
@@ -23,14 +23,13 @@ use crate::{
 pub async fn register(
     claims: auth::Claims,
     state: web::Data<State>,
-    doc: web::Json<Document>,
+    payload: web::Json<payloads::RegisterClientOptions>,
 ) -> ServerResponse {
     let pepper = state.pepper.clone();
     let users = state.database.collection("users");
     let clients = state.database.collection("clients");
 
-    let password = doc.get_str("password")?;
-    let email = crypto::clean(doc.get_str("email")?);
+    let email = crypto::clean(&payload.email);
 
     let filter = doc! { "_id": &claims.id };
     let user_doc = users.find_one(filter, None).await?;
@@ -41,7 +40,7 @@ pub async fn register(
         return response_from_json(doc! {"privKey": "null"});
     }
 
-    let peppered = format!("{}{}", password, pepper);
+    let peppered = format!("{}{}", payload.password, pepper);
     let verified = pbkdf2::pbkdf2_check(&peppered, &user.hash).is_ok();
 
     // Entered and stored email and password match
@@ -76,14 +75,16 @@ pub async fn register(
 /// provided an email check the user exists and is a client
 /// If validated generate a challenge and insert a new temp model
 /// Respond with the encoded challenge
-pub async fn new_model(state: web::Data<State>, doc: web::Json<Document>) -> ServerResponse {
+pub async fn new_model(
+    state: web::Data<State>,
+    payload: web::Json<payloads::NewModelOptions>,
+) -> ServerResponse {
     let users = state.database.collection("users");
     let models = state.database.collection("models");
 
-    let email = crypto::clean(doc.get_str("email")?);
-    let model_name = doc.get_str("model_name")?.to_string();
-
+    let email = crypto::clean(&payload.email);
     let filter = doc! { "email": &email };
+
     let user = match users.find_one(filter, None).await? {
         Some(u) => from_document::<User>(u)?,
         None => return Err(ServerError::NotFound),
@@ -93,14 +94,14 @@ pub async fn new_model(state: web::Data<State>, doc: web::Json<Document>) -> Ser
         return Err(ServerError::Forbidden);
     }
 
-    let filter = doc! { "user_id": &user.id, "name": &model_name };
+    let filter = doc! { "user_id": &user.id, "name": &payload.model_name };
     if models.find_one(filter, None).await?.is_some() {
         return Err(ServerError::Conflict);
     }
 
     // Generate challenge
     let challenge = crypto::generate_challenge();
-    let temp_model = ClientModel::new(user.id, model_name, challenge.clone());
+    let temp_model = ClientModel::new(user.id, payload.model_name.clone(), challenge.clone());
 
     // insert model into database
     let document = to_document(&temp_model)?;
@@ -120,13 +121,15 @@ pub async fn new_model(state: web::Data<State>, doc: web::Json<Document>) -> Ser
 /// `challenge_response` matches the `challenge` with respect to the `client`'s public key.
 /// Returns a new access token for the `new_model` if verification is successful.
 /// Returns a 404 error if the `client` or `model` is not found, or 401 if verification fails.
-pub async fn verify_challenge(state: web::Data<State>, doc: web::Json<Document>) -> ServerResponse {
+pub async fn verify_challenge(
+    state: web::Data<State>,
+    payload: web::Json<payloads::VerifyChallengeOptions>,
+) -> ServerResponse {
     let users = state.database.collection("users");
     let clients = state.database.collection("clients");
     let models = state.database.collection("models");
 
-    let model_name = doc.get_str("model_name")?.to_string();
-    let email = crypto::clean(doc.get_str("email")?);
+    let email = crypto::clean(&payload.email);
     let filter = doc! { "email": &email };
 
     let user_doc = users
@@ -143,9 +146,9 @@ pub async fn verify_challenge(state: web::Data<State>, doc: web::Json<Document>)
         .ok_or(ServerError::NotFound)?;
     let client: Client = from_document(client_doc)?;
 
-    let filter = doc! { "user_id": &user.id, "name": &model_name };
+    let filter = doc! { "user_id": &user.id, "name": &payload.model_name };
     let model_doc = models
-        .find_one(filter, None)
+        .find_one(filter.clone(), None)
         .await?
         .ok_or(ServerError::NotFound)?;
     let mut model: ClientModel = from_document(model_doc)?;
@@ -154,7 +157,7 @@ pub async fn verify_challenge(state: web::Data<State>, doc: web::Json<Document>)
     let challenge = &model.challenge.ok_or(ServerError::Unauthorized)?.bytes;
 
     // needs converting to Vec<u8>
-    let challenge_response = base64::decode(doc.get_str("challenge_response")?)?;
+    let challenge_response = base64::decode(&payload.challenge_response)?;
 
     if !crypto::verify_challenge(challenge.to_vec(), challenge_response, public_key) {
         return Err(ServerError::Unauthorized);
@@ -165,7 +168,6 @@ pub async fn verify_challenge(state: web::Data<State>, doc: web::Json<Document>)
     model.access_token = Some(access_token.clone());
     model.challenge = None;
 
-    let filter = doc! { "user_id": &user.id, "name": &model_name };
     let update = doc! { "$set": to_document(&model)? };
     models.find_one_and_update(filter, update, None).await?;
 
@@ -192,12 +194,12 @@ pub async fn verify_challenge(state: web::Data<State>, doc: web::Json<Document>)
 pub async fn unlock_model(
     claims: auth::Claims,
     state: web::Data<State>,
-    doc: web::Json<Document>,
+    payload: web::Json<payloads::UnlockModelOptions>,
 ) -> ServerResponse {
     let models = state.database.collection("models");
     let users = state.database.collection("users");
 
-    let model_id = ObjectId::with_string(doc.get_str("id")?)?;
+    let model_id = ObjectId::with_string(&payload.id)?;
     let filter = doc! { "_id": &model_id };
     let model_doc = models
         .find_one(filter, None)
@@ -210,9 +212,6 @@ pub async fn unlock_model(
         return Err(ServerError::Unauthorized);
     }
 
-    let password = doc.get_str("password")?;
-    let pepper = &state.pepper;
-
     let filter = doc! { "_id": &claims.id };
     let user_doc = users
         .find_one(filter, None)
@@ -220,7 +219,7 @@ pub async fn unlock_model(
         .ok_or(ServerError::Unauthorized)?;
     let user: User = from_document(user_doc)?;
 
-    let peppered = format!("{}{}", password, pepper);
+    let peppered = format!("{}{}", payload.password, &state.pepper);
 
     if !model.authenticated || pbkdf2::pbkdf2_check(&peppered, &user.hash).is_err() {
         return Err(ServerError::Unauthorized);
@@ -244,11 +243,11 @@ pub async fn unlock_model(
 /// Returns a 401 error if the model is not found or if authentication fails.
 pub async fn authenticate_model(
     state: web::Data<State>,
-    doc: web::Json<Document>,
+    payload: web::Json<payloads::AuthenticateModelOptions>,
 ) -> ServerResponse {
     let models = state.database.collection("models");
 
-    let model_id = ObjectId::with_string(&doc.get_str("id")?)?;
+    let model_id = ObjectId::with_string(&payload.id)?;
     let filter = doc! { "_id": &model_id };
     let model_doc = models
         .find_one(filter, None)
@@ -256,7 +255,7 @@ pub async fn authenticate_model(
         .ok_or(ServerError::Unauthorized)?;
     let mut model: ClientModel = from_document(model_doc)?;
 
-    let token = base64::decode(doc.get_str("token")?)?;
+    let token = base64::decode(&payload.token)?;
 
     if !model.is_authenticated(&token) {
         return Err(ServerError::Unauthorized);

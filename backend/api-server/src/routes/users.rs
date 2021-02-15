@@ -9,7 +9,7 @@ use models::users::User;
 use crate::{
     auth,
     error::{ServerError, ServerResponse},
-    routes::response_from_json,
+    routes::{payloads, response_from_json},
     State,
 };
 
@@ -48,19 +48,18 @@ pub async fn filter(state: web::Data<State>, filter: web::Json<Document>) -> Ser
 /// then gets stored in the Mongo database with a randomly generated user identifier. If the user's
 /// email already exists, the route will not register any user.
 /// The user's client status will be false which can be later changed
-pub async fn new(state: web::Data<State>, doc: web::Json<Document>) -> ServerResponse {
-    log::debug!("Document received: {:?}", &doc);
-
+pub async fn new(
+    state: web::Data<State>,
+    payload: web::Json<payloads::RegistrationOptions>,
+) -> ServerResponse {
     let pepper = state.pepper.clone();
 
     let users = state.database.collection("users");
 
-    let password = doc.get_str("password")?;
-    let email = crypto::clean(doc.get_str("email")?);
-    let first_name = crypto::clean(doc.get_str("firstName")?);
-    let last_name = crypto::clean(doc.get_str("lastName")?);
+    let email = crypto::clean(&payload.email);
+    let first_name = crypto::clean(&payload.first_name);
+    let last_name = crypto::clean(&payload.last_name);
 
-    log::info!("Email: {}, Password: {}", email, password);
     log::info!("Name: {} {}", first_name, last_name);
 
     let filter = doc! { "email": &email };
@@ -74,7 +73,7 @@ pub async fn new(state: web::Data<State>, doc: web::Json<Document>) -> ServerRes
 
     log::info!("User does not exist, registering them now");
 
-    let peppered = format!("{}{}", &password, &pepper);
+    let peppered = format!("{}{}", &payload.password, &pepper);
     let hash = pbkdf2::pbkdf2_simple(&peppered, state.pbkdf2_iterations)
         .expect("Failed to hash the user's password");
 
@@ -98,7 +97,7 @@ pub async fn new(state: web::Data<State>, doc: web::Json<Document>) -> ServerRes
 pub async fn edit(
     claims: auth::Claims,
     state: web::Data<State>,
-    doc: web::Json<Document>,
+    payload: web::Json<payloads::EditUserOptions>,
 ) -> ServerResponse {
     let users = state.database.collection("users");
 
@@ -110,10 +109,7 @@ pub async fn edit(
         .ok_or(ServerError::NotFound)?;
 
     let mut user: User = mongodb::bson::de::from_document(user_doc)?;
-
-    if let Ok(email) = doc.get_str("email") {
-        user.email = crypto::clean(email);
-    }
+    user.email = crypto::clean(&payload.email);
 
     let document = mongodb::bson::ser::to_document(&user)?;
     users.update_one(filter, document, None).await?;
@@ -126,14 +122,14 @@ pub async fn edit(
 /// Given an email and password, finds the user in the database and checks that the two hashes
 /// match. If they don't, or the user does not exist, it will not authenticate them and send back a
 /// null token.
-pub async fn login(state: web::Data<State>, doc: web::Json<Document>) -> ServerResponse {
+pub async fn login(
+    state: web::Data<State>,
+    payload: web::Json<payloads::LoginOptions>,
+) -> ServerResponse {
     let users = state.database.collection("users");
     let pepper = state.pepper.clone();
 
-    let password = doc.get_str("password")?;
-    let email = crypto::clean(doc.get_str("email")?);
-
-    println!("{}, {}", &email, &password);
+    let email = crypto::clean(&payload.email);
 
     let filter = doc! {"email": email};
     let user_doc = users
@@ -142,7 +138,7 @@ pub async fn login(state: web::Data<State>, doc: web::Json<Document>) -> ServerR
         .ok_or(ServerError::NotFound)?;
     let user: User = mongodb::bson::de::from_document(user_doc)?;
 
-    let peppered = format!("{}{}", password, pepper);
+    let peppered = format!("{}{}", payload.password, pepper);
 
     // Check the user's password
     pbkdf2::pbkdf2_check(&peppered, &user.hash)?;

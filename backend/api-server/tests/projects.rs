@@ -397,7 +397,7 @@ async fn projects_can_be_edited() -> Result<()> {
     };
 
     let formatted = format!("/api/projects/p/{}", common::EDITABLE_PROJECT_ID);
-    let doc = doc! {"description": "new description"};
+    let doc = doc! {"changes": {"description": "new description"}};
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PATCH)
         .header("Authorization", get_bearer_token(common::MAIN_USER_ID))

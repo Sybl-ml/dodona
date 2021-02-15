@@ -11,6 +11,7 @@ use models::projects::Project;
 use crate::error::{ServerError, ServerResponse, ServerResult};
 
 pub mod clients;
+pub mod payloads;
 pub mod projects;
 pub mod users;
 

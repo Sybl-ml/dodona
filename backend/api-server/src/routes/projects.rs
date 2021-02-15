@@ -25,21 +25,9 @@ use utils::ColumnType;
 use crate::{
     auth,
     error::{ServerError, ServerResponse, ServerResult},
-    routes::{check_user_owns_project, response_from_json},
+    routes::{check_user_owns_project, payloads, response_from_json},
     State,
 };
-
-/// Stores the options for beginning processing of a dataset.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProcessingOptions {
-    /// The timeout for the job
-    pub timeout: u32,
-    /// The type of prediction category this is
-    pub prediction_type: String,
-    /// The column to use for prediction
-    pub prediction_column: String,
-}
 
 /// Finds a project in the database given an identifier.
 ///
@@ -87,14 +75,14 @@ pub async fn patch_project(
     claims: auth::Claims,
     state: web::Data<State>,
     project_id: web::Path<String>,
-    doc: web::Json<Document>,
+    payload: web::Json<payloads::PatchProjectOptions>,
 ) -> ServerResponse {
     let projects = state.database.collection("projects");
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     let filter = doc! { "_id": &object_id };
-    let update_doc = doc! { "$set": doc.into_inner() };
+    let update_doc = doc! { "$set": &payload.changes };
     projects.update_one(filter, update_doc, None).await?;
 
     Ok(HttpResponse::Ok().finish())
@@ -149,13 +137,12 @@ pub async fn get_user_projects(claims: auth::Claims, state: web::Data<State>) ->
 pub async fn new(
     claims: auth::Claims,
     state: web::Data<State>,
-    doc: web::Json<Document>,
+    payload: web::Json<payloads::NewProjectOptions>,
 ) -> ServerResponse {
     let projects = state.database.collection("projects");
 
-    // get name
-    let name = crypto::clean(doc.get_str("name")?);
-    let description = crypto::clean(doc.get_str("description")?);
+    let name = crypto::clean(&payload.name);
+    let description = crypto::clean(&payload.description);
 
     let project = Project::new(&name, &description, claims.id.clone());
 
@@ -177,13 +164,13 @@ pub async fn add_data(
     claims: auth::Claims,
     state: web::Data<State>,
     project_id: web::Path<String>,
-    doc: web::Json<Document>,
+    payload: web::Json<payloads::UploadDatasetOptions>,
 ) -> ServerResponse {
     let datasets = state.database.collection("datasets");
     let dataset_details = state.database.collection("dataset_details");
     let projects = state.database.collection("projects");
 
-    let data = crypto::clean(doc.get_str("content")?);
+    let data = crypto::clean(&payload.content);
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     // Check whether the project has data already
@@ -198,8 +185,6 @@ pub async fn add_data(
         data.delete(&state.database).await?;
     }
 
-    let dataset_name = doc.get_str("name")?.to_string();
-
     let analysis = utils::analysis::analyse(&data);
     let (train, predict) = utils::infer_train_and_predict(&data);
     let column_types = analysis.types;
@@ -211,7 +196,12 @@ pub async fn add_data(
     let compressed = compress_vec(&train)?;
     let compressed_predict = compress_vec(&predict)?;
 
-    let details = DatasetDetails::new(dataset_name, object_id.clone(), data_head, column_types);
+    let details = DatasetDetails::new(
+        payload.name.clone(),
+        object_id.clone(),
+        data_head,
+        column_types,
+    );
     let dataset = Dataset::new(object_id.clone(), compressed, compressed_predict);
 
     // Update the project status
@@ -335,16 +325,16 @@ pub async fn begin_processing(
     claims: auth::Claims,
     state: web::Data<State>,
     project_id: web::Path<String>,
-    doc: web::Json<ProcessingOptions>,
+    payload: web::Json<payloads::ProcessingOptions>,
 ) -> ServerResponse {
     let projects = state.database.collection("projects");
     let datasets = state.database.collection("datasets");
     let dataset_details = state.database.collection("dataset_details");
 
-    let timeout = doc.timeout as i32;
+    let timeout = payload.timeout as i32;
     log::info!("Timeout is: {}", &timeout);
 
-    let prediction_type: PredictionType = match doc.prediction_type.as_str() {
+    let prediction_type: PredictionType = match payload.prediction_type.as_str() {
         "classification" => PredictionType::Classification,
         "regression" => PredictionType::Regression,
         _ => return Err(ServerError::UnprocessableEntity),
@@ -385,7 +375,7 @@ pub async fn begin_processing(
         dataset_id: dataset.id.clone(),
         timeout,
         column_types,
-        prediction_column: doc.prediction_column.clone(),
+        prediction_column: payload.prediction_column.clone(),
         prediction_type,
     };
     let job = Job::new(config);
