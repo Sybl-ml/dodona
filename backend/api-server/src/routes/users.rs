@@ -4,12 +4,15 @@ use actix_web::web;
 use mongodb::bson::{doc, document::Document};
 use tokio_stream::StreamExt;
 
-use crate::auth;
-use crate::error::{ServerError, ServerResponse};
-use crate::routes::response_from_json;
-use crate::State;
 use crypto::clean;
 use models::users::User;
+
+use crate::{
+    auth,
+    error::{ServerError, ServerResponse},
+    routes::response_from_json,
+    State,
+};
 
 /// Gets a user given their database identifier.
 ///

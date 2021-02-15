@@ -10,10 +10,12 @@ use models::job_performance::JobPerformance;
 use models::models::{AccessToken, ClientModel};
 use models::users::{Client, User};
 
-use crate::auth;
-use crate::error::{ServerError, ServerResponse, ServerResult};
-use crate::routes::response_from_json;
-use crate::State;
+use crate::{
+    auth,
+    error::{ServerError, ServerResponse, ServerResult},
+    routes::response_from_json,
+    State,
+};
 
 /// Template for registering a new client
 ///

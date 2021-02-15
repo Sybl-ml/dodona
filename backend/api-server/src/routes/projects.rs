@@ -13,11 +13,6 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio_stream::StreamExt;
 
-use crate::auth;
-
-use crate::error::{ServerError, ServerResponse, ServerResult};
-use crate::routes::{check_user_owns_project, response_from_json};
-use crate::State;
 use crypto::clean;
 use messages::WriteLengthPrefix;
 use models::dataset_details::DatasetDetails;
@@ -27,6 +22,13 @@ use models::predictions::Prediction;
 use models::projects::{Project, Status};
 use utils::compress::{compress_vec, decompress_data};
 use utils::ColumnType;
+
+use crate::{
+    auth,
+    error::{ServerError, ServerResponse, ServerResult},
+    routes::{check_user_owns_project, response_from_json},
+    State,
+};
 
 /// Stores the options for beginning processing of a dataset.
 #[derive(Debug, Deserialize)]

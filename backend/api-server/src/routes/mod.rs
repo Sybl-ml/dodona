@@ -6,9 +6,10 @@ use mongodb::{
     Collection,
 };
 
-use crate::error::{ServerError, ServerResponse, ServerResult};
 use crypto::clean_json;
 use models::projects::Project;
+
+use crate::error::{ServerError, ServerResponse, ServerResult};
 
 pub mod clients;
 pub mod projects;
