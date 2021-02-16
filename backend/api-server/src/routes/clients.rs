@@ -17,9 +17,10 @@ use crate::{
     State,
 };
 
-/// Template for registering a new client
+/// Upgrades a user account to a client account.
 ///
-/// Will check the provided `user_id` matches with the provided email and password
+/// Checks whether the user is already a client before ensuring the email provided is the same as
+/// the user's email, along with the password.
 pub async fn register(
     claims: auth::Claims,
     state: web::Data<State>,
@@ -39,7 +40,7 @@ pub async fn register(
     let user: User = from_document(document)?;
 
     if user.client {
-        log::warn!("User with id={} is not a client", user.id);
+        log::warn!("User with id={} is already a client", user.id);
         return response_from_json(doc! {"privKey": "null"});
     }
 
@@ -81,11 +82,10 @@ pub async fn register(
     }
 }
 
-/// Route for registering a new model/node
+/// Registers a new model for a given user.
 ///
-/// provided an email check the user exists and is a client
-/// If validated generate a challenge and insert a new temp model
-/// Respond with the encoded challenge
+/// Checks whether the given user is a client and that they do not already have a model with the
+/// given name, before inserting it into the database and responding with a challenge for the user.
 pub async fn new_model(
     state: web::Data<State>,
     payload: web::Json<payloads::NewModelOptions>,
@@ -134,12 +134,12 @@ pub async fn new_model(
     })
 }
 
-/// Verifies a challenge response from a model
+/// Verifies a challenge response from a client.
 ///
-/// Given a `new_model`, a `challenge_response` and a `challenge`, verifies that the
-/// `challenge_response` matches the `challenge` with respect to the `client`'s public key.
-/// Returns a new access token for the `new_model` if verification is successful.
-/// Returns a 404 error if the `client` or `model` is not found, or 401 if verification fails.
+/// This will fetch the client's public key from the database and use it to check whether the
+/// challenge response they provided is a match based on how they signed it. If it succeeds, the
+/// model will be set to authenticated and the client will be sent an access token allowing them to
+/// use it for computation. Otherwise, they will be sent an error message.
 pub async fn verify_challenge(
     state: web::Data<State>,
     payload: web::Json<payloads::VerifyChallengeOptions>,
@@ -201,16 +201,11 @@ pub async fn verify_challenge(
     })
 }
 
-/// Unlocks a model using MFA
+/// Unlocks a given model using multifactor authentication.
 ///
-/// When MFA is used such that a client approves a model for use on their dashboard,
-/// then given a model `id`, unlocks the model for authentication and use by the DCL.
-/// TODO: implement safeguards, such as a OTP request parameter, to prevent clients
-/// (or mailicious actors) contacting this endpoint from outside of the dashboard.
-///
-/// To unlock a model, the frontend must query this endpoint with a valid model id `id`
-/// and the password `password` of the user to whom the model is registered.
-/// The model must be authenticated using `verify_challenge` before being unlocked
+/// Given the identifier for a model and the user's password, unlocks a model if the password is
+/// correct and the model has been authenticated previously. This means it must come after a call
+/// to [`verify_challenge`].
 pub async fn unlock_model(
     claims: auth::Claims,
     state: web::Data<State>,
@@ -262,13 +257,12 @@ pub async fn unlock_model(
     Ok(HttpResponse::Ok().body("Model successfully unlocked"))
 }
 
-/// Authenticates a model using an access token
+/// Authenticates a model using its access token.
 ///
-/// Given a model `id` and an access token `token` and a `challenge`, verifies that the
-/// model is not locked, has been authenticated and has a valid access token. If the token
-/// has expired, the model should be asked to reauthenticate using a challenge response.
-/// Returns 200 if authentication is successful and a new challenge if the token has expired.
-/// Returns a 401 error if the model is not found or if authentication fails.
+/// Given a model identifier and an access token, ensures that the given token is valid for the
+/// provided identifier. This ensures that the model itself is authenticated and unlocked first,
+/// before checking whether the token has expired. If it has, the client will be sent a new
+/// challenge that they will be expected to complete.
 pub async fn authenticate_model(
     state: web::Data<State>,
     model_id: web::Path<String>,
@@ -331,10 +325,10 @@ pub async fn get_user_models(claims: auth::Claims, state: web::Data<State>) -> S
     response_from_json(documents)
 }
 
-/// Gets model performance for last 5 jobs
+/// Gets the model performance for the last 5 jobs.
 ///
-/// Gets the performance of a model on the last 5 jobs
-/// that is has been run on.
+/// Given a model identifier, returns the performance of that model on the last 5 jobs that it
+/// completed.
 pub async fn get_model_performance(
     state: web::Data<State>,
     model_id: web::Path<String>,

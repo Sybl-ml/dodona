@@ -64,11 +64,11 @@ pub async fn get_project(
     response_from_json(response)
 }
 
-/// Patches a project with the provided data.
+/// Patches a given project with the provided data.
 ///
-/// Given a project identifier, finds and updates the project in the database
-/// matching new data
-/// If project does not exist return a 404
+/// Patch documents specify the fields to change and are a key-value pairing of the fields found in
+/// the project itself. This can be used to change the name or description of the project, for
+/// example.
 pub async fn patch_project(
     claims: auth::Claims,
     state: web::Data<State>,
@@ -86,13 +86,9 @@ pub async fn patch_project(
     Ok(HttpResponse::Ok().finish())
 }
 
-/// Deletes a project provided a valid project id.
+/// Deletes a given project.
 ///
-/// Given a project identifier, deletes a project from the database.
-/// If the project ID is invalid return a 422
-/// if project is not found return a 422
-///
-/// Will not currently authenticate the userid
+/// Checks whether the project exists, before deleting it from the database.
 pub async fn delete_project(
     claims: auth::Claims,
     state: web::Data<State>,
@@ -127,11 +123,7 @@ pub async fn get_user_projects(claims: auth::Claims, state: web::Data<State>) ->
     response_from_json(documents)
 }
 
-/// Creates a new project related to a given user.
-///
-/// Given a user id, a project name and description, a project will
-/// be created and saved in the database. This can fail if the user id
-/// provided doesn't exist.
+/// Creates a new project for a given user.
 pub async fn new(
     claims: auth::Claims,
     state: web::Data<State>,
@@ -150,14 +142,12 @@ pub async fn new(
     response_from_json(doc! {"project_id": id})
 }
 
-/// Saves a dataset to `MongoDB` for associated project.
+/// Adds data to a given project.
 ///
-/// This will take in a project id and a dataset. This route will
-/// compress the dataset using `bzip2` and will store this compressed
-/// data in the database as binary data. This can go wrong if there's
-/// an error writing out the compressed data to the vector or if there
-/// is an error finishing the compression stream. Both times an error
-/// will return a 404 to the caller.
+/// This will first check whether the project already has data associated with it, deleting it if
+/// this is the case. It will then clean the incoming data and analyse it, splitting it into
+/// training and prediction. After this, the data will be compressed and inserted into the
+/// database, with the status being updated to [`Status::Ready`].
 pub async fn add_data(
     claims: auth::Claims,
     state: web::Data<State>,
@@ -226,10 +216,7 @@ pub async fn add_data(
     response_from_json(doc! {"dataset_id": id})
 }
 
-/// Gets the dataset details for a project
-///
-/// Project Id passed in as part of route and the dataset details
-/// for that project are returned from the database.
+/// Gets the dataset details associated with a given project.
 pub async fn overview(
     claims: auth::Claims,
     state: web::Data<State>,
@@ -241,18 +228,19 @@ pub async fn overview(
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     let filter = doc! { "project_id": &object_id };
-    let cursor = dataset_details.find(filter, None).await?;
-    let documents: Vec<Document> = cursor.collect::<Result<_, _>>().await?;
+    let document = dataset_details
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
 
-    response_from_json(documents)
+    response_from_json(document)
 }
 
-/// Route returns back uncompressed dataset
+/// Gets the data associated with a given project.
 ///
-/// Makes a request to mongodb and gets dataset associated with
-/// project id. Compressed data is then taken from returned struct
-/// and is decompressed before being sent in a response back to the
-/// user.
+/// Queries the database for the dataset related with a given identifier and decompresses both the
+/// training and prediction data. The data is then converted back to a [`str`] and cleaned before
+/// being sent to the frontend for display.
 pub async fn get_data(
     claims: auth::Claims,
     state: web::Data<State>,
@@ -288,11 +276,11 @@ pub async fn get_data(
     response_from_json(doc! {"dataset": train, "predict": predict})
 }
 
-/// Removes the exisiting dataset linked to a project
+/// Removes the data associated with a given project identifier.
 ///
-/// Using the project id MongoDB is sent delete requests
-/// for both dataset and dataset_details
-/// Projects are reverted to Unfinshed status
+/// Searches for the project in the database to check whether it has a dataset. If a dataset is
+/// found, it will be deleted from the database and the project status will be returned to
+/// [`Status::Unfinished`].
 pub async fn remove_data(
     claims: auth::Claims,
     state: web::Data<State>,
@@ -323,7 +311,7 @@ pub async fn remove_data(
 ///
 /// Checks that the project exists, before sending the identifier of its dataset to the interface
 /// layer, which will then forward it to the DCL for processing. Updates the project state to
-/// `State::Processing`.
+/// [`Status::Processing`].
 pub async fn begin_processing(
     claims: auth::Claims,
     state: web::Data<State>,
@@ -429,6 +417,10 @@ pub async fn get_predictions(
     response_from_json(doc! {"predictions": decompressed})
 }
 
+/// Forwards a job to the interface layer.
+///
+/// Attempts to connect to the interface layer on the specified port from the configuration before
+/// sending it the job. If the interface cannot be connected to, this will return an error.
 async fn forward_to_interface(job: &Job) -> tokio::io::Result<()> {
     // Get the environment variable for the interface listener
     let var = env::var("INTERFACE_LISTEN").expect("INTERFACE_LISTEN must be set");
@@ -447,7 +439,7 @@ async fn forward_to_interface(job: &Job) -> tokio::io::Result<()> {
     Ok(())
 }
 
-/// Inserts an [`JobConfiguration`] into MongoDB and returns the ID of the job.
+/// Inserts a [`JobConfiguration`] into MongoDB.
 async fn insert_to_queue(job: &Job, collection: Collection) -> ServerResult<()> {
     let document = to_document(&job)?;
 

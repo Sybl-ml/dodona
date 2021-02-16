@@ -48,7 +48,6 @@ pub async fn filter(
 /// Given an email, password, first name and last name, peppers their password and hashes it. This
 /// then gets stored in the Mongo database with a randomly generated user identifier. If the user's
 /// email already exists, the route will not register any user.
-/// The user's client status will be false which can be later changed
 pub async fn new(
     state: web::Data<State>,
     payload: web::Json<payloads::RegistrationOptions>,
