@@ -40,8 +40,6 @@ async fn projects_can_be_fetched_for_a_user() -> Result<()> {
 
     let projects: Vec<Project> = test::read_body_json(res).await;
 
-    println!("{:?}", projects);
-
     assert_eq!(projects.len(), 2);
 
     let found = &projects[0];

@@ -2,6 +2,8 @@
 
 use mongodb::bson::Document;
 
+use models::jobs::PredictionType;
+
 /// Stores the options for filtering all users.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -77,7 +79,7 @@ pub struct ProcessingOptions {
     /// The timeout for the job
     pub timeout: u32,
     /// The type of prediction category this is
-    pub prediction_type: String,
+    pub prediction_type: PredictionType,
     /// The column to use for prediction
     pub prediction_column: String,
 }

@@ -128,7 +128,7 @@ pub async fn login(
     let peppered = format!("{}{}", &payload.password, &state.pepper);
     pbkdf2::pbkdf2_check(&peppered, &user.hash)?;
 
-    log::debug!("Logged in: {:?}", user);
+    log::debug!("Logged in: id={}, email={}", user.id, user.email);
 
     let jwt = auth::Claims::create_token(user.id)?;
     response_from_json(doc! {"token": jwt})

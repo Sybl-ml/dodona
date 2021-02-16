@@ -16,7 +16,7 @@ use tokio_stream::StreamExt;
 use messages::WriteLengthPrefix;
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
-use models::jobs::{Job, JobConfiguration, PredictionType};
+use models::jobs::{Job, JobConfiguration};
 use models::predictions::Prediction;
 use models::projects::{Project, Status};
 use utils::compress::{compress_vec, decompress_data};
@@ -60,8 +60,6 @@ pub async fn get_project(
         // Insert the details as well
         response.insert("details", details_doc);
     }
-
-    log::debug!("{:?}", &response);
 
     response_from_json(response)
 }
@@ -331,14 +329,6 @@ pub async fn begin_processing(
     let datasets = state.database.collection("datasets");
     let dataset_details = state.database.collection("dataset_details");
 
-    let timeout = payload.timeout as i32;
-
-    let prediction_type: PredictionType = match payload.prediction_type.as_str() {
-        "classification" => PredictionType::Classification,
-        "regression" => PredictionType::Regression,
-        _ => return Err(ServerError::UnprocessableEntity),
-    };
-
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     // Find the dataset in the database
@@ -372,10 +362,10 @@ pub async fn begin_processing(
     // Send a request to the interface layer
     let config = JobConfiguration {
         dataset_id: dataset.id.clone(),
-        timeout,
+        timeout: payload.timeout as i32,
         column_types,
         prediction_column: payload.prediction_column.clone(),
-        prediction_type,
+        prediction_type: payload.prediction_type,
     };
     let job = Job::new(config);
 
@@ -385,7 +375,7 @@ pub async fn begin_processing(
     insert_to_queue(&job, state.database.collection("jobs")).await?;
 
     if forward_to_interface(&job).await.is_err() {
-        log::warn!("Failed to forward: {:?}", job);
+        log::warn!("Failed to forward job_id={} to the interface", job.id);
     }
 
     // Mark the project as processing
@@ -447,7 +437,7 @@ async fn forward_to_interface(job: &Job) -> tokio::io::Result<()> {
 
     stream.write(&job.as_bytes()).await?;
 
-    log::info!("Forwarded a message to the interface: {:?}", job);
+    log::info!("Forwarded a job to the interface with id={}", job.id);
 
     Ok(())
 }
@@ -457,9 +447,9 @@ async fn insert_to_queue(job: &Job, collection: Collection) -> ServerResult<()> 
     let document = to_document(&job)?;
 
     if collection.insert_one(document, None).await.is_ok() {
-        log::info!("Inserted {:?} to the MongoDB queue", job);
+        log::info!("Inserted job_id={} to the MongoDB queue", job.id);
     } else {
-        log::error!("Failed to insert {:?} to the MongoDB queue", job);
+        log::error!("Failed to insert job_id={} to the MongoDB queue", job.id);
     }
 
     Ok(())
