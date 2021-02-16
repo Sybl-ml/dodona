@@ -110,8 +110,6 @@ pub struct VerifyChallengeOptions {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UnlockModelOptions {
-    /// The identifier of the model to unlock
-    pub id: String,
     /// The user's password
     pub password: String,
 }

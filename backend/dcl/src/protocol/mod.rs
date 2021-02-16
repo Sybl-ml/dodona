@@ -141,16 +141,13 @@ impl<'a> Handler<'a> {
 
         // Query the API server
         let body = bson!({
-            "id": &id,
             "token": &token,
         });
 
-        let endpoint = "/api/clients/m/authenticate";
-        let text = get_response_text(endpoint, body).await?;
+        let endpoint = format!("/api/clients/m/{}/authenticate", &id);
+        let text = get_response_text(&endpoint, body).await?;
 
         let message = RawMessage::new(text);
-
-        log::info!("RAW MESSAGE: {:?}", &message);
 
         // Send the response back to the client
         self.stream.write(&message.as_bytes()).await?;

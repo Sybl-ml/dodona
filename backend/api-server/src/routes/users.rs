@@ -1,7 +1,7 @@
 //! Defines the routes specific to user operations.
 
 use actix_web::web;
-use mongodb::bson::{doc, document::Document};
+use mongodb::bson::{de::from_document, doc, document::Document, ser::to_document};
 use tokio_stream::StreamExt;
 
 use models::users::User;
@@ -52,39 +52,33 @@ pub async fn new(
     state: web::Data<State>,
     payload: web::Json<payloads::RegistrationOptions>,
 ) -> ServerResponse {
-    let pepper = state.pepper.clone();
-
     let users = state.database.collection("users");
 
     let email = crypto::clean(&payload.email);
     let first_name = crypto::clean(&payload.first_name);
     let last_name = crypto::clean(&payload.last_name);
 
-    log::info!("Name: {} {}", first_name, last_name);
-
     let filter = doc! { "email": &email };
-
-    log::info!("Checking if the user exists already");
 
     if users.find_one(filter, None).await?.is_some() {
         log::error!("Found a user with email '{}' already", &email);
         return response_from_json(doc! {"token": "null"});
     }
 
-    log::info!("User does not exist, registering them now");
-
-    let peppered = format!("{}{}", &payload.password, &pepper);
+    let peppered = format!("{}{}", &payload.password, &state.pepper);
     let hash = pbkdf2::pbkdf2_simple(&peppered, state.pbkdf2_iterations)
         .expect("Failed to hash the user's password");
 
-    log::info!("Hash: {:?}", hash);
-
     let user = User::new(email, hash, first_name, last_name);
 
-    let document = mongodb::bson::ser::to_document(&user)?;
-    let inserted_id = users.insert_one(document, None).await?.inserted_id;
+    log::debug!("Registering a new user: {:#?}", user);
 
+    let document = to_document(&user)?;
+    let inserted_id = users.insert_one(document, None).await?.inserted_id;
     let identifier = inserted_id.as_object_id().ok_or(ServerError::Unknown)?;
+
+    log::debug!("Created the user with identifier: {}", identifier);
+
     let jwt = auth::Claims::create_token(identifier.clone())?;
 
     response_from_json(doc! {"token": jwt})
@@ -101,18 +95,10 @@ pub async fn edit(
 ) -> ServerResponse {
     let users = state.database.collection("users");
 
-    // Get the user from the database
     let filter = doc! { "_id": &claims.id };
-    let user_doc = users
-        .find_one(filter.clone(), None)
-        .await?
-        .ok_or(ServerError::NotFound)?;
+    let update = doc! { "$set": { "email": crypto::clean(&payload.email) } };
 
-    let mut user: User = mongodb::bson::de::from_document(user_doc)?;
-    user.email = crypto::clean(&payload.email);
-
-    let document = mongodb::bson::ser::to_document(&user)?;
-    users.update_one(filter, document, None).await?;
+    users.update_one(filter, update, None).await?;
 
     response_from_json(doc! {"status": "changed"})
 }
@@ -127,23 +113,21 @@ pub async fn login(
     payload: web::Json<payloads::LoginOptions>,
 ) -> ServerResponse {
     let users = state.database.collection("users");
-    let pepper = state.pepper.clone();
 
     let email = crypto::clean(&payload.email);
-
     let filter = doc! {"email": email};
-    let user_doc = users
+
+    let document = users
         .find_one(filter, None)
         .await?
         .ok_or(ServerError::NotFound)?;
-    let user: User = mongodb::bson::de::from_document(user_doc)?;
-
-    let peppered = format!("{}{}", payload.password, pepper);
+    let user: User = from_document(document)?;
 
     // Check the user's password
+    let peppered = format!("{}{}", &payload.password, &state.pepper);
     pbkdf2::pbkdf2_check(&peppered, &user.hash)?;
 
-    log::info!("Logged in: {:?}", user);
+    log::debug!("Logged in: {:?}", user);
 
     let jwt = auth::Claims::create_token(user.id)?;
     response_from_json(doc! {"token": jwt})
@@ -158,9 +142,9 @@ pub async fn delete(claims: auth::Claims, state: web::Data<State>) -> ServerResp
     let filter = doc! { "_id": claims.id };
     let user = users.find_one(filter, None).await?;
 
-    // If the project has data, delete the existing information
+    // Delete the user and their owned items if they exist
     if let Some(user) = user {
-        let user: User = mongodb::bson::de::from_document(user)?;
+        let user: User = from_document(user)?;
         user.delete(&state.database).await?;
     }
 

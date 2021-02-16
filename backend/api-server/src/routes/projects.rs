@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use actix_web::{web, HttpResponse};
 use mongodb::{
-    bson::{doc, document::Document},
+    bson::{de::from_document, doc, document::Document, ser::to_document},
     Collection,
 };
 use tokio::io::AsyncWriteExt;
@@ -61,7 +61,7 @@ pub async fn get_project(
         response.insert("details", details_doc);
     }
 
-    log::info!("{:?}", &response);
+    log::debug!("{:?}", &response);
 
     response_from_json(response)
 }
@@ -105,10 +105,10 @@ pub async fn delete_project(
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     let filter = doc! { "_id": &object_id };
-    let project = projects.find_one(filter, None).await?;
+    let document = projects.find_one(filter, None).await?;
 
-    if let Some(project) = project {
-        let project: Project = mongodb::bson::de::from_document(project)?;
+    if let Some(document) = document {
+        let project: Project = from_document(document)?;
         project.delete(&state.database).await?;
     }
 
@@ -146,7 +146,7 @@ pub async fn new(
 
     let project = Project::new(&name, &description, claims.id.clone());
 
-    let document = mongodb::bson::ser::to_document(&project)?;
+    let document = to_document(&project)?;
     let id = projects.insert_one(document, None).await?.inserted_id;
 
     response_from_json(doc! {"project_id": id})
@@ -170,7 +170,6 @@ pub async fn add_data(
     let dataset_details = state.database.collection("dataset_details");
     let projects = state.database.collection("projects");
 
-    let data = crypto::clean(&payload.content);
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     // Check whether the project has data already
@@ -180,17 +179,18 @@ pub async fn add_data(
 
     // If the project has data, delete the existing information
     if let Some(existing_data) = existing_data {
-        log::info!("Project already has data: OVERWRITING");
-        let data: Dataset = mongodb::bson::de::from_document(existing_data)?;
+        log::debug!("Deleting existing project data");
+        let data: Dataset = from_document(existing_data)?;
         data.delete(&state.database).await?;
     }
 
+    let data = crypto::clean(&payload.content);
     let analysis = utils::analysis::analyse(&data);
     let (train, predict) = utils::infer_train_and_predict(&data);
     let column_types = analysis.types;
     let data_head = analysis.header;
 
-    log::info!("Dataset types: {:?}", &column_types);
+    log::debug!("Dataset types: {:?}", &column_types);
 
     // Compress the input data
     let compressed = compress_vec(&train)?;
@@ -214,10 +214,10 @@ pub async fn add_data(
         .await?;
 
     // Insert the dataset details and the dataset itself
-    let document = mongodb::bson::ser::to_document(&details)?;
+    let document = to_document(&details)?;
     dataset_details.insert_one(document, None).await?;
 
-    let document = mongodb::bson::ser::to_document(&dataset)?;
+    let document = to_document(&dataset)?;
     let id = datasets.insert_one(document, None).await?.inserted_id;
 
     response_from_json(doc! {"dataset_id": id})
@@ -268,7 +268,7 @@ pub async fn get_data(
         .ok_or(ServerError::NotFound)?;
 
     // Parse the dataset itself
-    let dataset = mongodb::bson::de::from_document::<Dataset>(document)?;
+    let dataset: Dataset = from_document(document)?;
 
     let comp_train = dataset.dataset.expect("missing training dataset").bytes;
     let comp_predict = dataset.predict.expect("missing prediction dataset").bytes;
@@ -279,8 +279,8 @@ pub async fn get_data(
     let train = crypto::clean(std::str::from_utf8(&decomp_train)?);
     let predict = crypto::clean(std::str::from_utf8(&decomp_predict)?);
 
-    log::info!("Training data: {:?}", &train);
-    log::info!("Prediction data: {:?}", &predict);
+    log::debug!("Fetched {} bytes of training data", train.len());
+    log::debug!("Fetched {} bytes of prediction data", predict.len());
 
     response_from_json(doc! {"dataset": train, "predict": predict})
 }
@@ -305,13 +305,13 @@ pub async fn remove_data(
     let dataset_removed = datasets.find_one(filter, None).await?;
 
     if let Some(dataset_removed) = dataset_removed {
-        let dataset: Dataset = mongodb::bson::de::from_document(dataset_removed)?;
+        let dataset: Dataset = from_document(dataset_removed)?;
         dataset.delete(&state.database).await?;
     }
 
     let filter = doc! { "_id": &object_id };
-    let update_doc = doc! { "$set": {"status":"Unfinished"} };
-    projects.update_one(filter, update_doc, None).await?;
+    let update = doc! { "$set": { "status": Status::Unfinished } };
+    projects.update_one(filter, update, None).await?;
 
     response_from_json(doc! {"success": true})
 }
@@ -332,7 +332,6 @@ pub async fn begin_processing(
     let dataset_details = state.database.collection("dataset_details");
 
     let timeout = payload.timeout as i32;
-    log::info!("Timeout is: {}", &timeout);
 
     let prediction_type: PredictionType = match payload.prediction_type.as_str() {
         "classification" => PredictionType::Classification,
@@ -350,7 +349,7 @@ pub async fn begin_processing(
         .ok_or(ServerError::NotFound)?;
 
     // Parse the dataset itself
-    let dataset = mongodb::bson::de::from_document::<Dataset>(document)?;
+    let dataset: Dataset = from_document(document)?;
 
     let filter = doc! { "project_id": &object_id };
     let document = dataset_details
@@ -359,7 +358,7 @@ pub async fn begin_processing(
         .ok_or(ServerError::NotFound)?;
 
     // Parse the dataset detail itself
-    let dataset_detail = mongodb::bson::de::from_document::<DatasetDetails>(document)?;
+    let dataset_detail: DatasetDetails = from_document(document)?;
 
     let column_types = dataset_detail
         .column_types
@@ -380,6 +379,8 @@ pub async fn begin_processing(
     };
     let job = Job::new(config);
 
+    log::debug!("Created a new job: {:?}", job);
+
     // Insert to MongoDB first, so the interface can immediately mark as processed if needed
     insert_to_queue(&job, state.database.collection("jobs")).await?;
 
@@ -388,10 +389,9 @@ pub async fn begin_processing(
     }
 
     // Mark the project as processing
+    let filter = doc! { "_id": &object_id};
     let update = doc! { "$set": doc!{ "status": Status::Processing } };
-    projects
-        .update_one(doc! { "_id": &object_id}, update, None)
-        .await?;
+    projects.update_one(filter, update, None).await?;
 
     response_from_json(doc! {"success": true})
 }
@@ -418,7 +418,7 @@ pub async fn get_predictions(
 
     // Given a document, extract the predictions and decompress them
     let extract = |document: Document| -> ServerResult<String> {
-        let prediction: Prediction = mongodb::bson::de::from_document(document)?;
+        let prediction: Prediction = from_document(document)?;
         let decompressed = decompress_data(&prediction.predictions.bytes)?;
 
         Ok(String::from_utf8(decompressed)?)
@@ -435,8 +435,6 @@ pub async fn get_predictions(
 }
 
 async fn forward_to_interface(job: &Job) -> tokio::io::Result<()> {
-    log::debug!("Forwarding a message to the interface: {:?}", job);
-
     // Get the environment variable for the interface listener
     let var = env::var("INTERFACE_LISTEN").expect("INTERFACE_LISTEN must be set");
     let port = u16::from_str(&var).expect("INTERFACE_LISTEN must be a u16");
@@ -445,7 +443,7 @@ async fn forward_to_interface(job: &Job) -> tokio::io::Result<()> {
     let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port);
     let mut stream = TcpStream::connect(addr).await?;
 
-    log::info!("Connected to: {}", addr);
+    log::debug!("Connected to: {}", addr);
 
     stream.write(&job.as_bytes()).await?;
 
@@ -456,9 +454,7 @@ async fn forward_to_interface(job: &Job) -> tokio::io::Result<()> {
 
 /// Inserts an [`JobConfiguration`] into MongoDB and returns the ID of the job.
 async fn insert_to_queue(job: &Job, collection: Collection) -> ServerResult<()> {
-    log::debug!("Inserting {:?} to the MongoDB interface queue", job);
-
-    let document = mongodb::bson::ser::to_document(&job)?;
+    let document = to_document(&job)?;
 
     if collection.insert_one(document, None).await.is_ok() {
         log::info!("Inserted {:?} to the MongoDB queue", job);

@@ -140,11 +140,11 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
                 web::post().to(routes::clients::verify_challenge),
             )
             .route(
-                "/api/clients/m/unlock",
+                "/api/clients/m/{model_id}/unlock",
                 web::post().to(routes::clients::unlock_model),
             )
             .route(
-                "/api/clients/m/authenticate",
+                "/api/clients/m/{model_id}/authenticate",
                 web::post().to(routes::clients::authenticate_model),
             )
             .route(
