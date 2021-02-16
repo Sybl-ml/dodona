@@ -177,8 +177,8 @@ pub async fn add_data(
 
     // If the project has data, delete the existing information
     if let Some(existing_data) = existing_data {
-        log::debug!("Deleting existing project data");
         let data: Dataset = from_document(existing_data)?;
+        log::debug!("Deleting existing project data with id={}", data.id);
         data.delete(&state.database).await?;
     }
 
@@ -188,11 +188,16 @@ pub async fn add_data(
     let column_types = analysis.types;
     let data_head = analysis.header;
 
-    log::debug!("Dataset types: {:?}", &column_types);
-
     // Compress the input data
     let compressed = compress_vec(&train)?;
     let compressed_predict = compress_vec(&predict)?;
+
+    log::debug!(
+        "Compressed {} bytes of data to {} bytes of training and {} bytes of prediction",
+        data.len(),
+        compressed.len(),
+        compressed_predict.len()
+    );
 
     let details = DatasetDetails::new(
         payload.name.clone(),

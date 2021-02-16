@@ -32,6 +32,12 @@ pub async fn check_user_owns_project(
     project_id: &str,
     projects: &Collection,
 ) -> ServerResult<ObjectId> {
+    log::debug!(
+        "Checking user_id={} owns project_id={}",
+        user_id,
+        project_id
+    );
+
     // Check the project ID to make sure it exists
     let object_id = ObjectId::with_string(&project_id)?;
     let query = doc! { "_id": &object_id};

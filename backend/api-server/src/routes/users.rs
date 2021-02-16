@@ -62,7 +62,7 @@ pub async fn new(
     let filter = doc! { "email": &email };
 
     if users.find_one(filter, None).await?.is_some() {
-        log::error!("Found a user with email '{}' already", &email);
+        log::error!("Found a user with email={} already", &email);
         return response_from_json(doc! {"token": "null"});
     }
 
@@ -78,7 +78,7 @@ pub async fn new(
     let inserted_id = users.insert_one(document, None).await?.inserted_id;
     let identifier = inserted_id.as_object_id().ok_or(ServerError::Unknown)?;
 
-    log::debug!("Created the user with identifier: {}", identifier);
+    log::debug!("Created the user with id={}", identifier);
 
     let jwt = auth::Claims::create_token(identifier.clone())?;
 
@@ -128,7 +128,7 @@ pub async fn login(
     let peppered = format!("{}{}", &payload.password, &state.pepper);
     pbkdf2::pbkdf2_check(&peppered, &user.hash)?;
 
-    log::debug!("Logged in: id={}, email={}", user.id, user.email);
+    log::debug!("User logged in with id={}, email={}", user.id, user.email);
 
     let jwt = auth::Claims::create_token(user.id)?;
     response_from_json(doc! {"token": jwt})

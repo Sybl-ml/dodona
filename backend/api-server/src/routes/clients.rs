@@ -39,6 +39,7 @@ pub async fn register(
     let user: User = from_document(document)?;
 
     if user.client {
+        log::warn!("User with id={} is not a client", user.id);
         return response_from_json(doc! {"privKey": "null"});
     }
 
@@ -65,9 +66,17 @@ pub async fn register(
         let document = to_document(&client)?;
         clients.insert_one(document, None).await?;
 
+        log::debug!("Upgraded user with id={} to a client", user.id);
+
         // reponse with private key
         response_from_json(doc! {"privKey": private_key})
     } else {
+        log::warn!(
+            "User's email and provided email didn't match: {} != {}",
+            user.email,
+            email
+        );
+
         Err(ServerError::Forbidden)
     }
 }
@@ -100,6 +109,12 @@ pub async fn new_model(
 
     let filter = doc! { "user_id": &user.id, "name": &payload.model_name };
     if models.find_one(filter, None).await?.is_some() {
+        log::warn!(
+            "User with id={} already has a model with name={}",
+            user.id,
+            payload.model_name
+        );
+
         return Err(ServerError::Conflict);
     }
 
@@ -164,6 +179,7 @@ pub async fn verify_challenge(
     let challenge_response = base64::decode(&payload.challenge_response)?;
 
     if !crypto::verify_challenge(challenge.to_vec(), challenge_response, public_key) {
+        log::warn!("Provided challenge did not match expected");
         return Err(ServerError::Unauthorized);
     }
 
@@ -225,8 +241,15 @@ pub async fn unlock_model(
     let user: User = from_document(user_doc)?;
 
     let peppered = format!("{}{}", payload.password, &state.pepper);
+    let verified = pbkdf2::pbkdf2_check(&peppered, &user.hash).is_err();
 
-    if !model.authenticated || pbkdf2::pbkdf2_check(&peppered, &user.hash).is_err() {
+    if !model.authenticated || verified {
+        log::warn!(
+            "model.authenticated: {}, verified: {}",
+            model.authenticated,
+            verified
+        );
+
         return Err(ServerError::Unauthorized);
     }
 
@@ -264,6 +287,11 @@ pub async fn authenticate_model(
     let token = base64::decode(&payload.token)?;
 
     if !model.is_authenticated(&token) {
+        log::warn!(
+            "Model failed to authenticate with token={} (base-64)",
+            payload.token
+        );
+
         return Err(ServerError::Unauthorized);
     }
 
@@ -272,6 +300,8 @@ pub async fn authenticate_model(
         // TODO: authenticate the model in the session
         response_from_json(doc! {"message": "Authentication successful"})
     } else {
+        log::warn!("Model with id={} has an expired token", model.id);
+
         let challenge = crypto::generate_challenge();
         model.authenticated = false;
         model.challenge = Some(Binary {
