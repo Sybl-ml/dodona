@@ -31,12 +31,13 @@ pub async fn get(claims: auth::Claims, state: web::Data<State>) -> ServerRespons
 /// Given a filter query, finds all users who match the filter and returns them as a JSON array of
 /// objects. For example, given `{"first_name", "John"}`, finds all the users with the first name
 /// John.
-pub async fn filter(state: web::Data<State>, filter: web::Json<Document>) -> ServerResponse {
+pub async fn filter(
+    state: web::Data<State>,
+    payload: web::Json<payloads::FilterUsersOptions>,
+) -> ServerResponse {
     let users = state.database.collection("users");
 
-    println!("Filter: {:?}", &filter);
-
-    let cursor = users.find(filter.into_inner(), None).await?;
+    let cursor = users.find(payload.filter.clone(), None).await?;
     let documents: Vec<Document> = cursor.collect::<Result<_, _>>().await?;
 
     response_from_json(documents)

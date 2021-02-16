@@ -2,6 +2,14 @@
 
 use mongodb::bson::Document;
 
+/// Stores the options for filtering all users.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FilterUsersOptions {
+    /// The filter to apply to the database
+    pub filter: Document,
+}
+
 /// Stores the options for registering a user.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
