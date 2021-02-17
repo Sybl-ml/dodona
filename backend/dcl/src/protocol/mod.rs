@@ -2,7 +2,7 @@
 
 use std::fmt::Display;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use mongodb::bson::bson;
 use serde::Serialize;
 use tokio::io::AsyncWriteExt;
@@ -170,6 +170,14 @@ pub async fn get_response_text<S: Display + Serialize>(endpoint: &str, body: S) 
 
     let request = reqwest::Client::new().post(&url).json(&body);
     let response = request.send().await?;
+    let status = response.status();
+
+    // Check the status code of the response
+    if !status.is_success() {
+        let error = format!("Request to {} failed: {}", url, status);
+        return Err(anyhow!(error));
+    }
+
     let text = response.text().await?;
 
     log::debug!("Response body: {:?}", text);
