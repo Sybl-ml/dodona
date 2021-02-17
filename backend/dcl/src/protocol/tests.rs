@@ -37,7 +37,7 @@ async fn nodes_can_immediately_send_tokens() -> Result<(), Box<dyn Error>> {
     });
 
     // Wait for the handler to be ready
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::time::sleep(Duration::from_millis(1)).await;
 
     // Connect to the handler
     let mut stream = TcpStream::connect(addr).await?;
@@ -76,7 +76,7 @@ async fn invalid_protocol_states_cause_panics() -> Result<(), Box<dyn Error>> {
     });
 
     // Wait for the handler to be ready
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::time::sleep(Duration::from_millis(1)).await;
 
     // Connect to the handler
     let mut stream = TcpStream::connect(addr).await?;
@@ -109,7 +109,7 @@ async fn incorrect_ordering_fails() -> Result<(), Box<dyn Error>> {
     });
 
     // Wait for the handler to be ready
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::time::sleep(Duration::from_millis(1)).await;
 
     // Connect to the handler
     let mut stream = TcpStream::connect(addr).await?;
@@ -132,7 +132,7 @@ async fn incorrect_ordering_fails() -> Result<(), Box<dyn Error>> {
 
 #[tokio::test]
 async fn protocol_cares_about_api_responses() -> Result<(), Box<dyn Error>> {
-    // Setup the API server mocking
+    // Setup the API server mocking, failing on the `authenticate` route
     let authenticate = mock(
         "POST",
         "/api/clients/m/5fe8b9d85511355cdab720aa/authenticate",
@@ -149,7 +149,7 @@ async fn protocol_cares_about_api_responses() -> Result<(), Box<dyn Error>> {
         // Accept a single stream
         let mut stream = listener.accept().await.unwrap().0;
 
-        // Setup the handler and get the access token
+        // Setup the handler and try to get the access token
         let mut handler = protocol::Handler::new(&mut stream);
         let token = handler.get_access_token().await.unwrap().unwrap().1;
 
@@ -157,7 +157,7 @@ async fn protocol_cares_about_api_responses() -> Result<(), Box<dyn Error>> {
     });
 
     // Wait for the handler to be ready
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::time::sleep(Duration::from_millis(1)).await;
 
     // Connect to the handler
     let mut stream = TcpStream::connect(addr).await?;
