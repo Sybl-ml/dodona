@@ -337,6 +337,7 @@ dependencies = [
  "actix-cors",
  "actix-rt",
  "actix-web",
+ "anyhow",
  "base64 0.13.0",
  "bzip2",
  "chrono",
@@ -880,6 +881,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tokio-stream",
  "toml",
  "utils",
 ]
@@ -1713,6 +1715,7 @@ dependencies = [
 name = "models"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "chrono",
  "config",
  "crypto",

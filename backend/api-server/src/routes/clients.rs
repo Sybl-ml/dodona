@@ -1,4 +1,5 @@
 //! Defines routes specific to client operations
+use std::sync::Arc;
 
 use actix_web::{http::StatusCode, web};
 use mongodb::bson::de::from_document;
@@ -12,7 +13,7 @@ use models::users::{Client, User};
 
 use crate::{
     auth,
-    error::{ServerError, ServerResponse, ServerResult},
+    error::{ServerError, ServerResponse},
     routes::{payloads, response_from_json, response_from_json_with_code},
     State,
 };
@@ -335,27 +336,9 @@ pub async fn get_model_performance(
     state: web::Data<State>,
     model_id: web::Path<String>,
 ) -> ServerResponse {
-    let job_performances = state.database.collection("job_performances");
+    let database = Arc::clone(&state.database);
 
-    let filter = doc! {"model_id": ObjectId::with_string(&model_id)?};
-
-    let build_options = mongodb::options::FindOptions::builder()
-        .sort(doc! {"date_created": -1})
-        .build();
-
-    let cursor = job_performances.find(filter, Some(build_options)).await?;
-
-    let get_performance = |doc: Document| -> ServerResult<f64> {
-        let job_performance: JobPerformance = from_document(doc)?;
-        Ok(job_performance.performance)
-    };
-
-    let performances: Vec<_> = cursor
-        .take(5)
-        .filter_map(Result::ok)
-        .map(get_performance)
-        .collect::<ServerResult<_>>()
-        .await?;
+    let performances = JobPerformance::get_past_k(database, &model_id, 5).await?;
 
     response_from_json(performances)
 }
