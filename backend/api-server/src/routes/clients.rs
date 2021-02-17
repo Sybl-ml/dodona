@@ -13,7 +13,7 @@ use models::users::{Client, User};
 
 use crate::{
     auth,
-    error::{ServerError, ServerResponse, ServerResult},
+    error::{ServerError, ServerResponse},
     routes::{payloads, response_from_json, response_from_json_with_code},
     State,
 };
@@ -336,12 +336,9 @@ pub async fn get_model_performance(
     state: web::Data<State>,
     model_id: web::Path<String>,
 ) -> ServerResponse {
-    let database = app_data.client.database("sybl");
-    let model_id = doc.get_str("id")?;
+    let database = Arc::clone(&state.database);
 
-    let arc_db = Arc::new(database);
-
-    let performances = JobPerformance::get_past_5(arc_db, model_id).await?;
+    let performances = JobPerformance::get_past_5(database, &model_id).await?;
 
     response_from_json(performances)
 }
