@@ -8,7 +8,7 @@ use futures::stream::StreamExt;
 use mongodb::bson::{doc, oid::ObjectId};
 
 use dcl::job_end::finance::Pricing;
-use dcl::job_end::ml::{evaluate_model, model_performance, weight_predictions};
+use dcl::job_end::ml::{evaluate_model, model_performance, penalise, weight_predictions};
 use dcl::job_end::{ClusterInfo, ModelID, WriteBackMemory};
 use messages::ClientMessage;
 use models::users::User;
@@ -225,10 +225,16 @@ async fn test_model_performance() {
     .cloned()
     .collect();
 
+    let bad_models: Vec<ModelID> = vec![String::from(common::MODEL3_ID)];
+
     let database = Arc::new(database);
     let proj_id = ObjectId::with_string(common::PROJECT_ID).unwrap();
 
     model_performance(Arc::clone(&database), model_weights.clone(), &proj_id, None)
+        .await
+        .unwrap();
+
+    penalise(Arc::clone(&database), bad_models, &proj_id, None)
         .await
         .unwrap();
 
@@ -240,6 +246,8 @@ async fn test_model_performance() {
 
         job_perf_vec.push(perf);
     }
+
+    job_perf_vec.push(0.0);
 
     let job_perfs = database.collection("job_performances");
     let filter = doc! {"project_id": ObjectId::with_string(common::PROJECT_ID).unwrap()};

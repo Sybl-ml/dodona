@@ -188,3 +188,40 @@ pub async fn model_performance(
 
     Ok(())
 }
+
+/// Function for penalising a list of malicious models
+///
+/// Penalises a list of models with a performance of 0 for a given job
+/// based on the detection of malicious behaviour in their predictions
+pub async fn penalise(
+    database: Arc<Database>,
+    models: Vec<ModelID>,
+    project_id: &ObjectId,
+    nodepool: Option<Arc<NodePool>>,
+) -> Result<()> {
+    let job_performances = database.collection("job_performances");
+    let mut job_perf_vec: Vec<Document> = Vec::new();
+    for model in models {
+        let perf: f64 = 0.0;
+
+        log::info!(
+            "Model: {:?} is being penalised for malicious behaviour, Performance: {:?}",
+            &model,
+            &perf
+        );
+        let job_performance = JobPerformance::new(
+            project_id.clone(),
+            ObjectId::with_string(&model).unwrap(),
+            perf,
+        );
+        if let Some(np) = &nodepool {
+            np.update_node_performance(&model, perf).await;
+        }
+
+        job_perf_vec.push(mongodb::bson::ser::to_document(&job_performance).unwrap());
+    }
+
+    job_performances.insert_many(job_perf_vec, None).await?;
+
+    Ok(())
+}

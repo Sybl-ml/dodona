@@ -17,6 +17,7 @@ pub static PROJECT_ID: &str = "5f8ca1a80065f27c0089e8b5";
 pub static DATASET_ID: &str = "5f8ca1a80065f27b0089e8b6";
 pub static MODEL1_ID: &str = "5f8ca1a80065f27b0089e8b7";
 pub static MODEL2_ID: &str = "5f8ca1a80065f27b0089e8b8";
+pub static MODEL3_ID: &str = "5f8ca1a80065f27b0089e8b9";
 pub static DATASET: &str = "col1,col2,\nr1c1,r1c2,\nr2c1,r2c2,\n";
 
 pub struct Params {

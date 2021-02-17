@@ -357,6 +357,21 @@ async fn run_cluster(
     )
     .await?;
 
+    let database_clone = Arc::clone(&database);
+    let malicious: Vec<ModelID> = wbm
+        .get_errors()
+        .iter()
+        .filter(|(_, v)| v.is_none())
+        .map(|(k, _)| k.to_string())
+        .collect();
+    ml::penalise(
+        database_clone,
+        malicious,
+        &info.project_id,
+        Some(Arc::clone(&nodepool)),
+    )
+    .await?;
+
     // TODO: reintegrate predictions with user-supplied test dataset (?)
     let csv: String = predictions.join("\n");
 
