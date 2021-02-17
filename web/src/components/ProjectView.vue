@@ -37,10 +37,7 @@
             :projectId="projectId"
             :key="projectId"
             @get-results="fetchResults"
-            :results="results"
-            :predict_data="predict_data"
             :datasetName="datasetName"
-            :loading="results_loading"
           />
         </b-tab>
         <b-tab title="Settings" lazy>
@@ -139,16 +136,6 @@ export default {
 
       this.data = Papa.parse(project_data, { header: true });
       this.loading = false;
-    },
-    async fetchResults() {
-      this.results_loading = true;
-
-      let project_predictions = await this.$http.get(
-        `http://localhost:3001/api/projects/p/${this.projectId}/predictions`
-      );
-      this.results = project_predictions.data["predictions"];
-      this.predict_data = project_predictions.data["predict_data"];
-      this.results_loading = false;
     },
     resetProject() {
       // this.name = "";

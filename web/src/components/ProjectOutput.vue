@@ -2,7 +2,7 @@
   <b-container fluid class="mt-3">
     <b-row>
       <b-col v-if="!results && !loading" class="text-center">
-        <b-button @click="$emit('get-results')" variant="warning" class="px-5"
+        <b-button @click="getResults()" variant="warning" class="px-5"
           >Load Results</b-button
         >
       </b-col>
@@ -45,12 +45,29 @@ export default {
   name: "ProjectOutput",
   props: {
     projectId: String,
-    results: Array,
-    predict_data: String,
     datasetName: String,
-    loading: Boolean,
   },
+    data() {
+    return {
+      results: null,
+      predict_data: "",
+      loading: false
+    };
+  },
+
   methods: {
+    async getResults(){
+      this.loading = true;
+      
+      let project_predictions = await this.$http.get(
+          `http://localhost:3001/api/projects/p/${this.projectId}/predictions`
+        );
+
+      this.results = project_predictions.data["predictions"];
+      this.predict_data = project_predictions.data["predict_data"];
+      this.loading = false;
+
+    },
     parseData(data) {
       
       return Papa.parse(this.getFullPredictions(data), { header: true }).data
