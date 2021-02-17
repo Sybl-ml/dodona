@@ -44,14 +44,23 @@ pub struct ClusterInfo {
     pub prediction_rids: HashMap<(ModelID, String), usize>,
 }
 
+/// The `String` predictions of model `ModelID` on test example `usize`
+pub type ModelPredictions = HashMap<(ModelID, usize), String>;
+/// The `f64` error of model `ModelID`, or `None` if the model behaved maliciously
+pub type ModelErrors = HashMap<ModelID, Option<f64>>;
+/// The `f64` weight of model `ModelID` based on validation accuracy and performance
+pub type ModelWeights = HashMap<ModelID, f64>;
+/// The `String` predictions based on the order of test examples `usize` given
+pub type Predictions = HashMap<usize, String>;
+
 /// Memory which can be written back to from threads for
 /// prediction related data
 #[derive(Debug, Clone, Default)]
 pub struct WriteBackMemory {
     /// HashMap of predictions
-    pub predictions: Arc<Mutex<HashMap<(ModelID, usize), String>>>,
+    pub predictions: Arc<Mutex<ModelPredictions>>,
     /// HashMap of Errors
-    pub errors: Arc<Mutex<HashMap<ModelID, f64>>>,
+    pub errors: Arc<Mutex<ModelErrors>>,
 }
 
 impl WriteBackMemory {
@@ -69,19 +78,19 @@ impl WriteBackMemory {
     }
 
     /// Function to write back error value
-    pub fn write_error(&self, id: ModelID, error: f64) {
+    pub fn write_error(&self, id: ModelID, error: Option<f64>) {
         let mut errors = self.errors.lock().unwrap();
         errors.insert(id, error);
     }
 
     /// Gets cloned version of predictions
-    pub fn get_predictions(&self) -> HashMap<(ModelID, usize), String> {
+    pub fn get_predictions(&self) -> ModelPredictions {
         let predictions = self.predictions.lock().unwrap();
         predictions.clone()
     }
 
     /// Gets cloned version of errors
-    pub fn get_errors(&self) -> HashMap<ModelID, f64> {
+    pub fn get_errors(&self) -> ModelErrors {
         let errors = self.errors.lock().unwrap();
         errors.clone()
     }
@@ -414,12 +423,12 @@ pub async fn dcl_protcol(
     if let Some((model_predictions, model_error)) =
         ml::evaluate_model(&model_id, &predictions, &info)
     {
-        write_back.write_error(model_id.clone(), model_error);
+        write_back.write_error(model_id.clone(), Some(model_error));
         write_back.write_predictions(model_id.clone(), model_predictions);
         log::info!("(Node: {}) Computed Data: {}", &model_id, predictions);
     } else {
-        // TODO: Penalise model for giving incomplete predictions
         log::info!("(Node: {}) Failed to respond to all examples", &model_id);
+        write_back.write_error(model_id.clone(), None);
     }
 
     // TODO: Give additional feedback to the model

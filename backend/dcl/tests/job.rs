@@ -43,7 +43,7 @@ async fn test_write_back_predictions() {
 #[tokio::test]
 async fn test_write_back_errors() {
     let model_id: ModelID = ModelID::from("ModelID1");
-    let error: f64 = 10.0;
+    let error: Option<f64> = Some(10.0);
 
     let wb: WriteBackMemory = WriteBackMemory::new();
 
@@ -169,14 +169,14 @@ fn test_weight_predictions() {
     ];
 
     let mut model_predictions: HashMap<(ModelID, usize), String> = HashMap::new();
-    let mut model_errors: HashMap<ModelID, f64> = HashMap::new();
+    let mut model_errors: HashMap<ModelID, Option<f64>> = HashMap::new();
 
     for (model, prediction) in ids.iter().zip(predictions.iter()) {
         let (test, model_error) = evaluate_model(&model, &prediction.to_string(), &info).unwrap();
         for (index, prediction) in test.into_iter() {
             model_predictions.insert((model.clone(), index), prediction);
         }
-        model_errors.insert(model.to_string(), model_error);
+        model_errors.insert(model.to_string(), Some(model_error));
     }
 
     let (weights, final_predictions) = weight_predictions(model_predictions, model_errors);
