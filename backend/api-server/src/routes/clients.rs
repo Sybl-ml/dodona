@@ -338,7 +338,7 @@ pub async fn get_model_performance(
 ) -> ServerResponse {
     let database = Arc::clone(&state.database);
 
-    let performances = JobPerformance::get_past_5(database, &model_id).await?;
+    let performances = JobPerformance::get_past_k(database, &model_id, 5).await?;
 
     response_from_json(performances)
 }
