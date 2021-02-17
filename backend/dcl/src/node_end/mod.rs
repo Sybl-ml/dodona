@@ -102,12 +102,12 @@ impl NodeInfo {
     /// gets the past 5 performances of node from DB
     /// and averages them out. To be used when a node
     /// is created.
-    pub async fn init_node_info(database: Arc<Database>, model_id: &str) -> Result<NodeInfo> {
+    pub async fn from_database(database: Arc<Database>, model_id: &str) -> Result<NodeInfo> {
         let performances = JobPerformance::get_past_k(database, model_id, 5).await?;
 
         let mut perf = 0.0;
 
-        if !Vec::is_empty(&performances) {
+        if !performances.is_empty() {
             perf = performances.iter().sum::<f64>() / performances.len() as f64;
         }
 
@@ -158,7 +158,7 @@ impl NodePool {
         node_vec.insert(id.clone(), node);
         info_vec.insert(
             id.clone(),
-            NodeInfo::init_node_info(database, &id).await.unwrap(),
+            NodeInfo::from_database(database, &id).await.unwrap(),
         );
     }
 
