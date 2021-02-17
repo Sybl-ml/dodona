@@ -103,7 +103,7 @@ impl NodeInfo {
     /// and averages them out. To be used when a node
     /// is created.
     pub async fn init_performance(database: Arc<Database>, model_id: &str) -> Result<f64> {
-        let performances = JobPerformance::get_past_5(database, model_id).await?;
+        let performances = JobPerformance::get_past_k(database, model_id, 5).await?;
 
         if performances.len() == 0 {
             return Ok(0.0);

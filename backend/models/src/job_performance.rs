@@ -38,8 +38,8 @@ impl JobPerformance {
         }
     }
 
-    /// Gets the past >=5 JobPerformances and returns them as a Vec
-    pub async fn get_past_5(database: Arc<Database>, model_id: &str) -> Result<Vec<f64>> {
+    /// Gets the past >=k JobPerformances and returns them as a Vec
+    pub async fn get_past_k(database: Arc<Database>, model_id: &str, k: usize) -> Result<Vec<f64>> {
         let job_performances = database.collection("job_performances");
 
         let filter = doc! {"model_id": ObjectId::with_string(model_id)?};
@@ -56,7 +56,7 @@ impl JobPerformance {
         };
 
         let performances: Vec<_> = cursor
-            .take(5)
+            .take(k)
             .filter_map(Result::ok)
             .map(get_performance)
             .collect::<Result<_, _>>()
