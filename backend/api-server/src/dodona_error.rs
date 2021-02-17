@@ -67,6 +67,7 @@ error_map! {
     jsonwebtoken::errors::Error => Unauthorized,
     base64::DecodeError => UnprocessableEntity,
     utils::compress::CompressionError => UnprocessableEntity,
+    anyhow::Error => Unknown,
 }
 
 impl ResponseError for DodonaError {

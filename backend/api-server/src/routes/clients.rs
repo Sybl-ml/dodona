@@ -1,4 +1,5 @@
 //! Defines routes specific to client operations
+use std::sync::Arc;
 
 use actix_web::{web, HttpResponse};
 use chrono::Utc;
@@ -318,28 +319,11 @@ pub async fn get_model_performance(
     app_data: web::Data<AppState>,
 ) -> Result<HttpResponse, DodonaError> {
     let database = app_data.client.database("sybl");
-    let job_performances = database.collection("job_performances");
     let model_id = doc.get_str("id")?;
 
-    let filter = doc! {"model_id": ObjectId::with_string(model_id)?};
+    let arc_db = Arc::new(database);
 
-    let build_options = mongodb::options::FindOptions::builder()
-        .sort(doc! {"date_created": -1})
-        .build();
-
-    let cursor = job_performances.find(filter, Some(build_options)).await?;
-
-    let get_performance = |doc: Document| -> Result<f64, DodonaError> {
-        let job_performance: JobPerformance = from_document(doc)?;
-        Ok(job_performance.performance)
-    };
-
-    let performances: Vec<_> = cursor
-        .take(5)
-        .filter_map(Result::ok)
-        .map(get_performance)
-        .collect::<Result<_, _>>()
-        .await?;
+    let performances = JobPerformance::get_past_5(arc_db, model_id).await?;
 
     response_from_json(performances)
 }
