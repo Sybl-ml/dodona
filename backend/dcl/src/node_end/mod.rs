@@ -126,6 +126,9 @@ impl NodeInfo {
             .map(get_performance)
             .collect::<Result<_, _>>()
             .await?;
+        if performances.len() == 0 {
+            return Ok(0.0);
+        }
 
         Ok(performances.iter().sum::<f64>() / performances.len() as f64)
     }
