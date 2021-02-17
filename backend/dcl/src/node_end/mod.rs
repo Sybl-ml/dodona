@@ -10,16 +10,19 @@ use std::str;
 use std::sync::Arc;
 
 use anyhow::Result;
+use mongodb::bson::de::from_document;
 use mongodb::{
-    bson::{doc, oid::ObjectId},
+    bson::{doc, document::Document, oid::ObjectId},
     Database,
 };
 use rand::Rng;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
+use tokio_stream::StreamExt;
 
 use messages::{ClientMessage, WriteLengthPrefix};
+use models::job_performance::JobPerformance;
 use models::models::Status;
 
 use crate::protocol;
@@ -90,18 +93,51 @@ pub struct NodeInfo {
 
 impl NodeInfo {
     /// creates new [`NodeInfo`] instance
-    pub fn new() -> Self {
+    pub fn new(performance: f64) -> Self {
         Self {
             alive: true,
             using: false,
-            performance: 0.0,
+            performance,
         }
+    }
+
+    /// gets the past 5 performances of node from DB
+    /// and averages them out. To be used when a node
+    /// is created.
+    pub async fn init_performance(database: Arc<Database>, model_id: &str) -> Result<f64> {
+        let job_performances = database.collection("job_performances");
+
+        let filter = doc! {"model_id": ObjectId::with_string(model_id)?};
+
+        let build_options = mongodb::options::FindOptions::builder()
+            .sort(doc! {"date_created": -1})
+            .build();
+
+        let cursor = job_performances.find(filter, Some(build_options)).await?;
+
+        let get_performance = |doc: Document| -> Result<f64> {
+            let job_performance: JobPerformance = from_document(doc)?;
+            Ok(job_performance.performance)
+        };
+
+        let performances: Vec<_> = cursor
+            .take(5)
+            .filter_map(Result::ok)
+            .map(get_performance)
+            .collect::<Result<_, _>>()
+            .await?;
+
+        Ok(performances.iter().sum::<f64>() / performances.len() as f64)
     }
 }
 
 impl Default for NodeInfo {
     fn default() -> Self {
-        Self::new()
+        Self {
+            alive: true,
+            using: false,
+            performance: 0.0,
+        }
     }
 }
 
@@ -131,7 +167,7 @@ impl NodePool {
     /// Function will take in a new [`Node`] and will create an ID for it. It will also create an
     /// associated [`NodeInfo`] instance to also be stored under the same ID. These are then stored
     /// in their respective [`HashMap`]s
-    pub async fn add(&self, node: Node) {
+    pub async fn add(&self, node: Node, database: Arc<Database>) {
         let id = node.get_model_id().to_string();
 
         let mut node_vec = self.nodes.write().await;
@@ -139,8 +175,10 @@ impl NodePool {
 
         log::info!("Adding node to the pool with id: {}", id);
 
+        let perf = NodeInfo::init_performance(database, &id).await.unwrap();
+
         node_vec.insert(id.clone(), node);
-        info_vec.insert(id.clone(), NodeInfo::new());
+        info_vec.insert(id.clone(), NodeInfo::new(perf));
     }
 
     /// Gets [`TcpStream`] reference and its [`ObjectId`]
@@ -384,10 +422,10 @@ async fn process_connection(
     log::info!("\tModel ID: {}", model_id);
     log::info!("\tToken: {}", token);
 
-    update_model_status(database, &model_id).await?;
+    update_model_status(Arc::clone(&database), &model_id).await?;
 
     let node = Node::new(stream, model_id);
-    nodepool.add(node).await;
+    nodepool.add(node, Arc::clone(&database)).await;
 
     Ok(())
 }
