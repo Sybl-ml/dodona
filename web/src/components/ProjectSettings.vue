@@ -80,7 +80,9 @@ export default {
         let project_response = await this.$http.patch(
           `http://localhost:3001/api/projects/p/${this.projectId}`,
           {
-            name: this.newName,
+            changes: {
+              name: this.newName,
+            }
           }
         );
       } catch (err) {
@@ -94,7 +96,9 @@ export default {
         let project_response = await this.$http.patch(
           `http://localhost:3001/api/projects/p/${this.projectId}`,
           {
-            description: this.newDescription,
+            changes: {
+              description: this.newDescription,
+            }
           }
         );
       } catch (err) {

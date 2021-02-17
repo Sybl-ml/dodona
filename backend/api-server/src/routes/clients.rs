@@ -1,7 +1,6 @@
 //! Defines routes specific to client operations
 
-use actix_web::{web, HttpResponse};
-use chrono::Utc;
+use actix_web::{http::StatusCode, web};
 use mongodb::bson::de::from_document;
 use mongodb::bson::ser::to_document;
 use mongodb::bson::{self, doc, document::Document, oid::ObjectId, Binary};
@@ -11,41 +10,45 @@ use models::job_performance::JobPerformance;
 use models::models::{AccessToken, ClientModel};
 use models::users::{Client, User};
 
-use crate::auth;
-use crate::dodona_error::DodonaError;
-use crate::routes::response_from_json;
-use crate::AppState;
+use crate::{
+    auth,
+    error::{ServerError, ServerResponse, ServerResult},
+    routes::{payloads, response_from_json, response_from_json_with_code},
+    State,
+};
 
-/// Template for registering a new client
+/// Upgrades a user account to a client account.
 ///
-/// Will check the provided `user_id` matches with the provided email and password
+/// Checks whether the user is already a client before ensuring the email provided is the same as
+/// the user's email, along with the password.
 pub async fn register(
     claims: auth::Claims,
-    app_data: web::Data<AppState>,
-    doc: web::Json<Document>,
-) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let pepper = app_data.pepper.clone();
-    let users = database.collection("users");
-    let clients = database.collection("clients");
+    state: web::Data<State>,
+    payload: web::Json<payloads::RegisterClientOptions>,
+) -> ServerResponse {
+    let users = state.database.collection("users");
+    let clients = state.database.collection("clients");
 
-    let password = doc.get_str("password")?;
-    let email = crypto::clean(doc.get_str("email")?);
+    let email = crypto::clean(&payload.email);
 
     let filter = doc! { "_id": &claims.id };
-    let user_doc = users.find_one(filter, None).await?;
+    let document = users
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
 
-    let user: User = from_document(user_doc.ok_or(DodonaError::NotFound)?)?;
+    let user: User = from_document(document)?;
 
     if user.client {
-        return response_from_json(doc! {"privKey": "null"});
+        log::warn!("User with id={} is already a client", user.id);
+        return Err(ServerError::Conflict);
     }
 
-    let peppered = format!("{}{}", password, pepper);
-    let verified = pbkdf2::pbkdf2_check(&peppered, &user.hash).is_ok();
+    let peppered = format!("{}{}", payload.password, &state.pepper);
+    pbkdf2::pbkdf2_check(&peppered, &user.hash)?;
 
     // Entered and stored email and password match
-    if verified && email == user.email {
+    if email == user.email {
         // generate public and private key pair
         let (private_key, public_key) = crypto::encoded_key_pair();
         // create a new client object
@@ -64,50 +67,63 @@ pub async fn register(
         let document = to_document(&client)?;
         clients.insert_one(document, None).await?;
 
+        log::debug!("Upgraded user with id={} to a client", user.id);
+
         // reponse with private key
         response_from_json(doc! {"privKey": private_key})
     } else {
-        Err(DodonaError::Forbidden)
+        log::warn!(
+            "User's email and provided email didn't match: {} != {}",
+            user.email,
+            email
+        );
+
+        Err(ServerError::Forbidden)
     }
 }
 
-/// Route for registering a new model/node
+/// Registers a new model for a given user.
 ///
-/// provided an email check the user exists and is a client
-/// If validated generate a challenge and insert a new temp model
-/// Respond with the encoded challenge
+/// Checks whether the given user is a client and that they do not already have a model with the
+/// given name, before inserting it into the database and responding with a challenge for the user.
 pub async fn new_model(
-    app_data: web::Data<AppState>,
-    doc: web::Json<Document>,
-) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let users = database.collection("users");
-    let models = database.collection("models");
+    state: web::Data<State>,
+    payload: web::Json<payloads::NewModelOptions>,
+) -> ServerResponse {
+    let users = state.database.collection("users");
+    let models = state.database.collection("models");
 
-    let email = crypto::clean(doc.get_str("email")?);
-    let model_name = doc.get_str("model_name")?.to_string();
+    let email = crypto::clean(&payload.email);
 
     let filter = doc! { "email": &email };
-    let user = match users.find_one(filter, None).await? {
-        Some(u) => from_document::<User>(u)?,
-        None => return Err(DodonaError::NotFound),
-    };
+    let document = users
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
+
+    let user: User = from_document(document)?;
 
     if !user.client {
-        return Err(DodonaError::Forbidden);
+        return Err(ServerError::Forbidden);
     }
 
-    let filter = doc! { "user_id": &user.id, "name": &model_name };
+    let filter = doc! { "user_id": &user.id, "name": &payload.model_name };
     if models.find_one(filter, None).await?.is_some() {
-        return Err(DodonaError::Conflict);
+        log::warn!(
+            "User with id={} already has a model with name={}",
+            user.id,
+            payload.model_name
+        );
+
+        return Err(ServerError::Conflict);
     }
 
     // Generate challenge
     let challenge = crypto::generate_challenge();
-    let temp_model = ClientModel::new(user.id, model_name, challenge.clone());
+    let client_model = ClientModel::new(user.id, payload.model_name.clone(), challenge.clone());
 
     // insert model into database
-    let document = to_document(&temp_model)?;
+    let document = to_document(&client_model)?;
     models.insert_one(document, None).await?;
 
     // return challenge
@@ -118,29 +134,27 @@ pub async fn new_model(
     })
 }
 
-/// Verifies a challenge response from a model
+/// Verifies a challenge response from a client.
 ///
-/// Given a `new_model`, a `challenge_response` and a `challenge`, verifies that the
-/// `challenge_response` matches the `challenge` with respect to the `client`'s public key.
-/// Returns a new access token for the `new_model` if verification is successful.
-/// Returns a 404 error if the `client` or `model` is not found, or 401 if verification fails.
+/// This will fetch the client's public key from the database and use it to check whether the
+/// challenge response they provided is a match based on how they signed it. If it succeeds, the
+/// model will be set to authenticated and the client will be sent an access token allowing them to
+/// use it for computation. Otherwise, they will be sent an error message.
 pub async fn verify_challenge(
-    app_data: web::Data<AppState>,
-    doc: web::Json<Document>,
-) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let users = database.collection("users");
-    let clients = database.collection("clients");
-    let models = database.collection("models");
+    state: web::Data<State>,
+    payload: web::Json<payloads::VerifyChallengeOptions>,
+) -> ServerResponse {
+    let users = state.database.collection("users");
+    let clients = state.database.collection("clients");
+    let models = state.database.collection("models");
 
-    let model_name = doc.get_str("model_name")?.to_string();
-    let email = crypto::clean(doc.get_str("email")?);
+    let email = crypto::clean(&payload.email);
     let filter = doc! { "email": &email };
 
     let user_doc = users
         .find_one(filter, None)
         .await?
-        .ok_or(DodonaError::NotFound)?;
+        .ok_or(ServerError::NotFound)?;
     let user: User = from_document(user_doc)?;
 
     // get clients public key matching with that users id
@@ -148,24 +162,25 @@ pub async fn verify_challenge(
     let client_doc = clients
         .find_one(filter, None)
         .await?
-        .ok_or(DodonaError::NotFound)?;
+        .ok_or(ServerError::NotFound)?;
     let client: Client = from_document(client_doc)?;
 
-    let filter = doc! { "user_id": &user.id, "name": &model_name };
+    let filter = doc! { "user_id": &user.id, "name": &payload.model_name };
     let model_doc = models
-        .find_one(filter, None)
+        .find_one(filter.clone(), None)
         .await?
-        .ok_or(DodonaError::NotFound)?;
+        .ok_or(ServerError::NotFound)?;
     let mut model: ClientModel = from_document(model_doc)?;
 
     let public_key = client.public_key;
-    let challenge = &model.challenge.ok_or(DodonaError::Unauthorized)?.bytes;
+    let challenge = &model.challenge.ok_or(ServerError::Unauthorized)?.bytes;
 
     // needs converting to Vec<u8>
-    let challenge_response = base64::decode(doc.get_str("challenge_response")?)?;
+    let challenge_response = base64::decode(&payload.challenge_response)?;
 
     if !crypto::verify_challenge(challenge.to_vec(), challenge_response, public_key) {
-        return Err(DodonaError::Unauthorized);
+        log::warn!("Provided challenge did not match expected");
+        return Err(ServerError::Unauthorized);
     }
 
     let access_token = AccessToken::new();
@@ -173,7 +188,6 @@ pub async fn verify_challenge(
     model.access_token = Some(access_token.clone());
     model.challenge = None;
 
-    let filter = doc! { "user_id": &user.id, "name": &model_name };
     let update = doc! { "$set": to_document(&model)? };
     models.find_one_and_update(filter, update, None).await?;
 
@@ -187,52 +201,51 @@ pub async fn verify_challenge(
     })
 }
 
-/// Unlocks a model using MFA
+/// Unlocks a given model using multifactor authentication.
 ///
-/// When MFA is used such that a client approves a model for use on their dashboard,
-/// then given a model `id`, unlocks the model for authentication and use by the DCL.
-/// TODO: implement safeguards, such as a OTP request parameter, to prevent clients
-/// (or mailicious actors) contacting this endpoint from outside of the dashboard.
-///
-/// To unlock a model, the frontend must query this endpoint with a valid model id `id`
-/// and the password `password` of the user to whom the model is registered.
-/// The model must be authenticated using `verify_challenge` before being unlocked
+/// Given the identifier for a model and the user's password, unlocks a model if the password is
+/// correct and the model has been authenticated previously. This means it must come after a call
+/// to [`verify_challenge`].
 pub async fn unlock_model(
     claims: auth::Claims,
-    app_data: web::Data<AppState>,
-    doc: web::Json<Document>,
-) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let models = database.collection("models");
-    let users = database.collection("users");
+    state: web::Data<State>,
+    model_id: web::Path<String>,
+    payload: web::Json<payloads::UnlockModelOptions>,
+) -> ServerResponse {
+    let models = state.database.collection("models");
+    let users = state.database.collection("users");
 
-    let model_id = ObjectId::with_string(doc.get_str("id")?)?;
+    let model_id = ObjectId::with_string(&model_id)?;
     let filter = doc! { "_id": &model_id };
     let model_doc = models
         .find_one(filter, None)
         .await?
-        .ok_or(DodonaError::Unauthorized)?;
+        .ok_or(ServerError::Unauthorized)?;
     let mut model: ClientModel = from_document(model_doc)?;
 
     // Check the current user owns this model
     if model.user_id != claims.id {
-        return Err(DodonaError::Unauthorized);
+        return Err(ServerError::Unauthorized);
     }
-
-    let password = doc.get_str("password")?;
-    let pepper = &app_data.pepper;
 
     let filter = doc! { "_id": &claims.id };
     let user_doc = users
         .find_one(filter, None)
         .await?
-        .ok_or(DodonaError::Unauthorized)?;
+        .ok_or(ServerError::Unauthorized)?;
     let user: User = from_document(user_doc)?;
 
-    let peppered = format!("{}{}", password, pepper);
+    let peppered = format!("{}{}", payload.password, &state.pepper);
+    let verified = pbkdf2::pbkdf2_check(&peppered, &user.hash).is_err();
 
-    if !model.authenticated || pbkdf2::pbkdf2_check(&peppered, &user.hash).is_err() {
-        return Err(DodonaError::Unauthorized);
+    if !model.authenticated || verified {
+        log::warn!(
+            "model.authenticated: {}, verified: {}",
+            model.authenticated,
+            verified
+        );
+
+        return Err(ServerError::Unauthorized);
     }
 
     model.locked = false;
@@ -241,38 +254,48 @@ pub async fn unlock_model(
     let update = doc! { "$set": to_document(&model)? };
     models.find_one_and_update(filter, update, None).await?;
 
-    Ok(HttpResponse::Ok().body("Model successfully unlocked"))
+    response_from_json(doc! { "message": "Model successfully unlocked" })
 }
 
-/// Authenticates a model using an access token
+/// Authenticates a model using its access token.
 ///
-/// Given a model `id` and an access token `token` and a `challenge`, verifies that the
-/// model is not locked, has been authenticated and has a valid access token. If the token
-/// has expired, the model should be asked to reauthenticate using a challenge response.
-/// Returns 200 if authentication is successful and a new challenge if the token has expired.
-/// Returns a 401 error if the model is not found or if authentication fails.
+/// Given a model identifier and an access token, ensures that the given token is valid for the
+/// provided identifier. This ensures that the model itself is authenticated and unlocked first,
+/// before checking whether the token has expired. If it has, the client will be sent a new
+/// challenge that they will be expected to complete.
 pub async fn authenticate_model(
-    app_data: web::Data<AppState>,
-    doc: web::Json<Document>,
-) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let models = database.collection("models");
+    state: web::Data<State>,
+    model_id: web::Path<String>,
+    payload: web::Json<payloads::AuthenticateModelOptions>,
+) -> ServerResponse {
+    let models = state.database.collection("models");
 
-    let model_id = ObjectId::with_string(&doc.get_str("id")?)?;
+    let model_id = ObjectId::with_string(&model_id)?;
     let filter = doc! { "_id": &model_id };
     let model_doc = models
         .find_one(filter, None)
         .await?
-        .ok_or(DodonaError::Unauthorized)?;
+        .ok_or(ServerError::Unauthorized)?;
     let mut model: ClientModel = from_document(model_doc)?;
 
-    let token = base64::decode(doc.get_str("token")?)?;
+    let token = base64::decode(&payload.token)?;
 
     if !model.is_authenticated(&token) {
-        return Err(DodonaError::Unauthorized);
+        log::warn!(
+            "Model failed to authenticate with token={} (base-64)",
+            payload.token
+        );
+
+        return Err(ServerError::Unauthorized);
     }
 
-    if model.access_token.clone().unwrap().expires < Utc::now() {
+    // Check whether their token has expired
+    if model.token_has_not_expired() {
+        // TODO: authenticate the model in the session
+        response_from_json(doc! {"message": "Authentication successful"})
+    } else {
+        log::warn!("Model with id={} has an expired token", model.id);
+
         let challenge = crypto::generate_challenge();
         model.authenticated = false;
         model.challenge = Some(Binary {
@@ -284,10 +307,9 @@ pub async fn authenticate_model(
         let update = doc! { "$set": to_document(&model)? };
         models.find_one_and_update(filter, update, None).await?;
 
-        response_from_json(doc! {"challenge": base64::encode(challenge)})
-    } else {
-        // TODO: authenticate the model in the session
-        response_from_json(doc! {"message": "Authentication successful"})
+        let json = doc! { "challenge": base64::encode(challenge) };
+
+        response_from_json_with_code(json, StatusCode::UNAUTHORIZED)
     }
 }
 
@@ -295,33 +317,27 @@ pub async fn authenticate_model(
 ///
 /// Given a user identifier, finds all the models in the database that the user owns. If the user
 /// doesn't exist or an invalid identifier is given, returns a 404 response.
-pub async fn get_user_models(
-    claims: auth::Claims,
-    app_data: web::Data<AppState>,
-) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let models = database.collection("models");
+pub async fn get_user_models(claims: auth::Claims, state: web::Data<State>) -> ServerResponse {
+    let models = state.database.collection("models");
 
     let filter = doc! { "user_id": &claims.id };
     let cursor = models.find(filter, None).await?;
-    let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
+    let documents: Vec<Document> = cursor.collect::<Result<_, _>>().await?;
 
-    response_from_json(documents?)
+    response_from_json(documents)
 }
 
-/// Gets model performance for last 5 jobs
+/// Gets the model performance for the last 5 jobs.
 ///
-/// Gets the performance of a model on the last 5 jobs
-/// that is has been run on.
+/// Given a model identifier, returns the performance of that model on the last 5 jobs that it
+/// completed.
 pub async fn get_model_performance(
-    doc: web::Json<Document>,
-    app_data: web::Data<AppState>,
-) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let job_performances = database.collection("job_performances");
-    let model_id = doc.get_str("id")?;
+    state: web::Data<State>,
+    model_id: web::Path<String>,
+) -> ServerResponse {
+    let job_performances = state.database.collection("job_performances");
 
-    let filter = doc! {"model_id": ObjectId::with_string(model_id)?};
+    let filter = doc! {"model_id": ObjectId::with_string(&model_id)?};
 
     let build_options = mongodb::options::FindOptions::builder()
         .sort(doc! {"date_created": -1})
@@ -329,7 +345,7 @@ pub async fn get_model_performance(
 
     let cursor = job_performances.find(filter, Some(build_options)).await?;
 
-    let get_performance = |doc: Document| -> Result<f64, DodonaError> {
+    let get_performance = |doc: Document| -> ServerResult<f64> {
         let job_performance: JobPerformance = from_document(doc)?;
         Ok(job_performance.performance)
     };
@@ -338,7 +354,7 @@ pub async fn get_model_performance(
         .take(5)
         .filter_map(Result::ok)
         .map(get_performance)
-        .collect::<Result<_, _>>()
+        .collect::<ServerResult<_>>()
         .await?;
 
     response_from_json(performances)
