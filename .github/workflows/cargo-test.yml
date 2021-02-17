@@ -21,9 +21,4 @@ jobs:
         toolchain: stable
         override: true
 
-    - uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --manifest-path backend/Cargo.toml
-
     - run: "cd backend && cargo test"

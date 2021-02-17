@@ -26,8 +26,10 @@ pub fn weight_predictions(
     // Find the inverse of the square error of each non-penalised model
     let mut weights: HashMap<ModelID, f64> = model_errors
         .iter()
-        .filter(|(_, v)| v.is_some())
-        .map(|(k, v)| (k.to_owned(), 1.0 / (v.unwrap().powf(2.0))))
+        .filter_map(|(k, v)| {
+            v.is_some()
+                .then(|| (k.to_owned(), 1.0 / (v.unwrap().powf(2.0))))
+        })
         .collect();
     // Normalise weights to sum to 1
     let total: f64 = weights.values().sum();
