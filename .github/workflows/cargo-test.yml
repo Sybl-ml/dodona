@@ -21,4 +21,4 @@ jobs:
         toolchain: stable
         override: true
 
-    - run: "cd backend && cargo test"
+    - run: "tree && cd backend && cargo test"
