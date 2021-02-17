@@ -361,8 +361,7 @@ async fn run_cluster(
     let malicious: Vec<ModelID> = wbm
         .get_errors()
         .iter()
-        .filter(|(_, v)| v.is_none())
-        .map(|(k, _)| k.to_string())
+        .filter_map(|(k, v)| v.is_none().then(|| k.to_string()))
         .collect();
     ml::penalise(
         database_clone,
