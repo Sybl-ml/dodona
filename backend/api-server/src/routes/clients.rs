@@ -1,6 +1,6 @@
 //! Defines routes specific to client operations
 
-use actix_web::{web, HttpResponse};
+use actix_web::{http::StatusCode, web};
 use mongodb::bson::de::from_document;
 use mongodb::bson::ser::to_document;
 use mongodb::bson::{self, doc, document::Document, oid::ObjectId, Binary};
@@ -13,7 +13,7 @@ use models::users::{Client, User};
 use crate::{
     auth,
     error::{ServerError, ServerResponse, ServerResult},
-    routes::{payloads, response_from_json},
+    routes::{payloads, response_from_json, response_from_json_with_code},
     State,
 };
 
@@ -254,7 +254,7 @@ pub async fn unlock_model(
     let update = doc! { "$set": to_document(&model)? };
     models.find_one_and_update(filter, update, None).await?;
 
-    Ok(HttpResponse::Ok().body("Model successfully unlocked"))
+    response_from_json(doc! { "message": "Model successfully unlocked" })
 }
 
 /// Authenticates a model using its access token.
@@ -307,7 +307,9 @@ pub async fn authenticate_model(
         let update = doc! { "$set": to_document(&model)? };
         models.find_one_and_update(filter, update, None).await?;
 
-        response_from_json(doc! {"challenge": base64::encode(challenge)})
+        let json = doc! { "challenge": base64::encode(challenge) };
+
+        response_from_json_with_code(json, StatusCode::UNAUTHORIZED)
     }
 }
 

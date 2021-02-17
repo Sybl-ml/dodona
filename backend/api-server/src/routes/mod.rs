@@ -1,6 +1,6 @@
 //! Defines the routes for the API server.
 
-use actix_web::HttpResponse;
+use actix_web::{dev::HttpResponseBuilder, http::StatusCode};
 use mongodb::{
     bson::{de::from_document, doc, oid::ObjectId},
     Collection,
@@ -20,10 +20,21 @@ pub mod users;
 /// Defines a helper function that can be used to quickly build a JSON payload response to a user
 /// request. As many API functions take and return JSON, this reduces repetition when the route has
 /// been processed correctly.
-///
 pub fn response_from_json<B: serde::Serialize>(body: B) -> ServerResponse {
+    response_from_json_with_code(body, StatusCode::OK)
+}
+
+/// Builds a [`Response`] with a custom status code and JSON payload.
+///
+/// Defines a helper function that can be used to quickly build a JSON payload response to a user
+/// request. As many API functions take and return JSON, this reduces repetition when the route has
+/// been processed correctly.
+pub fn response_from_json_with_code<B: serde::Serialize>(
+    body: B,
+    code: StatusCode,
+) -> ServerResponse {
     let body = crypto::clean_json(json!(body));
-    Ok(HttpResponse::Ok().json(body))
+    Ok(HttpResponseBuilder::new(code).json(body))
 }
 
 /// Checks whether a project exists with the given ID and that the given user owns it.
