@@ -39,6 +39,7 @@
             @get-results="fetchResults"
             :results="results"
             :predict_data="predict_data"
+            :datasetName="datasetName"
             :loading="results_loading"
           />
         </b-tab>
