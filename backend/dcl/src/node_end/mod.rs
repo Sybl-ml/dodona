@@ -102,24 +102,22 @@ impl NodeInfo {
     /// gets the past 5 performances of node from DB
     /// and averages them out. To be used when a node
     /// is created.
-    pub async fn init_performance(database: Arc<Database>, model_id: &str) -> Result<f64> {
+    pub async fn init_node_info(database: Arc<Database>, model_id: &str) -> Result<NodeInfo> {
         let performances = JobPerformance::get_past_k(database, model_id, 5).await?;
 
-        if performances.len() == 0 {
-            return Ok(0.0);
+        let mut perf = 0.0;
+
+        if !Vec::is_empty(&performances) {
+            perf = performances.iter().sum::<f64>() / performances.len() as f64;
         }
 
-        Ok(performances.iter().sum::<f64>() / performances.len() as f64)
+        Ok(NodeInfo::new(perf))
     }
 }
 
 impl Default for NodeInfo {
     fn default() -> Self {
-        Self {
-            alive: true,
-            using: false,
-            performance: 0.0,
-        }
+        Self::new(0.0)
     }
 }
 
@@ -157,10 +155,11 @@ impl NodePool {
 
         log::info!("Adding node to the pool with id: {}", id);
 
-        let perf = NodeInfo::init_performance(database, &id).await.unwrap();
-
         node_vec.insert(id.clone(), node);
-        info_vec.insert(id.clone(), NodeInfo::new(perf));
+        info_vec.insert(
+            id.clone(),
+            NodeInfo::init_node_info(database, &id).await.unwrap(),
+        );
     }
 
     /// Gets [`TcpStream`] reference and its [`ObjectId`]
