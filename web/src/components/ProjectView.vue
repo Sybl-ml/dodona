@@ -162,6 +162,7 @@ export default {
 
       // this.data = null;
       this.loading = false;
+      this.results_loading = false;
     },
     viewInput() {
       this.$refs.inputTab.activate();
