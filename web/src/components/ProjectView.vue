@@ -38,6 +38,7 @@
             :key="projectId"
             @get-results="fetchResults"
             :results="results"
+            :predict_data="predict_data"
             :loading="results_loading"
           />
         </b-tab>
@@ -82,6 +83,7 @@ export default {
       loading: false,
 
       results: null,
+      predict_data: null,
       results_loading: false,
     };
   },
@@ -144,6 +146,7 @@ export default {
         `http://localhost:3001/api/projects/p/${this.projectId}/predictions`
       );
       this.results = project_predictions.data["predictions"];
+      this.predict_data = project_predictions.data["predict_data"];
       this.results_loading = false;
     },
     resetProject() {

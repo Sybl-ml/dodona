@@ -41,12 +41,22 @@ export default {
   props: {
     projectId: String,
     results: Array,
+    predict_data: String,
     loading: Boolean,
   },
   methods: {
     parseData(data) {
-      console.log(data)
-      return Papa.parse(data, { header: true }).data
+      var new_data = [];
+      var split_predict = this.predict_data.split("\n");
+      var split_predicted = data.split("\n");
+
+      new_data.push(split_predict[0]);
+      for (var i = 1; i < split_predict.length; i++) {
+          var residual = split_predict[i].concat(split_predicted[i-1]);
+          new_data.push(residual)
+      }
+      
+      return Papa.parse(new_data.join("\n"), { header: true }).data
     }
   },
   computed: {

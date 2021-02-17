@@ -391,13 +391,22 @@ pub async fn get_predictions(
     // Get the projects and the predictions collections
     let projects = state.database.collection("projects");
     let predictions = state.database.collection("predictions");
+    let datasets = state.database.collection("datasets");
 
     // Get the project identifier and check it exists
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     // Find the predictions for the given project
     let filter = doc! { "project_id": &object_id };
-    let cursor = predictions.find(filter, None).await?;
+    let cursor = predictions.find(filter.clone(), None).await?;
+
+    let result = datasets
+        .find_one(filter.clone(), None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
+
+    // Parse the dataset detail itself
+    let dataset: Dataset = from_document(result)?;
 
     // Given a document, extract the predictions and decompress them
     let extract = |document: Document| -> ServerResult<String> {
@@ -414,7 +423,11 @@ pub async fn get_predictions(
         .collect::<Result<_, _>>()
         .await?;
 
-    response_from_json(doc! {"predictions": decompressed})
+    let comp_predict = dataset.predict.expect("missing prediction dataset").bytes;
+    let decomp_predict = decompress_data(&comp_predict)?;
+    let predict = crypto::clean(std::str::from_utf8(&decomp_predict)?);
+
+    response_from_json(doc! {"predictions": decompressed, "predict_data": predict})
 }
 
 /// Forwards a job to the interface layer.
