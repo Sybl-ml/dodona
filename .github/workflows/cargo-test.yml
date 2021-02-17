@@ -15,10 +15,4 @@ jobs:
       with:
         mongodb-version: 4.4
 
-    - uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: stable
-        override: true
-
-    - run: "tree && cd backend && cargo test"
+    - run: "rustup update stable && cd backend && cargo test"
