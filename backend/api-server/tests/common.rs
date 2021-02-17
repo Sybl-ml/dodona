@@ -1,13 +1,13 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
-use mongodb::bson::{self, document::Document, oid::ObjectId};
+use mongodb::bson::{self, document::Document, oid::ObjectId, ser::to_document};
 
 use api_server::{auth, State};
 use config::Environment;
 use models::job_performance::JobPerformance;
 use models::projects::Project;
-use models::users::User;
+use models::users::{Client, User};
 
 #[allow(unused_macros)]
 macro_rules! api_with {
@@ -37,6 +37,8 @@ pub static DELETE_UID: &str = "5fbe3239ea6cfda08a459622";
 pub static CREATES_PROJECT_UID: &str = "5f8d7b4f0017036400d60cab";
 pub static NON_EXISTENT_USER_ID: &str = "5f8de85300eb281e00306b0b";
 pub static DELETES_PROJECT_UID: &str = "5fb2b3fa9d524e99ac7f1c40";
+
+pub static MAIN_CLIENT_ID: &str = "602bfa774f986d0e58618187";
 
 pub static MAIN_PROJECT_ID: &str = "5f8ca1a80065f27c0089e8b5";
 pub static USERLESS_PROJECT_ID: &str = "5f8ca1a80065f27b0089e8b6";
@@ -88,6 +90,7 @@ pub async fn initialise() -> State {
 
         // Insert some test data
         insert_test_users(&database).await;
+        insert_test_clients(&database).await;
         insert_test_projects(&database).await;
         insert_test_job_performances(&database).await;
 
@@ -133,7 +136,28 @@ fn create_user_with_id(
 
     user.id = ObjectId::with_string(id).unwrap();
 
-    bson::ser::to_document(&user).unwrap()
+    to_document(&user).unwrap()
+}
+
+fn create_client_with_id(
+    id: &str,
+    email: &str,
+    hash: &str,
+    first_name: &str,
+    last_name: &str,
+) -> (bson::Document, bson::Document) {
+    let mut user = User::new(email, hash, first_name, last_name);
+
+    user.id = ObjectId::with_string(id).unwrap();
+
+    // Upgrade them to a client
+    let client = Client::new(user.id.clone(), crypto::encoded_key_pair().1);
+    user.client = true;
+
+    let user_document = to_document(&user).unwrap();
+    let client_document = to_document(&client).unwrap();
+
+    (user_document, client_document)
 }
 
 fn create_project_with_id(id: &str, name: &str, desc: &str, uid: &str) -> bson::Document {
@@ -141,7 +165,7 @@ fn create_project_with_id(id: &str, name: &str, desc: &str, uid: &str) -> bson::
 
     project.id = ObjectId::with_string(id).unwrap();
 
-    bson::ser::to_document(&project).unwrap()
+    to_document(&project).unwrap()
 }
 
 async fn insert_test_users(database: &mongodb::Database) {
@@ -177,6 +201,21 @@ async fn insert_test_users(database: &mongodb::Database) {
     users.insert_one(delete, None).await.unwrap();
     users.insert_one(creates_project, None).await.unwrap();
     users.insert_one(deletes_project, None).await.unwrap();
+}
+
+async fn insert_test_clients(database: &mongodb::Database) {
+    let peppered = format!("password{}", std::env::var("PEPPER").unwrap());
+    let pbkdf2_iterations = u32::from_str(&std::env::var("PBKDF2_ITERATIONS").unwrap()).unwrap();
+    let hash = pbkdf2::pbkdf2_simple(&peppered, pbkdf2_iterations).unwrap();
+
+    let (user, client) =
+        create_client_with_id(MAIN_CLIENT_ID, "client@sybl.com", &hash, "client", "user");
+
+    let users = database.collection("users");
+    users.insert_one(user, None).await.unwrap();
+
+    let clients = database.collection("clients");
+    clients.insert_one(client, None).await.unwrap();
 }
 
 async fn insert_test_projects(database: &mongodb::Database) {
@@ -233,7 +272,7 @@ async fn insert_test_job_performances(database: &mongodb::Database) {
     });
 
     for instance in performances {
-        let serialized = bson::ser::to_document(&instance).unwrap();
+        let serialized = to_document(&instance).unwrap();
         job_performances.insert_one(serialized, None).await.unwrap();
     }
 }

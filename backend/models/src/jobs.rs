@@ -43,7 +43,7 @@ pub struct Job {
 }
 
 impl Job {
-    /// Creates a new [`Job`] with a given [`InterfaceMessage`].
+    /// Creates a new [`Job`] with a given [`JobConfiguration`].
     pub fn new(config: JobConfiguration) -> Self {
         Self {
             id: ObjectId::new(),

@@ -41,7 +41,7 @@ pub async fn register(
 
     if user.client {
         log::warn!("User with id={} is already a client", user.id);
-        return response_from_json(doc! {"privKey": "null"});
+        return Err(ServerError::Conflict);
     }
 
     let peppered = format!("{}{}", payload.password, &state.pepper);
