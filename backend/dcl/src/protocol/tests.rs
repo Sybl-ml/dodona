@@ -12,9 +12,13 @@ use messages::{ClientMessage, WriteLengthPrefix};
 #[tokio::test]
 async fn nodes_can_immediately_send_tokens() -> Result<(), Box<dyn Error>> {
     // Setup the API server mocking
-    let _m = mock("POST", "/api/clients/m/authenticate")
-        .with_status(200)
-        .with_body(r#"{"message": "Authentication successful"}"#);
+    let authenticate = mock(
+        "POST",
+        "/api/clients/m/5fe8b9d85511355cdab720aa/authenticate",
+    )
+    .with_status(200)
+    .with_body(r#"{"message": "Authentication successful"}"#)
+    .create();
 
     // Bind to a random unused TCP port
     let socket = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0);
@@ -33,7 +37,7 @@ async fn nodes_can_immediately_send_tokens() -> Result<(), Box<dyn Error>> {
     });
 
     // Wait for the handler to be ready
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::time::sleep(Duration::from_millis(1)).await;
 
     // Connect to the handler
     let mut stream = TcpStream::connect(addr).await?;
@@ -49,16 +53,14 @@ async fn nodes_can_immediately_send_tokens() -> Result<(), Box<dyn Error>> {
     // Ensure the listener handled it correctly
     assert!(handler.await.is_ok());
 
+    // Ensure the mock handler got called
+    authenticate.assert();
+
     Ok(())
 }
 
 #[tokio::test]
 async fn invalid_protocol_states_cause_panics() -> Result<(), Box<dyn Error>> {
-    // Setup the API server mocking
-    let _m = mock("POST", "/api/clients/m/authenticate")
-        .with_status(200)
-        .with_body(r#"{"message": "Authentication successful"}"#);
-
     // Bind to a random unused TCP port
     let socket = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0);
     let listener = TcpListener::bind(socket).await?;
@@ -74,7 +76,7 @@ async fn invalid_protocol_states_cause_panics() -> Result<(), Box<dyn Error>> {
     });
 
     // Wait for the handler to be ready
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::time::sleep(Duration::from_millis(1)).await;
 
     // Connect to the handler
     let mut stream = TcpStream::connect(addr).await?;
@@ -92,19 +94,6 @@ async fn invalid_protocol_states_cause_panics() -> Result<(), Box<dyn Error>> {
 
 #[tokio::test]
 async fn incorrect_ordering_fails() -> Result<(), Box<dyn Error>> {
-    // Setup the API server mocking
-    let _new = mock("POST", "/api/clients/m/new")
-        .with_status(200)
-        .with_body(r#"{"challenge": "empty"}"#);
-
-    let _verify = mock("POST", "/api/clients/m/verify")
-        .with_status(200)
-        .with_body(r#"{"AccessToken": {"id": "", "token": "", "expires": ""}"#);
-
-    let _authenticate = mock("POST", "/api/clients/m/authenticate")
-        .with_status(200)
-        .with_body(r#"{"message": "Authentication successful"}"#);
-
     // Bind to a random unused TCP port
     let socket = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0);
     let listener = TcpListener::bind(socket).await?;
@@ -120,7 +109,7 @@ async fn incorrect_ordering_fails() -> Result<(), Box<dyn Error>> {
     });
 
     // Wait for the handler to be ready
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::time::sleep(Duration::from_millis(1)).await;
 
     // Connect to the handler
     let mut stream = TcpStream::connect(addr).await?;
@@ -137,6 +126,55 @@ async fn incorrect_ordering_fails() -> Result<(), Box<dyn Error>> {
 
     // Ensure the listener failed to handle it
     assert!(handler.await.is_err());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn protocol_cares_about_api_responses() -> Result<(), Box<dyn Error>> {
+    // Setup the API server mocking, failing on the `authenticate` route
+    let authenticate = mock(
+        "POST",
+        "/api/clients/m/5fe8b9d85511355cdab720aa/authenticate",
+    )
+    .with_status(401)
+    .create();
+
+    // Bind to a random unused TCP port
+    let socket = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0);
+    let listener = TcpListener::bind(socket).await?;
+    let addr = listener.local_addr()?;
+
+    let handler = tokio::spawn(async move {
+        // Accept a single stream
+        let mut stream = listener.accept().await.unwrap().0;
+
+        // Setup the handler and try to get the access token
+        let mut handler = protocol::Handler::new(&mut stream);
+        let token = handler.get_access_token().await.unwrap().unwrap().1;
+
+        assert_eq!(token, "abc");
+    });
+
+    // Wait for the handler to be ready
+    tokio::time::sleep(Duration::from_millis(1)).await;
+
+    // Connect to the handler
+    let mut stream = TcpStream::connect(addr).await?;
+    let message = ClientMessage::AccessToken {
+        id: String::from("5fe8b9d85511355cdab720aa"),
+        token: String::from("abc"),
+    };
+
+    // Write our access token and shutdown the stream
+    stream.write(&message.as_bytes()).await?;
+    stream.shutdown().await?;
+
+    // Ensure the listener handled it correctly
+    assert!(handler.await.is_err());
+
+    // Ensure the mock handler got called
+    authenticate.assert();
 
     Ok(())
 }

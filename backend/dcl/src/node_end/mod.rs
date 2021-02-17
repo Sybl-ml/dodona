@@ -20,6 +20,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
 
 use messages::{ClientMessage, WriteLengthPrefix};
+use models::job_performance::JobPerformance;
 use models::models::Status;
 
 use crate::protocol;
@@ -90,18 +91,33 @@ pub struct NodeInfo {
 
 impl NodeInfo {
     /// creates new [`NodeInfo`] instance
-    pub fn new() -> Self {
+    pub fn new(performance: f64) -> Self {
         Self {
             alive: true,
             using: false,
-            performance: 0.0,
+            performance,
         }
+    }
+
+    /// gets the past 5 performances of node from DB
+    /// and averages them out. To be used when a node
+    /// is created.
+    pub async fn from_database(database: Arc<Database>, model_id: &str) -> Result<NodeInfo> {
+        let performances = JobPerformance::get_past_k(database, model_id, 5).await?;
+
+        let mut perf = 0.0;
+
+        if !performances.is_empty() {
+            perf = performances.iter().sum::<f64>() / performances.len() as f64;
+        }
+
+        Ok(NodeInfo::new(perf))
     }
 }
 
 impl Default for NodeInfo {
     fn default() -> Self {
-        Self::new()
+        Self::new(0.0)
     }
 }
 
@@ -131,7 +147,7 @@ impl NodePool {
     /// Function will take in a new [`Node`] and will create an ID for it. It will also create an
     /// associated [`NodeInfo`] instance to also be stored under the same ID. These are then stored
     /// in their respective [`HashMap`]s
-    pub async fn add(&self, node: Node) {
+    pub async fn add(&self, node: Node, database: Arc<Database>) {
         let id = node.get_model_id().to_string();
 
         let mut node_vec = self.nodes.write().await;
@@ -140,7 +156,10 @@ impl NodePool {
         log::info!("Adding node to the pool with id: {}", id);
 
         node_vec.insert(id.clone(), node);
-        info_vec.insert(id.clone(), NodeInfo::new());
+        info_vec.insert(
+            id.clone(),
+            NodeInfo::from_database(database, &id).await.unwrap(),
+        );
     }
 
     /// Gets [`TcpStream`] reference and its [`ObjectId`]
@@ -384,10 +403,10 @@ async fn process_connection(
     log::info!("\tModel ID: {}", model_id);
     log::info!("\tToken: {}", token);
 
-    update_model_status(database, &model_id).await?;
+    update_model_status(Arc::clone(&database), &model_id).await?;
 
     let node = Node::new(stream, model_id);
-    nodepool.add(node).await;
+    nodepool.add(node, Arc::clone(&database)).await;
 
     Ok(())
 }

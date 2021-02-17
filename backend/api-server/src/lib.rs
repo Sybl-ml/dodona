@@ -15,34 +15,35 @@ use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use mongodb::options::ClientOptions;
-use mongodb::Client;
-
 use actix_cors::Cors;
 use actix_web::{middleware, web, App, HttpServer, Result};
+use mongodb::{options::ClientOptions, Client, Database};
 
 pub mod auth;
-pub mod dodona_error;
+pub mod error;
 pub mod routes;
 
 /// Defines the state for each request to access.
 #[derive(Clone, Debug)]
-pub struct AppState {
-    /// An instance of the MongoDB client
-    pub client: Arc<Client>,
-    /// The name of the database to access
-    pub db_name: Arc<String>,
+pub struct State {
+    /// An instance of the MongoDB database
+    pub database: Arc<Database>,
     /// The pepper to use when hashing
     pub pepper: Arc<String>,
     /// The number of iterations to use for hashing
     pub pbkdf2_iterations: u32,
 }
 
-/// Builds the Tide server.
+/// Builds the default logging middleware for request logging.
+fn build_logging_middleware() -> middleware::Logger {
+    middleware::Logger::new("%s @ %r")
+}
+
+/// Builds the `actix-web` server.
 ///
-/// Creates a new Tide server instance and adds the API routes to it, along with setting up the
-/// [`State`] that each request has access to. This allows the server to be set up externally more
-/// easily, by simply building it and then calling the `listen` method.
+/// Creates a new `actix-web` server instance and adds the API routes to it, along with setting up
+/// the [`State`] that each request has access to. This allows the server to be set up externally
+/// more easily, by simply building it and then calling the `listen` method.
 ///
 /// # Examples
 ///
@@ -54,7 +55,7 @@ pub struct AppState {
 ///     Ok(())
 /// }
 /// ```
-pub async fn build_server() -> Result<()> {
+pub async fn build_server() -> Result<actix_web::dev::Server> {
     let conn_str = env::var("CONN_STR").expect("CONN_STR must be set");
     let app_name = env::var("APP_NAME").expect("APP_NAME must be set");
     let pepper = env::var("PEPPER").expect("PEPPER must be set");
@@ -64,8 +65,9 @@ pub async fn build_server() -> Result<()> {
     client_options.app_name = Some(app_name);
 
     let client = Client::with_options(client_options).unwrap();
+    let database = Arc::new(client.database("sybl"));
 
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         // cors
         let cors_middleware = Cors::default()
             .allow_any_origin()
@@ -76,10 +78,9 @@ pub async fn build_server() -> Result<()> {
         // launch http server
         App::new()
             .wrap(cors_middleware)
-            .wrap(middleware::Logger::default())
-            .data(AppState {
-                client: Arc::new(client.clone()),
-                db_name: Arc::new(String::from("sybl")),
+            .wrap(build_logging_middleware())
+            .data(State {
+                database: Arc::clone(&database),
                 pepper: Arc::new(pepper.clone()),
                 pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)
                     .expect("PBKDF2_ITERATIONS must be parseable as an integer"),
@@ -139,11 +140,11 @@ pub async fn build_server() -> Result<()> {
                 web::post().to(routes::clients::verify_challenge),
             )
             .route(
-                "/api/clients/m/unlock",
+                "/api/clients/m/{model_id}/unlock",
                 web::post().to(routes::clients::unlock_model),
             )
             .route(
-                "/api/clients/m/authenticate",
+                "/api/clients/m/{model_id}/authenticate",
                 web::post().to(routes::clients::authenticate_model),
             )
             .route(
@@ -151,8 +152,8 @@ pub async fn build_server() -> Result<()> {
                 web::get().to(routes::clients::get_user_models),
             )
             .route(
-                "/api/clients/m/performance",
-                web::post().to(routes::clients::get_model_performance),
+                "/api/clients/m/{model_id}/performance",
+                web::get().to(routes::clients::get_model_performance),
             )
             // users
             .route("/api/users", web::get().to(routes::users::get))
@@ -163,9 +164,7 @@ pub async fn build_server() -> Result<()> {
             .route("/api/users/delete", web::post().to(routes::users::delete))
     })
     .bind("0.0.0.0:3001")?
-    .run()
-    .await
-    .unwrap();
+    .run();
 
-    Ok(())
+    Ok(server)
 }

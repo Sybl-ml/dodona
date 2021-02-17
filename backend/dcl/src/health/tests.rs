@@ -20,7 +20,7 @@ async fn test_heartbeat() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::time::sleep(Duration::from_millis(1)).await;
 
     let stream = TcpStream::connect(addr).await.unwrap();
     let verdict = heartbeat(Arc::new(RwLock::new(stream))).await;
@@ -41,15 +41,15 @@ async fn test_heartbeat_fail() -> Result<(), Box<dyn Error>> {
         while let Ok((mut inbound, _)) = listener.accept().await {
             let mut buffer = [0_u8; 24];
             inbound.read(&mut buffer).await.unwrap();
-            tokio::time::sleep(Duration::new(1, 0)).await;
+            tokio::time::sleep(Duration::from_millis(200)).await;
             inbound.shutdown().await.unwrap();
         }
     });
 
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::time::sleep(Duration::from_millis(1)).await;
     let stream = TcpStream::connect(addr).await.unwrap();
 
-    tokio::time::sleep(Duration::from_millis(300)).await;
+    tokio::time::sleep(Duration::from_millis(3)).await;
     let verdict = heartbeat(Arc::new(RwLock::new(stream))).await;
 
     assert_eq!(verdict, false);

@@ -4,7 +4,8 @@ use chrono::Utc;
 use mongodb::bson::{self, oid::ObjectId};
 
 /// Different types of problem Sybl can accept
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum PredictionType {
     /// Predicting a class of data
     Classification,
@@ -42,7 +43,7 @@ pub struct Job {
 }
 
 impl Job {
-    /// Creates a new [`Job`] with a given [`InterfaceMessage`].
+    /// Creates a new [`Job`] with a given [`JobConfiguration`].
     pub fn new(config: JobConfiguration) -> Self {
         Self {
             id: ObjectId::new(),

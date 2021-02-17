@@ -33,7 +33,7 @@ async fn test_write_back_predictions() {
         wb_clone.write_predictions(mid_clone, pred_map_clone);
     });
 
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    tokio::time::sleep(Duration::from_millis(1)).await;
 
     let predictions = wb.get_predictions();
     let pred_val = predictions.get(&(model_id, 1)).unwrap();
@@ -55,7 +55,7 @@ async fn test_write_back_errors() {
         wb_clone.write_error(mid_clone, error);
     });
 
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    tokio::time::sleep(Duration::from_millis(1)).await;
 
     let errors = wb.get_errors();
     let error_val = errors.get(&model_id).unwrap();
