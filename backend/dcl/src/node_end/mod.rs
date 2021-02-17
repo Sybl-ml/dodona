@@ -10,16 +10,14 @@ use std::str;
 use std::sync::Arc;
 
 use anyhow::Result;
-use mongodb::bson::de::from_document;
 use mongodb::{
-    bson::{doc, document::Document, oid::ObjectId},
+    bson::{doc, oid::ObjectId},
     Database,
 };
 use rand::Rng;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
-use tokio_stream::StreamExt;
 
 use messages::{ClientMessage, WriteLengthPrefix};
 use models::job_performance::JobPerformance;
