@@ -11,12 +11,12 @@ actix = "0.11.0-beta.1"
 actix-web = "4.0.0-beta.1"
 actix-rt = "2.0.0-beta.2"
 actix-cors = { git = "https://github.com/andy128k/actix-extras", rev = "d7ac647"}
+anyhow = "1.0"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 pbkdf2 = "0.5.0"
-env_logger = "0.7"
 log = "0.4"
 toml = "0.5.7"
 bzip2 = "0.4.1"

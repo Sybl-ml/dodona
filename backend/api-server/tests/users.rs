@@ -135,7 +135,7 @@ async fn users_cannot_login_without_correct_email() -> Result<()> {
 async fn filter_finds_given_user_and_no_others() -> Result<()> {
     let mut app = api_with! { post: "/api/users/filter" => users::filter };
 
-    let doc = doc! {"email": "matthewsmith@email.com"};
+    let doc = doc! {"filter": { "email": "matthewsmith@email.com" } };
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
         .uri("/api/users/filter")
@@ -161,7 +161,7 @@ async fn filter_finds_given_user_and_no_others() -> Result<()> {
 async fn non_existent_users_are_not_found() -> Result<()> {
     let mut app = api_with! { post: "/api/users/filter" => users::filter };
 
-    let doc = doc! {"email": "nonexistent@email.com"};
+    let doc = doc! {"filter": { "email": "nonexistent@email.com" } };
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
         .uri("/api/users/filter")
@@ -185,7 +185,7 @@ async fn users_can_be_deleted() -> Result<()> {
     };
 
     // Find the user
-    let doc = doc! {"email": "delete@me.com"};
+    let doc = doc! {"filter": { "email": "delete@me.com" } };
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
         .uri("/api/users/filter")

@@ -30,7 +30,7 @@ async fn test_interface_end() {
             .unwrap();
     });
 
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    tokio::time::sleep(Duration::from_millis(1)).await;
 
     // Create fake interface client
     let socket = SocketAddr::new(
@@ -52,7 +52,7 @@ async fn test_interface_end() {
     let job = Job::new(config);
 
     stream.write(&job.as_bytes()).await.unwrap();
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    tokio::time::sleep(Duration::from_millis(1)).await;
 
     // assert on receive end of mpsc
     if let Some(msg) = rx.recv().await {

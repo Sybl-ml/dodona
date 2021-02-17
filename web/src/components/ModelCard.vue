@@ -143,9 +143,8 @@ export default {
   },
   async mounted() {
     try {
-      let data = await this.$http.post(
-        `http://localhost:3001/api/clients/m/performance`,
-        { id: this.data._id.$oid }
+      let data = await this.$http.get(
+        `http://localhost:3001/api/clients/m/{this.data._id.$oid}/performance`,
       );
       this.performance = data.data;
     } catch (err) {
@@ -169,9 +168,8 @@ export default {
   methods: {
     async onSubmit() {
       let response = await this.$http.post(
-        "http://localhost:3001/api/clients/m/unlock",
+        `http://localhost:3001/api/clients/m/{this.data._id.$oid}/unlock`,
         {
-          id: this.data._id.$oid,
           password: this.password,
         }
       );

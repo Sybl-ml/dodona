@@ -2,7 +2,7 @@
 
 use std::fmt::Display;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use mongodb::bson::bson;
 use serde::Serialize;
 use tokio::io::AsyncWriteExt;
@@ -141,16 +141,13 @@ impl<'a> Handler<'a> {
 
         // Query the API server
         let body = bson!({
-            "id": &id,
             "token": &token,
         });
 
-        let endpoint = "/api/clients/m/authenticate";
-        let text = get_response_text(endpoint, body).await?;
+        let endpoint = format!("/api/clients/m/{}/authenticate", &id);
+        let text = get_response_text(&endpoint, body).await?;
 
         let message = RawMessage::new(text);
-
-        log::info!("RAW MESSAGE: {:?}", &message);
 
         // Send the response back to the client
         self.stream.write(&message.as_bytes()).await?;
@@ -173,6 +170,14 @@ pub async fn get_response_text<S: Display + Serialize>(endpoint: &str, body: S) 
 
     let request = reqwest::Client::new().post(&url).json(&body);
     let response = request.send().await?;
+    let status = response.status();
+
+    // Check the status code of the response
+    if !status.is_success() {
+        let error = format!("Request to {} failed: {}", url, status);
+        return Err(anyhow!(error));
+    }
+
     let text = response.text().await?;
 
     log::debug!("Response body: {:?}", text);
