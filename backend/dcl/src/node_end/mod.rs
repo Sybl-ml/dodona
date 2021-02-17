@@ -10,16 +10,14 @@ use std::str;
 use std::sync::Arc;
 
 use anyhow::Result;
-use mongodb::bson::de::from_document;
 use mongodb::{
-    bson::{doc, document::Document, oid::ObjectId},
+    bson::{doc, oid::ObjectId},
     Database,
 };
 use rand::Rng;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
-use tokio_stream::StreamExt;
 
 use messages::{ClientMessage, WriteLengthPrefix};
 use models::job_performance::JobPerformance;
@@ -105,27 +103,8 @@ impl NodeInfo {
     /// and averages them out. To be used when a node
     /// is created.
     pub async fn init_performance(database: Arc<Database>, model_id: &str) -> Result<f64> {
-        let job_performances = database.collection("job_performances");
+        let performances = JobPerformance::get_past_5(database, model_id).await?;
 
-        let filter = doc! {"model_id": ObjectId::with_string(model_id)?};
-
-        let build_options = mongodb::options::FindOptions::builder()
-            .sort(doc! {"date_created": -1})
-            .build();
-
-        let cursor = job_performances.find(filter, Some(build_options)).await?;
-
-        let get_performance = |doc: Document| -> Result<f64> {
-            let job_performance: JobPerformance = from_document(doc)?;
-            Ok(job_performance.performance)
-        };
-
-        let performances: Vec<_> = cursor
-            .take(5)
-            .filter_map(Result::ok)
-            .map(get_performance)
-            .collect::<Result<_, _>>()
-            .await?;
         if performances.len() == 0 {
             return Ok(0.0);
         }
