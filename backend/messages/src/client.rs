@@ -1,6 +1,7 @@
 //! Contains the builder functions used to generate message for DCL-DCN protcol
 
 use models::jobs::PredictionType;
+use utils::Columns;
 
 /// Different messages to be passed between DCL and DCN
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -53,4 +54,30 @@ pub enum ClientMessage {
     },
     /// Prediction data from a node after computation
     Predictions(String),
+}
+
+impl ClientMessage {
+
+    /// Anonymises a ClientMessage
+    ///
+    /// Returns an anonymised clone of a ClientMessage such that it can be
+    /// sent to a model without the risk of information disclosure
+    /// Currently, this is only necessary for JobConfig messages
+    pub fn anonymise(&self, columns: &Columns) -> ClientMessage {
+        match self {
+            ClientMessage::JobConfig {
+                timeout,
+                column_types,
+                prediction_column,
+                prediction_type,
+            } =>
+            ClientMessage::JobConfig {
+                timeout: timeout.clone(),
+                column_types: column_types.clone(),
+                prediction_column: columns.get(prediction_column).unwrap().pseudonym.clone(),
+                prediction_type: prediction_type.clone(),
+            },
+            _ => self.clone(),
+        }
+    }
 }

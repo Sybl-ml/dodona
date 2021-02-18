@@ -198,7 +198,7 @@ pub async fn run(
         let mut prediction_rids: HashMap<(ModelID, String), usize> = HashMap::new();
 
         loop {
-            if let Some(cluster) = nodepool.build_cluster(CLUSTER_SIZE, config.clone()).await {
+            if let Some(cluster) = nodepool.build_cluster(CLUSTER_SIZE, config.anonymise(&columns)).await {
                 log::info!("Created Cluster");
 
                 for (key, _) in &cluster {
