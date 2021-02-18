@@ -166,9 +166,18 @@ pub async fn run(
 
         let mut train = msg.train.split('\n').collect::<Vec<_>>();
         let headers = train.remove(0);
-        let prediction_column = headers.split(',').last().unwrap();
         let mut validation = Vec::new();
         let test = msg.predict.split('\n').skip(1).collect::<Vec<_>>();
+
+        let prediction_column = match config {
+            ClientMessage::JobConfig {
+                timeout: _,
+                column_types: _,
+                ref prediction_column,
+                prediction_type: _,
+            } => prediction_column,
+            _ => headers.split(',').last().unwrap(),
+        };
 
         log::info!("{:?}", &train);
         log::info!("{}", &train.len());
@@ -246,21 +255,34 @@ pub async fn run(
                     );
 
                     let mut anon_valid_ans: Vec<_> = anon_valid_ans.split("\n").collect();
-                    let mut anon_valid: Vec<&str> = Vec::new();
+                    let mut anon_valid: Vec<String> = Vec::new();
                     anon_valid_ans.remove(0);
 
                     // Remove validation answers and record them for evaluation
                     for (record, id) in anon_valid_ans.iter().zip(valid_rids.iter()) {
-                        let values: Vec<_> = record.rsplitn(2, ',').collect();
+                        let values: Vec<_> = record.split(',').zip(headers.split(',')).collect();
+                        let anon_ans = values
+                            .iter()
+                            .filter_map(|(v, h)| (*h == prediction_column).then(|| *v))
+                            .next()
+                            .unwrap()
+                            .to_string();
                         let ans = columns
                             .get(prediction_column)
                             .unwrap()
-                            .deanonymise(values[0].to_owned())
+                            .deanonymise(anon_ans)
                             .unwrap();
                         validation_ans.insert((key.clone(), id.to_owned()), ans.to_owned());
-                        anon_valid.push(values[1]);
+                        anon_valid.push(
+                            values
+                                .iter()
+                                .map(|(v, h)| if *h != prediction_column { *v } else { "" })
+                                .collect::<Vec<_>>()
+                                .join(","),
+                        );
                     }
 
+                    let mut anon_valid: Vec<&str> = anon_valid.iter().map(|s| s.as_ref()).collect();
                     let mut anon_test = anon_test.split("\n").collect::<Vec<_>>();
 
                     // Get the new anonymised headers for test set
