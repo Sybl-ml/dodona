@@ -147,7 +147,7 @@ export default {
     },
     async addProject(id) {
       let project_response = await this.$http.get(
-        `http://localhost:3001/api/projects/p/${id}`
+        `http://localhost:3001/api/projects/${id}`
       );
 
       let x = project_response.data.project;
