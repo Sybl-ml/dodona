@@ -23,7 +23,9 @@
       <b-col v-else class="input-table">
             <vuetable ref="vuetable"
               :api-mode="false"
-              :fields="this.training_data.meta.fields"
+              :show-sort-icons="true"
+              :multi-sort="true"
+              :fields="buildFields(this.training_data.meta.fields)"
               :data="this.training_data.data"
             ></vuetable>
       </b-col>
@@ -42,7 +44,9 @@
 </style>
 
 <script>
-import Vuetable from 'vuetable-2'
+import Vuetable from 'vuetable-2';
+import VuetablePagination from "vuetable-2/src/components/VuetablePagination";
+import VuetableFieldHandle from 'vuetable-2/src/components/VuetableFieldHandle.vue';
 
 export default {
   name: "ProjectInput",
@@ -56,7 +60,22 @@ export default {
     dataHead: Object,
     loading: Boolean,
   },
-  methods: {},
+  methods: {
+    buildFields(fields) {
+      let built_fields = [{
+          name: VuetableFieldHandle
+        }]
+      
+      fields.forEach(function (item, index) {
+        built_fields.push({
+            name: item,
+            title: `<span class="orange glyphicon glyphicon-user"></span> ${item}`,
+            sortField: item
+          });
+      });
+      return built_fields;
+    }
+  },
   computed: {
     getDatasetDate() {
       return `${this.dataDate.toLocaleString("en-GB", {
