@@ -171,10 +171,8 @@ pub async fn run(
 
         let prediction_column = match config {
             ClientMessage::JobConfig {
-                timeout: _,
-                column_types: _,
                 ref prediction_column,
-                prediction_type: _,
+                ..
             } => prediction_column,
             _ => headers.split(',').last().unwrap(),
         };
