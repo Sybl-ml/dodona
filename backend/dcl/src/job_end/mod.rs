@@ -130,8 +130,6 @@ const TRAINING_BAG_SIZE: usize = 10;
 // inclusion probability used for Bernoulli sampling
 const INCLUSION_PROBABILITY: f64 = 0.95;
 
-// TODO: Find a better way of identifying models
-
 /// ModelID type
 pub type ModelID = String;
 
@@ -368,7 +366,6 @@ async fn run_cluster(
     // TODO: reimburse clients based on weights
     log::info!("Model weights: {:?}", weights);
 
-    // TODO: store percentage difference between model weight and number of models for job
     let database_clone = Arc::clone(&database);
     ml::model_performance(
         database_clone,
@@ -392,7 +389,6 @@ async fn run_cluster(
     )
     .await?;
 
-    // TODO: reintegrate predictions with user-supplied test dataset (?)
     let csv: String = predictions.join("\n");
 
     write_predictions(database.clone(), info.project_id, csv.as_bytes())
@@ -463,7 +459,6 @@ pub async fn dcl_protcol(
         write_back.write_error(model_id.clone(), None);
     }
 
-    // TODO: Give additional feedback to the model
     increment_run_count(database, &model_id).await?;
 
     nodepool.end(&model_id).await?;
