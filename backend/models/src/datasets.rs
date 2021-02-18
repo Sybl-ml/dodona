@@ -23,7 +23,7 @@ impl Dataset {
     pub fn new(project_id: ObjectId, dataset: Vec<u8>, predict: Vec<u8>) -> Self {
         Self {
             id: ObjectId::new(),
-            project_id: project_id,
+            project_id,
             dataset: Some(Binary {
                 subtype: bson::spec::BinarySubtype::Generic,
                 bytes: dataset,

@@ -103,7 +103,7 @@ pub fn clean(s: &str) -> String {
 pub fn clean_json(json: Value) -> Value {
     match json {
         Value::String(s) => Value::String(clean(&s)),
-        Value::Array(v) => Value::Array(v.into_iter().map(|i| clean_json(i)).collect()),
+        Value::Array(v) => Value::Array(v.into_iter().map(clean_json).collect()),
         Value::Object(m) => Value::Object(m.into_iter().map(|(k, v)| (k, clean_json(v))).collect()),
         _ => json,
     }

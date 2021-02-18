@@ -33,7 +33,7 @@ pub fn weight_predictions(
         .collect();
     // Normalise weights to sum to 1
     let total: f64 = weights.values().sum();
-    weights.values_mut().for_each(|v| *v = *v / total);
+    weights.values_mut().for_each(|v| *v /= total);
 
     let test_examples: HashSet<&usize> = model_predictions.keys().map(|(_, i)| i).collect();
     let mut indexes: Vec<&usize> = test_examples.into_iter().collect();
@@ -60,8 +60,8 @@ pub fn weight_predictions(
                     possible
                         .iter()
                         .max_by(|(_, v1), (_, v2)| v1.partial_cmp(v2).unwrap())
-                        .and_then(|(k, _)| Some(k.to_string()))
-                        .unwrap_or("No predictions made".to_owned()),
+                        .map(|(k, _)| k.to_string())
+                        .unwrap_or_else(|| String::from("No predictions made")),
                 );
             }
         }
@@ -89,7 +89,7 @@ pub fn weight_predictions(
 /// Returns a tuple of predictions on test examples and the tuple's validation error
 pub fn evaluate_model(
     id: &ModelID,
-    predictions: &String,
+    predictions: &str,
     info: &ClusterInfo,
 ) -> Option<(Predictions, f64)> {
     // stores the total error penalty for each model

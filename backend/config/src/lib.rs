@@ -7,8 +7,10 @@
 //! instance can be used for production purposes.
 
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::env;
 use std::path::Path;
+use std::str::FromStr;
 
 #[macro_use]
 extern crate serde;
@@ -149,38 +151,7 @@ impl ConfigFile {
     /// ```
     pub fn from_file<P: AsRef<Path>>(filename: P) -> Self {
         let contents = std::fs::read_to_string(filename).unwrap();
-        Self::from_str(&contents)
-    }
-
-    /// Parses a `ConfigFile` from a given string.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use config::ConfigFile;
-    ///
-    /// let config = r#"
-    /// [global]
-    /// app_name = "Dodona"
-    /// pepper = "pepper"
-    ///
-    /// [development]
-    /// pepper = "dev_pepper"
-    ///
-    /// [testing]
-    /// conn_str = "localhost"
-    /// "#;
-    ///
-    /// let config_file = ConfigFile::from_str(config);
-    ///
-    /// assert!(config_file.global.is_some());
-    /// assert!(config_file.development.is_some());
-    /// assert!(config_file.testing.is_some());
-    ///
-    /// assert!(config_file.production.is_none());
-    /// ```
-    pub fn from_str(contents: &str) -> Self {
-        toml::from_str(&contents).unwrap()
+        Self::from_str(&contents).unwrap()
     }
 
     /// Resolves a `ConfigFile` into a single `Config` given the environment that is running.
@@ -247,6 +218,41 @@ impl ConfigFile {
         log::info!("Config values: {:#?}", config);
 
         config
+    }
+}
+
+impl FromStr for ConfigFile {
+    type Err = Infallible;
+
+    /// Parses a `ConfigFile` from a given string.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use config::ConfigFile;
+    ///
+    /// let config = r#"
+    /// [global]
+    /// app_name = "Dodona"
+    /// pepper = "pepper"
+    ///
+    /// [development]
+    /// pepper = "dev_pepper"
+    ///
+    /// [testing]
+    /// conn_str = "localhost"
+    /// "#;
+    ///
+    /// let config_file = ConfigFile::from_str(config);
+    ///
+    /// assert!(config_file.global.is_some());
+    /// assert!(config_file.development.is_some());
+    /// assert!(config_file.testing.is_some());
+    ///
+    /// assert!(config_file.production.is_none());
+    /// ```
+    fn from_str(contents: &str) -> Result<Self, Self::Err> {
+        Ok(toml::from_str(&contents).unwrap())
     }
 }
 
