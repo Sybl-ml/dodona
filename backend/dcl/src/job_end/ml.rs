@@ -18,8 +18,8 @@ use crate::node_end::NodePool;
 /// Weights the predictions made by models in `model_predictions`
 /// based on their errors in validation examples `model_errors`
 pub fn weight_predictions(
-    model_predictions: ModelPredictions,
-    model_errors: ModelErrors,
+    model_predictions: &ModelPredictions,
+    model_errors: &ModelErrors,
 ) -> (ModelWeights, Vec<String>) {
     let models: HashSet<ModelID> = model_predictions.keys().map(|(m, _)| m.clone()).collect();
 
@@ -49,7 +49,7 @@ pub fn weight_predictions(
             for i in indexes.iter() {
                 // Add the weight of each model to each possible prediction
                 let mut possible: HashMap<&str, f64> = HashMap::new();
-                for model in models.iter() {
+                for model in &models {
                     if let Some(prediction) = model_predictions.get(&(model.to_string(), **i)) {
                         let weighting = possible.entry(prediction).or_insert(0.0);
                         *weighting += weights.get(model).unwrap();
@@ -60,8 +60,10 @@ pub fn weight_predictions(
                     possible
                         .iter()
                         .max_by(|(_, v1), (_, v2)| v1.partial_cmp(v2).unwrap())
-                        .map(|(k, _)| k.to_string())
-                        .unwrap_or_else(|| String::from("No predictions made")),
+                        .map_or_else(
+                            || String::from("No predictions made"),
+                            |(k, _)| (*k).to_string(),
+                        ),
                 );
             }
         }
@@ -69,7 +71,7 @@ pub fn weight_predictions(
             for i in indexes.iter() {
                 // Create a weighted average taken from all model predictions
                 let mut weighted_average: f64 = 0.0;
-                for model in models.iter() {
+                for model in &models {
                     if let Some(prediction) = model_predictions.get(&(model.to_string(), **i)) {
                         let value: f64 = prediction.parse().unwrap();
                         weighted_average += value * weights.get(model).unwrap();
@@ -140,8 +142,7 @@ pub fn evaluate_model(
             .validation_ans
             .keys()
             .chain(info.prediction_rids.keys())
-            .filter(|(m, _)| m == id)
-            .map(|(_, r)| r.as_str())
+            .filter_map(|(m, r)| (m == id).then(|| r.as_str()))
             .collect()
     {
         Some((model_predictions, model_error))

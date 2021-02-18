@@ -16,7 +16,7 @@ use std::str::FromStr;
 extern crate serde;
 
 /// Defines which subconfig to use for overwriting.
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Environment {
     /// Uses the `[production]` section
     Production,

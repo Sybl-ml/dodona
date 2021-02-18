@@ -70,7 +70,7 @@ pub fn generate_challenge() -> Vec<u8> {
 /// Given a `challenge`, a `response` and an associated `public_key`,
 /// verify the `challenge` by decrypting the `response` using the `public_key`
 /// and asserting that the `challenge` and the decrypted `response` match
-pub fn verify_challenge(challenge: Vec<u8>, response: Vec<u8>, public_key: String) -> bool {
+pub fn verify_challenge(challenge: &[u8], response: &[u8], public_key: &str) -> bool {
     let rsa = Rsa::public_key_from_pem(public_key.as_bytes()).expect("Unable to parse public key");
     let keypair = PKey::from_rsa(rsa).unwrap();
     let mut verifier = Verifier::new(MD::sha256(), &keypair).unwrap();
