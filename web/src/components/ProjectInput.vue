@@ -5,7 +5,7 @@
       </h4>
     </b-row>
     <b-row>
-      <b-col v-if="!data && !loading" class="text-center">
+      <b-col v-if="!training_data && !loading" class="text-center">
         <b-row class="head-input-table">
         <b-table hover striped :items="this.dataHead.data" />
       </b-row>
