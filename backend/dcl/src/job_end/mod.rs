@@ -192,7 +192,7 @@ pub async fn run(
             if let Some(cluster) = nodepool.build_cluster(CLUSTER_SIZE, config.clone()).await {
                 log::info!("Created Cluster");
 
-                for (key, _) in &cluster {
+                for key in cluster.keys() {
                     log::info!("BOOTSTRAPPING");
                     let model_train: Vec<_> = train
                         .choose_multiple(&mut thread_rng(), TRAINING_BAG_SIZE)
@@ -200,15 +200,15 @@ pub async fn run(
                         .collect();
 
                     // Create new train set with headers
-                    let mut model_anon_train = vec![headers.clone()];
+                    let mut model_anon_train = vec![headers];
                     model_anon_train.extend_from_slice(&model_train);
 
                     // Create new test set with headers
-                    let mut model_anon_test = vec![headers.clone()];
+                    let mut model_anon_test = vec![headers];
                     model_anon_test.extend_from_slice(&test);
 
                     // Create new validation set with headers
-                    let mut model_anon_valid = vec![headers.clone()];
+                    let mut model_anon_valid = vec![headers];
                     model_anon_valid.extend_from_slice(&validation);
 
                     // Anonymise train data
@@ -245,7 +245,7 @@ pub async fn run(
                         &anon_valid_ans
                     );
 
-                    let mut anon_valid_ans: Vec<_> = anon_valid_ans.split("\n").collect();
+                    let mut anon_valid_ans: Vec<_> = anon_valid_ans.split('\n').collect();
                     let mut anon_valid: Vec<&str> = Vec::new();
                     anon_valid_ans.remove(0);
 
@@ -261,7 +261,7 @@ pub async fn run(
                         anon_valid.push(values[1]);
                     }
 
-                    let mut anon_test = anon_test.split("\n").collect::<Vec<_>>();
+                    let mut anon_test = anon_test.split('\n').collect::<Vec<_>>();
 
                     // Get the new anonymised headers for test set
                     let new_headers = anon_test.remove(0);
@@ -342,7 +342,7 @@ async fn run_cluster(
     cc.notify.notified().await;
     log::info!("All Jobs Complete!");
 
-    let (weights, predictions) = ml::weight_predictions(wbm.get_predictions(), wbm.get_errors());
+    let (weights, predictions) = ml::weight_predictions(&wbm.get_predictions(), &wbm.get_errors());
 
     // TODO: reimburse clients based on weights
     log::info!("Model weights: {:?}", weights);
@@ -400,10 +400,7 @@ pub async fn dcl_protcol(
     let mut buffer = [0_u8; 1024];
     let (train, predict) = train_predict;
 
-    let dataset_message = ClientMessage::Dataset {
-        train: train,
-        predict: predict,
-    };
+    let dataset_message = ClientMessage::Dataset { train, predict };
 
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 

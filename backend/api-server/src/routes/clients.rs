@@ -179,7 +179,7 @@ pub async fn verify_challenge(
     // needs converting to Vec<u8>
     let challenge_response = base64::decode(&payload.challenge_response)?;
 
-    if !crypto::verify_challenge(challenge.to_vec(), challenge_response, public_key) {
+    if !crypto::verify_challenge(&challenge, &challenge_response, &public_key) {
         log::warn!("Provided challenge did not match expected");
         return Err(ServerError::Unauthorized);
     }

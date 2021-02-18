@@ -237,8 +237,8 @@ impl NodePool {
             cluster.insert(chosen_node.clone(), stream);
             cluster_performance = (cluster_performance + performance) / cluster.len() as f64;
 
-            // If accepted_job.len() == 0, output cluster
-            if accepted_job.len() == 0 {
+            // If accepted_job.is_empty(), output cluster
+            if accepted_job.is_empty() {
                 break;
             }
         }
@@ -266,14 +266,14 @@ impl NodePool {
         better_nodes: &mut Vec<(String, f64)>,
         cluster_performance: f64,
     ) -> (String, f64) {
-        if cluster_performance == 0.0 || cluster_performance > 0.5 || better_nodes.len() == 0 {
+        if cluster_performance == 0.0 || cluster_performance > 0.5 || better_nodes.is_empty() {
             let index = rand::thread_rng().gen_range(0..nodes.len());
             let value = nodes.remove(index);
 
             // Remove from better nodes if exists
             better_nodes.retain(|item| value != *item);
 
-            return value;
+            value
         } else {
             let index = rand::thread_rng().gen_range(0..better_nodes.len());
             // Get node which has performance of 0.5 or better
@@ -282,7 +282,7 @@ impl NodePool {
             // Remove from nodes
             nodes.retain(|item| value != *item);
 
-            return value;
+            value
         }
     }
 

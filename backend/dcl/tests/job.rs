@@ -179,7 +179,7 @@ fn test_weight_predictions() {
         model_errors.insert(model.to_string(), Some(model_error));
     }
 
-    let (weights, final_predictions) = weight_predictions(model_predictions, model_errors);
+    let (weights, final_predictions) = weight_predictions(&model_predictions, &model_errors);
     let sum = weights.values().sum::<f64>();
     assert!(approx_eq!(f64, sum, 1.0, ulps = 2));
     assert_eq!(final_predictions.join("\n"), "5\n6\n7\n8");
