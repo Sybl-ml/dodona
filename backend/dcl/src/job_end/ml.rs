@@ -2,7 +2,9 @@
 use crate::job_end::{
     ClusterInfo, ModelErrors, ModelID, ModelPredictions, ModelWeights, Predictions,
 };
+use messages::ClientMessage;
 use models::job_performance::JobPerformance;
+use models::jobs::PredictionType;
 use mongodb::{
     bson::{document::Document, oid::ObjectId},
     Database,
@@ -20,6 +22,7 @@ use crate::node_end::NodePool;
 pub fn weight_predictions(
     model_predictions: ModelPredictions,
     model_errors: ModelErrors,
+    info: &ClusterInfo,
 ) -> (ModelWeights, Vec<String>) {
     let models: HashSet<ModelID> = model_predictions.keys().map(|(m, _)| m.clone()).collect();
 
@@ -39,13 +42,20 @@ pub fn weight_predictions(
     let mut indexes: Vec<&usize> = test_examples.into_iter().collect();
     indexes.sort();
 
-    // TODO: implement job type recognition through job config struct
-    let job_type = "classification";
+    let job_type = match &info.config {
+        ClientMessage::JobConfig {
+            timeout: _,
+            column_types: _,
+            prediction_column: _,
+            prediction_type,
+        } => *prediction_type,
+        _ => PredictionType::Classification,
+    };
 
     let mut predictions: Vec<String> = Vec::new();
 
     match job_type {
-        "classification" => {
+        PredictionType::Classification => {
             for i in indexes.iter() {
                 // Add the weight of each model to each possible prediction
                 let mut possible: HashMap<&str, f64> = HashMap::new();
@@ -65,7 +75,7 @@ pub fn weight_predictions(
                 );
             }
         }
-        _ => {
+        PredictionType::Regression => {
             for i in indexes.iter() {
                 // Create a weighted average taken from all model predictions
                 let mut weighted_average: f64 = 0.0;
@@ -96,8 +106,15 @@ pub fn evaluate_model(
     let mut model_error: f64 = 1.0;
     let mut model_predictions: Predictions = HashMap::new();
 
-    // TODO: implement job type recognition through job config struct
-    let job_type = "classification";
+    let job_type = match &info.config {
+        ClientMessage::JobConfig {
+            timeout: _,
+            column_types: _,
+            prediction_column: _,
+            prediction_type,
+        } => *prediction_type,
+        _ => PredictionType::Classification,
+    };
 
     for values in predictions
         .trim()
@@ -107,14 +124,14 @@ pub fn evaluate_model(
         let (record_id, prediction) = (values[0].to_owned(), values[1].to_owned());
         let example = (id.to_owned(), record_id.clone());
         match (info.validation_ans.get(&example), job_type) {
-            (Some(answer), "classification") => {
+            (Some(answer), PredictionType::Classification) => {
                 // if this is a validation response and the job is a classification problem,
                 // record an error if the predictions do not match
                 if prediction != *answer {
                     model_error += 1.0;
                 }
             }
-            (Some(answer), _) => {
+            (Some(answer), PredictionType::Regression) => {
                 // if this is a validation response and the job is a classification problem,
                 // record the L2 error of the prediction
                 if let (Ok(p), Ok(a)) = (prediction.parse::<f64>(), answer.parse::<f64>()) {

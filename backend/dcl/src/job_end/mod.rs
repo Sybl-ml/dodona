@@ -198,7 +198,10 @@ pub async fn run(
         let mut prediction_rids: HashMap<(ModelID, String), usize> = HashMap::new();
 
         loop {
-            if let Some(cluster) = nodepool.build_cluster(CLUSTER_SIZE, config.anonymise(&columns)).await {
+            if let Some(cluster) = nodepool
+                .build_cluster(CLUSTER_SIZE, config.anonymise(&columns))
+                .await
+            {
                 log::info!("Created Cluster");
 
                 for (key, _) in &cluster {
@@ -364,7 +367,8 @@ async fn run_cluster(
     cc.notify.notified().await;
     log::info!("All Jobs Complete!");
 
-    let (weights, predictions) = ml::weight_predictions(wbm.get_predictions(), wbm.get_errors());
+    let (weights, predictions) =
+        ml::weight_predictions(wbm.get_predictions(), wbm.get_errors(), &info);
 
     // TODO: reimburse clients based on weights
     log::info!("Model weights: {:?}", weights);
