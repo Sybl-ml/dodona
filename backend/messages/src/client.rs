@@ -57,7 +57,6 @@ pub enum ClientMessage {
 }
 
 impl ClientMessage {
-
     /// Anonymises a ClientMessage
     ///
     /// Returns an anonymised clone of a ClientMessage such that it can be
@@ -70,8 +69,7 @@ impl ClientMessage {
                 column_types,
                 prediction_column,
                 prediction_type,
-            } =>
-            ClientMessage::JobConfig {
+            } => ClientMessage::JobConfig {
                 timeout: timeout.clone(),
                 column_types: column_types.clone(),
                 prediction_column: columns.get(prediction_column).unwrap().pseudonym.clone(),
