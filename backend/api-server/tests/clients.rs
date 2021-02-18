@@ -70,13 +70,13 @@ async fn users_cannot_become_clients_twice() {
 #[actix_rt::test]
 async fn model_performances_can_be_fetched() {
     let mut app = api_with! {
-        get: "/api/clients/m/{model_id}/performance" => clients::get_model_performance,
+        get: "/api/clients/models/{model_id}/performance" => clients::get_model_performance,
     };
 
     let results: Vec<f64> = vec![0.4, 0.5, 0.6];
     let doc = doc! {"id": common::MODEL_ID};
 
-    let url = format!("/api/clients/m/{}/performance", common::MODEL_ID);
+    let url = format!("/api/clients/models/{}/performance", common::MODEL_ID);
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)

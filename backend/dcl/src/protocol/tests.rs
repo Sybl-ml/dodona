@@ -14,7 +14,7 @@ async fn nodes_can_immediately_send_tokens() -> Result<(), Box<dyn Error>> {
     // Setup the API server mocking
     let authenticate = mock(
         "POST",
-        "/api/clients/m/5fe8b9d85511355cdab720aa/authenticate",
+        "/api/clients/models/5fe8b9d85511355cdab720aa/authenticate",
     )
     .with_status(200)
     .with_body(r#"{"message": "Authentication successful"}"#)
@@ -135,7 +135,7 @@ async fn protocol_cares_about_api_responses() -> Result<(), Box<dyn Error>> {
     // Setup the API server mocking, failing on the `authenticate` route
     let authenticate = mock(
         "POST",
-        "/api/clients/m/5fe8b9d85511355cdab720aa/authenticate",
+        "/api/clients/models/5fe8b9d85511355cdab720aa/authenticate",
     )
     .with_status(401)
     .create();

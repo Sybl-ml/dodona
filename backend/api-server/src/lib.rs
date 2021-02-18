@@ -86,15 +86,15 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
                     .expect("PBKDF2_ITERATIONS must be parseable as an integer"),
             })
             .route(
-                "/api/projects/p/{project_id}",
+                "/api/projects/{project_id}",
                 web::get().to(routes::projects::get_project),
             )
             .route(
-                "/api/projects/p/{project_id}",
+                "/api/projects/{project_id}",
                 web::patch().to(routes::projects::patch_project),
             )
             .route(
-                "/api/projects/p/{project_id}",
+                "/api/projects/{project_id}",
                 web::delete().to(routes::projects::delete_project),
             )
             .route(
@@ -103,27 +103,27 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
             )
             .route("/api/projects/new", web::post().to(routes::projects::new))
             .route(
-                "/api/projects/p/{project_id}/data",
+                "/api/projects/{project_id}/data",
                 web::put().to(routes::projects::add_data),
             )
             .route(
-                "/api/projects/p/{project_id}/overview",
+                "/api/projects/{project_id}/overview",
                 web::post().to(routes::projects::overview),
             )
             .route(
-                "/api/projects/p/{project_id}/data",
+                "/api/projects/{project_id}/data",
                 web::get().to(routes::projects::get_data),
             )
             .route(
-                "/api/projects/p/{project_id}/data",
+                "/api/projects/{project_id}/data",
                 web::delete().to(routes::projects::remove_data),
             )
             .route(
-                "/api/projects/p/{project_id}/process",
+                "/api/projects/{project_id}/process",
                 web::post().to(routes::projects::begin_processing),
             )
             .route(
-                "/api/projects/p/{project_id}/predictions",
+                "/api/projects/{project_id}/predictions",
                 web::get().to(routes::projects::get_predictions),
             )
             // Clients
@@ -132,27 +132,27 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
                 web::post().to(routes::clients::register),
             )
             .route(
-                "/api/clients/m/new",
+                "/api/clients/models/new",
                 web::post().to(routes::clients::new_model),
             )
             .route(
-                "/api/clients/m/verify",
+                "/api/clients/models/verify",
                 web::post().to(routes::clients::verify_challenge),
             )
             .route(
-                "/api/clients/m/{model_id}/unlock",
+                "/api/clients/models/{model_id}/unlock",
                 web::post().to(routes::clients::unlock_model),
             )
             .route(
-                "/api/clients/m/{model_id}/authenticate",
+                "/api/clients/models/{model_id}/authenticate",
                 web::post().to(routes::clients::authenticate_model),
             )
             .route(
-                "/api/clients",
+                "/api/clients/models",
                 web::get().to(routes::clients::get_user_models),
             )
             .route(
-                "/api/clients/m/{model_id}/performance",
+                "/api/clients/models/{model_id}/performance",
                 web::get().to(routes::clients::get_model_performance),
             )
             // users
