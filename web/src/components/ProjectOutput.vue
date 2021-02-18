@@ -23,12 +23,15 @@
             </b-button>
             <br/>
             <br/>
-            <!-- <b-table striped :items="parseData(data)" /> -->
-            <vuetable ref="vuetable"
-              :api-mode="false"
-              :fields="fields"
-              :data="parsePredictions(data)"
-            ></vuetable>
+              {{parsePredictions(data)}}
+              <vuetable ref="vuetable"
+                :api-mode="false"
+                :show-sort-icons="true"
+                :multi-sort="true"
+                :data="pred_data"
+                :fields="fields"
+                :per-page="perPage"
+              ></vuetable>
 
           </b-tab>
         </b-tabs>
@@ -47,15 +50,20 @@
 <script>
 import Papa from "papaparse";
 import Vuetable from 'vuetable-2'
+import VuetablePagination from "vuetable-2/src/components/VuetablePagination";
+import VuetableFieldHandle from 'vuetable-2/src/components/VuetableFieldHandle.vue';
 
 export default {
   name: "ProjectOutput",
   components: {
     Vuetable,
+    VuetablePagination,
   },
   data() {
     return {
       fields: null,
+      pred_data: null,
+      perPage: 1,
     };
   },
   props: {
@@ -66,11 +74,13 @@ export default {
     loading: Boolean,
   },
   methods: {
+
     parsePredictions(data) {
-      
-      var parsed = Papa.parse(this.getFullPredictions(data), { header: true })
-      this.fields = parsed.meta.fields
-      return parsed.data
+      var parsed = Papa.parse(this.getFullPredictions(data), { header: true });
+      let new_fields = this.buildFields(parsed.meta.fields);
+      console.log(new_fields);
+      this.fields = new_fields
+      this.pred_data = parsed.data;
 
     },
     getFullPredictions(data) {
@@ -84,12 +94,9 @@ export default {
           var residual = split_predict[i].concat(split_predicted[i-1]);
           new_data.push(residual)
       }
-
-      console.log(new_data.join("\n"));
       return new_data.join("\n");
 
     },
-
     downloadCSVData(data) {
       let csv = this.getFullPredictions(data)
   
@@ -98,17 +105,21 @@ export default {
       anchor.target = '_blank';
       anchor.download = "predictions_"+this.datasetName;
       anchor.click();
-    }
-  },
-  computed: {
-    getDatasetDate() {
-      return `${this.dataDate.toLocaleString("en-GB", {
-        dateStyle: "short",
-      })} - ${this.dataDate.toLocaleString("en-GB", {
-        timeStyle: "short",
-      })}`;
     },
-    
+    buildFields(fields) {
+      let built_fields = [{
+          name: VuetableFieldHandle
+        }]
+      
+      fields.forEach(function (item, index) {
+        built_fields.push({
+            name: item,
+            title: `<span class="orange glyphicon glyphicon-user"></span> ${item}`,
+            sortField: item
+          });
+      });
+      return built_fields;
+    }
   },
 };
 </script>
