@@ -99,7 +99,7 @@ impl ResponseError for ServerError {
             message: self.to_string(),
         };
 
-        HttpResponse::build(status_code).json(error_response)
+        HttpResponse::build(status_code).json(&error_response)
     }
 }
 

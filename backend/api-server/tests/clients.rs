@@ -22,7 +22,7 @@ async fn users_can_become_clients() {
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
-        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .set_json(&doc)
         .uri("/api/clients/register")
         .to_request();
@@ -33,7 +33,7 @@ async fn users_can_become_clients() {
     // Check that the user is a client
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
-        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .uri("/api/users")
         .to_request();
 
@@ -57,7 +57,7 @@ async fn users_cannot_become_clients_twice() {
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
-        .header("Authorization", get_bearer_token(common::MAIN_CLIENT_ID))
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_CLIENT_ID)))
         .set_json(&doc)
         .uri("/api/clients/register")
         .to_request();
@@ -80,7 +80,7 @@ async fn model_performances_can_be_fetched() {
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
-        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .set_json(&doc)
         .uri(&url)
         .to_request();

@@ -34,7 +34,7 @@ pub fn response_from_json_with_code<B: serde::Serialize>(
     code: StatusCode,
 ) -> ServerResponse {
     let body = crypto::clean_json(json!(body));
-    Ok(HttpResponseBuilder::new(code).json(body))
+    Ok(HttpResponseBuilder::new(code).json(&body))
 }
 
 /// Checks whether a project exists with the given ID and that the given user owns it.

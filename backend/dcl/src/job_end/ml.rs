@@ -1,5 +1,7 @@
 //! Handles Machine Learning and Distributed Consensus for the DCL
-use crate::job_end::{ClusterInfo, ModelID};
+use crate::job_end::{
+    ClusterInfo, ModelErrors, ModelID, ModelPredictions, ModelWeights, Predictions,
+};
 use models::job_performance::JobPerformance;
 use mongodb::{
     bson::{document::Document, oid::ObjectId},
@@ -16,15 +18,18 @@ use crate::node_end::NodePool;
 /// Weights the predictions made by models in `model_predictions`
 /// based on their errors in validation examples `model_errors`
 pub fn weight_predictions(
-    model_predictions: HashMap<(ModelID, usize), String>,
-    model_errors: HashMap<ModelID, f64>,
-) -> (HashMap<ModelID, f64>, Vec<String>) {
+    model_predictions: ModelPredictions,
+    model_errors: ModelErrors,
+) -> (ModelWeights, Vec<String>) {
     let models: HashSet<ModelID> = model_predictions.keys().map(|(m, _)| m.clone()).collect();
 
-    // Find the inverse of the square error of each model
+    // Find the inverse of the square error of each non-penalised model
     let mut weights: HashMap<ModelID, f64> = model_errors
         .iter()
-        .map(|(k, v)| (k.to_owned(), 1.0 / (v.powf(2.0))))
+        .filter_map(|(k, v)| {
+            v.is_some()
+                .then(|| (k.to_owned(), 1.0 / (v.unwrap().powf(2.0))))
+        })
         .collect();
     // Normalise weights to sum to 1
     let total: f64 = weights.values().sum();
@@ -86,10 +91,10 @@ pub fn evaluate_model(
     id: &ModelID,
     predictions: &String,
     info: &ClusterInfo,
-) -> Option<(HashMap<usize, String>, f64)> {
+) -> Option<(Predictions, f64)> {
     // stores the total error penalty for each model
     let mut model_error: f64 = 1.0;
-    let mut model_predictions: HashMap<usize, String> = HashMap::new();
+    let mut model_predictions: Predictions = HashMap::new();
 
     // TODO: implement job type recognition through job config struct
     let job_type = "classification";
@@ -153,7 +158,7 @@ pub fn evaluate_model(
 /// and will upload it to the database.
 pub async fn model_performance(
     database: Arc<Database>,
-    weights: HashMap<ModelID, f64>,
+    weights: ModelWeights,
     project_id: &ObjectId,
     nodepool: Option<Arc<NodePool>>,
 ) -> Result<()> {
@@ -181,6 +186,43 @@ pub async fn model_performance(
 
         job_perf_vec.push(mongodb::bson::ser::to_document(&job_performance).unwrap());
     }
+    job_performances.insert_many(job_perf_vec, None).await?;
+
+    Ok(())
+}
+
+/// Function for penalising a list of malicious models
+///
+/// Penalises a list of models with a performance of 0 for a given job
+/// based on the detection of malicious behaviour in their predictions
+pub async fn penalise(
+    database: Arc<Database>,
+    models: Vec<ModelID>,
+    project_id: &ObjectId,
+    nodepool: Option<Arc<NodePool>>,
+) -> Result<()> {
+    let job_performances = database.collection("job_performances");
+    let mut job_perf_vec: Vec<Document> = Vec::new();
+    for model in models {
+        let perf: f64 = 0.0;
+
+        log::info!(
+            "Model: {:?} is being penalised for malicious behaviour, Performance: {:?}",
+            &model,
+            &perf
+        );
+        let job_performance = JobPerformance::new(
+            project_id.clone(),
+            ObjectId::with_string(&model).unwrap(),
+            perf,
+        );
+        if let Some(np) = &nodepool {
+            np.update_node_performance(&model, perf).await;
+        }
+
+        job_perf_vec.push(mongodb::bson::ser::to_document(&job_performance).unwrap());
+    }
+
     job_performances.insert_many(job_perf_vec, None).await?;
 
     Ok(())

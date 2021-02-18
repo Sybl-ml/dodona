@@ -8,7 +8,7 @@ use futures::stream::StreamExt;
 use mongodb::bson::{doc, oid::ObjectId};
 
 use dcl::job_end::finance::Pricing;
-use dcl::job_end::ml::{evaluate_model, model_performance, weight_predictions};
+use dcl::job_end::ml::{evaluate_model, model_performance, penalise, weight_predictions};
 use dcl::job_end::{ClusterInfo, ModelID, WriteBackMemory};
 use messages::ClientMessage;
 use models::users::User;
@@ -43,7 +43,7 @@ async fn test_write_back_predictions() {
 #[tokio::test]
 async fn test_write_back_errors() {
     let model_id: ModelID = ModelID::from("ModelID1");
-    let error: f64 = 10.0;
+    let error: Option<f64> = Some(10.0);
 
     let wb: WriteBackMemory = WriteBackMemory::new();
 
@@ -169,14 +169,14 @@ fn test_weight_predictions() {
     ];
 
     let mut model_predictions: HashMap<(ModelID, usize), String> = HashMap::new();
-    let mut model_errors: HashMap<ModelID, f64> = HashMap::new();
+    let mut model_errors: HashMap<ModelID, Option<f64>> = HashMap::new();
 
     for (model, prediction) in ids.iter().zip(predictions.iter()) {
         let (test, model_error) = evaluate_model(&model, &prediction.to_string(), &info).unwrap();
         for (index, prediction) in test.into_iter() {
             model_predictions.insert((model.clone(), index), prediction);
         }
-        model_errors.insert(model.to_string(), model_error);
+        model_errors.insert(model.to_string(), Some(model_error));
     }
 
     let (weights, final_predictions) = weight_predictions(model_predictions, model_errors);
@@ -225,10 +225,16 @@ async fn test_model_performance() {
     .cloned()
     .collect();
 
+    let bad_models: Vec<ModelID> = vec![String::from(common::MODEL3_ID)];
+
     let database = Arc::new(database);
     let proj_id = ObjectId::with_string(common::PROJECT_ID).unwrap();
 
     model_performance(Arc::clone(&database), model_weights.clone(), &proj_id, None)
+        .await
+        .unwrap();
+
+    penalise(Arc::clone(&database), bad_models, &proj_id, None)
         .await
         .unwrap();
 
@@ -240,6 +246,8 @@ async fn test_model_performance() {
 
         job_perf_vec.push(perf);
     }
+
+    job_perf_vec.push(0.0);
 
     let job_perfs = database.collection("job_performances");
     let filter = doc! {"project_id": ObjectId::with_string(common::PROJECT_ID).unwrap()};
