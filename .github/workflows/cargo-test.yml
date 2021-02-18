@@ -15,4 +15,4 @@ jobs:
       with:
         mongodb-version: 4.4
 
-    - run: "rustup update stable && cd backend && cargo test"
+    - run: "cd backend && cargo test"
