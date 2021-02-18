@@ -187,7 +187,7 @@ fn test_weight_predictions() {
         model_errors.insert(model.to_string(), Some(model_error));
     }
 
-    let (weights, final_predictions) = weight_predictions(model_predictions, model_errors, &info);
+    let (weights, final_predictions) = weight_predictions(&model_predictions, &model_errors, &info);
 
     let sum = weights.values().sum::<f64>();
     assert!(approx_eq!(f64, sum, 1.0, ulps = 2));
@@ -219,7 +219,7 @@ fn test_weight_predictions() {
         model_errors.insert(model.to_string(), Some(model_error));
     }
 
-    let (weights, final_predictions) = weight_predictions(model_predictions, model_errors, &info);
+    let (weights, final_predictions) = weight_predictions(&model_predictions, &model_errors, &info);
     let sum = weights.values().sum::<f64>();
     assert!(approx_eq!(f64, sum, 1.0, ulps = 2));
     for (prediction, actual) in final_predictions.iter().zip("5\n6\n7\n8".split("\n")) {
