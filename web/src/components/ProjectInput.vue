@@ -21,7 +21,11 @@
         ></b-icon>
       </b-col>
       <b-col v-else class="input-table">
-        <b-table hover striped :items="this.training_data.data" />
+            <vuetable ref="vuetable"
+              :api-mode="false"
+              :fields="this.training_data.meta.fields"
+              :data="this.training_data.data"
+            ></vuetable>
       </b-col>
     </b-row>
   </b-container>
@@ -38,8 +42,13 @@
 </style>
 
 <script>
+import Vuetable from 'vuetable-2'
+
 export default {
   name: "ProjectInput",
+    components: {
+    Vuetable,
+  },
   props: {
     projectId: String,
     datasetName: String,

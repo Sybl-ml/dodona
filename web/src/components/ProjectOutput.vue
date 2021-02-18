@@ -23,7 +23,13 @@
             </b-button>
             <br/>
             <br/>
-            <b-table striped :items="parseData(data)" />
+            <!-- <b-table striped :items="parseData(data)" /> -->
+            <vuetable ref="vuetable"
+              :api-mode="false"
+              :fields="fields"
+              :data="parsePredictions(data)"
+            ></vuetable>
+
           </b-tab>
         </b-tabs>
       </b-col>
@@ -40,9 +46,18 @@
 
 <script>
 import Papa from "papaparse";
+import Vuetable from 'vuetable-2'
 
 export default {
   name: "ProjectOutput",
+  components: {
+    Vuetable,
+  },
+  data() {
+    return {
+      fields: null,
+    };
+  },
   props: {
     projectId: String,
     results: Array,
@@ -51,9 +66,12 @@ export default {
     loading: Boolean,
   },
   methods: {
-    parseData(data) {
+    parsePredictions(data) {
       
-      return Papa.parse(this.getFullPredictions(data), { header: true }).data
+      var parsed = Papa.parse(this.getFullPredictions(data), { header: true })
+      this.fields = parsed.meta.fields
+      return parsed.data
+
     },
     getFullPredictions(data) {
 
@@ -67,6 +85,7 @@ export default {
           new_data.push(residual)
       }
 
+      console.log(new_data.join("\n"));
       return new_data.join("\n");
 
     },
