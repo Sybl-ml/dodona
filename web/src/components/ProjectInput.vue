@@ -21,13 +21,10 @@
         ></b-icon>
       </b-col>
       <b-col v-else class="input-table">
-            <vuetable ref="vuetable"
-              :api-mode="false"
-              :show-sort-icons="true"
-              :multi-sort="true"
+            <my-vue-table
               :fields="buildFields(this.training_data.meta.fields)"
-              :data="this.training_data.data"
-            ></vuetable>
+              :display_data="this.training_data.data"
+            ></my-vue-table>
       </b-col>
     </b-row>
   </b-container>
@@ -44,14 +41,13 @@
 </style>
 
 <script>
-import Vuetable from 'vuetable-2';
-import VuetablePagination from "vuetable-2/src/components/VuetablePagination";
+import MyVueTable from "./MyVueTable.vue";
 import VuetableFieldHandle from 'vuetable-2/src/components/VuetableFieldHandle.vue';
 
 export default {
   name: "ProjectInput",
     components: {
-    Vuetable,
+    MyVueTable,
   },
   props: {
     projectId: String,

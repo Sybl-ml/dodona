@@ -24,14 +24,10 @@
             <br/>
             <br/>
               {{parsePredictions(data)}}
-              <vuetable ref="vuetable"
-                :api-mode="false"
-                :show-sort-icons="true"
-                :multi-sort="true"
-                :data="pred_data"
-                :fields="fields"
-                :per-page="perPage"
-              ></vuetable>
+              <my-vue-table
+              :fields="fields"
+              :display_data="pred_data"
+              ></my-vue-table>
 
           </b-tab>
         </b-tabs>
@@ -49,15 +45,13 @@
 
 <script>
 import Papa from "papaparse";
-import Vuetable from 'vuetable-2'
-import VuetablePagination from "vuetable-2/src/components/VuetablePagination";
 import VuetableFieldHandle from 'vuetable-2/src/components/VuetableFieldHandle.vue';
+import MyVueTable from "./MyVueTable.vue";
 
 export default {
   name: "ProjectOutput",
   components: {
-    Vuetable,
-    VuetablePagination,
+    MyVueTable
   },
   data() {
     return {
