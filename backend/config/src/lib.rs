@@ -162,6 +162,7 @@ impl ConfigFile {
     /// # Examples
     ///
     /// ```
+    /// use std::str::FromStr;
     /// use config::{Config, ConfigFile, Environment};
     ///
     /// let config = r#"
@@ -180,7 +181,7 @@ impl ConfigFile {
     ///
     /// "#;
     ///
-    /// let config_file = ConfigFile::from_str(config);
+    /// let config_file = ConfigFile::from_str(config).unwrap();
     /// let development = config_file.resolve(Environment::Development);
     ///
     /// let expected_contents = vec![
@@ -229,6 +230,7 @@ impl FromStr for ConfigFile {
     /// # Examples
     ///
     /// ```no_run
+    /// use std::str::FromStr;
     /// use config::ConfigFile;
     ///
     /// let config = r#"
@@ -243,7 +245,7 @@ impl FromStr for ConfigFile {
     /// conn_str = "localhost"
     /// "#;
     ///
-    /// let config_file = ConfigFile::from_str(config);
+    /// let config_file = ConfigFile::from_str(config).unwrap();
     ///
     /// assert!(config_file.global.is_some());
     /// assert!(config_file.development.is_some());

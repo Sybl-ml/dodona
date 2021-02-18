@@ -1,4 +1,5 @@
 use config::{Config, ConfigFile, Environment};
+use std::str::FromStr;
 
 static TEST_CONFIG: &str = r#"
 [global]
@@ -19,7 +20,9 @@ pbkdf2_iterations = "1000"
 
 #[test]
 fn resolve_production_config() {
-    let config = ConfigFile::from_str(TEST_CONFIG).resolve(Environment::Production);
+    let config = ConfigFile::from_str(TEST_CONFIG)
+        .unwrap()
+        .resolve(Environment::Production);
 
     let contents = vec![
         ("app_name".into(), "Sybl".into()),
@@ -34,7 +37,9 @@ fn resolve_production_config() {
 
 #[test]
 fn resolve_development_config() {
-    let config = ConfigFile::from_str(TEST_CONFIG).resolve(Environment::Development);
+    let config = ConfigFile::from_str(TEST_CONFIG)
+        .unwrap()
+        .resolve(Environment::Development);
 
     let contents = vec![
         ("app_name".into(), "Dodona".into()),
@@ -49,7 +54,9 @@ fn resolve_development_config() {
 
 #[test]
 fn resolve_testing_config() {
-    let config = ConfigFile::from_str(TEST_CONFIG).resolve(Environment::Testing);
+    let config = ConfigFile::from_str(TEST_CONFIG)
+        .unwrap()
+        .resolve(Environment::Testing);
 
     let contents = vec![
         ("app_name".into(), "Dodona".into()),
@@ -66,7 +73,9 @@ fn resolve_testing_config() {
 
 #[test]
 fn environment_variables_are_updated() {
-    let config = ConfigFile::from_str(TEST_CONFIG).resolve(Environment::Testing);
+    let config = ConfigFile::from_str(TEST_CONFIG)
+        .unwrap()
+        .resolve(Environment::Testing);
     config.populate_environment();
 
     let app_name = std::env::var("APP_NAME").ok();
