@@ -20,7 +20,7 @@ jobs:
 
     - name: Install latest `rustc`
       uses: actions-rs/toolchain@v1
-        with:
+      with:
         toolchain: stable
         profile: minimal
         default: true
