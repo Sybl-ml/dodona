@@ -369,7 +369,7 @@ async fn run_cluster(
     log::info!("All Jobs Complete!");
 
     let (weights, predictions) =
-        ml::weight_predictions(wbm.get_predictions(), wbm.get_errors(), &info);
+        ml::weight_predictions(&wbm.get_predictions(), &wbm.get_errors(), &info);
 
     // TODO: reimburse clients based on weights
     log::info!("Model weights: {:?}", weights);
