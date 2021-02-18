@@ -435,8 +435,7 @@ async fn job_configs_can_have_integer_timeouts_in_json() -> Result<()> {
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
     let formatted = format!("/api/projects/{}/process", common::MAIN_PROJECT_ID);
-    let doc =
-        doc! { "timeout": 10 , "predictionType": "classification", "predictionColumn": "name"};
+    let doc = doc! { "timeout": 10, "clusterSize": 2, "predictionType": "classification", "predictionColumn": "name"};
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
         .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
