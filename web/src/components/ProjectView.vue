@@ -26,7 +26,7 @@
             :key="projectId"
             :dataHead="dataHead"
             @get-data="fetchData"
-            :data="data"
+            :training_data="training_data"
             :datasetName="datasetName"
             :loading="loading"
           />
@@ -80,7 +80,7 @@ export default {
       dataHead: {},
       dataTypes: {},
 
-      data: null,
+      training_data: null,
       loading: false,
 
       results: null,
@@ -137,7 +137,7 @@ export default {
 
       let project_data = project_response.data.dataset;
 
-      this.data = Papa.parse(project_data, { header: true });
+      this.training_data = Papa.parse(project_data, { header: true });
       this.loading = false;
     },
     async fetchResults() {
@@ -160,8 +160,11 @@ export default {
       // this.dataHead = {};
       // this.dataTypes = {};
 
-      // this.data = null;
+      this.results = null;
+      this.predict_data = null;
+      this.training_data = null;
       this.loading = false;
+      this.results_loading = false;
     },
     viewInput() {
       this.$refs.inputTab.activate();
