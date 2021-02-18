@@ -355,8 +355,8 @@ pub async fn begin_processing(
     // Send a request to the interface layer
     let config = JobConfiguration {
         dataset_id: dataset.id.clone(),
-        timeout: payload.timeout as usize,
-        cluster_size: payload.cluster_size as usize,
+        timeout: payload.timeout as i32,
+        cluster_size: payload.cluster_size as i32,
         column_types,
         prediction_column: payload.prediction_column.clone(),
         prediction_type: payload.prediction_type,

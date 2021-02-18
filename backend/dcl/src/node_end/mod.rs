@@ -195,7 +195,7 @@ impl NodePool {
         config: ClientMessage,
     ) -> Option<HashMap<String, Arc<RwLock<TcpStream>>>> {
         let size = match config {
-            ClientMessage::JobConfig { cluster_size, .. } => cluster_size,
+            ClientMessage::JobConfig { cluster_size, .. } => cluster_size as usize,
             _ => 1,
         };
 
