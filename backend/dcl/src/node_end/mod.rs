@@ -184,7 +184,7 @@ impl NodePool {
         None
     }
 
-    /// Creates a cluster of `size` nodes to use
+    /// Creates a cluster based on a JobConfig `config`
     ///
     /// It is given a cluster size and searches the nodepool for available clusters and builds the
     /// cluster as a hashmap.  When the size is reached, the cluster is output. If it is empty then
@@ -192,9 +192,13 @@ impl NodePool {
     /// it is still returned. This also uses the performance metric to build well performing clusters.
     pub async fn build_cluster(
         &self,
-        size: usize,
         config: ClientMessage,
     ) -> Option<HashMap<String, Arc<RwLock<TcpStream>>>> {
+        let size = match config {
+            ClientMessage::JobConfig { cluster_size, .. } => cluster_size,
+            _ => 1,
+        };
+
         let nodes_read = self.nodes.read().await;
         let mut accepted_job: Vec<(String, f64)> = Vec::new();
         let mut better_nodes: Vec<(String, f64)> = Vec::new();

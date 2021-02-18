@@ -14,9 +14,9 @@ pub enum ClientMessage {
     /// Message to send Job Config
     JobConfig {
         /// Job timeout
-        timeout: i32,
+        timeout: usize,
         /// Cluster Size
-        cluster_size: i32,
+        cluster_size: usize,
         /// Types of each column in dataset for job
         column_types: Vec<String>,
         /// The name of the prediction column

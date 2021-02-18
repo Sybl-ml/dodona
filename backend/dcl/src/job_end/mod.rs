@@ -124,7 +124,6 @@ impl ClusterControl {
     }
 }
 
-const CLUSTER_SIZE: usize = 1;
 const VALIDATION_SIZE: usize = 10;
 const TRAINING_BAG_SIZE: usize = 10;
 
@@ -196,10 +195,7 @@ pub async fn run(
         let mut prediction_rids: HashMap<(ModelID, String), usize> = HashMap::new();
 
         loop {
-            if let Some(cluster) = nodepool
-                .build_cluster(CLUSTER_SIZE, config.anonymise(&columns))
-                .await
-            {
+            if let Some(cluster) = nodepool.build_cluster(config.anonymise(&columns)).await {
                 log::info!("Created Cluster");
 
                 for key in cluster.keys() {

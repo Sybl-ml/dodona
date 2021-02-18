@@ -19,9 +19,9 @@ pub struct JobConfiguration {
     /// The identifier of the dataset to be processed
     pub dataset_id: ObjectId,
     /// The timeout required for clients to process within
-    pub timeout: i32,
+    pub timeout: usize,
     /// The cluster size for a job
-    pub cluster_size: i32,
+    pub cluster_size: usize,
     /// The types of each column in the dataset
     pub column_types: Vec<String>,
     /// The column to predict during evaluation
