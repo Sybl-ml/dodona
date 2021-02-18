@@ -5,7 +5,7 @@
       </h4>
     </b-row>
     <b-row>
-      <b-col v-if="!data && !loading" class="text-center">
+      <b-col v-if="!training_data && !loading" class="text-center">
         <b-row class="head-input-table">
         <b-table hover striped :items="this.dataHead.data" />
       </b-row>
@@ -21,7 +21,7 @@
         ></b-icon>
       </b-col>
       <b-col v-else class="input-table">
-        <b-table hover striped :items="this.data.data" />
+        <b-table hover striped :items="this.training_data.data" />
       </b-col>
     </b-row>
   </b-container>
@@ -43,7 +43,7 @@ export default {
   props: {
     projectId: String,
     datasetName: String,
-    data: Object,
+    training_data: Object,
     dataHead: Object,
     loading: Boolean,
   },

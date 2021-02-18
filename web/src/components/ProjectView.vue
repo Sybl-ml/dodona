@@ -26,7 +26,7 @@
             :key="projectId"
             :dataHead="dataHead"
             @get-data="fetchData"
-            :data="data"
+            :training_data="training_data"
             :datasetName="datasetName"
             :loading="loading"
           />
@@ -80,7 +80,7 @@ export default {
       dataHead: {},
       dataTypes: {},
 
-      data: null,
+      training_data: null,
       loading: false,
 
       results: null,
@@ -111,7 +111,7 @@ export default {
   methods: {
     async fetchProject() {
       let project_response = await this.$http.get(
-        `http://localhost:3001/api/projects/p/${this.projectId}`
+        `http://localhost:3001/api/projects/${this.projectId}`
       );
 
       let project_details = project_response.data.details;
@@ -132,19 +132,19 @@ export default {
       this.loading = true;
 
       let project_response = await this.$http.get(
-        `http://localhost:3001/api/projects/p/${this.projectId}/data`
+        `http://localhost:3001/api/projects/${this.projectId}/data`
       );
 
       let project_data = project_response.data.dataset;
 
-      this.data = Papa.parse(project_data, { header: true });
+      this.training_data = Papa.parse(project_data, { header: true });
       this.loading = false;
     },
     async fetchResults() {
       this.results_loading = true;
 
       let project_predictions = await this.$http.get(
-        `http://localhost:3001/api/projects/p/${this.projectId}/predictions`
+        `http://localhost:3001/api/projects/${this.projectId}/predictions`
       );
       this.results = project_predictions.data["predictions"];
       this.predict_data = project_predictions.data["predict_data"];
@@ -160,8 +160,11 @@ export default {
       // this.dataHead = {};
       // this.dataTypes = {};
 
-      // this.data = null;
+      this.results = null;
+      this.predict_data = null;
+      this.training_data = null;
       this.loading = false;
+      this.results_loading = false;
     },
     viewInput() {
       this.$refs.inputTab.activate();

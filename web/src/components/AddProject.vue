@@ -142,7 +142,7 @@ export default {
     },
     async sendFile(e) {
       let project_response = await this.$http.put(
-        `http://localhost:3001/api/projects/p/${this.project_id}/data`,
+        `http://localhost:3001/api/projects/${this.project_id}/data`,
         {
           name: this.file.name,
           content: e.target.result,

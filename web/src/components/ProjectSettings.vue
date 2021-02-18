@@ -78,7 +78,7 @@ export default {
 
       try {
         let project_response = await this.$http.patch(
-          `http://localhost:3001/api/projects/p/${this.projectId}`,
+          `http://localhost:3001/api/projects/${this.projectId}`,
           {
             changes: {
               name: this.newName,
@@ -94,7 +94,7 @@ export default {
 
       try {
         let project_response = await this.$http.patch(
-          `http://localhost:3001/api/projects/p/${this.projectId}`,
+          `http://localhost:3001/api/projects/${this.projectId}`,
           {
             changes: {
               description: this.newDescription,
@@ -110,7 +110,7 @@ export default {
 
       try {
         let project_response = await this.$http.delete(
-          `http://localhost:3001/api/projects/p/${this.projectId}`
+          `http://localhost:3001/api/projects/${this.projectId}`
         );
       } catch (err) {
         console.log(err);

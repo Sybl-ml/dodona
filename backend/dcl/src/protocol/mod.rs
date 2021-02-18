@@ -88,7 +88,7 @@ impl<'a> Handler<'a> {
             "email": &email,
         });
 
-        let endpoint = "/api/clients/m/new";
+        let endpoint = "/api/clients/models/new";
         let text = get_response_text(endpoint, body).await?;
 
         let message = RawMessage::new(text);
@@ -119,7 +119,7 @@ impl<'a> Handler<'a> {
             "challenge_response": &response,
         });
 
-        let endpoint = "/api/clients/m/verify";
+        let endpoint = "/api/clients/models/verify";
         let text = get_response_text(endpoint, body).await?;
 
         let message = RawMessage::new(text);
@@ -144,7 +144,7 @@ impl<'a> Handler<'a> {
             "token": &token,
         });
 
-        let endpoint = format!("/api/clients/m/{}/authenticate", &id);
+        let endpoint = format!("/api/clients/models/{}/authenticate", &id);
         let text = get_response_text(&endpoint, body).await?;
 
         let message = RawMessage::new(text);

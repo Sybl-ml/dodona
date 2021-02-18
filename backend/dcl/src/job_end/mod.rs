@@ -204,7 +204,7 @@ pub async fn run(
             {
                 log::info!("Created Cluster");
 
-                for (key, _) in &cluster {
+                for key in cluster.keys() {
                     log::info!("BOOTSTRAPPING");
                     let model_train: Vec<_> = train
                         .choose_multiple(&mut thread_rng(), TRAINING_BAG_SIZE)
@@ -212,15 +212,15 @@ pub async fn run(
                         .collect();
 
                     // Create new train set with headers
-                    let mut model_anon_train = vec![headers.clone()];
+                    let mut model_anon_train = vec![headers];
                     model_anon_train.extend_from_slice(&model_train);
 
                     // Create new test set with headers
-                    let mut model_anon_test = vec![headers.clone()];
+                    let mut model_anon_test = vec![headers];
                     model_anon_test.extend_from_slice(&test);
 
                     // Create new validation set with headers
-                    let mut model_anon_valid = vec![headers.clone()];
+                    let mut model_anon_valid = vec![headers];
                     model_anon_valid.extend_from_slice(&validation);
 
                     // Anonymise train data
@@ -259,6 +259,7 @@ pub async fn run(
 
                     let mut anon_valid_ans: Vec<_> = anon_valid_ans.split("\n").collect();
                     let mut anon_valid: Vec<String> = Vec::new();
+
                     anon_valid_ans.remove(0);
 
                     // Remove validation answers and record them for evaluation
@@ -426,10 +427,7 @@ pub async fn dcl_protcol(
     let mut buffer = [0_u8; 1024];
     let (train, predict) = train_predict;
 
-    let dataset_message = ClientMessage::Dataset {
-        train: train,
-        predict: predict,
-    };
+    let dataset_message = ClientMessage::Dataset { train, predict };
 
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
