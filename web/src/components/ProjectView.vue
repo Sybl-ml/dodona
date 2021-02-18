@@ -160,7 +160,9 @@ export default {
       // this.dataHead = {};
       // this.dataTypes = {};
 
-      // this.data = null;
+      this.results = null;
+      this.predict_data = null;
+      this.data = null;
       this.loading = false;
       this.results_loading = false;
     },
