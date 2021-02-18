@@ -59,6 +59,7 @@ async fn process_connection(
     let JobConfiguration {
         dataset_id,
         timeout,
+        cluster_size,
         column_types,
         prediction_column,
         prediction_type,
@@ -102,6 +103,7 @@ async fn process_connection(
         DatasetPair { train, predict },
         ClientMessage::JobConfig {
             timeout,
+            cluster_size,
             column_types,
             prediction_column,
             prediction_type,

@@ -44,10 +44,7 @@ pub fn weight_predictions(
 
     let job_type = match &info.config {
         ClientMessage::JobConfig {
-            timeout: _,
-            column_types: _,
-            prediction_column: _,
-            prediction_type,
+            prediction_type, ..
         } => *prediction_type,
         _ => PredictionType::Classification,
     };
