@@ -30,7 +30,7 @@ async fn projects_can_be_fetched_for_a_user() -> Result<()> {
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
-        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .uri(&url)
         .to_request();
 
@@ -57,7 +57,7 @@ async fn projects_can_be_fetched_by_identifier() -> Result<()> {
     let formatted = format!("/api/projects/p/{}", common::MAIN_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
-        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .uri(&formatted)
         .to_request();
 
@@ -98,7 +98,7 @@ async fn projects_cannot_be_fetched_by_users_who_do_not_own_it() -> Result<()> {
     let formatted = format!("/api/projects/p/{}", common::MAIN_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
-        .header("Authorization", get_bearer_token(common::DELETE_UID))
+        .insert_header(("Authorization", get_bearer_token(common::DELETE_UID)))
         .uri(&formatted)
         .to_request();
 
@@ -116,7 +116,7 @@ async fn non_existent_projects_are_not_found() -> Result<()> {
     let formatted = format!("/api/projects/p/{}", common::NON_EXISTENT_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
-        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .uri(&formatted)
         .to_request();
 
@@ -134,7 +134,7 @@ async fn projects_cannot_be_found_with_invalid_identifiers() -> Result<()> {
     let url = "/api/projects/p/invalid";
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
-        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .uri(&url)
         .to_request();
 
@@ -157,10 +157,10 @@ async fn projects_can_be_created() -> Result<()> {
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
-        .header(
+        .insert_header((
             "Authorization",
             get_bearer_token(common::CREATES_PROJECT_UID),
-        )
+        ))
         .uri(&url)
         .set_json(&doc)
         .to_request();
@@ -181,7 +181,7 @@ async fn datasets_can_be_added_to_projects() -> Result<()> {
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
-        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .uri(&url)
         .set_json(&doc)
         .to_request();
@@ -208,10 +208,10 @@ async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
-        .header(
+        .insert_header((
             "Authorization",
             get_bearer_token(common::NON_EXISTENT_USER_ID),
-        )
+        ))
         .uri(&url)
         .set_json(&doc)
         .to_request();
@@ -228,10 +228,10 @@ async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
-        .header(
+        .insert_header((
             "Authorization",
             get_bearer_token(common::NON_EXISTENT_USER_ID),
-        )
+        ))
         .uri(&url)
         .set_json(&doc)
         .to_request();
@@ -246,10 +246,10 @@ async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
     );
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
-        .header(
+        .insert_header((
             "Authorization",
             get_bearer_token(common::NON_EXISTENT_USER_ID),
-        )
+        ))
         .uri(&url)
         .to_request();
 
@@ -271,10 +271,10 @@ async fn datasets_cannot_be_added_if_projects_do_not_exist() -> Result<()> {
     let url = format!("/api/projects/p/{}/data", common::NON_EXISTENT_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
-        .header(
+        .insert_header((
             "Authorization",
             get_bearer_token(common::NON_EXISTENT_USER_ID),
-        )
+        ))
         .uri(&url)
         .set_json(&doc)
         .to_request();
@@ -296,7 +296,7 @@ async fn dataset_can_be_taken_from_database() -> Result<()> {
     let url = format!("/api/projects/p/{}/data", common::MAIN_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
-        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .uri(&url)
         .set_json(&doc)
         .to_request();
@@ -307,7 +307,7 @@ async fn dataset_can_be_taken_from_database() -> Result<()> {
     let url = format!("/api/projects/p/{}/data", common::MAIN_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
-        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .uri(&url)
         .to_request();
 
@@ -328,7 +328,7 @@ async fn overview_of_dataset_can_be_returned() -> Result<()> {
     let url = format!("/api/projects/p/{}/data", common::MAIN_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
-        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .uri(&url)
         .set_json(&doc)
         .to_request();
@@ -339,7 +339,7 @@ async fn overview_of_dataset_can_be_returned() -> Result<()> {
     let url = format!("/api/projects/p/{}/overview", common::MAIN_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
-        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .uri(&url)
         .to_request();
 
@@ -359,10 +359,10 @@ async fn projects_can_be_deleted() -> Result<()> {
     let formatted = format!("/api/projects/p/{}", common::DELETABLE_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::DELETE)
-        .header(
+        .insert_header((
             "Authorization",
             get_bearer_token(common::DELETES_PROJECT_UID),
-        )
+        ))
         .uri(&formatted)
         .to_request();
 
@@ -372,10 +372,10 @@ async fn projects_can_be_deleted() -> Result<()> {
     let formatted = format!("/api/projects/u/{}", common::DELETES_PROJECT_UID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
-        .header(
+        .insert_header((
             "Authorization",
             get_bearer_token(common::DELETES_PROJECT_UID),
-        )
+        ))
         .uri(&formatted)
         .to_request();
 
@@ -398,7 +398,7 @@ async fn projects_can_be_edited() -> Result<()> {
     let doc = doc! {"changes": {"description": "new description"}};
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PATCH)
-        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .set_json(&doc)
         .uri(&formatted)
         .to_request();
@@ -409,7 +409,7 @@ async fn projects_can_be_edited() -> Result<()> {
     let formatted = format!("/api/projects/p/{}", common::EDITABLE_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
-        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .uri(&formatted)
         .to_request();
 
@@ -434,7 +434,7 @@ async fn job_configs_can_have_integer_timeouts_in_json() -> Result<()> {
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
-        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .uri(&url)
         .set_json(&doc)
         .to_request();
@@ -448,7 +448,7 @@ async fn job_configs_can_have_integer_timeouts_in_json() -> Result<()> {
         doc! { "timeout": 10 , "predictionType": "classification", "predictionColumn": "name"};
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
-        .header("Authorization", get_bearer_token(common::MAIN_USER_ID))
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .uri(&formatted)
         .set_json(&doc)
         .to_request();
