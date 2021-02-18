@@ -168,6 +168,7 @@ fn test_weight_predictions() {
         columns: HashMap::new(),
         config: ClientMessage::JobConfig {
             timeout: 0,
+            cluster_size: 3,
             column_types: vec![],
             prediction_column: "".to_string(),
             prediction_type: PredictionType::Classification,
@@ -200,6 +201,7 @@ fn test_weight_predictions() {
         columns: HashMap::new(),
         config: ClientMessage::JobConfig {
             timeout: 0,
+            cluster_size: 3,
             column_types: vec![],
             prediction_column: "".to_string(),
             prediction_type: PredictionType::Regression,
