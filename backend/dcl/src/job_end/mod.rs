@@ -18,13 +18,14 @@ use tokio::sync::{mpsc::Receiver, Notify, RwLock};
 use crate::node_end::NodePool;
 use crate::DatasetPair;
 use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
+use models::jobs::PredictionType;
 use models::predictions::Prediction;
 use models::projects::Status;
 
 use utils::anon::{anonymise_dataset, deanonymise_dataset, infer_dataset_columns};
 use utils::compress::compress_bytes;
 use utils::generate_ids;
-use utils::Columns;
+use utils::{Column, Columns};
 
 pub mod finance;
 pub mod ml;
@@ -154,33 +155,37 @@ pub async fn run(
         let data = msg
             .train
             .trim()
-            .trim()
             .split('\n')
             .filter(|_| thread_rng().gen::<f64>() < INCLUSION_PROBABILITY)
             .chain(msg.predict.trim().split('\n').skip(1))
             .collect::<Vec<_>>()
             .join("\n");
 
-        let columns = infer_dataset_columns(&data).unwrap();
-
-        let mut train = msg.train.trim().trim().split('\n').collect::<Vec<_>>();
+        let mut train = msg.train.trim().split('\n').collect::<Vec<_>>();
         let headers = train.remove(0);
         let mut validation = Vec::new();
-        let test = msg
-            .predict
-            .trim()
-            .trim()
-            .split('\n')
-            .skip(1)
-            .collect::<Vec<_>>();
+        let test = msg.predict.trim().split('\n').skip(1).collect::<Vec<_>>();
 
-        let prediction_column = match config {
+        let (prediction_column, prediction_type) = match config {
             ClientMessage::JobConfig {
                 ref prediction_column,
+                prediction_type,
                 ..
-            } => prediction_column,
-            _ => headers.trim().split(',').last().unwrap(),
+            } => (prediction_column.to_string(), prediction_type),
+            _ => (
+                headers.split(',').last().unwrap().to_string(),
+                PredictionType::Classification,
+            ),
         };
+
+        let mut columns = infer_dataset_columns(&data).unwrap();
+
+        if prediction_type == PredictionType::Classification {
+            columns.insert(
+                prediction_column.clone(),
+                Column::categorical(&prediction_column, &data),
+            );
+        }
 
         log::info!("{:?}", &train);
         log::info!("{}", &train.len());
@@ -264,11 +269,7 @@ pub async fn run(
                     let headers = format!("record_id,{}", headers);
                     // Remove validation answers and record them for evaluation
                     for (record, id) in anon_valid_ans.iter().zip(valid_rids.iter()) {
-                        let values: Vec<_> = record
-                            .trim()
-                            .split(',')
-                            .zip(headers.trim().split(','))
-                            .collect();
+                        let values: Vec<_> = record.split(',').zip(headers.split(',')).collect();
                         let anon_ans = values
                             .iter()
                             .filter_map(|(v, h)| (*h == prediction_column).then(|| *v))
@@ -276,7 +277,7 @@ pub async fn run(
                             .unwrap()
                             .to_string();
                         let ans = columns
-                            .get(prediction_column)
+                            .get(&prediction_column)
                             .unwrap()
                             .deanonymise(anon_ans)
                             .unwrap();
@@ -452,11 +453,11 @@ pub async fn dcl_protcol(
             }
         };
 
-    let anonymised_preds = match prediction_message {
+    let raw_anonymised_predictions = match prediction_message {
         ClientMessage::Predictions(s) => s,
         _ => unreachable!(),
     };
-    let anonymised_predictions = anonymised_preds.trim();
+    let anonymised_predictions = raw_anonymised_predictions.trim();
 
     log::info!("Predictions: {:?}", &anonymised_predictions);
 

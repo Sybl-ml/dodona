@@ -112,12 +112,14 @@ pub fn evaluate_model(
         _ => PredictionType::Classification,
     };
 
-    for values in predictions
-        .trim()
-        .split('\n')
-        .skip(1)
-        .map(|s| s.split(',').collect::<Vec<_>>())
-    {
+    let mut predictions: Vec<_> = predictions.trim().split('\n').collect();
+
+    // if the model returned predictions with a header, ignore them
+    if predictions[0].contains("record_id") {
+        predictions = predictions[1..].to_vec();
+    }
+
+    for values in predictions.iter().map(|s| s.split(',').collect::<Vec<_>>()) {
         let (record_id, prediction) = (values[0].to_owned(), values[1].to_owned());
         let example = (id.to_owned(), record_id.clone());
         match (info.validation_ans.get(&example), job_type) {
@@ -145,9 +147,7 @@ pub fn evaluate_model(
     }
 
     let predicted: HashSet<&str> = predictions
-        .trim()
-        .split('\n')
-        .skip(1)
+        .iter()
         .map(|s| s.split(',').next().unwrap())
         .collect();
     if predicted
@@ -200,7 +200,6 @@ pub async fn model_performance(
 
         job_perf_vec.push(mongodb::bson::ser::to_document(&job_performance).unwrap());
     }
-    log::info!("Job Performances: {:?}", &job_perf_vec);
     job_performances.insert_many(job_perf_vec, None).await?;
 
     Ok(())

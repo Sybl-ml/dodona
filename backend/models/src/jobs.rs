@@ -4,7 +4,7 @@ use chrono::Utc;
 use mongodb::bson::{self, oid::ObjectId};
 
 /// Different types of problem Sybl can accept
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum PredictionType {
     /// Predicting a class of data
