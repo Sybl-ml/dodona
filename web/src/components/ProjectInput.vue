@@ -23,8 +23,9 @@
       <b-col v-else class="input-table">
             <my-vue-table
               :fields="buildFields(this.training_data.meta.fields)"
-              :display_data="this.training_data.data"
-            ></my-vue-table>
+              :data="this.training_data.data"
+              :perPage=5
+              ></my-vue-table>
       </b-col>
     </b-row>
   </b-container>
