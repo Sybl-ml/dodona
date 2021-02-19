@@ -1,26 +1,24 @@
 //! Defines the routes specific to user operations.
 
-use actix_web::{web, HttpResponse};
-use mongodb::bson::{doc, document::Document};
+use actix_web::web;
+use mongodb::bson::{de::from_document, doc, document::Document, ser::to_document};
 use tokio_stream::StreamExt;
 
-use crate::auth;
-use crate::dodona_error::DodonaError;
-use crate::routes::response_from_json;
-use crate::AppState;
-use crypto::clean;
 use models::users::User;
+
+use crate::{
+    auth,
+    error::{ServerError, ServerResponse},
+    routes::{payloads, response_from_json},
+    State,
+};
 
 /// Gets a user given their database identifier.
 ///
 /// Given a user identifier, finds the user in the database and returns them as a JSON object. If
 /// the user does not exist, the handler will panic.
-pub async fn get(
-    claims: auth::Claims,
-    app_data: web::Data<AppState>,
-) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let users = database.collection("users");
+pub async fn get(claims: auth::Claims, state: web::Data<State>) -> ServerResponse {
+    let users = state.database.collection("users");
 
     let filter: Document = doc! { "_id": claims.id };
     let document = users.find_one(filter, None).await?;
@@ -34,18 +32,15 @@ pub async fn get(
 /// objects. For example, given `{"first_name", "John"}`, finds all the users with the first name
 /// John.
 pub async fn filter(
-    app_data: web::Data<AppState>,
-    filter: web::Json<Document>,
-) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let users = database.collection("users");
+    state: web::Data<State>,
+    payload: web::Json<payloads::FilterUsersOptions>,
+) -> ServerResponse {
+    let users = state.database.collection("users");
 
-    println!("Filter: {:?}", &filter);
+    let cursor = users.find(payload.filter.clone(), None).await?;
+    let documents: Vec<Document> = cursor.collect::<Result<_, _>>().await?;
 
-    let cursor = users.find(filter.into_inner(), None).await?;
-    let documents: Result<Vec<Document>, mongodb::error::Error> = cursor.collect().await;
-
-    response_from_json(documents?)
+    response_from_json(documents)
 }
 
 /// Creates a new user given the form information.
@@ -53,49 +48,39 @@ pub async fn filter(
 /// Given an email, password, first name and last name, peppers their password and hashes it. This
 /// then gets stored in the Mongo database with a randomly generated user identifier. If the user's
 /// email already exists, the route will not register any user.
-/// The user's client status will be false which can be later changed
 pub async fn new(
-    app_data: web::Data<AppState>,
-    doc: web::Json<Document>,
-) -> Result<HttpResponse, DodonaError> {
-    log::debug!("Document received: {:?}", &doc);
+    state: web::Data<State>,
+    payload: web::Json<payloads::RegistrationOptions>,
+) -> ServerResponse {
+    let users = state.database.collection("users");
 
-    let pepper = app_data.pepper.clone();
-
-    let database = app_data.client.database("sybl");
-    let users = database.collection("users");
-
-    let password = doc.get_str("password")?;
-    let email = clean(doc.get_str("email")?);
-    let first_name = clean(doc.get_str("firstName")?);
-    let last_name = clean(doc.get_str("lastName")?);
-
-    log::info!("Email: {}, Password: {}", email, password);
-    log::info!("Name: {} {}", first_name, last_name);
+    let email = crypto::clean(&payload.email);
+    let first_name = crypto::clean(&payload.first_name);
+    let last_name = crypto::clean(&payload.last_name);
 
     let filter = doc! { "email": &email };
 
-    log::info!("Checking if the user exists already");
-
     if users.find_one(filter, None).await?.is_some() {
-        log::error!("Found a user with email '{}' already", &email);
+        log::error!("Found a user with email={} already", &email);
         return response_from_json(doc! {"token": "null"});
     }
 
-    log::info!("User does not exist, registering them now");
-
-    let peppered = format!("{}{}", &password, &pepper);
-    let hash = pbkdf2::pbkdf2_simple(&peppered, app_data.pbkdf2_iterations)
+    let peppered = format!("{}{}", &payload.password, &state.pepper);
+    let hash = pbkdf2::pbkdf2_simple(&peppered, state.pbkdf2_iterations)
         .expect("Failed to hash the user's password");
-
-    log::info!("Hash: {:?}", hash);
 
     let user = User::new(email, hash, first_name, last_name);
 
-    let document = mongodb::bson::ser::to_document(&user)?;
-    let id = users.insert_one(document, None).await?.inserted_id;
+    log::debug!("Registering a new user: {:#?}", user);
 
-    let jwt = auth::Claims::create_token(id.as_object_id().unwrap().clone())?;
+    let document = to_document(&user)?;
+    let inserted_id = users.insert_one(document, None).await?.inserted_id;
+    let identifier = inserted_id.as_object_id().ok_or(ServerError::Unknown)?;
+
+    log::debug!("Created the user with id={}", identifier);
+
+    let jwt = auth::Claims::create_token(identifier.clone())?;
+
     response_from_json(doc! {"token": jwt})
 }
 
@@ -105,27 +90,15 @@ pub async fn new(
 /// the JSON provided, returning a message based on whether it was updated.
 pub async fn edit(
     claims: auth::Claims,
-    app_data: web::Data<AppState>,
-    doc: web::Json<Document>,
-) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let users = database.collection("users");
+    state: web::Data<State>,
+    payload: web::Json<payloads::EditUserOptions>,
+) -> ServerResponse {
+    let users = state.database.collection("users");
 
-    // Get the user from the database
     let filter = doc! { "_id": &claims.id };
-    let user_doc = users
-        .find_one(filter.clone(), None)
-        .await?
-        .ok_or(DodonaError::NotFound)?;
+    let update = doc! { "$set": { "email": crypto::clean(&payload.email) } };
 
-    let mut user: User = mongodb::bson::de::from_document(user_doc)?;
-
-    if let Ok(email) = doc.get_str("email") {
-        user.email = clean(email);
-    }
-
-    let document = mongodb::bson::ser::to_document(&user)?;
-    users.update_one(filter, document, None).await?;
+    users.update_one(filter, update, None).await?;
 
     response_from_json(doc! {"status": "changed"})
 }
@@ -136,32 +109,25 @@ pub async fn edit(
 /// match. If they don't, or the user does not exist, it will not authenticate them and send back a
 /// null token.
 pub async fn login(
-    app_data: web::Data<AppState>,
-    doc: web::Json<Document>,
-) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let pepper = app_data.pepper.clone();
+    state: web::Data<State>,
+    payload: web::Json<payloads::LoginOptions>,
+) -> ServerResponse {
+    let users = state.database.collection("users");
 
-    let users = database.collection("users");
-
-    let password = doc.get_str("password")?;
-    let email = clean(doc.get_str("email")?);
-
-    println!("{}, {}", &email, &password);
-
+    let email = crypto::clean(&payload.email);
     let filter = doc! {"email": email};
-    let user_doc = users
+
+    let document = users
         .find_one(filter, None)
         .await?
-        .ok_or(DodonaError::NotFound)?;
-    let user: User = mongodb::bson::de::from_document(user_doc)?;
-
-    let peppered = format!("{}{}", password, pepper);
+        .ok_or(ServerError::NotFound)?;
+    let user: User = from_document(document)?;
 
     // Check the user's password
+    let peppered = format!("{}{}", &payload.password, &state.pepper);
     pbkdf2::pbkdf2_check(&peppered, &user.hash)?;
 
-    log::info!("Logged in: {:?}", user);
+    log::debug!("User logged in with id={}, email={}", user.id, user.email);
 
     let jwt = auth::Claims::create_token(user.id)?;
     response_from_json(doc! {"token": jwt})
@@ -170,20 +136,16 @@ pub async fn login(
 /// Deletes a user from the database.
 ///
 /// Given a user identifier, deletes the related user from the database if they exist.
-pub async fn delete(
-    claims: auth::Claims,
-    app_data: web::Data<AppState>,
-) -> Result<HttpResponse, DodonaError> {
-    let database = app_data.client.database("sybl");
-    let users = database.collection("users");
+pub async fn delete(claims: auth::Claims, state: web::Data<State>) -> ServerResponse {
+    let users = state.database.collection("users");
 
     let filter = doc! { "_id": claims.id };
     let user = users.find_one(filter, None).await?;
 
-    // If the project has data, delete the existing information
+    // Delete the user and their owned items if they exist
     if let Some(user) = user {
-        let user: User = mongodb::bson::de::from_document(user)?;
-        user.delete(&database).await?;
+        let user: User = from_document(user)?;
+        user.delete(&state.database).await?;
     }
 
     response_from_json(doc! {"status": "deleted"})

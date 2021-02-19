@@ -5,20 +5,21 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::Result;
+use mongodb::bson::{doc, oid::ObjectId};
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio_stream::StreamExt;
 
 use config::Environment;
-use messages::{InterfaceMessage, ReadLengthPrefix, WriteLengthPrefix};
+use messages::{ReadLengthPrefix, WriteLengthPrefix};
 use models::jobs::Job;
 use utils::setup_logger;
 
 const TIMEOUT_SECS: u64 = 1;
 
 /// Listens for incoming messages from the API server and forwards them to the queue.
-async fn listen(inner: UnboundedSender<InterfaceMessage>) -> Result<()> {
+async fn listen(inner: UnboundedSender<Job>) -> Result<()> {
     // Get the environment variable for listening
     let var = env::var("INTERFACE_LISTEN").expect("INTERFACE_LISTEN must be set");
     let port = u16::from_str(&var).expect("INTERFACE_LISTEN must be a u16");
@@ -36,9 +37,10 @@ async fn listen(inner: UnboundedSender<InterfaceMessage>) -> Result<()> {
         let (mut stream, address) = listener.accept().await?;
         log::debug!("Received connection from: {}", address);
 
-        let message = InterfaceMessage::from_stream(&mut stream, &mut buffer).await?;
+        let message = Job::from_stream(&mut stream, &mut buffer).await?;
         log::info!("Received: {:?}", message);
 
+        // Send the job to the other task
         inner.send(message)?;
     }
 }
@@ -67,7 +69,7 @@ async fn try_to_connect(
 }
 
 /// Receives messages from the frontend thread and communicates with the DCL.
-async fn receive(mut inner: UnboundedReceiver<InterfaceMessage>) -> Result<()> {
+async fn receive(mut inner: UnboundedReceiver<Job>) -> Result<()> {
     // Get the environment variable for sending
     let var = env::var("INTERFACE_SOCKET").expect("INTERFACE_SOCKET must be set");
     let port = u16::from_str(&var).expect("INTERFACE_SOCKET must be a u16");
@@ -84,14 +86,35 @@ async fn receive(mut inner: UnboundedReceiver<InterfaceMessage>) -> Result<()> {
             if let Some(mut stream) = try_to_connect(&addr, timeout, attempts).await {
                 // Send the element to the onward node that we connected to
                 stream.write_all(&element.as_bytes()).await?;
-                log::info!("Sent: {:?}", element);
+                log::info!("Sent: {:?}", element.config);
                 stream.shutdown().await?;
+
+                // Mark the job as processed, at least by the interface layer
+                mark_job_as_processed(&element.id).await?;
             }
         }
     }
 }
 
-async fn get_job_queue() -> mongodb::error::Result<VecDeque<InterfaceMessage>> {
+async fn mark_job_as_processed(identifier: &ObjectId) -> Result<()> {
+    log::debug!("Marking the following job as processed: {}", identifier);
+
+    // Get a connection to the database
+    let uri = std::env::var("CONN_STR").unwrap();
+    let client = mongodb::Client::with_uri_str(&uri).await?;
+
+    // Get the jobs collection
+    let jobs = client.database("sybl").collection("jobs");
+
+    // Update the job with the given identifier
+    let filter = doc! { "_id": &identifier };
+    let update = doc! { "$set": { "processed": true } };
+    jobs.update_one(filter, update, None).await?;
+
+    Ok(())
+}
+
+async fn get_job_queue() -> mongodb::error::Result<VecDeque<Job>> {
     // Setup the MongoDB client
     let uri = std::env::var("CONN_STR").unwrap();
     let client = mongodb::Client::with_uri_str(&uri).await?;
@@ -100,18 +123,20 @@ async fn get_job_queue() -> mongodb::error::Result<VecDeque<InterfaceMessage>> {
     let database = client.database("sybl");
     let jobs = database.collection("jobs");
 
+    // Filter only for jobs that have not been processed yet
+    let filter = doc! { "processed": false };
+
     // Pull all the jobs and deserialize them
-    let cursor = jobs.find(None, None).await?;
+    let mut cursor = jobs.find(filter, None).await?;
 
-    // TODO: Change this to collect once by iterating over the cursor
-    let queue: Vec<InterfaceMessage> = cursor
-        .filter_map(Result::ok)
-        .filter_map(|x| mongodb::bson::de::from_document::<Job>(x).ok())
-        .map(|x| x.msg)
-        .collect()
-        .await;
+    let mut queue = VecDeque::new();
 
-    Ok(queue.into_iter().collect())
+    while let Some(Ok(item)) = cursor.next().await {
+        let job: Job = mongodb::bson::de::from_document(item).unwrap();
+        queue.push_back(job);
+    }
+
+    Ok(queue)
 }
 
 #[tokio::main]

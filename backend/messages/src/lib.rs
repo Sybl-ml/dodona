@@ -9,11 +9,9 @@
 extern crate serde;
 
 pub mod client;
-pub mod interface;
 pub mod length_prefix;
 pub mod raw_message;
 
 pub use client::ClientMessage;
-pub use interface::InterfaceMessage;
 pub use length_prefix::{ReadLengthPrefix, WriteLengthPrefix};
 pub use raw_message::RawMessage;

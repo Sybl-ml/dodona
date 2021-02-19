@@ -78,9 +78,11 @@ export default {
 
       try {
         let project_response = await this.$http.patch(
-          `http://localhost:3001/api/projects/p/${this.projectId}`,
+          `http://localhost:3001/api/projects/${this.projectId}`,
           {
-            name: this.newName,
+            changes: {
+              name: this.newName,
+            }
           }
         );
       } catch (err) {
@@ -92,9 +94,11 @@ export default {
 
       try {
         let project_response = await this.$http.patch(
-          `http://localhost:3001/api/projects/p/${this.projectId}`,
+          `http://localhost:3001/api/projects/${this.projectId}`,
           {
-            description: this.newDescription,
+            changes: {
+              description: this.newDescription,
+            }
           }
         );
       } catch (err) {
@@ -106,7 +110,7 @@ export default {
 
       try {
         let project_response = await this.$http.delete(
-          `http://localhost:3001/api/projects/p/${this.projectId}`
+          `http://localhost:3001/api/projects/${this.projectId}`
         );
       } catch (err) {
         console.log(err);

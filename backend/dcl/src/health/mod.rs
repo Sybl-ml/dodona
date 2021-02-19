@@ -75,7 +75,7 @@ pub async fn check_health(database: Arc<Database>, nodepool: Arc<NodePool>) -> R
                 node.reset_counter().await;
             }
 
-            nodepool.update_node(&id, alive).await?;
+            nodepool.update_node_alive(&id, alive).await;
         }
     }
 

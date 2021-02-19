@@ -28,8 +28,8 @@ fn challenge_response_protocol() {
     let response = signer.sign_oneshot_to_vec(&challenge).unwrap();
 
     assert!(verify_challenge(
-        challenge,
-        response,
-        String::from_utf8(rsa.public_key_to_pem().unwrap()).unwrap()
+        &challenge,
+        &response,
+        std::str::from_utf8(&rsa.public_key_to_pem().unwrap()).unwrap()
     ));
 }

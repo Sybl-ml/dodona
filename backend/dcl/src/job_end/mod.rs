@@ -44,14 +44,23 @@ pub struct ClusterInfo {
     pub prediction_rids: HashMap<(ModelID, String), usize>,
 }
 
+/// The `String` predictions of model `ModelID` on test example `usize`
+pub type ModelPredictions = HashMap<(ModelID, usize), String>;
+/// The `f64` error of model `ModelID`, or `None` if the model behaved maliciously
+pub type ModelErrors = HashMap<ModelID, Option<f64>>;
+/// The `f64` weight of model `ModelID` based on validation accuracy and performance
+pub type ModelWeights = HashMap<ModelID, f64>;
+/// The `String` predictions based on the order of test examples `usize` given
+pub type Predictions = HashMap<usize, String>;
+
 /// Memory which can be written back to from threads for
 /// prediction related data
 #[derive(Debug, Clone, Default)]
 pub struct WriteBackMemory {
     /// HashMap of predictions
-    pub predictions: Arc<Mutex<HashMap<(ModelID, usize), String>>>,
+    pub predictions: Arc<Mutex<ModelPredictions>>,
     /// HashMap of Errors
-    pub errors: Arc<Mutex<HashMap<ModelID, f64>>>,
+    pub errors: Arc<Mutex<ModelErrors>>,
 }
 
 impl WriteBackMemory {
@@ -69,19 +78,19 @@ impl WriteBackMemory {
     }
 
     /// Function to write back error value
-    pub fn write_error(&self, id: ModelID, error: f64) {
+    pub fn write_error(&self, id: ModelID, error: Option<f64>) {
         let mut errors = self.errors.lock().unwrap();
         errors.insert(id, error);
     }
 
     /// Gets cloned version of predictions
-    pub fn get_predictions(&self) -> HashMap<(ModelID, usize), String> {
+    pub fn get_predictions(&self) -> ModelPredictions {
         let predictions = self.predictions.lock().unwrap();
         predictions.clone()
     }
 
     /// Gets cloned version of errors
-    pub fn get_errors(&self) -> HashMap<ModelID, f64> {
+    pub fn get_errors(&self) -> ModelErrors {
         let errors = self.errors.lock().unwrap();
         errors.clone()
     }
@@ -180,10 +189,10 @@ pub async fn run(
         let mut prediction_rids: HashMap<(ModelID, String), usize> = HashMap::new();
 
         loop {
-            if let Some(cluster) = nodepool.get_cluster(CLUSTER_SIZE, config.clone()).await {
+            if let Some(cluster) = nodepool.build_cluster(CLUSTER_SIZE, config.clone()).await {
                 log::info!("Created Cluster");
 
-                for (key, _) in &cluster {
+                for key in cluster.keys() {
                     log::info!("BOOTSTRAPPING");
                     let model_train: Vec<_> = train
                         .choose_multiple(&mut thread_rng(), TRAINING_BAG_SIZE)
@@ -191,15 +200,15 @@ pub async fn run(
                         .collect();
 
                     // Create new train set with headers
-                    let mut model_anon_train = vec![headers.clone()];
+                    let mut model_anon_train = vec![headers];
                     model_anon_train.extend_from_slice(&model_train);
 
                     // Create new test set with headers
-                    let mut model_anon_test = vec![headers.clone()];
+                    let mut model_anon_test = vec![headers];
                     model_anon_test.extend_from_slice(&test);
 
                     // Create new validation set with headers
-                    let mut model_anon_valid = vec![headers.clone()];
+                    let mut model_anon_valid = vec![headers];
                     model_anon_valid.extend_from_slice(&validation);
 
                     // Anonymise train data
@@ -236,7 +245,7 @@ pub async fn run(
                         &anon_valid_ans
                     );
 
-                    let mut anon_valid_ans: Vec<_> = anon_valid_ans.split("\n").collect();
+                    let mut anon_valid_ans: Vec<_> = anon_valid_ans.split('\n').collect();
                     let mut anon_valid: Vec<&str> = Vec::new();
                     anon_valid_ans.remove(0);
 
@@ -252,7 +261,7 @@ pub async fn run(
                         anon_valid.push(values[1]);
                     }
 
-                    let mut anon_test = anon_test.split("\n").collect::<Vec<_>>();
+                    let mut anon_test = anon_test.split('\n').collect::<Vec<_>>();
 
                     // Get the new anonymised headers for test set
                     let new_headers = anon_test.remove(0);
@@ -333,14 +342,34 @@ async fn run_cluster(
     cc.notify.notified().await;
     log::info!("All Jobs Complete!");
 
-    let (weights, predictions) = ml::weight_predictions(wbm.get_predictions(), wbm.get_errors());
+    let (weights, predictions) = ml::weight_predictions(&wbm.get_predictions(), &wbm.get_errors());
 
     // TODO: reimburse clients based on weights
     log::info!("Model weights: {:?}", weights);
 
     // TODO: store percentage difference between model weight and number of models for job
     let database_clone = Arc::clone(&database);
-    ml::model_performance(database_clone, weights, &info.project_id).await?;
+    ml::model_performance(
+        database_clone,
+        weights,
+        &info.project_id,
+        Some(Arc::clone(&nodepool)),
+    )
+    .await?;
+
+    let database_clone = Arc::clone(&database);
+    let malicious: Vec<ModelID> = wbm
+        .get_errors()
+        .iter()
+        .filter_map(|(k, v)| v.is_none().then(|| k.to_string()))
+        .collect();
+    ml::penalise(
+        database_clone,
+        malicious,
+        &info.project_id,
+        Some(Arc::clone(&nodepool)),
+    )
+    .await?;
 
     // TODO: reintegrate predictions with user-supplied test dataset (?)
     let csv: String = predictions.join("\n");
@@ -371,10 +400,7 @@ pub async fn dcl_protcol(
     let mut buffer = [0_u8; 1024];
     let (train, predict) = train_predict;
 
-    let dataset_message = ClientMessage::Dataset {
-        train: train,
-        predict: predict,
-    };
+    let dataset_message = ClientMessage::Dataset { train, predict };
 
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
@@ -383,7 +409,7 @@ pub async fn dcl_protcol(
         match ClientMessage::from_stream(dcn_stream.deref_mut(), &mut buffer).await {
             Ok(pm) => pm,
             Err(error) => {
-                nodepool.update_node(&model_id, false).await?;
+                nodepool.update_node_alive(&model_id, false).await;
                 cluster_control.decrement().await;
 
                 log::error!(
@@ -405,15 +431,19 @@ pub async fn dcl_protcol(
 
     let predictions = deanonymise_dataset(&anonymised_predictions, &info.columns).unwrap();
 
-    let (model_predictions, model_error) = ml::evaluate_model(&model_id, &predictions, &info);
-
-    write_back.write_error(model_id.clone(), model_error);
-    write_back.write_predictions(model_id.clone(), model_predictions);
+    if let Some((model_predictions, model_error)) =
+        ml::evaluate_model(&model_id, &predictions, &info)
+    {
+        write_back.write_error(model_id.clone(), Some(model_error));
+        write_back.write_predictions(model_id.clone(), model_predictions);
+        log::info!("(Node: {}) Computed Data: {}", &model_id, predictions);
+    } else {
+        log::info!("(Node: {}) Failed to respond to all examples", &model_id);
+        write_back.write_error(model_id.clone(), None);
+    }
 
     // TODO: Give additional feedback to the model
     increment_run_count(database, &model_id).await?;
-
-    log::info!("(Node: {}) Computed Data: {}", &model_id, predictions);
 
     nodepool.end(&model_id).await?;
 

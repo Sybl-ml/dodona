@@ -40,6 +40,16 @@ impl AccessToken {
             expires: Utc::now() + Duration::weeks(2),
         }
     }
+
+    /// Checks whether an [`AccessToken`] has expired at the current time.
+    pub fn has_expired(&self) -> bool {
+        self.will_have_expired_by(Utc::now())
+    }
+
+    /// Checks whether an [`AccessToken`] will have expired by the given time.
+    fn will_have_expired_by(&self, time: chrono::DateTime<Utc>) -> bool {
+        self.expires < time
+    }
 }
 
 impl Default for AccessToken {
@@ -111,6 +121,19 @@ impl ClientModel {
         matches!(&self.access_token, Some(x) if x.token.bytes == token)
     }
 
+    /// Checks whether the client's token has not expired.
+    ///
+    /// If the client does not have a token, immediately return `false` as a base condition.
+    /// Otherwise, check the timestamp against the current time.
+    pub fn token_has_not_expired(&self) -> bool {
+        let token = match &self.access_token {
+            Some(token) => token,
+            None => return false,
+        };
+
+        !token.has_expired()
+    }
+
     pub async fn delete(&self, database: &mongodb::Database) -> mongodb::error::Result<()> {
         let models = database.collection("models");
 
@@ -118,5 +141,27 @@ impl ClientModel {
         models.delete_one(filter, None).await?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::models::AccessToken;
+    use chrono::{Duration, Utc};
+
+    #[test]
+    fn access_tokens_do_not_expire_immediately() {
+        let token = AccessToken::new();
+
+        let now = Utc::now();
+        assert!(!token.will_have_expired_by(now));
+    }
+
+    #[test]
+    fn access_tokens_will_expire() {
+        let token = AccessToken::new();
+
+        let far_future = Utc::now() + Duration::weeks(2) + Duration::days(1);
+        assert!(token.will_have_expired_by(far_future));
     }
 }

@@ -14,11 +14,13 @@ use mongodb::{
     bson::{doc, oid::ObjectId},
     Database,
 };
+use rand::Rng;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
 
 use messages::{ClientMessage, WriteLengthPrefix};
+use models::job_performance::JobPerformance;
 use models::models::Status;
 
 use crate::protocol;
@@ -83,21 +85,39 @@ pub struct NodeInfo {
     pub alive: bool,
     /// Flag to specify if [`Node`] is in use or not
     pub using: bool,
+    /// Performance of the [`Node`] on previous jobs
+    pub performance: f64,
 }
 
 impl NodeInfo {
     /// creates new [`NodeInfo`] instance
-    pub fn new() -> Self {
+    pub fn new(performance: f64) -> Self {
         Self {
             alive: true,
             using: false,
+            performance,
         }
+    }
+
+    /// gets the past 5 performances of node from DB
+    /// and averages them out. To be used when a node
+    /// is created.
+    pub async fn from_database(database: Arc<Database>, model_id: &str) -> Result<NodeInfo> {
+        let performances = JobPerformance::get_past_k(database, model_id, 5).await?;
+
+        let mut perf = 0.0;
+
+        if !performances.is_empty() {
+            perf = performances.iter().sum::<f64>() / performances.len() as f64;
+        }
+
+        Ok(NodeInfo::new(perf))
     }
 }
 
 impl Default for NodeInfo {
     fn default() -> Self {
-        Self::new()
+        Self::new(0.0)
     }
 }
 
@@ -127,7 +147,7 @@ impl NodePool {
     /// Function will take in a new [`Node`] and will create an ID for it. It will also create an
     /// associated [`NodeInfo`] instance to also be stored under the same ID. These are then stored
     /// in their respective [`HashMap`]s
-    pub async fn add(&self, node: Node) {
+    pub async fn add(&self, node: Node, database: Arc<Database>) {
         let id = node.get_model_id().to_string();
 
         let mut node_vec = self.nodes.write().await;
@@ -136,7 +156,10 @@ impl NodePool {
         log::info!("Adding node to the pool with id: {}", id);
 
         node_vec.insert(id.clone(), node);
-        info_vec.insert(id.clone(), NodeInfo::new());
+        info_vec.insert(
+            id.clone(),
+            NodeInfo::from_database(database, &id).await.unwrap(),
+        );
     }
 
     /// Gets [`TcpStream`] reference and its [`ObjectId`]
@@ -166,33 +189,100 @@ impl NodePool {
     /// It is given a cluster size and searches the nodepool for available clusters and builds the
     /// cluster as a hashmap.  When the size is reached, the cluster is output. If it is empty then
     /// the None Option is returned. If it has nodes in it, but less than the size of the cluster,
-    /// it is still returned.
-    pub async fn get_cluster(
+    /// it is still returned. This also uses the performance metric to build well performing clusters.
+    pub async fn build_cluster(
         &self,
         size: usize,
         config: ClientMessage,
     ) -> Option<HashMap<String, Arc<RwLock<TcpStream>>>> {
         let nodes_read = self.nodes.read().await;
-        let mut cluster: HashMap<String, Arc<RwLock<TcpStream>>> = HashMap::new();
+        let mut accepted_job: Vec<(String, f64)> = Vec::new();
+        let mut better_nodes: Vec<(String, f64)> = Vec::new();
         let mut info_write = self.info.write().await;
 
-        for (key, info) in info_write.iter_mut() {
+        // Ask all alive and free nodes if they want the job
+        // If they do, their ID is added to accepted_job
+        for (id, info) in info_write.iter_mut() {
             if info.alive && !info.using {
                 info.using = true;
-                let stream = nodes_read.get(key).unwrap().get_tcp();
-                if NodePool::job_accepted(stream.clone(), config.clone(), key.clone()).await {
-                    cluster.insert(key.clone(), stream);
-                }
+                let stream = nodes_read.get(id).unwrap().get_tcp();
 
-                if cluster.len() == size {
-                    return Some(cluster);
+                if NodePool::job_accepted(stream.clone(), config.clone(), id.clone()).await {
+                    accepted_job.push((id.clone(), info.performance));
+
+                    if info.performance > 0.5 {
+                        better_nodes.push((id.clone(), info.performance));
+                    }
                 }
             }
         }
 
+        // Buidling actual cluster
+        let mut cluster: HashMap<String, Arc<RwLock<TcpStream>>> = HashMap::new();
+        let mut cluster_performance: f64 = 0.0;
+
+        // Build cluster of size
+        while cluster.len() < size {
+            // Choose a node which has accepted job
+            let (chosen_node, performance) = NodePool::choose_random_node(
+                &mut accepted_job,
+                &mut better_nodes,
+                cluster_performance,
+            );
+
+            // Get the node stream
+            let stream = nodes_read.get(&chosen_node).unwrap().get_tcp();
+
+            // Add node id with stream to cluster
+            cluster.insert(chosen_node.clone(), stream);
+            cluster_performance = (cluster_performance + performance) / cluster.len() as f64;
+
+            // If accepted_job.is_empty(), output cluster
+            if accepted_job.is_empty() {
+                break;
+            }
+        }
+
+        log::info!(
+            "\nBuilt Cluster: {:?}\nAverage Performance: {}\n",
+            &cluster,
+            &cluster_performance
+        );
+
+        // output cluster
         match cluster.len() {
             0 => None,
             _ => Some(cluster),
+        }
+    }
+
+    /// Returns random model id from list
+    ///
+    /// Function is given a list of nodes which are prepared to do
+    /// Job. This will randomly choose one of them, remove them from the
+    /// list and will return its ID, along with its performance level.
+    pub fn choose_random_node(
+        nodes: &mut Vec<(String, f64)>,
+        better_nodes: &mut Vec<(String, f64)>,
+        cluster_performance: f64,
+    ) -> (String, f64) {
+        if cluster_performance == 0.0 || cluster_performance > 0.5 || better_nodes.is_empty() {
+            let index = rand::thread_rng().gen_range(0..nodes.len());
+            let value = nodes.remove(index);
+
+            // Remove from better nodes if exists
+            better_nodes.retain(|item| value != *item);
+
+            value
+        } else {
+            let index = rand::thread_rng().gen_range(0..better_nodes.len());
+            // Get node which has performance of 0.5 or better
+            let value = better_nodes.remove(index);
+
+            // Remove from nodes
+            nodes.retain(|item| value != *item);
+
+            value
         }
     }
 
@@ -232,17 +322,15 @@ impl NodePool {
         Ok(())
     }
 
-    /// Updates a [`NodeInfo`] object
+    /// Updates a [`NodeInfo`] object about its status
     ///
     /// Gets the correct [`NodeInfo`] struct and updates its alive field by inverting what it
     /// currently is.
-    pub async fn update_node(&self, id: &str, status: bool) -> Result<()> {
+    pub async fn update_node_alive(&self, id: &str, status: bool) {
         let mut info_write = self.info.write().await;
         let node_info = info_write.get_mut(id).unwrap();
 
         node_info.alive = status;
-
-        Ok(())
     }
 
     /// Checks if a node is being used
@@ -254,6 +342,23 @@ impl NodePool {
         let node_info = info_read.get(id).unwrap();
 
         node_info.using
+    }
+
+    /// Updates a [`NodeInfo`] object
+    ///
+    /// Gets the correct [`NodeInfo`] struct and updates its average performance.
+    /// New performance has the greatest impact on the stored model performance
+    /// meaning recent performance has a significant bearing on current appearance,
+    /// while retaining historical performance.
+    pub async fn update_node_performance(&self, id: &str, performance: f64) {
+        let mut info_write = self.info.write().await;
+        let node_info = info_write.get_mut(id).unwrap();
+
+        if node_info.performance == 0.0 {
+            node_info.performance = performance
+        } else {
+            node_info.performance = (performance + node_info.performance) / 2.0;
+        }
     }
 }
 
@@ -298,10 +403,10 @@ async fn process_connection(
     log::info!("\tModel ID: {}", model_id);
     log::info!("\tToken: {}", token);
 
-    update_model_status(database, &model_id).await?;
+    update_model_status(Arc::clone(&database), &model_id).await?;
 
     let node = Node::new(stream, model_id);
-    nodepool.add(node).await;
+    nodepool.add(node, Arc::clone(&database)).await;
 
     Ok(())
 }

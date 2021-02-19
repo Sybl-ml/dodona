@@ -107,31 +107,6 @@
                 </b-col>
               </b-row>
               <br />
-              <p>
-                Once completed you will be given a OTP to enter below to link
-                everything together
-              </p>
-              <b-form>
-                <b-form-group
-                  id="auth_token"
-                  label="Authentication Token:"
-                  label-for="auth_token_inp"
-                >
-                  <b-form-input
-                    id="auth_token_inp"
-                    v-model="auth_token"
-                    type="text"
-                    required
-                    placeholder="eg. ABC123"
-                  ></b-form-input>
-                  <b-form-invalid-feedback :state="validation">
-                    Token did not match, try again
-                  </b-form-invalid-feedback>
-                </b-form-group>
-                <b-row class="justify-content-center">
-                  <b-button variant="ready"> Generate </b-button>
-                </b-row>
-              </b-form>
             </b-card-body>
           </b-card>
         </b-collapse>
@@ -163,7 +138,7 @@ export default {
     let user_id = $cookies.get("token");
     try {
       let data = await this.$http.get(
-        `http://localhost:3001/api/clients`
+        `http://localhost:3001/api/clients/models`
       );
       this.model_data = data.data;
     } catch (err) {

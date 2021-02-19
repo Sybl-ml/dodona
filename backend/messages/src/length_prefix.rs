@@ -7,14 +7,8 @@ use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::io::AsyncReadExt;
 
-use crate::{ClientMessage, InterfaceMessage};
-
-// Implement reading and writing for our 2 message types
-impl ReadLengthPrefix for ClientMessage {}
-impl ReadLengthPrefix for InterfaceMessage {}
-
-impl WriteLengthPrefix for ClientMessage {}
-impl WriteLengthPrefix for InterfaceMessage {}
+impl<T: DeserializeOwned> ReadLengthPrefix for T {}
+impl<T: Serialize> WriteLengthPrefix for T {}
 
 /// Allows any object that is [`DeserializeOwned`] to be deserialized from length prefixed form.
 #[async_trait]

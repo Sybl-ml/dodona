@@ -1,5 +1,7 @@
 //! Handles Machine Learning and Distributed Consensus for the DCL
-use crate::job_end::{ClusterInfo, ModelID};
+use crate::job_end::{
+    ClusterInfo, ModelErrors, ModelID, ModelPredictions, ModelWeights, Predictions,
+};
 use models::job_performance::JobPerformance;
 use mongodb::{
     bson::{document::Document, oid::ObjectId},
@@ -11,22 +13,27 @@ use anyhow::Result;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use crate::node_end::NodePool;
+
 /// Weights the predictions made by models in `model_predictions`
 /// based on their errors in validation examples `model_errors`
 pub fn weight_predictions(
-    model_predictions: HashMap<(ModelID, usize), String>,
-    model_errors: HashMap<ModelID, f64>,
-) -> (HashMap<ModelID, f64>, Vec<String>) {
+    model_predictions: &ModelPredictions,
+    model_errors: &ModelErrors,
+) -> (ModelWeights, Vec<String>) {
     let models: HashSet<ModelID> = model_predictions.keys().map(|(m, _)| m.clone()).collect();
 
-    // Find the inverse of the square error of each model
+    // Find the inverse of the square error of each non-penalised model
     let mut weights: HashMap<ModelID, f64> = model_errors
         .iter()
-        .map(|(k, v)| (k.to_owned(), 1.0 / (v.powf(2.0))))
+        .filter_map(|(k, v)| {
+            v.is_some()
+                .then(|| (k.to_owned(), 1.0 / (v.unwrap().powf(2.0))))
+        })
         .collect();
     // Normalise weights to sum to 1
     let total: f64 = weights.values().sum();
-    weights.values_mut().for_each(|v| *v = *v / total);
+    weights.values_mut().for_each(|v| *v /= total);
 
     let test_examples: HashSet<&usize> = model_predictions.keys().map(|(_, i)| i).collect();
     let mut indexes: Vec<&usize> = test_examples.into_iter().collect();
@@ -42,7 +49,7 @@ pub fn weight_predictions(
             for i in indexes.iter() {
                 // Add the weight of each model to each possible prediction
                 let mut possible: HashMap<&str, f64> = HashMap::new();
-                for model in models.iter() {
+                for model in &models {
                     if let Some(prediction) = model_predictions.get(&(model.to_string(), **i)) {
                         let weighting = possible.entry(prediction).or_insert(0.0);
                         *weighting += weights.get(model).unwrap();
@@ -53,8 +60,10 @@ pub fn weight_predictions(
                     possible
                         .iter()
                         .max_by(|(_, v1), (_, v2)| v1.partial_cmp(v2).unwrap())
-                        .and_then(|(k, _)| Some(k.to_string()))
-                        .unwrap_or("No predictions made".to_owned()),
+                        .map_or_else(
+                            || String::from("No predictions made"),
+                            |(k, _)| (*k).to_string(),
+                        ),
                 );
             }
         }
@@ -62,7 +71,7 @@ pub fn weight_predictions(
             for i in indexes.iter() {
                 // Create a weighted average taken from all model predictions
                 let mut weighted_average: f64 = 0.0;
-                for model in models.iter() {
+                for model in &models {
                     if let Some(prediction) = model_predictions.get(&(model.to_string(), **i)) {
                         let value: f64 = prediction.parse().unwrap();
                         weighted_average += value * weights.get(model).unwrap();
@@ -82,12 +91,12 @@ pub fn weight_predictions(
 /// Returns a tuple of predictions on test examples and the tuple's validation error
 pub fn evaluate_model(
     id: &ModelID,
-    predictions: &String,
+    predictions: &str,
     info: &ClusterInfo,
-) -> (HashMap<usize, String>, f64) {
+) -> Option<(Predictions, f64)> {
     // stores the total error penalty for each model
     let mut model_error: f64 = 1.0;
-    let mut model_predictions: HashMap<usize, String> = HashMap::new();
+    let mut model_predictions: Predictions = HashMap::new();
 
     // TODO: implement job type recognition through job config struct
     let job_type = "classification";
@@ -123,7 +132,23 @@ pub fn evaluate_model(
         }
     }
 
-    (model_predictions, model_error)
+    let predicted: HashSet<&str> = predictions
+        .trim()
+        .split('\n')
+        .map(|s| s.split(',').next().unwrap())
+        .collect();
+    if predicted
+        == info
+            .validation_ans
+            .keys()
+            .chain(info.prediction_rids.keys())
+            .filter_map(|(m, r)| (m == id).then(|| r.as_str()))
+            .collect()
+    {
+        Some((model_predictions, model_error))
+    } else {
+        None
+    }
 }
 
 /// Function for calculating model performance
@@ -134,8 +159,9 @@ pub fn evaluate_model(
 /// and will upload it to the database.
 pub async fn model_performance(
     database: Arc<Database>,
-    weights: HashMap<ModelID, f64>,
+    weights: ModelWeights,
     project_id: &ObjectId,
+    nodepool: Option<Arc<NodePool>>,
 ) -> Result<()> {
     let job_performances = database.collection("job_performances");
     let model_num = weights.len();
@@ -155,8 +181,49 @@ pub async fn model_performance(
             perf,
         );
 
+        if let Some(np) = &nodepool {
+            np.update_node_performance(&model, perf).await;
+        }
+
         job_perf_vec.push(mongodb::bson::ser::to_document(&job_performance).unwrap());
     }
+    job_performances.insert_many(job_perf_vec, None).await?;
+
+    Ok(())
+}
+
+/// Function for penalising a list of malicious models
+///
+/// Penalises a list of models with a performance of 0 for a given job
+/// based on the detection of malicious behaviour in their predictions
+pub async fn penalise(
+    database: Arc<Database>,
+    models: Vec<ModelID>,
+    project_id: &ObjectId,
+    nodepool: Option<Arc<NodePool>>,
+) -> Result<()> {
+    let job_performances = database.collection("job_performances");
+    let mut job_perf_vec: Vec<Document> = Vec::new();
+    for model in models {
+        let perf: f64 = 0.0;
+
+        log::info!(
+            "Model: {:?} is being penalised for malicious behaviour, Performance: {:?}",
+            &model,
+            &perf
+        );
+        let job_performance = JobPerformance::new(
+            project_id.clone(),
+            ObjectId::with_string(&model).unwrap(),
+            perf,
+        );
+        if let Some(np) = &nodepool {
+            np.update_node_performance(&model, perf).await;
+        }
+
+        job_perf_vec.push(mongodb::bson::ser::to_document(&job_performance).unwrap());
+    }
+
     job_performances.insert_many(job_perf_vec, None).await?;
 
     Ok(())

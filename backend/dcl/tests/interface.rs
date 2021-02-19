@@ -7,7 +7,8 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 
-use messages::{InterfaceMessage, WriteLengthPrefix};
+use messages::WriteLengthPrefix;
+use models::jobs::{Job, JobConfiguration, PredictionType};
 
 mod common;
 
@@ -29,7 +30,7 @@ async fn test_interface_end() {
             .unwrap();
     });
 
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    tokio::time::sleep(Duration::from_millis(1)).await;
 
     // Create fake interface client
     let socket = SocketAddr::new(
@@ -40,13 +41,18 @@ async fn test_interface_end() {
     let mut stream = TcpStream::connect(socket.to_string()).await.unwrap();
 
     // write dataset id to interface end
-    let config = InterfaceMessage::Config {
-        id: ObjectId::with_string(common::DATASET_ID).unwrap(),
+    let config = JobConfiguration {
+        dataset_id: ObjectId::with_string(common::DATASET_ID).unwrap(),
         timeout: 10,
         column_types: Vec::new(),
+        prediction_column: "".to_string(),
+        prediction_type: PredictionType::Classification,
     };
-    stream.write(&config.as_bytes()).await.unwrap();
-    tokio::time::sleep(Duration::from_secs(1)).await;
+
+    let job = Job::new(config);
+
+    stream.write(&job.as_bytes()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(1)).await;
 
     // assert on receive end of mpsc
     if let Some(msg) = rx.recv().await {
