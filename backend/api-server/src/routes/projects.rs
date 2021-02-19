@@ -9,11 +9,12 @@ use mongodb::{
     bson::{de::from_document, doc, document::Document, ser::to_document},
     Collection,
 };
-use tokio::io::AsyncWriteExt;
-use tokio::net::TcpStream;
+use rdkafka::config::ClientConfig;
+use rdkafka::error::KafkaResult;
+use rdkafka::producer::{FutureProducer, FutureRecord};
+use rdkafka::util::Timeout;
 use tokio_stream::StreamExt;
 
-use messages::WriteLengthPrefix;
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
 use models::jobs::{Job, JobConfiguration};
@@ -28,6 +29,8 @@ use crate::{
     routes::{check_user_owns_project, payloads, response_from_json},
     State,
 };
+
+static JOB_TOPIC: &str = "jobs";
 
 /// Finds a project in the database given an identifier.
 ///
@@ -367,8 +370,8 @@ pub async fn begin_processing(
     // Insert to MongoDB first, so the interface can immediately mark as processed if needed
     insert_to_queue(&job, state.database.collection("jobs")).await?;
 
-    if forward_to_interface(&job).await.is_err() {
-        log::warn!("Failed to forward job_id={} to the interface", job.id);
+    if produce_message(&job).await.is_err() {
+        log::warn!("Failed to forward job_id={} to Kafka", job.id);
     }
 
     // Mark the project as processing
@@ -430,24 +433,32 @@ pub async fn get_predictions(
     response_from_json(doc! {"predictions": decompressed, "predict_data": predict})
 }
 
-/// Forwards a job to the interface layer.
-///
-/// Attempts to connect to the interface layer on the specified port from the configuration before
-/// sending it the job. If the interface cannot be connected to, this will return an error.
-async fn forward_to_interface(job: &Job) -> tokio::io::Result<()> {
-    // Get the environment variable for the interface listener
-    let var = env::var("INTERFACE_LISTEN").expect("INTERFACE_LISTEN must be set");
-    let port = u16::from_str(&var).expect("INTERFACE_LISTEN must be a u16");
+async fn produce_message(job: &Job) -> KafkaResult<()> {
+    // Get the environment variable for the kafka broker
+    // if not set use 9092
+    let var = env::var("BROKER_PORT").unwrap_or_else(|_| "9092".to_string());
+    let port = u16::from_str(&var).expect("BROKER_PORT must be a u16");
 
     // Build the address to send to
-    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port);
-    let mut stream = TcpStream::connect(addr).await?;
+    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port).to_string();
+    let producer: FutureProducer = ClientConfig::new()
+        .set("bootstrap.servers", &addr)
+        .set("message.timeout.ms", "5000")
+        .create()
+        .expect("Producer creation error");
 
-    log::debug!("Connected to: {}", addr);
+    let job_message = serde_json::to_string(&job.config).unwrap();
 
-    stream.write(&job.as_bytes()).await?;
+    let delivery_status = producer
+        .send(
+            FutureRecord::to(JOB_TOPIC)
+                .payload(&job_message)
+                .key(&job.id.to_string()),
+            Timeout::Never,
+        )
+        .await;
 
-    log::info!("Forwarded a job to the interface with id={}", job.id);
+    log::debug!("Message sent result: {:?}", delivery_status);
 
     Ok(())
 }
