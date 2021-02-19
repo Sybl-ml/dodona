@@ -30,7 +30,7 @@ pub fn analyse(dataset: &str) -> Analysis {
 }
 
 #[derive(Debug)]
-struct DatasetAnalysis {
+pub struct DatasetAnalysis {
     columns: HashMap<String, ColumnAnalysis>,
 }
 
@@ -72,7 +72,7 @@ impl Default for NumericalAnalysis {
 /// [("name", "categorical"),("age", "numerical")]
 /// HashMap<String, Column> <- Do this
 /// Converts dataset string to a reader and performs statistical analysis
-pub fn analyse_project(dataset: &str, column_data: Vec<(String, String)>) {
+pub fn analyse_project(dataset: &str, column_data: Vec<(String, String)>) -> DatasetAnalysis {
     let mut reader = Reader::from_reader(std::io::Cursor::new(dataset));
 
     let headers = reader
@@ -128,6 +128,7 @@ pub fn analyse_project(dataset: &str, column_data: Vec<(String, String)>) {
     });
 
     dbg!(&tracker);
+    return tracker;
 }
 
 #[cfg(test)]
@@ -147,8 +148,9 @@ Boston,United Kingdom,23432
             ("popcount".to_string(), "N".to_string()),
         ];
 
-        analyse_project(data, column_data);
+        let anaylsis_data = analyse_project(data, column_data);
         dbg!(data);
+        dbg!(anaylsis_data);
         assert_eq!(1, 2)
     }
 }
