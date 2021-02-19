@@ -29,25 +29,25 @@ pub fn analyse(dataset: &str) -> Analysis {
     Analysis { types, header }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DatasetAnalysis {
-    columns: HashMap<String, ColumnAnalysis>,
+    pub columns: HashMap<String, ColumnAnalysis>,
 }
 
-#[derive(Debug)]
-enum ColumnAnalysis {
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ColumnAnalysis {
     Categorical(CategoricalAnalysis),
     Numerical(NumericalAnalysis),
 }
 
-#[derive(Debug, Default)]
-struct CategoricalAnalysis {
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct CategoricalAnalysis {
     /// All the values in the column
-    values: HashMap<String, u64>,
+    values: HashMap<String, i64>,
 }
 
-#[derive(Debug)]
-struct NumericalAnalysis {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NumericalAnalysis {
     max: i64,
     min: i64,
     sum: i64,
@@ -65,12 +65,8 @@ impl Default for NumericalAnalysis {
     }
 }
 
-// pub fn prepare_dataset(dataset_id: &ObjectId) {}
-
 /// Basic Dataset Analysis
 ///
-/// [("name", "categorical"),("age", "numerical")]
-/// HashMap<String, Column> <- Do this
 /// Converts dataset string to a reader and performs statistical analysis
 pub fn analyse_project(dataset: &str, column_data: Vec<(String, String)>) -> DatasetAnalysis {
     let mut reader = Reader::from_reader(std::io::Cursor::new(dataset));
@@ -80,8 +76,6 @@ pub fn analyse_project(dataset: &str, column_data: Vec<(String, String)>) -> Dat
         .unwrap()
         .deserialize::<Vec<String>>(None)
         .unwrap();
-
-    println!("{:?}", headers);
 
     let mut tracker: DatasetAnalysis = DatasetAnalysis {
         columns: column_data
@@ -113,8 +107,6 @@ pub fn analyse_project(dataset: &str, column_data: Vec<(String, String)>) -> Dat
                     content.sum = content.sum + i64::from_str(elem).unwrap();
                 }
             };
-
-            println!("{:?}, {:?}", header, elem);
         }
     }
 

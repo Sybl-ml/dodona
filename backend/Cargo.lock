@@ -3119,7 +3119,6 @@ dependencies = [
  "csv",
  "fern",
  "log",
- "mongodb",
  "pbkdf2 0.5.0",
  "rand 0.8.3",
  "serde",

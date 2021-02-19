@@ -3,6 +3,7 @@
 #[macro_use]
 extern crate serde;
 
+pub mod dataset_analysis;
 pub mod dataset_details;
 pub mod datasets;
 pub mod job_performance;
