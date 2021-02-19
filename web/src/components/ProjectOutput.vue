@@ -26,7 +26,8 @@
               {{parsePredictions(data)}}
               <my-vue-table
               :fields="fields"
-              :display_data="pred_data"
+              :data="pred_data"
+              :perPage=5
               ></my-vue-table>
 
           </b-tab>
