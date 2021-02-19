@@ -172,7 +172,7 @@ pub async fn add_data(
         data.delete(&state.database).await?;
     }
 
-    let data = crypto::clean(&payload.content);
+    let data = crypto::clean(&payload.content.trim());
     let analysis = utils::analysis::analyse(&data);
     let (train, predict) = utils::infer_train_and_predict(&data);
     let column_types = analysis.types;
@@ -356,6 +356,7 @@ pub async fn begin_processing(
     let config = JobConfiguration {
         dataset_id: dataset.id.clone(),
         timeout: payload.timeout as i32,
+        cluster_size: payload.cluster_size as i32,
         column_types,
         prediction_column: payload.prediction_column.clone(),
         prediction_type: payload.prediction_type,

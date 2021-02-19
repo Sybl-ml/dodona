@@ -4,7 +4,7 @@ use chrono::Utc;
 use mongodb::bson::{self, oid::ObjectId};
 
 /// Different types of problem Sybl can accept
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum PredictionType {
     /// Predicting a class of data
@@ -20,6 +20,8 @@ pub struct JobConfiguration {
     pub dataset_id: ObjectId,
     /// The timeout required for clients to process within
     pub timeout: i32,
+    /// The cluster size for a job
+    pub cluster_size: i32,
     /// The types of each column in the dataset
     pub column_types: Vec<String>,
     /// The column to predict during evaluation

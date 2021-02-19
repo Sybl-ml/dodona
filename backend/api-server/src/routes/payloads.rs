@@ -78,6 +78,8 @@ pub struct PatchProjectOptions {
 pub struct ProcessingOptions {
     /// The timeout for the job
     pub timeout: u32,
+    /// The cluster_size for the job
+    pub cluster_size: u32,
     /// The type of prediction category this is
     pub prediction_type: PredictionType,
     /// The column to use for prediction
@@ -128,8 +130,6 @@ pub struct UnlockModelOptions {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthenticateModelOptions {
-    /// The identifier of the model to authenticate
-    pub id: String,
     /// The user's access token
     pub token: String,
 }

@@ -18,13 +18,14 @@ use tokio::sync::{mpsc::Receiver, Notify, RwLock};
 use crate::node_end::NodePool;
 use crate::DatasetPair;
 use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
+use models::jobs::PredictionType;
 use models::predictions::Prediction;
 use models::projects::Status;
 
 use utils::anon::{anonymise_dataset, deanonymise_dataset, infer_dataset_columns};
 use utils::compress::compress_bytes;
 use utils::generate_ids;
-use utils::Columns;
+use utils::{Column, Columns};
 
 pub mod finance;
 pub mod ml;
@@ -124,14 +125,11 @@ impl ClusterControl {
     }
 }
 
-const CLUSTER_SIZE: usize = 1;
 const VALIDATION_SIZE: usize = 10;
 const TRAINING_BAG_SIZE: usize = 10;
 
 // inclusion probability used for Bernoulli sampling
 const INCLUSION_PROBABILITY: f64 = 0.95;
-
-// TODO: Find a better way of identifying models
 
 /// ModelID type
 pub type ModelID = String;
@@ -156,19 +154,38 @@ pub async fn run(
 
         let data = msg
             .train
+            .trim()
             .split('\n')
             .filter(|_| thread_rng().gen::<f64>() < INCLUSION_PROBABILITY)
-            .chain(msg.predict.split('\n').skip(1))
+            .chain(msg.predict.trim().split('\n').skip(1))
             .collect::<Vec<_>>()
             .join("\n");
 
-        let columns = infer_dataset_columns(&data).unwrap();
-
-        let mut train = msg.train.split('\n').collect::<Vec<_>>();
+        let mut train = msg.train.trim().split('\n').collect::<Vec<_>>();
         let headers = train.remove(0);
-        let prediction_column = headers.split(',').last().unwrap();
         let mut validation = Vec::new();
-        let test = msg.predict.split('\n').skip(1).collect::<Vec<_>>();
+        let test = msg.predict.trim().split('\n').skip(1).collect::<Vec<_>>();
+
+        let (prediction_column, prediction_type) = match config {
+            ClientMessage::JobConfig {
+                ref prediction_column,
+                prediction_type,
+                ..
+            } => (prediction_column.to_string(), prediction_type),
+            _ => (
+                headers.split(',').last().unwrap().to_string(),
+                PredictionType::Classification,
+            ),
+        };
+
+        let mut columns = infer_dataset_columns(&data).unwrap();
+
+        if prediction_type == PredictionType::Classification {
+            columns.insert(
+                prediction_column.clone(),
+                Column::categorical(&prediction_column, &data),
+            );
+        }
 
         log::info!("{:?}", &train);
         log::info!("{}", &train.len());
@@ -189,7 +206,7 @@ pub async fn run(
         let mut prediction_rids: HashMap<(ModelID, String), usize> = HashMap::new();
 
         loop {
-            if let Some(cluster) = nodepool.build_cluster(CLUSTER_SIZE, config.clone()).await {
+            if let Some(cluster) = nodepool.build_cluster(config.anonymise(&columns)).await {
                 log::info!("Created Cluster");
 
                 for key in cluster.keys() {
@@ -245,23 +262,38 @@ pub async fn run(
                         &anon_valid_ans
                     );
 
-                    let mut anon_valid_ans: Vec<_> = anon_valid_ans.split('\n').collect();
-                    let mut anon_valid: Vec<&str> = Vec::new();
-                    anon_valid_ans.remove(0);
+                    let mut anon_valid_ans: Vec<_> = anon_valid_ans.trim().split("\n").collect();
+                    let mut anon_valid: Vec<String> = Vec::new();
 
+                    anon_valid_ans.remove(0);
+                    let headers = format!("record_id,{}", headers);
                     // Remove validation answers and record them for evaluation
                     for (record, id) in anon_valid_ans.iter().zip(valid_rids.iter()) {
-                        let values: Vec<_> = record.rsplitn(2, ',').collect();
-                        let ans = columns
-                            .get(prediction_column)
+                        let values: Vec<_> = record.split(',').zip(headers.split(',')).collect();
+                        let anon_ans = values
+                            .iter()
+                            .filter_map(|(v, h)| (*h == prediction_column).then(|| *v))
+                            .next()
                             .unwrap()
-                            .deanonymise(values[0].to_owned())
+                            .to_string();
+                        let ans = columns
+                            .get(&prediction_column)
+                            .unwrap()
+                            .deanonymise(anon_ans)
                             .unwrap();
+
                         validation_ans.insert((key.clone(), id.to_owned()), ans.to_owned());
-                        anon_valid.push(values[1]);
+                        anon_valid.push(
+                            values
+                                .iter()
+                                .map(|(v, h)| if *h != prediction_column { *v } else { "" })
+                                .collect::<Vec<_>>()
+                                .join(","),
+                        );
                     }
 
-                    let mut anon_test = anon_test.split('\n').collect::<Vec<_>>();
+                    let mut anon_valid: Vec<&str> = anon_valid.iter().map(|s| s.as_ref()).collect();
+                    let mut anon_test = anon_test.trim().split("\n").collect::<Vec<_>>();
 
                     // Get the new anonymised headers for test set
                     let new_headers = anon_test.remove(0);
@@ -342,12 +374,12 @@ async fn run_cluster(
     cc.notify.notified().await;
     log::info!("All Jobs Complete!");
 
-    let (weights, predictions) = ml::weight_predictions(&wbm.get_predictions(), &wbm.get_errors());
+    let (weights, predictions) =
+        ml::weight_predictions(&wbm.get_predictions(), &wbm.get_errors(), &info);
 
     // TODO: reimburse clients based on weights
     log::info!("Model weights: {:?}", weights);
 
-    // TODO: store percentage difference between model weight and number of models for job
     let database_clone = Arc::clone(&database);
     ml::model_performance(
         database_clone,
@@ -371,7 +403,6 @@ async fn run_cluster(
     )
     .await?;
 
-    // TODO: reintegrate predictions with user-supplied test dataset (?)
     let csv: String = predictions.join("\n");
 
     write_predictions(database.clone(), info.project_id, csv.as_bytes())
@@ -422,10 +453,11 @@ pub async fn dcl_protcol(
             }
         };
 
-    let anonymised_predictions = match prediction_message {
+    let raw_anonymised_predictions = match prediction_message {
         ClientMessage::Predictions(s) => s,
         _ => unreachable!(),
     };
+    let anonymised_predictions = raw_anonymised_predictions.trim();
 
     log::info!("Predictions: {:?}", &anonymised_predictions);
 
@@ -442,7 +474,6 @@ pub async fn dcl_protcol(
         write_back.write_error(model_id.clone(), None);
     }
 
-    // TODO: Give additional feedback to the model
     increment_run_count(database, &model_id).await?;
 
     nodepool.end(&model_id).await?;

@@ -44,6 +44,7 @@ async fn test_interface_end() {
     let config = JobConfiguration {
         dataset_id: ObjectId::with_string(common::DATASET_ID).unwrap(),
         timeout: 10,
+        cluster_size: 1,
         column_types: Vec::new(),
         prediction_column: "".to_string(),
         prediction_type: PredictionType::Classification,
