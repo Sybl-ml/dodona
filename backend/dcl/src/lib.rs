@@ -42,9 +42,9 @@ pub struct DatasetPair {
 pub async fn run() -> Result<()> {
     let conn_str = env::var("CONN_STR").expect("CONN_STR must be set");
     let app_name = env::var("APP_NAME").expect("APP_NAME must be set");
-    let interface_socket =
-        u16::from_str(&env::var("INTERFACE_SOCKET").expect("INTERFACE_SOCKET must be set"))
-            .unwrap();
+    let broker_socket =
+        u16::from_str(&env::var("BROKER_PORT").unwrap_or_else(|_| "9092".to_string()))
+            .expect("BROKER_PORT must be a u16");
     let node_socket =
         u16::from_str(&env::var("NODE_SOCKET").expect("NODE_SOCKET must be set")).unwrap();
 
@@ -62,7 +62,7 @@ pub async fn run() -> Result<()> {
     let (tx, rx) = mpsc::channel(20);
 
     tokio::spawn(async move {
-        interface_end::run(interface_socket, db_conn_interface, tx)
+        interface_end::run(broker_socket, db_conn_interface, tx)
             .await
             .unwrap();
     });
