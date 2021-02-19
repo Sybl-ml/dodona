@@ -214,6 +214,8 @@ export default {
   },
   methods: {
     async start() {
+      this.timeout = parseInt(this.timeout)
+      this.cluster_size = parseInt(this.cluster_size)
       if (this.timeout <= 0) {
         this.timeout = 1;
       }
