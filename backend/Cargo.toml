@@ -4,7 +4,6 @@ members = [
 	"api-server",
 	"config",
 	"dcl",
-	"interface",
 	"models",
 	"utils",
 	"messages"
