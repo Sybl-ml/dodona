@@ -130,8 +130,6 @@ pub struct UnlockModelOptions {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthenticateModelOptions {
-    /// The identifier of the model to authenticate
-    pub id: String,
     /// The user's access token
     pub token: String,
 }

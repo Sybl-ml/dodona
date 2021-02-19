@@ -115,6 +115,7 @@ pub fn evaluate_model(
     for values in predictions
         .trim()
         .split('\n')
+        .skip(1)
         .map(|s| s.split(',').collect::<Vec<_>>())
     {
         let (record_id, prediction) = (values[0].to_owned(), values[1].to_owned());
@@ -146,6 +147,7 @@ pub fn evaluate_model(
     let predicted: HashSet<&str> = predictions
         .trim()
         .split('\n')
+        .skip(1)
         .map(|s| s.split(',').next().unwrap())
         .collect();
     if predicted
@@ -198,6 +200,7 @@ pub async fn model_performance(
 
         job_perf_vec.push(mongodb::bson::ser::to_document(&job_performance).unwrap());
     }
+    log::info!("Job Performances: {:?}", &job_perf_vec);
     job_performances.insert_many(job_perf_vec, None).await?;
 
     Ok(())
@@ -235,7 +238,9 @@ pub async fn penalise(
         job_perf_vec.push(mongodb::bson::ser::to_document(&job_performance).unwrap());
     }
 
-    job_performances.insert_many(job_perf_vec, None).await?;
+    if !job_perf_vec.is_empty() {
+        job_performances.insert_many(job_perf_vec, None).await?;
+    }
 
     Ok(())
 }

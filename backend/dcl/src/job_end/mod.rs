@@ -153,25 +153,33 @@ pub async fn run(
 
         let data = msg
             .train
+            .trim()
+            .trim()
             .split('\n')
             .filter(|_| thread_rng().gen::<f64>() < INCLUSION_PROBABILITY)
-            .chain(msg.predict.split('\n').skip(1))
+            .chain(msg.predict.trim().split('\n').skip(1))
             .collect::<Vec<_>>()
             .join("\n");
 
         let columns = infer_dataset_columns(&data).unwrap();
 
-        let mut train = msg.train.split('\n').collect::<Vec<_>>();
+        let mut train = msg.train.trim().trim().split('\n').collect::<Vec<_>>();
         let headers = train.remove(0);
         let mut validation = Vec::new();
-        let test = msg.predict.split('\n').skip(1).collect::<Vec<_>>();
+        let test = msg
+            .predict
+            .trim()
+            .trim()
+            .split('\n')
+            .skip(1)
+            .collect::<Vec<_>>();
 
         let prediction_column = match config {
             ClientMessage::JobConfig {
                 ref prediction_column,
                 ..
             } => prediction_column,
-            _ => headers.split(',').last().unwrap(),
+            _ => headers.trim().split(',').last().unwrap(),
         };
 
         log::info!("{:?}", &train);
@@ -249,14 +257,18 @@ pub async fn run(
                         &anon_valid_ans
                     );
 
-                    let mut anon_valid_ans: Vec<_> = anon_valid_ans.split("\n").collect();
+                    let mut anon_valid_ans: Vec<_> = anon_valid_ans.trim().split("\n").collect();
                     let mut anon_valid: Vec<String> = Vec::new();
 
                     anon_valid_ans.remove(0);
-
+                    let headers = format!("record_id,{}", headers);
                     // Remove validation answers and record them for evaluation
                     for (record, id) in anon_valid_ans.iter().zip(valid_rids.iter()) {
-                        let values: Vec<_> = record.split(',').zip(headers.split(',')).collect();
+                        let values: Vec<_> = record
+                            .trim()
+                            .split(',')
+                            .zip(headers.trim().split(','))
+                            .collect();
                         let anon_ans = values
                             .iter()
                             .filter_map(|(v, h)| (*h == prediction_column).then(|| *v))
@@ -268,6 +280,7 @@ pub async fn run(
                             .unwrap()
                             .deanonymise(anon_ans)
                             .unwrap();
+
                         validation_ans.insert((key.clone(), id.to_owned()), ans.to_owned());
                         anon_valid.push(
                             values
@@ -279,7 +292,7 @@ pub async fn run(
                     }
 
                     let mut anon_valid: Vec<&str> = anon_valid.iter().map(|s| s.as_ref()).collect();
-                    let mut anon_test = anon_test.split("\n").collect::<Vec<_>>();
+                    let mut anon_test = anon_test.trim().split("\n").collect::<Vec<_>>();
 
                     // Get the new anonymised headers for test set
                     let new_headers = anon_test.remove(0);
@@ -439,10 +452,11 @@ pub async fn dcl_protcol(
             }
         };
 
-    let anonymised_predictions = match prediction_message {
+    let anonymised_preds = match prediction_message {
         ClientMessage::Predictions(s) => s,
         _ => unreachable!(),
     };
+    let anonymised_predictions = anonymised_preds.trim();
 
     log::info!("Predictions: {:?}", &anonymised_predictions);
 
