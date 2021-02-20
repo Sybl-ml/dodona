@@ -1,15 +1,17 @@
 <template>
   <div class="ui container">
-    <vuetable ref="vuetable"
-			:api-mode="false"
+    <vuetable
+      ref="vuetable"
+      :api-mode="false"
       :css="css"
-			:fields="fields"
+      :fields="fields"
       :per-page="perPage"
-			:data-manager="dataManager"
+      :data-manager="dataManager"
       pagination-path="pagination"
-	    @vuetable:pagination-data="onPaginationData"
+      @vuetable:pagination-data="onPaginationData"
     ></vuetable>
-    <vuetable-pagination ref="pagination"
+    <vuetable-pagination
+      ref="pagination"
       :css="css.pagination"
       @vuetable-pagination:change-page="onChangePage"
     ></vuetable-pagination>
@@ -19,26 +21,25 @@
 <script>
 import Vuetable from "vuetable-2/src/components/Vuetable";
 import VuetablePagination from "vuetable-2/src/components/VuetablePagination";
-import VuetablePaginationInfo from 'vuetable-2/src/components/VuetablePaginationInfo';
-import BootstrapStyle from './bootstrap-css.js'
-import _ from "lodash";
+import VuetablePaginationInfo from "vuetable-2/src/components/VuetablePaginationInfo";
+import BootstrapStyle from "./bootstrap-css.js";
 
 export default {
   name: "MyVuetable",
   components: {
     Vuetable,
     VuetablePagination,
-    VuetablePaginationInfo
+    VuetablePaginationInfo,
   },
   data() {
     return {
       css: BootstrapStyle,
-    }
+    };
   },
   props: {
     data: Array,
     fields: Array,
-    perPage: Number
+    perPage: Number,
   },
 
   methods: {
@@ -67,16 +68,16 @@ export default {
         local.length,
         this.perPage
       );
-      console.log('pagination:', pagination)
+      console.log("pagination:", pagination);
       let from = pagination.from - 1;
       let to = from + this.perPage;
 
       return {
         pagination: pagination,
-        data: _.slice(local, from, to)
+        data: _.slice(local, from, to),
       };
     },
-  }
+  },
 };
 </script>
 <style>
