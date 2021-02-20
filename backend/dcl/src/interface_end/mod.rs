@@ -55,19 +55,11 @@ pub async fn run(
 
     while let Some(message) = message_stream.next().await {
         // Interpret the content as a string
-        let payload_view = match message.payload_view::<str>() {
-            Some(view) => view,
+        let payload = match message.payload_view::<[u8]>() {
+            // This cannot fail, `rdkafka` always returns `Ok(bytes)`
+            Some(view) => view.unwrap(),
             None => {
                 log::warn!("Received an empty message from Kafka");
-                continue;
-            }
-        };
-
-        // Get the actual content inside the message
-        let payload = match payload_view {
-            Ok(p) => p,
-            Err(e) => {
-                log::warn!("Error while deserializing payload: {:?}", e);
                 continue;
             }
         };
@@ -80,7 +72,7 @@ pub async fn run(
 
         let database = Arc::clone(&db_conn);
         let tx = tx.clone();
-        let job_config = serde_json::from_str(&payload).unwrap();
+        let job_config = serde_json::from_slice(&payload).unwrap();
 
         tokio::spawn(async move {
             process_job(database, tx, job_config).await.unwrap();
