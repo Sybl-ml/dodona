@@ -134,6 +134,8 @@ pub struct NodePool {
     pub nodes: RwLock<HashMap<String, Node>>,
     /// [`HashMap`] of [`NodeInfo`] objects with unique IDs
     pub info: RwLock<HashMap<String, NodeInfo>>,
+    /// Value to keep track of the number of active nodes in nodepool
+    pub active: RwLock<usize>,
 }
 
 impl NodePool {
@@ -152,6 +154,7 @@ impl NodePool {
 
         let mut node_vec = self.nodes.write().await;
         let mut info_vec = self.info.write().await;
+        let mut active = self.active.write().await;
 
         log::info!("Adding node to the pool with id: {}", id);
 
@@ -160,6 +163,7 @@ impl NodePool {
             id.clone(),
             NodeInfo::from_database(database, &id).await.unwrap(),
         );
+        *active += 1;
     }
 
     /// Gets [`TcpStream`] reference and its [`ObjectId`]
@@ -203,6 +207,11 @@ impl NodePool {
         let mut accepted_job: Vec<(String, f64)> = Vec::new();
         let mut better_nodes: Vec<(String, f64)> = Vec::new();
         let mut info_write = self.info.write().await;
+        let mut active = self.active.write().await;
+
+        if *active < size {
+            return None;
+        } 
 
         // Ask all alive and free nodes if they want the job
         // If they do, their ID is added to accepted_job
@@ -252,6 +261,7 @@ impl NodePool {
             &cluster,
             &cluster_performance
         );
+        *active-=cluster.len();
 
         // output cluster
         match cluster.len() {
@@ -321,7 +331,9 @@ impl NodePool {
     /// and will set its `using` flag to be false, signifying the end of its use.
     pub async fn end(&self, key: &str) -> Result<()> {
         let mut info_write = self.info.write().await;
+        let mut active = self.active.write().await;
         info_write.get_mut(key).unwrap().using = false;
+        *active+=1;
 
         Ok(())
     }
@@ -332,7 +344,15 @@ impl NodePool {
     /// currently is.
     pub async fn update_node_alive(&self, id: &str, status: bool) {
         let mut info_write = self.info.write().await;
+        let mut active = self.active.write().await;
         let node_info = info_write.get_mut(id).unwrap();
+
+        if node_info.alive == false && status == true {
+            *active+=1
+        }
+        else if node_info.alive == true && status == false {
+            *active-=1
+        }
 
         node_info.alive = status;
     }
