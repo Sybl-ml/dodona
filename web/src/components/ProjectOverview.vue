@@ -153,7 +153,7 @@
             />
           </b-form-group>
           <b-row
-            v-if="!this.analysis.columns"
+            v-if="!analysis_loaded"
             class="justify-content-center text-center"
           >
             <b-spinner />
@@ -195,7 +195,6 @@
                 ref="analysis_chart"
               />
             </div>
-            <!-- {{ this.analysis.columns }} -->
           </div>
         </b-card>
       </b-col>
@@ -256,6 +255,7 @@ export default {
     dataTypes: Object,
     status: String,
     analysis: Object,
+    analysis_loaded: Boolean,
   },
   computed: {
     getDatasetDate() {
@@ -291,7 +291,7 @@ export default {
       return this.predColumn == null || this.problemType == null;
     },
     getAnalysisOptions() {
-      if (this.analysis.columns) {
+      if (this.analysis_loaded) {
         let keys = Object.keys(this.analysis.columns);
         this.analysis_selected = keys[0];
         return keys;

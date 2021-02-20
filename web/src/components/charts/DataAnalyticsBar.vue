@@ -11,30 +11,30 @@ export default {
     return {
       options: {
         responsive: true,
-        //   maintainAspectRatio: false,
-        //   scales: {
-        //     xAxes: [
-        //       {
-        //         display: true,
-        //         scaleLabel: {
-        //           display: true,
-        //           labelString: "Attribute Values",
-        //         },
-        //       },
-        //     ],
-        //     yAxes: [
-        //       {
-        //         display: true,
-        //         scaleLabel: {
-        //           display: true,
-        //           labelString: "Count",
-        //         },
-        //         ticks: {
-        //           stepSize: 1,
-        //         },
-        //       },
-        //     ],
-        //   },
+        maintainAspectRatio: false,
+        scales: {
+          xAxes: [
+            {
+              display: true,
+              scaleLabel: {
+                display: true,
+                labelString: "Attribute Values",
+              },
+            },
+          ],
+          yAxes: [
+            {
+              display: true,
+              scaleLabel: {
+                display: true,
+                labelString: "Count",
+              },
+              ticks: {
+                stepSize: 1,
+              },
+            },
+          ],
+        },
       },
     };
   },

@@ -16,6 +16,7 @@
             :dataDate="datasetDate"
             :dataTypes="dataTypes"
             :analysis="analysis"
+            :analysis_loaded="analysis_loaded"
             :status="status"
             @update:project="updateProject"
             v-on:input-tab="viewInput"
@@ -85,6 +86,7 @@ export default {
       loading: false,
 
       analysis: {},
+      analysis_loaded: false,
 
       results: null,
       predict_data: null,
@@ -133,6 +135,7 @@ export default {
       }
       if (project_analysis) {
         this.analysis = project_analysis;
+        this.analysis_loaded = true;
       }
     },
     async fetchData() {
@@ -173,6 +176,7 @@ export default {
       this.training_data = null;
       this.loading = false;
       this.results_loading = false;
+      this.analysis_loaded = false;
     },
     viewInput() {
       this.$refs.inputTab.activate();
