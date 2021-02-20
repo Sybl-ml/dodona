@@ -232,7 +232,7 @@ impl NodePool {
             }
         }
 
-        // Checks if number of nodes that accepted the job is less than 
+        // Checks if number of nodes that accepted the job is less than
         // the size of the cluster required.
         if size > accepted_job.len() {
             return None;
