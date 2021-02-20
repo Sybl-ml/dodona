@@ -10,15 +10,14 @@
 extern crate serde;
 
 use anyhow::Result;
-use mongodb::options::ClientOptions;
-use mongodb::bson::oid::ObjectId;
-use mongodb::Client;
 use messages::ClientMessage;
-use tokio::sync::RwLock;
+use mongodb::bson::oid::ObjectId;
+use mongodb::options::ClientOptions;
+use mongodb::Client;
+use std::collections::VecDeque;
 use std::env;
 use std::str::FromStr;
-use std::sync::Arc;
-use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
 
 pub mod health;
 pub mod interface_end;
@@ -26,7 +25,7 @@ pub mod job_end;
 pub mod node_end;
 pub mod protocol;
 
-type JobQueue = Arc<RwLock<VecDeque<(ObjectId, DatasetPair, ClientMessage)>>>;
+type JobQueue = Arc<Mutex<VecDeque<(ObjectId, DatasetPair, ClientMessage)>>>;
 
 /// A pair of datasets, one for training and one for predicting.
 #[derive(Debug)]
@@ -64,7 +63,7 @@ pub async fn run() -> Result<()> {
     );
     let db_conn_interface = Arc::clone(&client);
     let nodepool = Arc::new(node_end::NodePool::new());
-    let job_queue = Arc::new(RwLock::new(VecDeque::new()));
+    let job_queue = Arc::new(Mutex::new(VecDeque::new()));
 
     let jq_clone = Arc::clone(&job_queue);
     tokio::spawn(async move {
@@ -84,7 +83,9 @@ pub async fn run() -> Result<()> {
     let nodepool_clone = Arc::clone(&nodepool);
     let job_client = Arc::clone(&client);
     tokio::spawn(async move {
-        job_end::run(nodepool_clone, job_client, jq_clone).await.unwrap();
+        job_end::run(nodepool_clone, job_client, jq_clone)
+            .await
+            .unwrap();
     });
 
     let health_client = Arc::clone(&client);

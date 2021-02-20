@@ -4,7 +4,7 @@
 //! a mpsc channel which allows it to send data to the job end.
 
 use std::net::{Ipv4Addr, SocketAddrV4};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use mongodb::bson::{doc, oid::ObjectId};
@@ -14,7 +14,6 @@ use rdkafka::consumer::{stream_consumer::StreamConsumer, Consumer, DefaultConsum
 use rdkafka::Message;
 use std::collections::VecDeque;
 use tokio_stream::StreamExt;
-use tokio::sync::RwLock;
 
 use messages::ClientMessage;
 use models::datasets::Dataset;
@@ -23,7 +22,7 @@ use utils::compress::decompress_data;
 
 use crate::DatasetPair;
 
-type JobQueue = Arc<RwLock<VecDeque<(ObjectId, DatasetPair, ClientMessage)>>>;
+type JobQueue = Arc<Mutex<VecDeque<(ObjectId, DatasetPair, ClientMessage)>>>;
 
 /// Starts up interface server
 ///
@@ -31,11 +30,7 @@ type JobQueue = Arc<RwLock<VecDeque<(ObjectId, DatasetPair, ClientMessage)>>>;
 /// read in data from an interface. Messages read over this are taken and the
 /// corresponding dataset is found and decompressed before being passed to the
 /// job end to be sent to a compute node.
-pub async fn run(
-    port: u16,
-    db_conn: Arc<Database>,
-    job_queue: JobQueue,
-) -> Result<()> {
+pub async fn run(port: u16, db_conn: Arc<Database>, job_queue: JobQueue) -> Result<()> {
     let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port).to_string();
     log::info!("Broker Socket: {:?}", addr);
 
@@ -132,7 +127,7 @@ async fn process_job(
     log::debug!("Decompressed {} bytes of training data", train.len());
     log::debug!("Decompressed {} bytes of prediction data", predict.len());
 
-    let mut job_queue_write = job_queue.write().await;
+    let mut job_queue_write = job_queue.lock().unwrap();
 
     job_queue_write.push_back((
         dataset.project_id,
