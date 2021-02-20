@@ -2,6 +2,7 @@
   <div class="ui container">
     <vuetable ref="vuetable"
 			:api-mode="false"
+      :css="css"
 			:fields="fields"
       :per-page="perPage"
 			:data-manager="dataManager"
@@ -9,6 +10,7 @@
 	    @vuetable:pagination-data="onPaginationData"
     ></vuetable>
     <vuetable-pagination ref="pagination"
+      :css="css.pagination"
       @vuetable-pagination:change-page="onChangePage"
     ></vuetable-pagination>
   </div>
@@ -18,6 +20,7 @@
 import Vuetable from "vuetable-2/src/components/Vuetable";
 import VuetablePagination from "vuetable-2/src/components/VuetablePagination";
 import VuetablePaginationInfo from 'vuetable-2/src/components/VuetablePaginationInfo';
+import BootstrapStyle from './bootstrap-css.js'
 import _ from "lodash";
 
 export default {
@@ -26,6 +29,11 @@ export default {
     Vuetable,
     VuetablePagination,
     VuetablePaginationInfo
+  },
+  data() {
+    return {
+      css: BootstrapStyle,
+    }
   },
   props: {
     data: Array,
@@ -71,3 +79,15 @@ export default {
   }
 };
 </script>
+<style>
+.pagination {
+  margin-top: 0;
+}
+.vuetable-pagination-info {
+  margin-top: 8px !important;
+}
+span.sort-icon {
+  float: right;
+  color: #ff9100;
+}
+</style>
