@@ -48,18 +48,18 @@ pub struct CategoricalAnalysis {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NumericalAnalysis {
-    max: i64,
-    min: i64,
-    sum: i64,
+    max: f64,
+    min: f64,
+    sum: f64,
     avg: f64,
 }
 
 impl Default for NumericalAnalysis {
     fn default() -> Self {
         Self {
-            max: i64::MIN,
-            min: i64::MAX,
-            sum: 0,
+            max: f64::MIN,
+            min: f64::MAX,
+            sum: 0.0,
             avg: 0.0,
         }
     }
@@ -102,9 +102,9 @@ pub fn analyse_project(dataset: &str, column_data: Vec<(String, String)>) -> Dat
                     *content.values.entry(elem.to_string()).or_insert(0) += 1;
                 }
                 ColumnAnalysis::Numerical(content) => {
-                    content.min = content.min.min(i64::from_str(elem).unwrap());
-                    content.max = content.max.max(i64::from_str(elem).unwrap());
-                    content.sum = content.sum + i64::from_str(elem).unwrap();
+                    content.min = content.min.min(f64::from_str(elem).unwrap());
+                    content.max = content.max.max(f64::from_str(elem).unwrap());
+                    content.sum = content.sum + f64::from_str(elem).unwrap();
                 }
             };
         }

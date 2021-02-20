@@ -1,7 +1,7 @@
 <template>
   <b-container fluid>
     <b-row>
-      <b-col lg="8" v-if="ready">
+      <b-col lg="8" sm="12" v-if="ready">
         <h4>Description:</h4>
         <p>{{ description }}</p>
         <h4>Linked Dataset:</h4>
@@ -114,7 +114,7 @@
         </p>
       </b-col>
 
-      <b-col lg="8" v-else>
+      <b-col lg="8" sm="12" v-else>
         <h4>Description:</h4>
         <p>{{ description }}</p>
         <h5>To continue you must provide a dataset</h5>
@@ -125,6 +125,75 @@
           v-model="file"
         />
         <b-button variant="secondary" @click="addData">Upload</b-button>
+      </b-col>
+      <b-col lg="4" sm="12">
+        <b-card
+          border-variant="primary"
+          header-bg-variant="primary"
+          header-text-variant="white"
+          class="h-100 shadow"
+        >
+          <template #header>
+            <h4 class="mb-0">Analysis</h4>
+          </template>
+
+          <b-form-group
+            label="Select a Column:"
+            label-for="dropdown-analysis-select"
+          >
+            <b-form-select
+              id="dropdown-analysis-select"
+              size="sm"
+              :options="getAnalysisOptions"
+              v-model="analysis_selected"
+              v-on:change="update_analysis"
+            />
+          </b-form-group>
+          <b-row
+            v-if="!this.analysis.columns"
+            class="justify-content-center text-center"
+          >
+            <b-spinner />
+          </b-row>
+          <div v-else>
+            <div v-if="this.analysis.columns[this.analysis_selected].Numerical">
+              <p>
+                MAX -
+                {{
+                  this.analysis.columns[this.analysis_selected].Numerical.max
+                }}
+              </p>
+              <p>
+                MIN -
+                {{
+                  this.analysis.columns[this.analysis_selected].Numerical.min
+                }}
+              </p>
+              <p>
+                SUM -
+                {{
+                  this.analysis.columns[this.analysis_selected].Numerical.sum
+                }}
+              </p>
+              <p>
+                AVG -
+                {{
+                  this.analysis.columns[this.analysis_selected].Numerical.avg
+                }}
+              </p>
+            </div>
+            <div v-else>
+              <data-analytics-bar
+                :chart-data="
+                  this.analysis.columns[this.analysis_selected].Categorical
+                    .values
+                "
+                :name="this.analysis_selected"
+                ref="analysis_chart"
+              />
+            </div>
+          </div>
+        </b-card>
       </b-col>
     </b-row>
   </b-container>
@@ -142,8 +211,12 @@
 </style>
 
 <script>
+import DataAnalyticsBar from "@/components/charts/DataAnalyticsBar";
 export default {
   name: "ProjectOverview",
+  components: {
+    DataAnalyticsBar,
+  },
   data() {
     return {
       timeout: 10,
@@ -152,6 +225,7 @@ export default {
       file: null,
       problemType: null,
       predColumn: null,
+      analysis_selected: null,
 
       problemTypeOptions: [
         {
@@ -177,6 +251,7 @@ export default {
     dataHead: Object,
     dataTypes: Object,
     ready: Boolean,
+    analysis: Object,
   },
   computed: {
     getDatasetDate() {
@@ -210,6 +285,14 @@ export default {
     },
     startDisabled() {
       return this.predColumn == null || this.problemType == null;
+    },
+    getAnalysisOptions() {
+      if (this.analysis.columns) {
+        let keys = Object.keys(this.analysis.columns);
+        this.analysis_selected = keys[0];
+        return keys;
+      }
+      return [];
     },
   },
   methods: {
@@ -266,6 +349,12 @@ export default {
       );
 
       // On Success should update dashboard using emitters
+    },
+    update_analysis() {
+      if (this.analysis.columns[this.analysis_selected].Categorical)
+        this.$refs.analysis_chart.renderNewData(
+          this.analysis.columns[this.analysis_selected].Categorical.values
+        );
     },
   },
 };
