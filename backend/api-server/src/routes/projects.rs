@@ -41,6 +41,7 @@ pub async fn get_project(
 ) -> ServerResponse {
     let projects = state.database.collection("projects");
     let details = state.database.collection("dataset_details");
+    let analysis = state.database.collection("dataset_analysis");
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
@@ -52,7 +53,10 @@ pub async fn get_project(
 
     // get that project from the projects collection
     let filter = doc! { "project_id": &object_id };
-    let details_doc = details.find_one(filter, None).await?;
+    let details_doc = details.find_one(filter.clone(), None).await?;
+
+    // get that project from the projects collection
+    let analysis_doc = analysis.find_one(filter, None).await?;
 
     // Begin by adding the project as we know we will respond with that
     let mut response = doc! { "project": doc };
@@ -60,6 +64,11 @@ pub async fn get_project(
     if let Some(details_doc) = details_doc {
         // Insert the details as well
         response.insert("details", details_doc);
+    }
+
+    if let Some(analysis_doc) = analysis_doc {
+        // Insert the details as well
+        response.insert("analysis", analysis_doc);
     }
 
     response_from_json(response)

@@ -68,49 +68,52 @@
     </b-row>
     <b-row class="justify-content-center">
       <b-col xs="12" lg="7">
-      <b-collapse
-        :id="`collapse-${i}`"
-        class="mb-4 nodeExpansion"
-        @shown="renderChart(i)"
-      >
-        <b-card class="shadow" v-if="data.locked == true">
-          <b-row class="justify-content-center text-center">
-            <b-col lg="4" md="8" sm="10" xs="12">
-              <br />
-              <h1>
-                <b-icon-lock-fill style="color: #fbb000"></b-icon-lock-fill>
-              </h1>
-              <b-card-title>Unlock Model</b-card-title>
-              <b-card-text>Please provide your password to confirm</b-card-text>
-              <b-form class="mt-5 mb-3" @submit="onSubmit">
-                <b-form-input
-                  type="password"
-                  id="name"
-                  class="mb-3"
-                  v-model="password"
-                ></b-form-input>
-                <b-button type="submit" variant="primary" class="mb-3">
-                  Unlock
-                </b-button>
-              </b-form>
-            </b-col>
-          </b-row>
-        </b-card>
-        <b-card class="shadow" v-else-if="data.status == 'NotStarted'">
-          <b-card-title>Ready to Start</b-card-title>
-          <b-card-text>Run your model script to begin!</b-card-text>
-        </b-card>
-        <b-card 
-          class="shadow-sm p-3 mb-5 bg-white rounded"
-          style="border-width: 0.15rem" 
-          v-else>
+        <b-collapse
+          :id="`collapse-${i}`"
+          class="mb-4 nodeExpansion"
+          @shown="renderChart(i)"
+        >
+          <b-card class="shadow" v-if="data.locked == true">
+            <b-row class="justify-content-center text-center">
+              <b-col lg="4" md="8" sm="10" xs="12">
+                <br />
+                <h1>
+                  <b-icon-lock-fill style="color: #fbb000"></b-icon-lock-fill>
+                </h1>
+                <b-card-title>Unlock Model</b-card-title>
+                <b-card-text
+                  >Please provide your password to confirm</b-card-text
+                >
+                <b-form class="mt-5 mb-3" @submit="onSubmit">
+                  <b-form-input
+                    type="password"
+                    id="name"
+                    class="mb-3"
+                    v-model="password"
+                  ></b-form-input>
+                  <b-button type="submit" variant="primary" class="mb-3">
+                    Unlock
+                  </b-button>
+                </b-form>
+              </b-col>
+            </b-row>
+          </b-card>
+          <b-card class="shadow" v-else-if="data.status == 'NotStarted'">
+            <b-card-title>Ready to Start</b-card-title>
+            <b-card-text>Run your model script to begin!</b-card-text>
+          </b-card>
+          <b-card
+            class="shadow-sm p-3 mb-5 bg-white rounded"
+            style="border-width: 0.15rem"
+            v-else
+          >
             <model-performance
               :data="performance"
               :ref="`model-performance-${i}`"
             />
             <b-card-text>Total Runs: {{ data.times_run }}</b-card-text>
-        </b-card>
-      </b-collapse>
+          </b-card>
+        </b-collapse>
       </b-col>
     </b-row>
   </b-container>
@@ -144,7 +147,7 @@ export default {
   async mounted() {
     try {
       let data = await this.$http.get(
-        `http://localhost:3001/api/clients/models/${this.data._id.$oid}/performance`,
+        `http://localhost:3001/api/clients/models/${this.data._id.$oid}/performance`
       );
       this.performance = data.data;
     } catch (err) {
