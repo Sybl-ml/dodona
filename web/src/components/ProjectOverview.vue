@@ -1,7 +1,17 @@
 <template>
   <b-container fluid>
     <b-row>
-      <b-col lg="8" sm="12" v-if="ready">
+      <b-col lg="8" sm="12" v-if="checkStatus('Processing')">
+        <h4>Project Is Running ...</h4>
+        <b-progress
+          :value="value"
+          :variant="progressColor"
+          height="2rem"
+          show-progress
+          animated
+        ></b-progress>
+      </b-col>
+      <b-col lg="8" sm="12" v-else-if="checkStatus('Ready')">
         <h4>Description:</h4>
         <p>{{ description }}</p>
         <h4>Linked Dataset:</h4>
@@ -36,13 +46,6 @@
         </b-modal>
 
         <h4>Job Configuration:</h4>
-        <b-progress
-          :value="value"
-          :variant="progressColor"
-          height="2rem"
-          show-progress
-          animated
-        ></b-progress>
         <b-container fluid>
           <b-row class="mt-4">
             <b-col>
@@ -98,7 +101,6 @@
           </b-button>
         </p>
       </b-col>
-
       <b-col lg="8" sm="12" v-else>
         <h4>Description:</h4>
         <p>{{ description }}</p>
@@ -117,6 +119,7 @@
           header-bg-variant="primary"
           header-text-variant="white"
           class="h-100 shadow"
+          v-if="!checkStatus('Unfinished')"
         >
           <template #header>
             <h4 class="mb-0">Analysis</h4>
@@ -177,6 +180,7 @@
                 ref="analysis_chart"
               />
             </div>
+            <!-- {{ this.analysis.columns }} -->
           </div>
         </b-card>
       </b-col>
@@ -234,7 +238,7 @@ export default {
     dataDate: Date,
     dataHead: Object,
     dataTypes: Object,
-    ready: Boolean,
+    status: String,
     analysis: Object,
   },
   computed: {
@@ -252,7 +256,7 @@ export default {
         return "warning";
       } else if (this.value < 50) {
         return "primary";
-      } else if (this.ready < 75) {
+      } else if (this.value < 75) {
         return "ready";
       }
     },
@@ -330,6 +334,9 @@ export default {
         this.$refs.analysis_chart.renderNewData(
           this.analysis.columns[this.analysis_selected].Categorical.values
         );
+    },
+    checkStatus(status_check) {
+      return this.status == status_check;
     },
   },
 };
