@@ -11,17 +11,22 @@ extern crate serde;
 
 use anyhow::Result;
 use mongodb::options::ClientOptions;
+use mongodb::bson::oid::ObjectId;
 use mongodb::Client;
+use messages::ClientMessage;
+use tokio::sync::RwLock;
 use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
-use tokio::sync::mpsc;
+use std::collections::VecDeque;
 
 pub mod health;
 pub mod interface_end;
 pub mod job_end;
 pub mod node_end;
 pub mod protocol;
+
+type JobQueue = Arc<RwLock<VecDeque<(ObjectId, DatasetPair, ClientMessage)>>>;
 
 /// A pair of datasets, one for training and one for predicting.
 #[derive(Debug)]
@@ -42,9 +47,9 @@ pub struct DatasetPair {
 pub async fn run() -> Result<()> {
     let conn_str = env::var("CONN_STR").expect("CONN_STR must be set");
     let app_name = env::var("APP_NAME").expect("APP_NAME must be set");
-    let broker_socket =
-        u16::from_str(&env::var("BROKER_PORT").unwrap_or_else(|_| "9092".to_string()))
-            .expect("BROKER_PORT must be a u16");
+    let interface_socket =
+        u16::from_str(&env::var("INTERFACE_SOCKET").expect("INTERFACE_SOCKET must be set"))
+            .unwrap();
     let node_socket =
         u16::from_str(&env::var("NODE_SOCKET").expect("NODE_SOCKET must be set")).unwrap();
 
@@ -59,10 +64,11 @@ pub async fn run() -> Result<()> {
     );
     let db_conn_interface = Arc::clone(&client);
     let nodepool = Arc::new(node_end::NodePool::new());
-    let (tx, rx) = mpsc::channel(20);
+    let job_queue = Arc::new(RwLock::new(VecDeque::new()));
 
+    let jq_clone = Arc::clone(&job_queue);
     tokio::spawn(async move {
-        interface_end::run(broker_socket, db_conn_interface, tx)
+        interface_end::run(interface_socket, db_conn_interface, jq_clone)
             .await
             .unwrap();
     });
@@ -78,11 +84,12 @@ pub async fn run() -> Result<()> {
     let nodepool_clone = Arc::clone(&nodepool);
     let job_client = Arc::clone(&client);
     tokio::spawn(async move {
-        job_end::run(nodepool_clone, job_client, rx).await.unwrap();
+        job_end::run(nodepool_clone, job_client, jq_clone).await.unwrap();
     });
 
     let health_client = Arc::clone(&client);
     let nodepool_clone = Arc::clone(&nodepool);
+    let jq_clone = Arc::clone(&job_queue);
     tokio::spawn(async move {
         health::health_runner(health_client, nodepool_clone, health).await;
     })

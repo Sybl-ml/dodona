@@ -12,8 +12,9 @@ use mongodb::Database;
 use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
 use rdkafka::consumer::{stream_consumer::StreamConsumer, Consumer, DefaultConsumerContext};
 use rdkafka::Message;
-use tokio::sync::mpsc::Sender;
+use std::collections::VecDeque;
 use tokio_stream::StreamExt;
+use tokio::sync::RwLock;
 
 use messages::ClientMessage;
 use models::datasets::Dataset;
@@ -21,6 +22,8 @@ use models::jobs::JobConfiguration;
 use utils::compress::decompress_data;
 
 use crate::DatasetPair;
+
+type JobQueue = Arc<RwLock<VecDeque<(ObjectId, DatasetPair, ClientMessage)>>>;
 
 /// Starts up interface server
 ///
@@ -31,7 +34,7 @@ use crate::DatasetPair;
 pub async fn run(
     port: u16,
     db_conn: Arc<Database>,
-    tx: Sender<(ObjectId, DatasetPair, ClientMessage)>,
+    job_queue: JobQueue,
 ) -> Result<()> {
     let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port).to_string();
     log::info!("Broker Socket: {:?}", addr);
@@ -71,11 +74,11 @@ pub async fn run(
         );
 
         let database = Arc::clone(&db_conn);
-        let tx = tx.clone();
+        let jq_clone = Arc::clone(&job_queue);
         let job_config = serde_json::from_slice(&payload).unwrap();
 
         tokio::spawn(async move {
-            process_job(database, tx, job_config).await.unwrap();
+            process_job(database, jq_clone, job_config).await.unwrap();
         });
     }
 
@@ -84,7 +87,7 @@ pub async fn run(
 
 async fn process_job(
     db_conn: Arc<Database>,
-    tx: Sender<(ObjectId, DatasetPair, ClientMessage)>,
+    job_queue: JobQueue,
     job_config: JobConfiguration,
 ) -> Result<()> {
     let JobConfiguration {
@@ -129,7 +132,9 @@ async fn process_job(
     log::debug!("Decompressed {} bytes of training data", train.len());
     log::debug!("Decompressed {} bytes of prediction data", predict.len());
 
-    tx.send((
+    let mut job_queue_write = job_queue.write().await;
+
+    job_queue_write.push_back((
         dataset.project_id,
         DatasetPair { train, predict },
         ClientMessage::JobConfig {
@@ -139,9 +144,7 @@ async fn process_job(
             prediction_column,
             prediction_type,
         },
-    ))
-    .await
-    .unwrap_or_else(|error| log::error!("Error while sending over MPSC: {}", error));
+    ));
 
     Ok(())
 }

@@ -3,6 +3,7 @@
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
 
@@ -13,7 +14,7 @@ use mongodb::{
 };
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
-use tokio::sync::{mpsc::Receiver, Notify, RwLock};
+use tokio::sync::{Notify, RwLock};
 
 use crate::node_end::NodePool;
 use crate::DatasetPair;
@@ -29,6 +30,8 @@ use utils::{Column, Columns};
 
 pub mod finance;
 pub mod ml;
+
+type JobQueue = Arc<RwLock<VecDeque<(ObjectId, DatasetPair, ClientMessage)>>>;
 
 /// Struct to pass information for a cluster to function
 #[derive(Debug, Clone)]
@@ -143,7 +146,7 @@ pub type ModelID = String;
 pub async fn run(
     nodepool: Arc<NodePool>,
     database: Arc<Database>,
-    mut rx: Receiver<(ObjectId, DatasetPair, ClientMessage)>,
+    job_queue: JobQueue,
 ) -> Result<()> {
     log::info!("Job End Running");
 
