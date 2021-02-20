@@ -15,7 +15,8 @@
             :dataHead="dataHead"
             :dataDate="datasetDate"
             :dataTypes="dataTypes"
-            :ready="status == 'Ready'"
+            :analysis="analysis"
+            :status="status"
             @update:project="updateProject"
             v-on:input-tab="viewInput"
           />
@@ -83,6 +84,8 @@ export default {
       training_data: null,
       loading: false,
 
+      analysis: {},
+
       results: null,
       predict_data: null,
       results_loading: false,
@@ -116,6 +119,7 @@ export default {
 
       let project_details = project_response.data.details;
       let project_info = project_response.data.project;
+      let project_analysis = project_response.data.analysis;
 
       this.name = project_info.name;
       this.description = project_info.description;
@@ -126,6 +130,9 @@ export default {
         this.datasetName = project_details.dataset_name;
         this.datasetDate = new Date(project_details.date_created.$date);
         this.dataTypes = project_details.column_types;
+      }
+      if (project_analysis) {
+        this.analysis = project_analysis;
       }
     },
     async fetchData() {
@@ -160,6 +167,7 @@ export default {
       // this.dataHead = {};
       // this.dataTypes = {};
 
+      this.analysis = null;
       this.results = null;
       this.predict_data = null;
       this.training_data = null;
