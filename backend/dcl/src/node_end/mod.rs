@@ -211,7 +211,7 @@ impl NodePool {
 
         if *active < size {
             return None;
-        } 
+        }
 
         // Ask all alive and free nodes if they want the job
         // If they do, their ID is added to accepted_job
@@ -261,7 +261,7 @@ impl NodePool {
             &cluster,
             &cluster_performance
         );
-        *active-=cluster.len();
+        *active -= cluster.len();
 
         // output cluster
         match cluster.len() {
@@ -333,7 +333,7 @@ impl NodePool {
         let mut info_write = self.info.write().await;
         let mut active = self.active.write().await;
         info_write.get_mut(key).unwrap().using = false;
-        *active+=1;
+        *active += 1;
 
         Ok(())
     }
@@ -348,10 +348,9 @@ impl NodePool {
         let node_info = info_write.get_mut(id).unwrap();
 
         if node_info.alive == false && status == true {
-            *active+=1
-        }
-        else if node_info.alive == true && status == false {
-            *active-=1
+            *active += 1
+        } else if node_info.alive == true && status == false {
+            *active -= 1
         }
 
         node_info.alive = status;
