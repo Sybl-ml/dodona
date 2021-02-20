@@ -13,6 +13,7 @@ use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
 use rdkafka::consumer::{stream_consumer::StreamConsumer, Consumer, DefaultConsumerContext};
 use rdkafka::Message;
 use tokio::sync::mpsc::Sender;
+use tokio_stream::StreamExt;
 
 use messages::ClientMessage;
 use models::datasets::Dataset;
@@ -44,39 +45,41 @@ pub async fn run(
         .set_log_level(RDKafkaLogLevel::Debug)
         .create()
         .expect("Consumer creation failed");
+
     consumer
         .subscribe(&["jobs"])
         .expect("Can't subscribe to jobs");
 
-    loop {
-        match consumer.recv().await {
-            Err(e) => log::warn!("Kafka error: {}", e),
-            Ok(m) => {
-                let payload = match m.payload_view::<str>() {
-                    None => "",
-                    Some(Ok(s)) => s,
-                    Some(Err(e)) => {
-                        log::warn!("Error while deserializing message payload: {:?}", e);
-                        ""
-                    }
-                };
+    // Ignore any errors in the stream
+    let mut message_stream = consumer.stream().filter_map(Result::ok);
 
-                log::debug!("key: '{:?}', payload: '{}', topic: {}, partition: {}, offset: {}, timestamp: {:?}",
-                      m.key(), payload, m.topic(), m.partition(), m.offset(), m.timestamp());
-
-                let job_config: JobConfiguration = serde_json::from_str(&payload).unwrap();
-
-                let db_conn_clone = Arc::clone(&db_conn);
-                let tx_clone = tx.clone();
-
-                tokio::spawn(async move {
-                    process_job(db_conn_clone, tx_clone, job_config)
-                        .await
-                        .unwrap();
-                });
+    while let Some(message) = message_stream.next().await {
+        // Interpret the content as a string
+        let payload = match message.payload_view::<[u8]>() {
+            // This cannot fail, `rdkafka` always returns `Ok(bytes)`
+            Some(view) => view.unwrap(),
+            None => {
+                log::warn!("Received an empty message from Kafka");
+                continue;
             }
         };
+
+        log::debug!(
+            "Message key: {:?}, timestamp: {:?}",
+            message.key(),
+            message.timestamp()
+        );
+
+        let database = Arc::clone(&db_conn);
+        let tx = tx.clone();
+        let job_config = serde_json::from_slice(&payload).unwrap();
+
+        tokio::spawn(async move {
+            process_job(database, tx, job_config).await.unwrap();
+        });
     }
+
+    Ok(())
 }
 
 async fn process_job(
