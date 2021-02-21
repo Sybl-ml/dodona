@@ -22,7 +22,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Notify, RwLock};
 
-use messages::{ClientMessage, WriteLengthPrefix};
+use messages::{ClientMessage, WriteLengthPrefix, ReadLengthPrefix};
 use models::job_performance::JobPerformance;
 use models::models::Status;
 
@@ -122,12 +122,6 @@ impl Default for NodeInfo {
     fn default() -> Self {
         Self::new(0.0)
     }
-}
-
-/// Struct to deserialise response message from
-#[derive(Debug, Deserialize)]
-pub struct ConfigResponse {
-    response: String,
 }
 
 /// Struct holding all compute node connections and information about them
@@ -237,6 +231,9 @@ impl NodePool {
                         better_nodes.push((id.clone(), info.performance));
                     }
                 }
+                else {
+                    info.using = false;
+                }
             }
         }
 
@@ -279,6 +276,10 @@ impl NodePool {
         );
 
         self.active.fetch_sub(cluster.len(), Ordering::SeqCst);
+
+        for (model_id, _) in accepted_job.iter() {
+            info_write.get_mut(model_id).unwrap().using = false;
+        }
 
         // output cluster
         match cluster.len() {
@@ -328,18 +329,20 @@ impl NodePool {
         let mut buffer = [0_u8; 1024];
         dcn_stream.write(&config.as_bytes()).await.unwrap();
 
-        // TODO: Update to use proper length prefixing
-        let size = dcn_stream.read(&mut buffer).await.unwrap();
-        let config_response = std::str::from_utf8(&buffer[4..size]).unwrap();
-        let config_response: ConfigResponse = serde_json::from_str(&config_response).unwrap();
+        let config_response = ClientMessage::from_stream(&mut *dcn_stream, &mut buffer).await;
+        
+        let accept = match config_response.unwrap() {
+            ClientMessage::ConfigResponse { accept } => accept,
+            _ => unreachable!(),
+        };
 
         log::info!(
             "(Node {}) Config response: {:?}",
             &key,
-            config_response.response
+            accept
         );
 
-        config_response.response == "sure"
+        accept
     }
 
     /// Changes the `using` flag on a [`NodeInfo`] object
