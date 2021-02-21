@@ -22,7 +22,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Notify, RwLock};
 
-use messages::{ClientMessage, WriteLengthPrefix, ReadLengthPrefix};
+use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
 use models::job_performance::JobPerformance;
 use models::models::Status;
 
@@ -230,8 +230,7 @@ impl NodePool {
                     if info.performance > 0.5 {
                         better_nodes.push((id.clone(), info.performance));
                     }
-                }
-                else {
+                } else {
                     info.using = false;
                 }
             }
@@ -330,17 +329,13 @@ impl NodePool {
         dcn_stream.write(&config.as_bytes()).await.unwrap();
 
         let config_response = ClientMessage::from_stream(&mut *dcn_stream, &mut buffer).await;
-        
+
         let accept = match config_response.unwrap() {
             ClientMessage::ConfigResponse { accept } => accept,
             _ => unreachable!(),
         };
 
-        log::info!(
-            "(Node {}) Config response: {:?}",
-            &key,
-            accept
-        );
+        log::info!("(Node {}) Config response: {:?}", &key, accept);
 
         accept
     }
