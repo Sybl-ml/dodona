@@ -46,6 +46,33 @@ pub struct Column {
 pub type Columns = HashMap<String, Column>;
 
 impl Column {
+    /// Creates a new column which is guaranteed to be categorical
+    /// Used in classification problems where the prediction column
+    /// could be accidentally inferred as a numerical column
+    pub fn categorical(name: &str, dataset: &str) -> Column {
+        let mut reader = Reader::from_reader(dataset.as_bytes());
+        let headers = reader.headers().unwrap().to_owned();
+        let records: Vec<StringRecord> = reader.records().filter_map(Result::ok).collect();
+        let values = column_values(
+            name.to_string(),
+            &records,
+            headers.iter().position(|h| h == name).unwrap(),
+        )
+        .1;
+        Column {
+            name: name.to_string(),
+            pseudonym: generate_string(16),
+            column_type: ColumnType::Categorical(
+                values
+                    .iter()
+                    .filter(|v| *v != "")
+                    .zip(values.iter().map(|v| Column::obfuscate(v)))
+                    .map(|(v, o)| (v.to_string(), o))
+                    .collect(),
+            ),
+        }
+    }
+
     /// Given a `value` for this `Column`, anonymise it based on this `Column`'s `column_type`
     ///
     /// Once a `Column` has been constructed, it is simple to anonymise data from the same domain
@@ -140,6 +167,7 @@ impl From<ColumnValues> for Column {
         // check if all values in the column are numerical
         if let Ok(numerical) = values
             .iter()
+            .filter(|v| *v != "")
             .map(|v| f64::from_str(v))
             .collect::<Result<Vec<_>, _>>()
         {
@@ -165,6 +193,7 @@ impl From<ColumnValues> for Column {
             let column_type = ColumnType::Categorical(
                 values
                     .iter()
+                    .filter(|v| *v != "")
                     // obfuscate each value in the column with a random pseudonym
                     .zip(values.iter().map(|v| Column::obfuscate(v)))
                     .map(|(v, o)| (v.to_string(), o))

@@ -7,7 +7,10 @@
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str;
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 
 use anyhow::Result;
 use mongodb::{
@@ -134,6 +137,8 @@ pub struct NodePool {
     pub nodes: RwLock<HashMap<String, Node>>,
     /// [`HashMap`] of [`NodeInfo`] objects with unique IDs
     pub info: RwLock<HashMap<String, NodeInfo>>,
+    /// Value to keep track of the number of active nodes in nodepool
+    pub active: AtomicUsize,
 }
 
 impl NodePool {
@@ -160,6 +165,8 @@ impl NodePool {
             id.clone(),
             NodeInfo::from_database(database, &id).await.unwrap(),
         );
+
+        self.active.fetch_add(1, Ordering::SeqCst);
     }
 
     /// Gets [`TcpStream`] reference and its [`ObjectId`]
@@ -184,7 +191,7 @@ impl NodePool {
         None
     }
 
-    /// Creates a cluster of `size` nodes to use
+    /// Creates a cluster based on a JobConfig `config`
     ///
     /// It is given a cluster size and searches the nodepool for available clusters and builds the
     /// cluster as a hashmap.  When the size is reached, the cluster is output. If it is empty then
@@ -192,13 +199,21 @@ impl NodePool {
     /// it is still returned. This also uses the performance metric to build well performing clusters.
     pub async fn build_cluster(
         &self,
-        size: usize,
         config: ClientMessage,
     ) -> Option<HashMap<String, Arc<RwLock<TcpStream>>>> {
+        let size = match config {
+            ClientMessage::JobConfig { cluster_size, .. } => cluster_size as usize,
+            _ => 1,
+        };
+
         let nodes_read = self.nodes.read().await;
         let mut accepted_job: Vec<(String, f64)> = Vec::new();
         let mut better_nodes: Vec<(String, f64)> = Vec::new();
         let mut info_write = self.info.write().await;
+
+        if self.active.load(Ordering::SeqCst) < size {
+            return None;
+        }
 
         // Ask all alive and free nodes if they want the job
         // If they do, their ID is added to accepted_job
@@ -215,6 +230,12 @@ impl NodePool {
                     }
                 }
             }
+        }
+
+        // Checks if number of nodes that accepted the job is less than
+        // the size of the cluster required.
+        if size > accepted_job.len() {
+            return None;
         }
 
         // Buidling actual cluster
@@ -248,6 +269,8 @@ impl NodePool {
             &cluster,
             &cluster_performance
         );
+
+        self.active.fetch_sub(cluster.len(), Ordering::SeqCst);
 
         // output cluster
         match cluster.len() {
@@ -318,6 +341,7 @@ impl NodePool {
     pub async fn end(&self, key: &str) -> Result<()> {
         let mut info_write = self.info.write().await;
         info_write.get_mut(key).unwrap().using = false;
+        self.active.fetch_add(1, Ordering::SeqCst);
 
         Ok(())
     }
@@ -329,6 +353,12 @@ impl NodePool {
     pub async fn update_node_alive(&self, id: &str, status: bool) {
         let mut info_write = self.info.write().await;
         let node_info = info_write.get_mut(id).unwrap();
+
+        if node_info.alive == false && status == true {
+            self.active.fetch_add(1, Ordering::SeqCst);
+        } else if node_info.alive == true && status == false {
+            self.active.fetch_sub(1, Ordering::SeqCst);
+        }
 
         node_info.alive = status;
     }

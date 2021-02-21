@@ -59,6 +59,21 @@
               </b-form-group>
             </b-col>
           </b-row>
+          <b-row class="mt-4">
+            <b-col>
+              <b-form-group
+                label="Cluster Size"
+                label-for="dropdown-form-cluster-size"
+              >
+                <b-form-input
+                  id="dropdown-form-cluster-size"
+                  size="sm"
+                  type="number"
+                  v-model="cluster_size"
+                ></b-form-input>
+              </b-form-group>
+            </b-col>
+          </b-row>
           <b-row>
             <b-col>
               <b-form-group label="Problem Type" label-for="dropdown-form-type">
@@ -132,6 +147,7 @@ export default {
   data() {
     return {
       timeout: 10,
+      cluster_size: 2,
       value: 64,
       file: null,
       problemType: null,
@@ -198,11 +214,20 @@ export default {
   },
   methods: {
     async start() {
+      this.timeout = parseInt(this.timeout)
+      this.cluster_size = parseInt(this.cluster_size)
+      if (this.timeout <= 0) {
+        this.timeout = 1;
+      }
+      if (this.cluster_size <= 0) {
+        this.cluster_size = 1;
+      }
       try {
         await this.$http.post(
           `http://localhost:3001/api/projects/${this.projectId}/process`,
           {
             timeout: this.timeout,
+            clusterSize: this.cluster_size,
             predictionType: this.problemType,
             predictionColumn: this.predColumn,
           }
