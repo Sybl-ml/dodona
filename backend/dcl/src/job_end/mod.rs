@@ -16,7 +16,7 @@ use tokio::net::TcpStream;
 use tokio::sync::{Notify, RwLock};
 
 use crate::node_end::NodePool;
-use crate::{DatasetPair, JobQueue};
+use crate::{DatasetPair, JobQueue, JobControl};
 use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
 use models::jobs::PredictionType;
 use models::predictions::Prediction;
@@ -185,15 +185,22 @@ pub fn put_job(job_queue: &JobQueue, index: usize, job: (ObjectId, DatasetPair, 
 pub async fn run(
     nodepool: Arc<NodePool>,
     database: Arc<Database>,
-    job_queue: JobQueue,
+    job_control: JobControl,
 ) -> Result<()> {
     log::info!("Job End Running");
 
     loop {
-        let jq_filter = filter_jobs(&job_queue, &nodepool);
+        let jq_filter = filter_jobs(&job_control.job_queue, &nodepool);
+
+        if jq_filter.is_empty() {
+            log::info!("Nothing in the Job Queue to inspect");
+            job_control.notify.notified().await;
+            log::info!("Something has changed!");
+            continue;
+        }
 
         for index in jq_filter {
-            let (project_id, msg, config) = match get_job(&job_queue, index) {
+            let (project_id, msg, config) = match get_job(&job_control.job_queue, index) {
                 Some(job) => job,
                 None => break
             };
@@ -212,7 +219,7 @@ pub async fn run(
             let cluster = match nodepool.build_cluster(config.anonymise(&columns)).await {
                 Some(c) => c,
                 _ => {
-                    put_job(&job_queue, index, (project_id, msg, config));
+                    put_job(&job_control.job_queue, index, (project_id, msg, config));
                     continue;
                 },
             };

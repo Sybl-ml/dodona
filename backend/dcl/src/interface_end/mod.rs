@@ -19,7 +19,7 @@ use models::datasets::Dataset;
 use models::jobs::JobConfiguration;
 use utils::compress::decompress_data;
 
-use crate::{DatasetPair, JobQueue};
+use crate::{DatasetPair, JobControl};
 
 /// Starts up interface server
 ///
@@ -27,7 +27,7 @@ use crate::{DatasetPair, JobQueue};
 /// read in data from an interface. Messages read over this are taken and the
 /// corresponding dataset is found and decompressed before being passed to the
 /// job end to be sent to a compute node.
-pub async fn run(port: u16, db_conn: Arc<Database>, job_queue: JobQueue) -> Result<()> {
+pub async fn run(port: u16, db_conn: Arc<Database>, job_control: JobControl) -> Result<()> {
     let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port).to_string();
     log::info!("Broker Socket: {:?}", addr);
 
@@ -66,11 +66,11 @@ pub async fn run(port: u16, db_conn: Arc<Database>, job_queue: JobQueue) -> Resu
         );
 
         let database = Arc::clone(&db_conn);
-        let jq_clone = Arc::clone(&job_queue);
+        let jc_clone = job_control.clone();
         let job_config = serde_json::from_slice(&payload).unwrap();
 
         tokio::spawn(async move {
-            process_job(database, jq_clone, job_config).await.unwrap();
+            process_job(database, jc_clone, job_config).await.unwrap();
         });
     }
 
@@ -79,7 +79,7 @@ pub async fn run(port: u16, db_conn: Arc<Database>, job_queue: JobQueue) -> Resu
 
 async fn process_job(
     db_conn: Arc<Database>,
-    job_queue: JobQueue,
+    job_control: JobControl,
     job_config: JobConfiguration,
 ) -> Result<()> {
     let JobConfiguration {
@@ -124,7 +124,7 @@ async fn process_job(
     log::debug!("Decompressed {} bytes of training data", train.len());
     log::debug!("Decompressed {} bytes of prediction data", predict.len());
 
-    let mut job_queue_write = job_queue.lock().unwrap();
+    let mut job_queue_write = job_control.job_queue.lock().unwrap();
 
     job_queue_write.push_back((
         dataset.project_id,
@@ -137,6 +137,8 @@ async fn process_job(
             prediction_type,
         },
     ));
+
+    job_control.notify.notify_waiters();
 
     Ok(())
 }

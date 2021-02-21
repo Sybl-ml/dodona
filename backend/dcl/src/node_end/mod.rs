@@ -20,7 +20,7 @@ use mongodb::{
 use rand::Rng;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::RwLock;
+use tokio::sync::{Notify, RwLock};
 
 use messages::{ClientMessage, WriteLengthPrefix};
 use models::job_performance::JobPerformance;
@@ -139,12 +139,19 @@ pub struct NodePool {
     pub info: RwLock<HashMap<String, NodeInfo>>,
     /// Value to keep track of the number of active nodes in nodepool
     pub active: AtomicUsize,
+    /// Notify struct for alerting changes to Job End
+    pub job_notify: Arc<Notify>
 }
 
 impl NodePool {
     /// Returns a [`NodePool`] instance
-    pub fn new() -> Self {
-        NodePool::default()
+    pub fn new(job_notify: Arc<Notify>) -> Self {
+        Self {
+            nodes: RwLock::new(HashMap::new()),
+            info: RwLock::new(HashMap::new()),
+            active: AtomicUsize::new(0),
+            job_notify,
+        }
     }
 
     /// Adds new [`Node`] to [`NodePool`]
@@ -167,6 +174,7 @@ impl NodePool {
         );
 
         self.active.fetch_add(1, Ordering::SeqCst);
+        self.job_notify.notify_waiters();
     }
 
     /// Gets [`TcpStream`] reference and its [`ObjectId`]
@@ -342,6 +350,7 @@ impl NodePool {
         let mut info_write = self.info.write().await;
         info_write.get_mut(key).unwrap().using = false;
         self.active.fetch_add(1, Ordering::SeqCst);
+        self.job_notify.notify_waiters();
 
         Ok(())
     }
@@ -356,6 +365,7 @@ impl NodePool {
 
         if node_info.alive == false && status == true {
             self.active.fetch_add(1, Ordering::SeqCst);
+            self.job_notify.notify_waiters();
         } else if node_info.alive == true && status == false {
             self.active.fetch_sub(1, Ordering::SeqCst);
         }

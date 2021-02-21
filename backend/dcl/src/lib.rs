@@ -18,6 +18,7 @@ use std::collections::VecDeque;
 use std::env;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
+use tokio::sync::Notify;
 
 pub mod health;
 pub mod interface_end;
@@ -34,6 +35,22 @@ pub struct DatasetPair {
     pub train: String,
     /// The prediction dataset
     pub predict: String,
+}
+
+/// Data structures for running job control in the DCL
+#[derive(Debug, Default, Clone)]
+pub struct JobControl {
+    /// Job Queue for jobs coming from the interface
+    pub job_queue: JobQueue,
+    /// Notify struct to improve performance of job end
+    pub notify: Arc<Notify>, 
+}
+
+impl JobControl {
+    /// New instance of JobControl
+    pub fn new() -> Self{
+        Self::default()
+    }
 }
 
 /// Main runner function for the DCL
@@ -61,13 +78,15 @@ pub async fn run() -> Result<()> {
             .unwrap()
             .database("sybl"),
     );
-    let db_conn_interface = Arc::clone(&client);
-    let nodepool = Arc::new(node_end::NodePool::new());
-    let job_queue = Arc::new(Mutex::new(VecDeque::new()));
 
-    let jq_clone = Arc::clone(&job_queue);
+    let job_control = JobControl::new();
+    let job_notify = Arc::clone(&job_control.notify);
+    let nodepool = Arc::new(node_end::NodePool::new(job_notify));
+
+    let db_conn_interface = Arc::clone(&client);
+    let jc_clone = job_control.clone();
     tokio::spawn(async move {
-        interface_end::run(interface_socket, db_conn_interface, jq_clone)
+        interface_end::run(interface_socket, db_conn_interface, jc_clone)
             .await
             .unwrap();
     });
@@ -82,9 +101,9 @@ pub async fn run() -> Result<()> {
 
     let nodepool_clone = Arc::clone(&nodepool);
     let job_client = Arc::clone(&client);
-    let jq_clone = Arc::clone(&job_queue);
+    let jc_clone = job_control.clone();
     tokio::spawn(async move {
-        job_end::run(nodepool_clone, job_client, jq_clone)
+        job_end::run(nodepool_clone, job_client, jc_clone)
             .await
             .unwrap();
     });
