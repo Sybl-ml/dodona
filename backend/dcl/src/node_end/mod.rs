@@ -7,7 +7,10 @@
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str;
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 
 use anyhow::Result;
 use mongodb::{
@@ -134,6 +137,8 @@ pub struct NodePool {
     pub nodes: RwLock<HashMap<String, Node>>,
     /// [`HashMap`] of [`NodeInfo`] objects with unique IDs
     pub info: RwLock<HashMap<String, NodeInfo>>,
+    /// Value to keep track of the number of active nodes in nodepool
+    pub active: AtomicUsize,
 }
 
 impl NodePool {
@@ -160,6 +165,8 @@ impl NodePool {
             id.clone(),
             NodeInfo::from_database(database, &id).await.unwrap(),
         );
+
+        self.active.fetch_add(1, Ordering::SeqCst);
     }
 
     /// Gets [`TcpStream`] reference and its [`ObjectId`]
@@ -204,6 +211,10 @@ impl NodePool {
         let mut better_nodes: Vec<(String, f64)> = Vec::new();
         let mut info_write = self.info.write().await;
 
+        if self.active.load(Ordering::SeqCst) < size {
+            return None;
+        }
+
         // Ask all alive and free nodes if they want the job
         // If they do, their ID is added to accepted_job
         for (id, info) in info_write.iter_mut() {
@@ -219,6 +230,12 @@ impl NodePool {
                     }
                 }
             }
+        }
+
+        // Checks if number of nodes that accepted the job is less than
+        // the size of the cluster required.
+        if size > accepted_job.len() {
+            return None;
         }
 
         // Buidling actual cluster
@@ -252,6 +269,8 @@ impl NodePool {
             &cluster,
             &cluster_performance
         );
+
+        self.active.fetch_sub(cluster.len(), Ordering::SeqCst);
 
         // output cluster
         match cluster.len() {
@@ -322,6 +341,7 @@ impl NodePool {
     pub async fn end(&self, key: &str) -> Result<()> {
         let mut info_write = self.info.write().await;
         info_write.get_mut(key).unwrap().using = false;
+        self.active.fetch_add(1, Ordering::SeqCst);
 
         Ok(())
     }
@@ -333,6 +353,12 @@ impl NodePool {
     pub async fn update_node_alive(&self, id: &str, status: bool) {
         let mut info_write = self.info.write().await;
         let node_info = info_write.get_mut(id).unwrap();
+
+        if node_info.alive == false && status == true {
+            self.active.fetch_add(1, Ordering::SeqCst);
+        } else if node_info.alive == true && status == false {
+            self.active.fetch_sub(1, Ordering::SeqCst);
+        }
 
         node_info.alive = status;
     }
