@@ -278,7 +278,11 @@ pub async fn run(
     }
 }
 
-fn prepare_cluster(
+/// Function will take all data for a job and will bag the data to prepare for it 
+/// being distributed among the models. This will return the data being sent to each 
+/// model, as well as the rids of each prediction example in the test data to enable 
+/// validation of results, as well as the validation answers.
+pub fn prepare_cluster(
     cluster: &HashMap<String, Arc<RwLock<TcpStream>>>,
     headers: &str,
     train: Vec<&str>,
