@@ -3,7 +3,6 @@
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
-use std::collections::VecDeque;
 use std::ops::DerefMut;
 use std::sync::{atomic::Ordering, Arc, Mutex};
 
@@ -17,7 +16,7 @@ use tokio::net::TcpStream;
 use tokio::sync::{Notify, RwLock};
 
 use crate::node_end::NodePool;
-use crate::DatasetPair;
+use crate::{DatasetPair, JobQueue};
 use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
 use models::jobs::PredictionType;
 use models::predictions::Prediction;
@@ -31,7 +30,6 @@ use utils::{Column, Columns};
 pub mod finance;
 pub mod ml;
 
-type JobQueue = Arc<Mutex<VecDeque<(ObjectId, DatasetPair, ClientMessage)>>>;
 
 /// Struct to pass information for a cluster to function
 #[derive(Debug, Clone)]
@@ -137,22 +135,45 @@ const INCLUSION_PROBABILITY: f64 = 0.95;
 /// ModelID type
 pub type ModelID = String;
 
-pub fn filter_jobs(job_queue: &JobQueue, nodepool: &Arc<NodePool>) -> Vec<(usize, (ObjectId, DatasetPair, ClientMessage))>{
-    let jq_mutex_cap = job_queue
+/// Goes through the jobs in the job queue and only selects ones which have a 
+/// cluster size which can be run by the DCL.
+pub fn filter_jobs(job_queue: &JobQueue, nodepool: &Arc<NodePool>) -> Vec<usize>{
+    let jq_mutex = job_queue
     .lock()
     .unwrap();
 
-    let jq_filter: Vec<_> = jq_mutex_cap
+    let jq_filter: Vec<_> = jq_mutex
         .iter()
-        .filter(|(project_id, msg, config)| match config {
+        .filter(|(_, _, config)| match config {
             ClientMessage::JobConfig { cluster_size, .. } => {
                 (*cluster_size as usize) < nodepool.active.load(Ordering::SeqCst)
             }
             _ => false,
         })
-        .enumerate().collect();
+        .enumerate().map(|(idx, _)| idx).collect();
     
     return jq_filter; 
+}
+
+/// Using an index, this function will remove the required job from the job queue. This is so that 
+/// it gives an ownership of the data to the caller of the function.
+pub fn get_job(job_queue: &JobQueue, index: usize) -> Option<(ObjectId, DatasetPair, ClientMessage)> {
+    let mut jq_mutex = job_queue
+    .lock()
+    .unwrap();
+
+    jq_mutex.remove(index)
+} 
+
+/// Puts a job back in the job queue if it is not being executed. This will place it in a location 
+/// specified by the index parameter. This will be the place in the job queue that it 
+/// previously was.
+pub fn put_job(job_queue: &JobQueue, index: usize, job: (ObjectId, DatasetPair, ClientMessage)) {
+    let mut jq_mutex = job_queue
+    .lock()
+    .unwrap();
+
+    jq_mutex.insert(index, job);
 }
 
 /// Starts up and runs the job end
@@ -169,10 +190,14 @@ pub async fn run(
     log::info!("Job End Running");
 
     loop {
-
         let jq_filter = filter_jobs(&job_queue, &nodepool);
 
-        for (i, (project_id, msg, config)) in jq_filter.iter() {
+        for index in jq_filter {
+            let (project_id, msg, config) = match get_job(&job_queue, index) {
+                Some(job) => job,
+                None => break
+            };
+
             let data = msg
                 .train
                 .trim()
@@ -186,7 +211,10 @@ pub async fn run(
 
             let cluster = match nodepool.build_cluster(config.anonymise(&columns)).await {
                 Some(c) => c,
-                _ => continue,
+                _ => {
+                    put_job(&job_queue, index, (project_id, msg, config));
+                    continue;
+                },
             };
 
             let mut train = msg.train.trim().split('\n').collect::<Vec<_>>();
@@ -199,7 +227,7 @@ pub async fn run(
                     ref prediction_column,
                     prediction_type,
                     ..
-                } => (prediction_column.to_string(), *prediction_type),
+                } => (prediction_column.to_string(), prediction_type),
                 _ => (
                     headers.split(',').last().unwrap().to_string(),
                     PredictionType::Classification,

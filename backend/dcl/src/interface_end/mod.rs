@@ -4,15 +4,14 @@
 //! a mpsc channel which allows it to send data to the job end.
 
 use std::net::{Ipv4Addr, SocketAddrV4};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use anyhow::Result;
-use mongodb::bson::{doc, oid::ObjectId};
+use mongodb::bson::doc;
 use mongodb::Database;
 use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
 use rdkafka::consumer::{stream_consumer::StreamConsumer, Consumer, DefaultConsumerContext};
 use rdkafka::Message;
-use std::collections::VecDeque;
 use tokio_stream::StreamExt;
 
 use messages::ClientMessage;
@@ -20,9 +19,7 @@ use models::datasets::Dataset;
 use models::jobs::JobConfiguration;
 use utils::compress::decompress_data;
 
-use crate::DatasetPair;
-
-type JobQueue = Arc<Mutex<VecDeque<(ObjectId, DatasetPair, ClientMessage)>>>;
+use crate::{DatasetPair, JobQueue};
 
 /// Starts up interface server
 ///
