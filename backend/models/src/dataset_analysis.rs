@@ -12,16 +12,16 @@ pub struct DatasetAnalysis {
     /// Unique identifier for the associated project
     pub project_id: ObjectId,
     // Column based analysis
-    pub columns: HashMap<String, utils::analysis::ColumnAnalysis>,
+    pub columns: HashMap<String, ColumnAnalysis>,
 }
 
 impl DatasetAnalysis {
     /// Creates a new instance of [`DatasetDetails`].
-    pub fn new(project_id: ObjectId, dataset_analysis: utils::analysis::DatasetAnalysis) -> Self {
+    pub fn new(project_id: ObjectId, columns: HashMap<String, ColumnAnalysis>) -> Self {
         Self {
             id: ObjectId::new(),
             project_id,
-            columns: dataset_analysis.columns,
+            columns
         }
     }
 
@@ -32,5 +32,36 @@ impl DatasetAnalysis {
         dataset_analysis.delete_one(filter, None).await?;
 
         Ok(())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ColumnAnalysis {
+    Categorical(CategoricalAnalysis),
+    Numerical(NumericalAnalysis),
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct CategoricalAnalysis {
+    /// All the values in the column
+    pub values: HashMap<String, i64>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NumericalAnalysis {
+    pub max: f64,
+    pub min: f64,
+    pub sum: f64,
+    pub avg: f64,
+}
+
+impl Default for NumericalAnalysis {
+    fn default() -> Self {
+        Self {
+            max: f64::MIN,
+            min: f64::MAX,
+            sum: 0.0,
+            avg: 0.0,
+        }
     }
 }

@@ -7,7 +7,7 @@ use std::str::FromStr;
 use actix_web::{web, HttpResponse};
 use mongodb::{
     bson::{de::from_document, doc, document::Document, oid::ObjectId, ser::to_document},
-    Collection, Database,
+    Collection,
 };
 use rdkafka::config::ClientConfig;
 use rdkafka::error::KafkaResult;
@@ -21,16 +21,17 @@ use crate::{
     routes::{check_user_owns_project, payloads, response_from_json},
     State,
 };
-use messages::WriteLengthPrefix;
-use models::dataset_analysis::DatasetAnalysis;
+
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
 use models::jobs::{Job, JobConfiguration};
 use models::predictions::Prediction;
 use models::projects::{Project, Status};
-use std::sync::Arc;
 use utils::compress::{compress_vec, decompress_data};
 use utils::ColumnType;
+
+static JOB_TOPIC: &str = "jobs";
+static ANALYTICS_TOPIC: &str = "analytics";
 
 /// Finds a project in the database given an identifier.
 ///
@@ -225,56 +226,10 @@ pub async fn add_data(
     let document = to_document(&dataset)?;
     let id = datasets.insert_one(document, None).await?.inserted_id;
 
-    // Call Analytics Engine
-    prepare_dataset(&state.database, &object_id).await?;
+    // Communicate with Analytics Server
+    produce_analytics_message(&object_id).await;
 
     response_from_json(doc! {"dataset_id": id})
-}
-
-/// Prepare Data for analysis
-///
-/// TO BE MOVED
-///
-pub async fn prepare_dataset(database: &Arc<Database>, project_id: &ObjectId) -> ServerResponse {
-    let datasets = database.collection("datasets");
-    let dataset_details = database.collection("dataset_details");
-    let dataset_analysis = database.collection("dataset_analysis");
-
-    // Obtain the dataset
-    let document = datasets
-        .find_one(doc! { "project_id": &project_id }, None)
-        .await?
-        .ok_or(ServerError::NotFound)?;
-    let dataset: Dataset = from_document(document)?;
-    let comp_train = dataset.dataset.expect("missing training dataset").bytes;
-    let decomp_train = decompress_data(&comp_train)?;
-    let train = crypto::clean(std::str::from_utf8(&decomp_train)?);
-
-    // Obtain the column details
-    let document = dataset_details
-        .find_one(doc! { "project_id": &project_id }, None)
-        .await?
-        .ok_or(ServerError::NotFound)?;
-    let dataset_detail: DatasetDetails = from_document(document)?;
-    let column_types = dataset_detail.column_types;
-
-    let mut column_data = Vec::new();
-    for (name, column) in column_types {
-        if column.is_categorical() {
-            column_data.push((name, "C".to_string()));
-        } else {
-            column_data.push((name, "N".to_string()));
-        }
-    }
-
-    let analysis = utils::analysis::analyse_project(&train, column_data);
-    dbg!(&analysis);
-    let analysis = DatasetAnalysis::new(project_id.clone(), analysis);
-    dbg!(&analysis);
-    let document = to_document(&analysis)?;
-    dataset_analysis.insert_one(document, None).await?;
-
-    response_from_json(doc! {"project_id": project_id})
 }
 
 /// Gets the dataset details associated with a given project.
@@ -520,6 +475,32 @@ async fn produce_message(job: &Job) -> KafkaResult<()> {
     log::debug!("Message sent result: {:?}", delivery_status);
 
     Ok(())
+}
+
+async fn produce_analytics_message(project_id: &ObjectId) {
+    let var = env::var("BROKER_PORT").unwrap_or_else(|_| "9092".to_string());
+    let port = u16::from_str(&var).expect("BROKER_PORT must be a u16");
+
+    // Build the address to send to
+    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port).to_string();
+    let producer: FutureProducer = ClientConfig::new()
+        .set("bootstrap.servers", &addr)
+        .set("message.timeout.ms", "5000")
+        .create()
+        .expect("Producer creation error");
+
+    let analytics_job = serde_json::to_string(&project_id).unwrap();
+
+    let delivery_status = producer
+        .send(
+            FutureRecord::to(ANALYTICS_TOPIC)
+                .payload(&analytics_job)
+                .key(&analytics_job),
+            Timeout::Never,
+        )
+        .await;
+
+    log::debug!("Message sent result: {:?}", delivery_status);
 }
 
 /// Inserts a [`JobConfiguration`] into MongoDB.

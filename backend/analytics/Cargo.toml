@@ -2,8 +2,20 @@
 name = "analytics"
 version = "0.1.0"
 authors = ["Nathan Hall <hallnath42@gmail.com>"]
-edition = "2021"
+edition = "2018"
 
 [dependencies]
-
-
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+log = "0.4"
+rdkafka = { version = "0.25", features = ["cmake-build"] }
+mongodb = "2.0.0-alpha"
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+csv = "1.1.5"
+messages = { path = "../messages" }
+config = { path = "../config" }
+utils = { path = "../utils" }
+models = { path = "../models" }
+crypto = { path = "../crypto" }
