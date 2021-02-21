@@ -1,0 +1,9 @@
+[package]
+name = "analytics"
+version = "0.1.0"
+authors = ["Nathan Hall <hallnath42@gmail.com>"]
+edition = "2021"
+
+[dependencies]
+
+
