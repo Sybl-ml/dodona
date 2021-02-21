@@ -18,7 +18,7 @@ use mongodb::{
     Database,
 };
 use rand::Rng;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Notify, RwLock};
 
