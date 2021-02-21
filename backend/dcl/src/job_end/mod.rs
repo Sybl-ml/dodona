@@ -146,7 +146,7 @@ pub fn filter_jobs(job_queue: &JobQueue, nodepool: &Arc<NodePool>) -> Vec<usize>
         .iter()
         .filter(|(_, _, config)| match config {
             ClientMessage::JobConfig { cluster_size, .. } => {
-                (*cluster_size as usize) < nodepool.active.load(Ordering::SeqCst)
+                (*cluster_size as usize) <= nodepool.active.load(Ordering::SeqCst)
             }
             _ => false,
         })
@@ -191,7 +191,7 @@ pub async fn run(
 
     loop {
         let jq_filter = filter_jobs(&job_control.job_queue, &nodepool);
-
+        log::info!("Filtered Jobs: {:?}", &jq_filter);
         if jq_filter.is_empty() {
             log::info!("Nothing in the Job Queue to inspect");
             job_control.notify.notified().await;
