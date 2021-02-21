@@ -23,7 +23,7 @@ pub static DATASET: &str = "col1,col2,\nr1c1,r1c2,\nr2c1,r2c2,\n";
 pub struct Params {
     pub conn_str: String,
     pub node_socket: u16,
-    pub interface_socket: u16,
+    pub broker_socket: u16,
 }
 
 pub fn initialise() -> Params {
@@ -33,13 +33,13 @@ pub fn initialise() -> Params {
     let conn_str = env::var("CONN_STR").expect("CONN_STR must be set");
     let node_socket =
         u16::from_str(&env::var("NODE_SOCKET").expect("NODE_SOCKET must be set")).unwrap();
-    let interface_socket =
-        u16::from_str(&env::var("INTERFACE_SOCKET").expect("INTERFACE_SOCKET must be set"))
+    let broker_socket =
+        u16::from_str(&env::var("BROKER_SOCKET").expect("BROKER_SOCKET must be set"))
             .unwrap();
     Params {
         conn_str,
         node_socket,
-        interface_socket,
+        broker_socket,
     }
 }
 
