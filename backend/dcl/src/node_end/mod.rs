@@ -140,7 +140,7 @@ pub struct NodePool {
     /// Value to keep track of the number of active nodes in nodepool
     pub active: AtomicUsize,
     /// Notify struct for alerting changes to Job End
-    pub job_notify: Arc<Notify>
+    pub job_notify: Arc<Notify>,
 }
 
 impl NodePool {

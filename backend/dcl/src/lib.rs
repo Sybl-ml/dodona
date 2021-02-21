@@ -43,12 +43,12 @@ pub struct JobControl {
     /// Job Queue for jobs coming from the interface
     pub job_queue: JobQueue,
     /// Notify struct to improve performance of job end
-    pub notify: Arc<Notify>, 
+    pub notify: Arc<Notify>,
 }
 
 impl JobControl {
     /// New instance of JobControl
-    pub fn new() -> Self{
+    pub fn new() -> Self {
         Self::default()
     }
 }
@@ -63,9 +63,9 @@ impl JobControl {
 pub async fn run() -> Result<()> {
     let conn_str = env::var("CONN_STR").expect("CONN_STR must be set");
     let app_name = env::var("APP_NAME").expect("APP_NAME must be set");
-    let interface_socket =
-        u16::from_str(&env::var("INTERFACE_SOCKET").expect("INTERFACE_SOCKET must be set"))
-            .unwrap();
+    let broker_socket =
+        u16::from_str(&env::var("BROKER_PORT").unwrap_or_else(|_| "9092".to_string()))
+            .expect("BROKER_PORT must be a u16");
     let node_socket =
         u16::from_str(&env::var("NODE_SOCKET").expect("NODE_SOCKET must be set")).unwrap();
 
@@ -86,7 +86,7 @@ pub async fn run() -> Result<()> {
     let db_conn_interface = Arc::clone(&client);
     let jc_clone = job_control.clone();
     tokio::spawn(async move {
-        interface_end::run(interface_socket, db_conn_interface, jc_clone)
+        interface_end::run(broker_socket, db_conn_interface, jc_clone)
             .await
             .unwrap();
     });

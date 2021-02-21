@@ -16,7 +16,7 @@ use tokio::net::TcpStream;
 use tokio::sync::{Notify, RwLock};
 
 use crate::node_end::NodePool;
-use crate::{DatasetPair, JobQueue, JobControl};
+use crate::{DatasetPair, JobControl, JobQueue};
 use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
 use models::jobs::PredictionType;
 use models::predictions::Prediction;
@@ -29,7 +29,6 @@ use utils::{Column, Columns};
 
 pub mod finance;
 pub mod ml;
-
 
 /// Struct to pass information for a cluster to function
 #[derive(Debug, Clone)]
@@ -135,43 +134,42 @@ const INCLUSION_PROBABILITY: f64 = 0.95;
 /// ModelID type
 pub type ModelID = String;
 
-/// Goes through the jobs in the job queue and only selects ones which have a 
+/// Goes through the jobs in the job queue and only selects ones which have a
 /// cluster size which can be run by the DCL.
-pub fn filter_jobs(job_queue: &JobQueue, nodepool: &Arc<NodePool>) -> Vec<usize>{
-    let jq_mutex = job_queue
-    .lock()
-    .unwrap();
+pub fn filter_jobs(job_queue: &JobQueue, nodepool: &Arc<NodePool>) -> Vec<usize> {
+    let jq_mutex = job_queue.lock().unwrap();
 
     let jq_filter: Vec<_> = jq_mutex
         .iter()
-        .filter(|(_, _, config)| match config {
+        .enumerate()
+        .filter(|(_, (_, _, config))| match config {
             ClientMessage::JobConfig { cluster_size, .. } => {
                 (*cluster_size as usize) <= nodepool.active.load(Ordering::SeqCst)
             }
             _ => false,
         })
-        .enumerate().map(|(idx, _)| idx).collect();
-    
-    return jq_filter; 
+        .map(|(idx, _)| idx)
+        .collect();
+
+    return jq_filter;
 }
 
-/// Using an index, this function will remove the required job from the job queue. This is so that 
+/// Using an index, this function will remove the required job from the job queue. This is so that
 /// it gives an ownership of the data to the caller of the function.
-pub fn get_job(job_queue: &JobQueue, index: usize) -> Option<(ObjectId, DatasetPair, ClientMessage)> {
-    let mut jq_mutex = job_queue
-    .lock()
-    .unwrap();
+pub fn get_job(
+    job_queue: &JobQueue,
+    index: usize,
+) -> Option<(ObjectId, DatasetPair, ClientMessage)> {
+    let mut jq_mutex = job_queue.lock().unwrap();
 
     jq_mutex.remove(index)
-} 
+}
 
-/// Puts a job back in the job queue if it is not being executed. This will place it in a location 
-/// specified by the index parameter. This will be the place in the job queue that it 
+/// Puts a job back in the job queue if it is not being executed. This will place it in a location
+/// specified by the index parameter. This will be the place in the job queue that it
 /// previously was.
 pub fn put_job(job_queue: &JobQueue, index: usize, job: (ObjectId, DatasetPair, ClientMessage)) {
-    let mut jq_mutex = job_queue
-    .lock()
-    .unwrap();
+    let mut jq_mutex = job_queue.lock().unwrap();
 
     jq_mutex.insert(index, job);
 }
@@ -202,7 +200,7 @@ pub async fn run(
         for index in jq_filter {
             let (project_id, msg, config) = match get_job(&job_control.job_queue, index) {
                 Some(job) => job,
-                None => break
+                None => break,
             };
 
             let data = msg
@@ -216,12 +214,15 @@ pub async fn run(
 
             let mut columns = infer_dataset_columns(&data).unwrap();
 
+            log::info!("Columns: {:?}", &columns);
+
             let cluster = match nodepool.build_cluster(config.anonymise(&columns)).await {
                 Some(c) => c,
                 _ => {
+                    log::info!("No cluster could be built");
                     put_job(&job_control.job_queue, index, (project_id, msg, config));
                     continue;
-                },
+                }
             };
 
             let mut train = msg.train.trim().split('\n').collect::<Vec<_>>();
@@ -282,12 +283,16 @@ pub async fn run(
             .await?;
             break;
         }
+
+        log::info!("Nothing in the JobQueue can be run");
+        job_control.notify.notified().await;
+        log::info!("Something has changed!");
     }
 }
 
-/// Function will take all data for a job and will bag the data to prepare for it 
-/// being distributed among the models. This will return the data being sent to each 
-/// model, as well as the rids of each prediction example in the test data to enable 
+/// Function will take all data for a job and will bag the data to prepare for it
+/// being distributed among the models. This will return the data being sent to each
+/// model, as well as the rids of each prediction example in the test data to enable
 /// validation of results, as well as the validation answers.
 pub fn prepare_cluster(
     cluster: &HashMap<String, Arc<RwLock<TcpStream>>>,
