@@ -34,8 +34,7 @@ pub fn initialise() -> Params {
     let node_socket =
         u16::from_str(&env::var("NODE_SOCKET").expect("NODE_SOCKET must be set")).unwrap();
     let broker_socket =
-        u16::from_str(&env::var("BROKER_SOCKET").expect("BROKER_SOCKET must be set"))
-            .unwrap();
+        u16::from_str(&env::var("BROKER_PORT").unwrap_or_else(|_| "9092".to_string())).unwrap();
     Params {
         conn_str,
         node_socket,
