@@ -180,7 +180,9 @@ pub async fn run(
                 Some(c) => c,
                 _ => {
                     log::info!("No cluster could be built");
-                    &job_control.job_queue.insert(index, (project_id, msg, config));
+                    &job_control
+                        .job_queue
+                        .insert(index, (project_id, msg, config));
                     continue;
                 }
             };
