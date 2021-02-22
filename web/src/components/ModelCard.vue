@@ -82,7 +82,7 @@
               </h1>
               <b-card-title>Unlock Model</b-card-title>
               <b-card-text>Please provide your password to confirm</b-card-text>
-              <b-form class="mt-5 mb-3" @submit="onSubmit">
+              <b-form class="mt-5 mb-3" @submit.prevent="onSubmit">
                 <b-form-input
                   type="password"
                   id="name"
