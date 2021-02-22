@@ -204,7 +204,7 @@ export default {
     },
     async onSubmit() {
       this.submitted = true;
-      let response = await this.$http.post("http://localhost:3001/api/users/new", {
+      let response = await this.$http.post("api/users/new", {
         email: this.email,
         password: this.password,
         firstName: this.firstName,

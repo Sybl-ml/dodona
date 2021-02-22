@@ -82,7 +82,7 @@
               </h1>
               <b-card-title>Unlock Model</b-card-title>
               <b-card-text>Please provide your password to confirm</b-card-text>
-              <b-form class="mt-5 mb-3" @submit="onSubmit">
+              <b-form class="mt-5 mb-3" @submit.prevent="onSubmit">
                 <b-form-input
                   type="password"
                   id="name"
@@ -144,7 +144,7 @@ export default {
   async mounted() {
     try {
       let data = await this.$http.get(
-        `http://localhost:3001/api/clients/models/${this.data._id.$oid}/performance`,
+        `api/clients/models/${this.data._id.$oid}/performance`,
       );
       this.performance = data.data;
     } catch (err) {
@@ -168,7 +168,7 @@ export default {
   methods: {
     async onSubmit() {
       let response = await this.$http.post(
-        `http://localhost:3001/api/clients/models/${this.data._id.$oid}/unlock`,
+        `api/clients/models/${this.data._id.$oid}/unlock`,
         {
           password: this.password,
         }
