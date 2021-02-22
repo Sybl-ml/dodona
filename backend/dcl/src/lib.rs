@@ -49,13 +49,14 @@ pub async fn run() -> Result<()> {
         u16::from_str(&env::var("NODE_SOCKET").expect("NODE_SOCKET must be set")).unwrap();
 
     let health = u64::from_str(&env::var("HEALTH").expect("HEALTH must be set")).unwrap();
+    let database_name = env::var("DATABASE_NAME").unwrap_or_else(|_| String::from("sybl"));
 
     let mut client_options = ClientOptions::parse(&conn_str).await.unwrap();
     client_options.app_name = Some(app_name);
     let client = Arc::new(
         Client::with_options(client_options)
             .unwrap()
-            .database("sybl"),
+            .database(&database_name),
     );
     let db_conn_interface = Arc::clone(&client);
     let nodepool = Arc::new(node_end::NodePool::new());

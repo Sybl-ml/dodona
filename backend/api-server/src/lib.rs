@@ -60,12 +60,13 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
     let app_name = env::var("APP_NAME").expect("APP_NAME must be set");
     let pepper = env::var("PEPPER").expect("PEPPER must be set");
     let pbkdf2_iterations = env::var("PBKDF2_ITERATIONS").expect("PBKDF2_ITERATIONS must be set");
+    let database_name = env::var("DATABASE_NAME").unwrap_or_else(|_| String::from("sybl"));
 
     let mut client_options = ClientOptions::parse(&conn_str).await.unwrap();
     client_options.app_name = Some(app_name);
 
     let client = Client::with_options(client_options).unwrap();
-    let database = Arc::new(client.database("sybl"));
+    let database = Arc::new(client.database(&database_name));
 
     let server = HttpServer::new(move || {
         // cors

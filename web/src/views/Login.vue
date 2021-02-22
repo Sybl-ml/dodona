@@ -98,7 +98,7 @@ export default {
     async onSubmit(e) {
       this.submitted = true;
       let response = await this.$http
-        .post("http://localhost:3001/api/users/login", {
+        .post("api/users/login", {
           email: this.email,
           password: this.password,
         })

@@ -112,7 +112,7 @@ export default {
     let user_id = $cookies.get("token");
 
     let response = await this.$http.get(
-      `http://localhost:3001/api/projects`
+      `api/projects`
     );
 
     this.projects = response.data.map((x) => {
@@ -147,7 +147,7 @@ export default {
     },
     async addProject(id) {
       let project_response = await this.$http.get(
-        `http://localhost:3001/api/projects/${id}`
+        `api/projects/${id}`
       );
 
       let x = project_response.data.project;
