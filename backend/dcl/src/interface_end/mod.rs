@@ -124,9 +124,7 @@ async fn process_job(
     log::debug!("Decompressed {} bytes of training data", train.len());
     log::debug!("Decompressed {} bytes of prediction data", predict.len());
 
-    let mut job_queue_write = job_control.job_queue.lock().unwrap();
-
-    job_queue_write.push_back((
+    job_control.job_queue.push((
         dataset.project_id,
         DatasetPair { train, predict },
         ClientMessage::JobConfig {

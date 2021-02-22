@@ -17,7 +17,11 @@ use mongodb::Client;
 use std::collections::VecDeque;
 use std::env;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+    Mutex
+};
 use tokio::sync::Notify;
 
 pub mod health;
@@ -26,7 +30,65 @@ pub mod job_end;
 pub mod node_end;
 pub mod protocol;
 
-type JobQueue = Arc<Mutex<VecDeque<(ObjectId, DatasetPair, ClientMessage)>>>;
+/// Struct to hold Job Queue for DCL
+#[derive(Debug, Default, Clone)]
+pub struct JobQueue(Arc<Mutex<VecDeque<(ObjectId, DatasetPair, ClientMessage)>>>);
+
+impl JobQueue {
+    /// Creates a new instance of the [`JobQueue`] struct
+    pub fn new() -> Self{
+        Self::default()
+    }
+
+    /// Goes through jobs in the [`JobQueue`] and returns a vector 
+    /// containing the indexes of the jobs which the DCL can execute with 
+    /// its current `active` nodes.
+    pub fn filter(&self, active: &AtomicUsize) -> Vec<usize> {
+        let jq_mutex = self.0.lock().unwrap();
+    
+        let jq_filter: Vec<_> = jq_mutex
+            .iter()
+            .enumerate()
+            .filter(|(_, (_, _, config))| match config {
+                ClientMessage::JobConfig { cluster_size, .. } => {
+                    (*cluster_size as usize) <= active.load(Ordering::SeqCst)
+                }
+                _ => false,
+            })
+            .map(|(idx, _)| idx)
+            .collect();
+    
+        return jq_filter;
+    }
+    
+    /// Using an index, this function will remove the required job from the [`JobQueue`]. This is so that
+    /// it gives an ownership of the data to the caller of the function.
+    pub fn remove(
+        &self,
+        index: usize,
+    ) -> Option<(ObjectId, DatasetPair, ClientMessage)> {
+        let mut jq_mutex = self.0.lock().unwrap();
+    
+        jq_mutex.remove(index)
+    }
+    
+    /// Puts a job back in the [`JobQueue`] if it is not being executed. This will place it in a location
+    /// specified by the index parameter. This will be the place in the [`JobQueue`] that it
+    /// previously was.
+    pub fn insert(&self, index: usize, job: (ObjectId, DatasetPair, ClientMessage)) {
+        let mut jq_mutex = self.0.lock().unwrap();
+    
+        jq_mutex.insert(index, job);
+    }
+
+    /// Enables a job to be pushed onto the end of the [`JobQueue`] when it 
+    /// arrives in the DCL.
+    pub fn push(&self, job: (ObjectId, DatasetPair, ClientMessage)) {
+        let mut job_queue_write = self.0.lock().unwrap();
+
+        job_queue_write.push_back(job);
+    }
+}
 
 /// A pair of datasets, one for training and one for predicting.
 #[derive(Debug)]

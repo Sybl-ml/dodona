@@ -4,7 +4,7 @@ use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 use std::ops::DerefMut;
-use std::sync::{atomic::Ordering, Arc, Mutex};
+use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use mongodb::{
@@ -16,7 +16,7 @@ use tokio::net::TcpStream;
 use tokio::sync::{Notify, RwLock};
 
 use crate::node_end::NodePool;
-use crate::{DatasetPair, JobControl, JobQueue};
+use crate::JobControl;
 use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
 use models::jobs::PredictionType;
 use models::predictions::Prediction;
@@ -134,46 +134,6 @@ const INCLUSION_PROBABILITY: f64 = 0.95;
 /// ModelID type
 pub type ModelID = String;
 
-/// Goes through the jobs in the job queue and only selects ones which have a
-/// cluster size which can be run by the DCL.
-pub fn filter_jobs(job_queue: &JobQueue, nodepool: &Arc<NodePool>) -> Vec<usize> {
-    let jq_mutex = job_queue.lock().unwrap();
-
-    let jq_filter: Vec<_> = jq_mutex
-        .iter()
-        .enumerate()
-        .filter(|(_, (_, _, config))| match config {
-            ClientMessage::JobConfig { cluster_size, .. } => {
-                (*cluster_size as usize) <= nodepool.active.load(Ordering::SeqCst)
-            }
-            _ => false,
-        })
-        .map(|(idx, _)| idx)
-        .collect();
-
-    return jq_filter;
-}
-
-/// Using an index, this function will remove the required job from the job queue. This is so that
-/// it gives an ownership of the data to the caller of the function.
-pub fn get_job(
-    job_queue: &JobQueue,
-    index: usize,
-) -> Option<(ObjectId, DatasetPair, ClientMessage)> {
-    let mut jq_mutex = job_queue.lock().unwrap();
-
-    jq_mutex.remove(index)
-}
-
-/// Puts a job back in the job queue if it is not being executed. This will place it in a location
-/// specified by the index parameter. This will be the place in the job queue that it
-/// previously was.
-pub fn put_job(job_queue: &JobQueue, index: usize, job: (ObjectId, DatasetPair, ClientMessage)) {
-    let mut jq_mutex = job_queue.lock().unwrap();
-
-    jq_mutex.insert(index, job);
-}
-
 /// Starts up and runs the job end
 ///
 /// Takes in nodepool and mpsc receiver and will listen for incoming datasets.
@@ -188,7 +148,7 @@ pub async fn run(
     log::info!("Job End Running");
 
     loop {
-        let jq_filter = filter_jobs(&job_control.job_queue, &nodepool);
+        let jq_filter = job_control.job_queue.filter(&nodepool.active);
         log::info!("Filtered Jobs: {:?}", &jq_filter);
         if jq_filter.is_empty() {
             log::info!("Nothing in the Job Queue to inspect");
@@ -198,7 +158,7 @@ pub async fn run(
         }
 
         for index in jq_filter {
-            let (project_id, msg, config) = match get_job(&job_control.job_queue, index) {
+            let (project_id, msg, config) = match job_control.job_queue.remove(index) {
                 Some(job) => job,
                 None => break,
             };
@@ -220,7 +180,7 @@ pub async fn run(
                 Some(c) => c,
                 _ => {
                     log::info!("No cluster could be built");
-                    put_job(&job_control.job_queue, index, (project_id, msg, config));
+                    &job_control.job_queue.insert(index, (project_id, msg, config));
                     continue;
                 }
             };
