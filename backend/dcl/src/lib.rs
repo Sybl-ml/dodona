@@ -62,10 +62,12 @@ impl JobQueue {
 
     /// Using an index, this function will remove the required job from the [`JobQueue`]. This is so that
     /// it gives an ownership of the data to the caller of the function.
-    pub fn remove(&self, index: usize) -> Option<(ObjectId, DatasetPair, ClientMessage)> {
+    pub fn remove(&self, index: usize) -> (ObjectId, DatasetPair, ClientMessage) {
         let mut jq_mutex = self.0.lock().unwrap();
 
-        jq_mutex.remove(index)
+        jq_mutex
+            .remove(index)
+            .expect("Tried to get value from invalid index")
     }
 
     /// Puts a job back in the [`JobQueue`] if it is not being executed. This will place it in a location

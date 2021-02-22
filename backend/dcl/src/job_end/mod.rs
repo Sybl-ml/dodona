@@ -158,10 +158,7 @@ pub async fn run(
         }
 
         for index in jq_filter {
-            let (project_id, msg, config) = match job_control.job_queue.remove(index) {
-                Some(job) => job,
-                None => break,
-            };
+            let (project_id, msg, config) = job_control.job_queue.remove(index);
 
             let data = msg
                 .train
