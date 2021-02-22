@@ -1,3 +1,5 @@
+use std::env;
+
 use mongodb::bson::{self, document::Document, oid::ObjectId};
 
 use config::Environment;
@@ -49,6 +51,7 @@ pub async fn initialise() -> (mongodb::Database, tokio::sync::MutexGuard<'static
 
     // Connect to the database
     let conn_str = std::env::var("CONN_STR").expect("CONN_STR must be set");
+    let database_name = env::var("DATABASE_NAME").unwrap_or_else(|_| String::from("sybl"));
 
     // Ensure that we aren't using the Atlas instance
     assert!(
@@ -56,7 +59,7 @@ pub async fn initialise() -> (mongodb::Database, tokio::sync::MutexGuard<'static
         "Please setup a local MongoDB instance for running the tests"
     );
     let client = mongodb::Client::with_uri_str(&conn_str).await.unwrap();
-    let database = client.database("sybl");
+    let database = client.database(&database_name);
     let collection_names = database.list_collection_names(None).await.unwrap();
 
     // Delete all records currently in the database
