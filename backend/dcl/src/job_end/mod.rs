@@ -156,12 +156,18 @@ pub async fn run(
             .train
             .trim()
             .split('\n')
-            .filter(|_| thread_rng().gen::<f64>() < INCLUSION_PROBABILITY)
             .chain(msg.predict.trim().split('\n').skip(1))
             .collect::<Vec<_>>()
             .join("\n");
 
-        let mut train = msg.train.trim().split('\n').collect::<Vec<_>>();
+        let mut train = msg
+            .train
+            .trim()
+            .split('\n')
+            .enumerate()
+            .filter(|(i, _)| *i == 0 || thread_rng().gen::<f64>() < INCLUSION_PROBABILITY)
+            .map(|(_, t)| t)
+            .collect::<Vec<_>>();
         let headers = train.remove(0);
         let mut validation = Vec::new();
         let test = msg.predict.trim().split('\n').skip(1).collect::<Vec<_>>();
