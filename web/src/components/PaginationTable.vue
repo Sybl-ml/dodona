@@ -2,6 +2,7 @@
   <b-container>
     <vuetable
       ref="vuetable"
+      class="table-scroll"
       :api-mode="false"
       :css="css"
       :fields="fields"
@@ -90,14 +91,13 @@ export default {
 };
 </script>
 <style>
+
 .pagination {
   background: #f9fafb;
-  padding-top: 0;
-  padding-bottom: 0;
 }
-span.sort-icon {
-  float: right;
-  color: #ff9100;
+.table-scroll table {
+  display: block;
+  overflow-x: auto;
 }
 
 </style>
