@@ -2,6 +2,7 @@
 
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
+use std::cmp::max;
 use std::collections::HashMap;
 use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
@@ -125,8 +126,8 @@ impl ClusterControl {
     }
 }
 
-const VALIDATION_SIZE: usize = 10;
-const TRAINING_BAG_SIZE: usize = 10;
+// The proportion of training examples to use as validation examples
+const VALIDATION_SPLIT: f64 = 0.2;
 
 // inclusion probability used for Bernoulli sampling
 const INCLUSION_PROBABILITY: f64 = 0.95;
@@ -196,7 +197,7 @@ pub async fn run(
         log::info!("{:?}", &train);
         log::info!("{}", &train.len());
 
-        for _ in 0..VALIDATION_SIZE {
+        for _ in 0..max(1, (train.len() as f64 * VALIDATION_SPLIT) as usize) {
             validation.push(train.swap_remove(thread_rng().gen_range(0..train.len())));
         }
 
@@ -217,8 +218,9 @@ pub async fn run(
 
                 for key in cluster.keys() {
                     log::info!("BOOTSTRAPPING");
+                    // current method resamples the same number of training examples
                     let model_train: Vec<_> = train
-                        .choose_multiple(&mut thread_rng(), TRAINING_BAG_SIZE)
+                        .choose_multiple(&mut thread_rng(), train.len())
                         .map(|s| s.to_owned())
                         .collect();
 
