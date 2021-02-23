@@ -13,8 +13,8 @@
               <router-link :to="{ name: 'AddProject' }">
                 <b-button variant="primary" class="mb-2 shadow-sm add-new" block
                   ><b-row
-                    ><b-col class="text-left">Add new project</b-col
-                    ><b-col class="ml-auto text-right">
+                    ><b-col md="10" class="text-left">Add new project</b-col
+                    ><b-col md="2" class="ml-auto text-right">
                       <b-icon-plus-circle /></b-col></b-row></b-button
               ></router-link>
               <router-link
