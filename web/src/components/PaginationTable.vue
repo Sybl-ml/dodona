@@ -1,5 +1,5 @@
 <template>
-  <div class="ui container">
+  <b-container>
     <vuetable
       ref="vuetable"
       :api-mode="false"
@@ -9,37 +9,47 @@
       :data-manager="dataManager"
       pagination-path="pagination"
       @vuetable:pagination-data="onPaginationData"
-    ></vuetable>
-    <vuetable-pagination
-      ref="pagination"
-      :css="css.pagination"
-      @vuetable-pagination:change-page="onChangePage"
-    ></vuetable-pagination>
-  </div>
+    />
+    <b-row class="pagination">
+    <b-col lg="8">
+      <vuetable-pagination
+        ref="pagination"
+        :css="css.pagination"
+        @vuetable-pagination:change-page="onChangePage"
+      />
+    </b-col>
+    <b-col lg="4">
+      <b-form-group class="perPageContainer" label-cols="8" label-cols-lg="8" label="Per Page:" laebl-for="perPageSelect">
+        <b-form-select id="perPageSelect" size="sm" v-model="perPage" :options="options"></b-form-select>
+      </b-form-group>
+    </b-col>
+    </b-row>
+  </b-container>
 </template>
 
 <script>
 import Vuetable from "vuetable-2/src/components/Vuetable";
 import VuetablePagination from "vuetable-2/src/components/VuetablePagination";
-import VuetablePaginationInfo from "vuetable-2/src/components/VuetablePaginationInfo";
-import BootstrapStyle from "./bootstrap-css.js";
+import PaginationTableStyle from "@/assets/css/PaginationTableStyle.js";
+import _ from "lodash";
 
 export default {
-  name: "MyVuetable",
+  name: "PaginationTable",
   components: {
     Vuetable,
     VuetablePagination,
-    VuetablePaginationInfo,
+    PaginationTableStyle,
   },
   data() {
     return {
-      css: BootstrapStyle,
+      css: PaginationTableStyle,
+      perPage: 10,
+      options: [10, 25, 50, 100],
     };
   },
   props: {
     data: Array,
     fields: Array,
-    perPage: Number,
   },
 
   methods: {
@@ -56,7 +66,6 @@ export default {
 
       // sortOrder can be empty, so we have to check for that as well
       if (sortOrder.length > 0) {
-        console.log("orderBy:", sortOrder[0].sortField, sortOrder[0].direction);
         local = _.orderBy(
           local,
           sortOrder[0].sortField,
@@ -68,7 +77,7 @@ export default {
         local.length,
         this.perPage
       );
-      console.log("pagination:", pagination);
+      
       let from = pagination.from - 1;
       let to = from + this.perPage;
 
@@ -82,13 +91,13 @@ export default {
 </script>
 <style>
 .pagination {
-  margin-top: 0;
-}
-.vuetable-pagination-info {
-  margin-top: 8px !important;
+  background: #f9fafb;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 span.sort-icon {
   float: right;
   color: #ff9100;
 }
+
 </style>
