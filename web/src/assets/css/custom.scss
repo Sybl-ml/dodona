@@ -16,6 +16,8 @@ $theme-colors: (
 // BootstrapVue and its default variables
 @import "../../../node_modules/bootstrap-vue/src/index.scss";
 
+@import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css");
+
 @font-face {
   font-family: Kollektif;
   src: url("../fonts/Kollektif.ttf") format("truetype");
