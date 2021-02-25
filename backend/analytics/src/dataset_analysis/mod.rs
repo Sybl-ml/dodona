@@ -17,8 +17,9 @@ use utils::compress::decompress_data;
 
 /// Prepare Data for analysis
 ///
-///
-///
+/// Takes the project id and locates the linked dataset
+/// Extracts + decompresses the data and the dataset column info
+/// Calls the analysis function and stores the results in the database
 pub async fn prepare_dataset(database: &Arc<Database>, project_id: &ObjectId) -> Result<()> {
     let datasets = database.collection("datasets");
     let dataset_details = database.collection("dataset_details");
@@ -44,17 +45,18 @@ pub async fn prepare_dataset(database: &Arc<Database>, project_id: &ObjectId) ->
     let dataset_detail: DatasetDetails = from_document(document)?;
     let column_types = dataset_detail.column_types;
 
-    let mut column_data = Vec::new();
-    for (name, column) in column_types {
-        if column.is_categorical() {
-            column_data.push((name, "C".to_string()));
-        } else {
-            column_data.push((name, "N".to_string()));
-        }
-    }
+    let column_data = column_types
+        .into_iter()
+        .map(|(name, column)| {
+            if column.is_categorical() {
+                (name, 'C')
+            } else {
+                (name, 'N')
+            }
+        })
+        .collect::<Vec<_>>();
 
     let analysis = analyse_project(&train, column_data);
-    dbg!(&analysis);
 
     let analysis = DatasetAnalysis::new(project_id.clone(), analysis);
     let document = to_document(&analysis)?;
@@ -67,7 +69,7 @@ pub async fn prepare_dataset(database: &Arc<Database>, project_id: &ObjectId) ->
 /// Converts dataset string to a reader and performs statistical analysis
 pub fn analyse_project(
     dataset: &str,
-    column_data: Vec<(String, String)>,
+    column_data: Vec<(String, char)>,
 ) -> HashMap<String, ColumnAnalysis> {
     let mut reader = Reader::from_reader(std::io::Cursor::new(dataset));
 
@@ -82,8 +84,8 @@ pub fn analyse_project(
         .map(|(header, data_type)| {
             (
                 header.clone(),
-                match data_type.as_str() {
-                    "N" => ColumnAnalysis::Numerical(NumericalAnalysis::default()),
+                match data_type {
+                    'N' => ColumnAnalysis::Numerical(NumericalAnalysis::default()),
                     _ => ColumnAnalysis::Categorical(CategoricalAnalysis::default()),
                 },
             )
@@ -110,8 +112,7 @@ pub fn analyse_project(
                     content.max = content
                         .max
                         .max(f64::from_str(elem).expect("Failed to convert to float"));
-                    content.sum =
-                        content.sum + f64::from_str(elem).expect("Failed to convert to float");
+                    content.sum += f64::from_str(elem).expect("Failed to convert to float");
                 }
             };
         }
@@ -123,13 +124,13 @@ pub fn analyse_project(
             .expect("Failed to access header data")
         {
             ColumnAnalysis::Numerical(content) => {
-                content.avg = content.sum as f64 / dataset_length as f64;
+                content.avg = content.sum / dataset_length as f64;
             }
             _ => {}
         };
     });
 
-    dbg!(&tracker);
+    log::debug!("Generated Analysis {:?}", &tracker);
     return tracker;
 }
 

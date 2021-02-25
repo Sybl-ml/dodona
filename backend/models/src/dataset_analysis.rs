@@ -3,7 +3,8 @@
 use std::collections::HashMap;
 
 use mongodb::bson::{doc, oid::ObjectId};
-/// Defines the information that should be stored as analayis for a dataset
+
+/// Defines the information that should be stored as analysis for a dataset
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DatasetAnalysis {
     /// The unique identifier for the dataset

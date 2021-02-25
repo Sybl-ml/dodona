@@ -15,12 +15,6 @@ use rdkafka::producer::{FutureProducer, FutureRecord};
 use rdkafka::util::Timeout;
 use tokio_stream::StreamExt;
 
-use crate::{
-    auth,
-    error::{ServerError, ServerResponse, ServerResult},
-    routes::{check_user_owns_project, payloads, response_from_json},
-    State,
-};
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
 use models::jobs::{Job, JobConfiguration};
@@ -28,6 +22,13 @@ use models::predictions::Prediction;
 use models::projects::{Project, Status};
 use utils::compress::{compress_vec, decompress_data};
 use utils::ColumnType;
+
+use crate::{
+    auth,
+    error::{ServerError, ServerResponse, ServerResult},
+    routes::{check_user_owns_project, payloads, response_from_json},
+    State,
+};
 
 static JOB_TOPIC: &str = "jobs";
 static ANALYTICS_TOPIC: &str = "analytics";

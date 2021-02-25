@@ -36,15 +36,13 @@ pub async fn run() -> Result<()> {
     let broker_socket =
         u16::from_str(&env::var("BROKER_PORT").unwrap_or_else(|_| "9092".to_string()))
             .expect("BROKER_PORT must be a u16");
+    let database_name = env::var("DATABASE_NAME").unwrap_or_else(|_| String::from("sybl"));
 
     let mut client_options = ClientOptions::parse(&conn_str).await.unwrap();
     client_options.app_name = Some(app_name);
-    let client = Arc::new(
-        Client::with_options(client_options)
-            .unwrap()
-            .database("sybl"),
-    );
-    let db_conn_interface = Arc::clone(&client);
+
+    let client = Client::with_options(client_options).unwrap();
+    let database = Arc::new(client.database(&database_name));
 
     let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, broker_socket).to_string();
     log::info!("Broker Socket: {:?}", addr);
@@ -77,7 +75,6 @@ pub async fn run() -> Result<()> {
             }
         };
 
-        let database = Arc::clone(&db_conn_interface);
         let project_id: ObjectId = serde_json::from_slice(&payload).unwrap();
 
         log::debug!(
