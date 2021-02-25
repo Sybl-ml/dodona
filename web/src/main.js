@@ -16,20 +16,22 @@ import "@/assets/css/custom.scss";
 // Set a base URL and then override it with something more specific
 let baseURL = "http://localhost:3001";
 
-if (process.env.BASE_URL !== undefined) {
-  baseURL = process.env.BASE_URL;
+if (process.env.VUE_APP_AXIOS_BASE !== undefined) {
+  baseURL = process.env.VUE_APP_AXIOS_BASE;
 }
 
-const axiosConfig = { baseURL };
+const axiosConfig = {
+  baseURL: baseURL,
+};
 
 Vue.config.productionTip = false;
 Vue.prototype.$http = axios.create(axiosConfig);
 
 // Add a request interceptor
 Vue.prototype.$http.interceptors.request.use(function (config) {
-    const token = $cookies.get("token");
-    config.headers.Authorization = `Bearer ${token}`;
-    return config;
+  const token = $cookies.get("token");
+  config.headers.Authorization = `Bearer ${token}`;
+  return config;
 });
 
 new Vue({
