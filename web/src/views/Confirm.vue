@@ -45,7 +45,7 @@ export default {
   methods: {
     async onSubmit() {
       let response = await this.$http.post(
-        "http://localhost:3001/api/clients/register",
+        "api/clients/register",
         {
           id: $cookies.get("token"),
           email: this.email,

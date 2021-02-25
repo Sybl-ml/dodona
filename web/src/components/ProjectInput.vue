@@ -1,17 +1,16 @@
 <template>
-  <b-container fluid >
+  <b-container fluid>
     <b-row>
-      <h4>{{this.datasetName}}
-      </h4>
+      <h4>{{ this.datasetName }}</h4>
     </b-row>
     <b-row>
       <b-col v-if="!training_data && !loading" class="text-center">
         <b-row class="head-input-table">
-        <b-table hover striped :items="this.dataHead.data" />
-      </b-row>
-      <b-button @click="$emit('get-data')" variant="primary" class="px-5"
-        >Load Data</b-button
-      >
+          <b-table hover striped :items="this.dataHead.data" />
+        </b-row>
+        <b-button @click="$emit('get-data')" variant="primary" class="px-5"
+          >Load Data</b-button
+        >
       </b-col>
       <b-col v-else-if="loading" class="text-center">
         <b-icon
@@ -21,7 +20,10 @@
         ></b-icon>
       </b-col>
       <b-col v-else class="input-table">
-        <b-table hover striped :items="this.training_data.data" />
+        <pagination-table
+          :fields="buildFields(this.training_data.meta.fields)"
+          :data="this.training_data.data"
+        />
       </b-col>
     </b-row>
   </b-container>
@@ -29,7 +31,7 @@
 
 <style scoped>
 .input-table {
-  height: calc(50px * 12);
+  height: calc(52px * 12);
   overflow-y: scroll;
 }
 .head-input-table {
@@ -38,8 +40,14 @@
 </style>
 
 <script>
+import VuetableFieldHandle from "vuetable-2/src/components/VuetableFieldHandle.vue";
+import PaginationTable from "./PaginationTable.vue";
+
 export default {
   name: "ProjectInput",
+  components: {
+    PaginationTable,
+  },
   props: {
     projectId: String,
     datasetName: String,
@@ -47,7 +55,24 @@ export default {
     dataHead: Object,
     loading: Boolean,
   },
-  methods: {},
+  methods: {
+    buildFields(fields) {
+      let built_fields = [
+        {
+          name: VuetableFieldHandle,
+        },
+      ];
+
+      fields.forEach(function(item, index) {
+        built_fields.push({
+          name: item,
+          title: item,
+          sortField: item,
+        });
+      });
+      return built_fields;
+    },
+  },
   computed: {
     getDatasetDate() {
       return `${this.dataDate.toLocaleString("en-GB", {

@@ -42,7 +42,7 @@ dependencies = [
 [[package]]
 name = "actix-cors"
 version = "0.5.4"
-source = "git+https://github.com/andy128k/actix-extras?rev=fb77714#fb77714e1c24e775b50882ec04488150bac7104d"
+source = "git+https://github.com/andy128k/actix-extras?rev=f896afb#f896afb276b4238d9cafb78b1041713c5ff13142"
 dependencies = [
  "actix-web",
  "derive_more",
@@ -1832,9 +1832,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.5.2"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13bd41f508810a131401606d54ac32a467c97172d74ba7662562ebba5ad07fa0"
+checksum = "4ad167a2f54e832b82dbe003a046280dceffe5227b5f79e08e363a29638cfddd"
 
 [[package]]
 name = "opaque-debug"

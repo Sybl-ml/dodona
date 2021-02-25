@@ -311,7 +311,7 @@ export default {
       }
       try {
         await this.$http.post(
-          `http://localhost:3001/api/projects/${this.projectId}/process`,
+          `api/projects/${this.projectId}/process`,
           {
             timeout: this.timeout,
             clusterSize: this.cluster_size,
@@ -329,7 +329,7 @@ export default {
     async deleteDataset() {
       try {
         let project_response = await this.$http.delete(
-          `http://localhost:3001/api/projects/${this.projectId}/data`
+          `api/projects/${this.projectId}/data`
         );
       } catch (err) {
         console.log(err);
@@ -345,7 +345,7 @@ export default {
     },
     async sendFile(e) {
       let project_response = await this.$http.put(
-        `http://localhost:3001/api/projects/${this.projectId}/data`,
+        `api/projects/${this.projectId}/data`,
         {
           name: this.file.name,
           content: e.target.result,
