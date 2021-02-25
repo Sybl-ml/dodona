@@ -84,7 +84,7 @@ impl<'a> Handler<'a> {
 
         // Query the API server
         let body = bson!({
-            "model_name": &model_name,
+            "modelName": &model_name,
             "email": &email,
         });
 
@@ -114,9 +114,9 @@ impl<'a> Handler<'a> {
 
         // Query the API server
         let body = bson!({
-            "model_name": &model_name,
+            "modelName": &model_name,
             "email": &email,
-            "challenge_response": &response,
+            "challengeResponse": &response,
         });
 
         let endpoint = "/api/clients/models/verify";
