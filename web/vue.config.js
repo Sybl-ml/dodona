@@ -3,5 +3,6 @@
 module.exports = {
     devServer: {
         progress: false
-    }
+    },
+    publicPath: "/"
 }
