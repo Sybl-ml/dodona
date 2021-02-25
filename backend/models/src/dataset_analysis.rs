@@ -21,7 +21,7 @@ impl DatasetAnalysis {
         Self {
             id: ObjectId::new(),
             project_id,
-            columns
+            columns,
         }
     }
 

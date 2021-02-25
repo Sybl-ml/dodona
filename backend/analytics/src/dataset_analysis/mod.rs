@@ -1,26 +1,25 @@
-use std::sync::Arc;
-use std::str::FromStr;
 use std::collections::HashMap;
+use std::str::FromStr;
+use std::sync::Arc;
 
-use csv::Reader;
 use anyhow::{anyhow, Result};
+use csv::Reader;
 use mongodb::{
     bson::{de::from_document, doc, oid::ObjectId, ser::to_document},
     Database,
 };
 
-use models::dataset_analysis::{ColumnAnalysis, NumericalAnalysis, CategoricalAnalysis};
-use models::dataset_details::DatasetDetails;
 use models::dataset_analysis::DatasetAnalysis;
+use models::dataset_analysis::{CategoricalAnalysis, ColumnAnalysis, NumericalAnalysis};
+use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
 use utils::compress::decompress_data;
-
 
 /// Prepare Data for analysis
 ///
 ///
 ///
-pub async fn prepare_dataset(database: &Arc<Database>, project_id: &ObjectId) -> Result<()>{
+pub async fn prepare_dataset(database: &Arc<Database>, project_id: &ObjectId) -> Result<()> {
     let datasets = database.collection("datasets");
     let dataset_details = database.collection("dataset_details");
     let dataset_analysis = database.collection("dataset_analysis");
@@ -58,10 +57,8 @@ pub async fn prepare_dataset(database: &Arc<Database>, project_id: &ObjectId) ->
     dbg!(&analysis);
 
     let analysis = DatasetAnalysis::new(project_id.clone(), analysis);
-    
     let document = to_document(&analysis)?;
     dataset_analysis.insert_one(document, None).await?;
-    
     Ok(())
 }
 
@@ -99,21 +96,32 @@ pub fn analyse_project(
         dataset_length += 1;
 
         for (elem, header) in row.iter().zip(headers.iter()) {
-            match tracker.get_mut(header).expect("Failed to access header data") {
+            match tracker
+                .get_mut(header)
+                .expect("Failed to access header data")
+            {
                 ColumnAnalysis::Categorical(content) => {
                     *content.values.entry(elem.to_string()).or_insert(0) += 1;
                 }
                 ColumnAnalysis::Numerical(content) => {
-                    content.min = content.min.min(f64::from_str(elem).expect("Failed to convert to float"));
-                    content.max = content.max.max(f64::from_str(elem).expect("Failed to convert to float"));
-                    content.sum = content.sum + f64::from_str(elem).expect("Failed to convert to float");
+                    content.min = content
+                        .min
+                        .min(f64::from_str(elem).expect("Failed to convert to float"));
+                    content.max = content
+                        .max
+                        .max(f64::from_str(elem).expect("Failed to convert to float"));
+                    content.sum =
+                        content.sum + f64::from_str(elem).expect("Failed to convert to float");
                 }
             };
         }
     }
 
     column_data.iter().for_each(|(header, _)| {
-        match tracker.get_mut(header).expect("Failed to access header data") {
+        match tracker
+            .get_mut(header)
+            .expect("Failed to access header data")
+        {
             ColumnAnalysis::Numerical(content) => {
                 content.avg = content.sum as f64 / dataset_length as f64;
             }

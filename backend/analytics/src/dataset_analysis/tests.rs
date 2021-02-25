@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::dataset_analysis::analyse_project;
-use models::dataset_analysis::{ColumnAnalysis, NumericalAnalysis, CategoricalAnalysis};
+use models::dataset_analysis::{CategoricalAnalysis, ColumnAnalysis, NumericalAnalysis};
 
 #[test]
 fn analysis_data_is_generated_correctly_and_not_empty() {
@@ -25,11 +25,9 @@ Boston,UK,23432
     let mut country = CategoricalAnalysis::default();
     country.values.insert("US".to_string(), 2);
     country.values.insert("UK".to_string(), 1);
-    
     let mut city = CategoricalAnalysis::default();
     city.values.insert("Concord".to_string(), 1);
     city.values.insert("Boston".to_string(), 2);
-
     let mut popcount = NumericalAnalysis::default();
     popcount.min = 23432.0;
     popcount.max = 4628910.0;
