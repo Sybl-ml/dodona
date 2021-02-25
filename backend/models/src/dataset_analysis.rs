@@ -35,19 +35,19 @@ impl DatasetAnalysis {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum ColumnAnalysis {
     Categorical(CategoricalAnalysis),
     Numerical(NumericalAnalysis),
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
 pub struct CategoricalAnalysis {
     /// All the values in the column
     pub values: HashMap<String, i64>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct NumericalAnalysis {
     pub max: f64,
     pub min: f64,
