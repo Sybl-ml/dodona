@@ -10,7 +10,7 @@ edition = "2018"
 actix = "0.11.0-beta.2"
 actix-web = "4.0.0-beta.3"
 actix-rt = "2.0.2"
-actix-cors = { git = "https://github.com/andy128k/actix-extras", rev = "f896afb" }
+actix-cors = { git = "https://github.com/andy128k/actix-extras", branch = "update-dependencies" }
 anyhow = "1.0.38"
 tokio = { version = "1.2.0", features = ["full"] }
 tokio-stream = "0.1.3"
