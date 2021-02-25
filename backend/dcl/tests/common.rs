@@ -24,6 +24,7 @@ pub struct Params {
     pub conn_str: String,
     pub node_socket: u16,
     pub interface_socket: u16,
+    pub database_name: String,
 }
 
 pub fn initialise() -> Params {
@@ -36,10 +37,13 @@ pub fn initialise() -> Params {
     let interface_socket =
         u16::from_str(&env::var("INTERFACE_SOCKET").expect("INTERFACE_SOCKET must be set"))
             .unwrap();
+    let database_name = env::var("DATABASE_NAME").unwrap_or_else(|_| String::from("sybl"));
+
     Params {
         conn_str,
         node_socket,
         interface_socket,
+        database_name,
     }
 }
 
@@ -51,7 +55,7 @@ pub async fn initialise_with_db() -> (Database, Params) {
     let client = mongodb::Client::with_uri_str(&params.conn_str)
         .await
         .unwrap();
-    let database = client.database("sybl");
+    let database = client.database(&params.database_name);
 
     // Check whether this is the first time being run
     if *lock {

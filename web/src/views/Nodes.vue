@@ -138,7 +138,7 @@ export default {
     let user_id = $cookies.get("token");
     try {
       let data = await this.$http.get(
-        `http://localhost:3001/api/clients/models`
+        `api/clients/models`
       );
       this.model_data = data.data;
     } catch (err) {

@@ -116,7 +116,7 @@ export default {
   methods: {
     async fetchProject() {
       let project_response = await this.$http.get(
-        `http://localhost:3001/api/projects/${this.projectId}`
+        `api/projects/${this.projectId}`
       );
 
       let project_details = project_response.data.details;
@@ -142,7 +142,7 @@ export default {
       this.loading = true;
 
       let project_response = await this.$http.get(
-        `http://localhost:3001/api/projects/${this.projectId}/data`
+        `api/projects/${this.projectId}/data`
       );
 
       let project_data = project_response.data.dataset;
@@ -154,7 +154,7 @@ export default {
       this.results_loading = true;
 
       let project_predictions = await this.$http.get(
-        `http://localhost:3001/api/projects/${this.projectId}/predictions`
+        `api/projects/${this.projectId}/predictions`
       );
       this.results = project_predictions.data["predictions"];
       this.predict_data = project_predictions.data["predict_data"];
