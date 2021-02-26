@@ -75,8 +75,12 @@ impl<'a> Handler<'a> {
 
     /// Registers a new model with the API server.
     async fn register_new_model(&mut self) -> Result<()> {
-        let (model_name, email) = match self.current_msg.take().unwrap() {
-            ClientMessage::NewModel { model_name, email } => (model_name, email),
+        let (email, password, model_name) = match self.current_msg.take().unwrap() {
+            ClientMessage::NewModel {
+                email,
+                password,
+                model_name,
+            } => (email, password, model_name),
             _ => unreachable!(),
         };
 
@@ -84,8 +88,9 @@ impl<'a> Handler<'a> {
 
         // Query the API server
         let body = bson!({
-            "modelName": &model_name,
             "email": &email,
+            "password": &password,
+            "modelName": &model_name,
         });
 
         let endpoint = "/api/clients/models/new";

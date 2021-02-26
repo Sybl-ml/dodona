@@ -102,6 +102,8 @@ pub struct RegisterClientOptions {
 pub struct NewModelOptions {
     /// The user's email address
     pub email: String,
+    /// The user's password
+    pub password: String,
     /// The name of the new model
     pub model_name: String,
 }
