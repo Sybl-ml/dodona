@@ -2,6 +2,7 @@
 [workspace]
 members = [
 	"api-server",
+	"analytics",
 	"config",
 	"dcl",
 	"models",

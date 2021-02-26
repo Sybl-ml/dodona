@@ -103,6 +103,8 @@ pub async fn new_model(
         .ok_or(ServerError::NotFound)?;
 
     let user: User = from_document(document)?;
+    let peppered = format!("{}{}", &payload.password, &state.pepper);
+    pbkdf2::pbkdf2_check(&peppered, &user.hash)?;
 
     if !user.client {
         return Err(ServerError::Forbidden);

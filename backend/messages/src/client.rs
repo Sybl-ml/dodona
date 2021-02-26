@@ -28,6 +28,8 @@ pub enum ClientMessage {
     NewModel {
         /// The client's email address
         email: String,
+        /// The client's password
+        password: String,
         /// The name of the model
         model_name: String,
     },
