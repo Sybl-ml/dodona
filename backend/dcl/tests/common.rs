@@ -52,6 +52,13 @@ pub async fn initialise_with_db() -> (Database, Params) {
     let mut lock = MUTEX.lock().await;
 
     let params = initialise();
+
+    // Ensure that we aren't using the Atlas instance
+    assert!(
+        !params.conn_str.starts_with("mongodb+srv"),
+        "Please setup a local MongoDB instance for running the tests"
+    );
+
     let client = mongodb::Client::with_uri_str(&params.conn_str)
         .await
         .unwrap();
