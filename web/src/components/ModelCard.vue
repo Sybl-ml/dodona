@@ -109,8 +109,8 @@
               :ref="`model-performance-${i}`"
             />
             <b-card-text>Total Runs: {{ data.times_run }}</b-card-text>
-        </b-card>
-      </b-collapse>
+          </b-card>
+        </b-collapse>
       </b-col>
     </b-row>
   </b-container>
