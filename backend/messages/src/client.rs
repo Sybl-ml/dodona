@@ -28,6 +28,8 @@ pub enum ClientMessage {
     NewModel {
         /// The client's email address
         email: String,
+        /// The client's password
+        password: String,
         /// The name of the model
         model_name: String,
     },
@@ -53,6 +55,11 @@ pub enum ClientMessage {
         train: String,
         /// The dataset to predict on
         predict: String,
+    },
+    /// Response from client about job
+    ConfigResponse {
+        /// Field to say if job has been accepted or not
+        accept: bool,
     },
     /// Prediction data from a node after computation
     Predictions(String),

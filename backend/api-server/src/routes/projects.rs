@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use actix_web::{web, HttpResponse};
 use mongodb::{
-    bson::{de::from_document, doc, document::Document, ser::to_document},
+    bson::{de::from_document, doc, document::Document, oid::ObjectId, ser::to_document},
     Collection,
 };
 use rdkafka::config::ClientConfig;
@@ -31,6 +31,7 @@ use crate::{
 };
 
 static JOB_TOPIC: &str = "jobs";
+static ANALYTICS_TOPIC: &str = "analytics";
 
 /// Finds a project in the database given an identifier.
 ///
@@ -43,6 +44,7 @@ pub async fn get_project(
 ) -> ServerResponse {
     let projects = state.database.collection("projects");
     let details = state.database.collection("dataset_details");
+    let analysis = state.database.collection("dataset_analysis");
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
@@ -54,7 +56,10 @@ pub async fn get_project(
 
     // get that project from the projects collection
     let filter = doc! { "project_id": &object_id };
-    let details_doc = details.find_one(filter, None).await?;
+    let details_doc = details.find_one(filter.clone(), None).await?;
+
+    // get that project from the projects collection
+    let analysis_doc = analysis.find_one(filter, None).await?;
 
     // Begin by adding the project as we know we will respond with that
     let mut response = doc! { "project": doc };
@@ -62,6 +67,11 @@ pub async fn get_project(
     if let Some(details_doc) = details_doc {
         // Insert the details as well
         response.insert("details", details_doc);
+    }
+
+    if let Some(analysis_doc) = analysis_doc {
+        // Insert the details as well
+        response.insert("analysis", analysis_doc);
     }
 
     response_from_json(response)
@@ -215,6 +225,9 @@ pub async fn add_data(
 
     let document = to_document(&dataset)?;
     let id = datasets.insert_one(document, None).await?.inserted_id;
+
+    // Communicate with Analytics Server
+    produce_analytics_message(&object_id).await;
 
     response_from_json(doc! {"dataset_id": id})
 }
@@ -462,6 +475,32 @@ async fn produce_message(job: &Job) -> KafkaResult<()> {
     log::debug!("Message sent result: {:?}", delivery_status);
 
     Ok(())
+}
+
+async fn produce_analytics_message(project_id: &ObjectId) {
+    let var = env::var("BROKER_PORT").unwrap_or_else(|_| "9092".to_string());
+    let port = u16::from_str(&var).expect("BROKER_PORT must be a u16");
+
+    // Build the address to send to
+    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port).to_string();
+    let producer: FutureProducer = ClientConfig::new()
+        .set("bootstrap.servers", &addr)
+        .set("message.timeout.ms", "5000")
+        .create()
+        .expect("Producer creation error");
+
+    let analytics_job = serde_json::to_string(&project_id).unwrap();
+
+    let delivery_status = producer
+        .send(
+            FutureRecord::to(ANALYTICS_TOPIC)
+                .payload(&analytics_job)
+                .key(&analytics_job),
+            Timeout::Never,
+        )
+        .await;
+
+    log::debug!("Message sent result: {:?}", delivery_status);
 }
 
 /// Inserts a [`JobConfiguration`] into MongoDB.

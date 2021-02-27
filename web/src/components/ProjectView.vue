@@ -15,7 +15,9 @@
             :dataHead="dataHead"
             :dataDate="datasetDate"
             :dataTypes="dataTypes"
-            :ready="status == 'Ready'"
+            :analysis="analysis"
+            :analysis_loaded="analysis_loaded"
+            :status="status"
             @update:project="updateProject"
             v-on:input-tab="viewInput"
           />
@@ -83,6 +85,9 @@ export default {
       training_data: null,
       loading: false,
 
+      analysis: {},
+      analysis_loaded: false,
+
       results: null,
       predict_data: null,
       results_loading: false,
@@ -111,11 +116,12 @@ export default {
   methods: {
     async fetchProject() {
       let project_response = await this.$http.get(
-        `http://localhost:3001/api/projects/${this.projectId}`
+        `api/projects/${this.projectId}`
       );
 
       let project_details = project_response.data.details;
       let project_info = project_response.data.project;
+      let project_analysis = project_response.data.analysis;
 
       this.name = project_info.name;
       this.description = project_info.description;
@@ -127,12 +133,16 @@ export default {
         this.datasetDate = new Date(project_details.date_created.$date);
         this.dataTypes = project_details.column_types;
       }
+      if (project_analysis) {
+        this.analysis = project_analysis;
+        this.analysis_loaded = true;
+      }
     },
     async fetchData() {
       this.loading = true;
 
       let project_response = await this.$http.get(
-        `http://localhost:3001/api/projects/${this.projectId}/data`
+        `api/projects/${this.projectId}/data`
       );
 
       let project_data = project_response.data.dataset;
@@ -144,7 +154,7 @@ export default {
       this.results_loading = true;
 
       let project_predictions = await this.$http.get(
-        `http://localhost:3001/api/projects/${this.projectId}/predictions`
+        `api/projects/${this.projectId}/predictions`
       );
       this.results = project_predictions.data["predictions"];
       this.predict_data = project_predictions.data["predict_data"];
@@ -160,11 +170,13 @@ export default {
       // this.dataHead = {};
       // this.dataTypes = {};
 
+      this.analysis = null;
       this.results = null;
       this.predict_data = null;
       this.training_data = null;
       this.loading = false;
       this.results_loading = false;
+      this.analysis_loaded = false;
     },
     viewInput() {
       this.$refs.inputTab.activate();

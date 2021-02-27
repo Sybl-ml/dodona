@@ -7,12 +7,11 @@ use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::Arc;
 
 use anyhow::Result;
-use mongodb::bson::{doc, oid::ObjectId};
+use mongodb::bson::doc;
 use mongodb::Database;
 use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
 use rdkafka::consumer::{stream_consumer::StreamConsumer, Consumer, DefaultConsumerContext};
 use rdkafka::Message;
-use tokio::sync::mpsc::Sender;
 use tokio_stream::StreamExt;
 
 use messages::ClientMessage;
@@ -20,7 +19,7 @@ use models::datasets::Dataset;
 use models::jobs::JobConfiguration;
 use utils::compress::decompress_data;
 
-use crate::DatasetPair;
+use crate::{DatasetPair, JobControl};
 
 /// Starts up interface server
 ///
@@ -28,11 +27,7 @@ use crate::DatasetPair;
 /// read in data from an interface. Messages read over this are taken and the
 /// corresponding dataset is found and decompressed before being passed to the
 /// job end to be sent to a compute node.
-pub async fn run(
-    port: u16,
-    db_conn: Arc<Database>,
-    tx: Sender<(ObjectId, DatasetPair, ClientMessage)>,
-) -> Result<()> {
+pub async fn run(port: u16, db_conn: Arc<Database>, job_control: JobControl) -> Result<()> {
     let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port).to_string();
     log::info!("Broker Socket: {:?}", addr);
 
@@ -71,11 +66,11 @@ pub async fn run(
         );
 
         let database = Arc::clone(&db_conn);
-        let tx = tx.clone();
+        let jc_clone = job_control.clone();
         let job_config = serde_json::from_slice(&payload).unwrap();
 
         tokio::spawn(async move {
-            process_job(database, tx, job_config).await.unwrap();
+            process_job(database, jc_clone, job_config).await.unwrap();
         });
     }
 
@@ -84,7 +79,7 @@ pub async fn run(
 
 async fn process_job(
     db_conn: Arc<Database>,
-    tx: Sender<(ObjectId, DatasetPair, ClientMessage)>,
+    job_control: JobControl,
     job_config: JobConfiguration,
 ) -> Result<()> {
     let JobConfiguration {
@@ -129,7 +124,7 @@ async fn process_job(
     log::debug!("Decompressed {} bytes of training data", train.len());
     log::debug!("Decompressed {} bytes of prediction data", predict.len());
 
-    tx.send((
+    job_control.job_queue.push((
         dataset.project_id,
         DatasetPair { train, predict },
         ClientMessage::JobConfig {
@@ -139,9 +134,9 @@ async fn process_job(
             prediction_column,
             prediction_type,
         },
-    ))
-    .await
-    .unwrap_or_else(|error| log::error!("Error while sending over MPSC: {}", error));
+    ));
+
+    job_control.notify.notify_waiters();
 
     Ok(())
 }

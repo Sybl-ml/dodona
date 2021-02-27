@@ -5,7 +5,7 @@
 //! that [`Node`]. This allows the Job End to ask for a [`TcpStream`] and receive one for a DCN.
 
 use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -18,11 +18,11 @@ use mongodb::{
     Database,
 };
 use rand::Rng;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::RwLock;
+use tokio::sync::{Notify, RwLock};
 
-use messages::{ClientMessage, WriteLengthPrefix};
+use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
 use models::job_performance::JobPerformance;
 use models::models::Status;
 
@@ -124,12 +124,6 @@ impl Default for NodeInfo {
     }
 }
 
-/// Struct to deserialise response message from
-#[derive(Debug, Deserialize)]
-pub struct ConfigResponse {
-    response: String,
-}
-
 /// Struct holding all compute node connections and information about them
 #[derive(Debug, Default)]
 pub struct NodePool {
@@ -139,12 +133,19 @@ pub struct NodePool {
     pub info: RwLock<HashMap<String, NodeInfo>>,
     /// Value to keep track of the number of active nodes in nodepool
     pub active: AtomicUsize,
+    /// Notify struct for alerting changes to Job End
+    pub job_notify: Arc<Notify>,
 }
 
 impl NodePool {
     /// Returns a [`NodePool`] instance
-    pub fn new() -> Self {
-        NodePool::default()
+    pub fn new(job_notify: Arc<Notify>) -> Self {
+        Self {
+            nodes: RwLock::new(HashMap::new()),
+            info: RwLock::new(HashMap::new()),
+            active: AtomicUsize::new(0),
+            job_notify,
+        }
     }
 
     /// Adds new [`Node`] to [`NodePool`]
@@ -167,6 +168,7 @@ impl NodePool {
         );
 
         self.active.fetch_add(1, Ordering::SeqCst);
+        self.job_notify.notify_waiters();
     }
 
     /// Gets [`TcpStream`] reference and its [`ObjectId`]
@@ -228,6 +230,8 @@ impl NodePool {
                     if info.performance > 0.5 {
                         better_nodes.push((id.clone(), info.performance));
                     }
+                } else {
+                    info.using = false;
                 }
             }
         }
@@ -271,6 +275,10 @@ impl NodePool {
         );
 
         self.active.fetch_sub(cluster.len(), Ordering::SeqCst);
+
+        for (model_id, _) in accepted_job.iter() {
+            info_write.get_mut(model_id).unwrap().using = false;
+        }
 
         // output cluster
         match cluster.len() {
@@ -320,18 +328,16 @@ impl NodePool {
         let mut buffer = [0_u8; 1024];
         dcn_stream.write(&config.as_bytes()).await.unwrap();
 
-        // TODO: Update to use proper length prefixing
-        let size = dcn_stream.read(&mut buffer).await.unwrap();
-        let config_response = std::str::from_utf8(&buffer[4..size]).unwrap();
-        let config_response: ConfigResponse = serde_json::from_str(&config_response).unwrap();
+        let config_response = ClientMessage::from_stream(&mut *dcn_stream, &mut buffer).await;
 
-        log::info!(
-            "(Node {}) Config response: {:?}",
-            &key,
-            config_response.response
-        );
+        let accept = match config_response.unwrap() {
+            ClientMessage::ConfigResponse { accept } => accept,
+            _ => unreachable!(),
+        };
 
-        config_response.response == "sure"
+        log::info!("(Node {}) Config response: {:?}", &key, accept);
+
+        accept
     }
 
     /// Changes the `using` flag on a [`NodeInfo`] object
@@ -342,6 +348,7 @@ impl NodePool {
         let mut info_write = self.info.write().await;
         info_write.get_mut(key).unwrap().using = false;
         self.active.fetch_add(1, Ordering::SeqCst);
+        self.job_notify.notify_waiters();
 
         Ok(())
     }
@@ -356,6 +363,7 @@ impl NodePool {
 
         if node_info.alive == false && status == true {
             self.active.fetch_add(1, Ordering::SeqCst);
+            self.job_notify.notify_waiters();
         } else if node_info.alive == true && status == false {
             self.active.fetch_sub(1, Ordering::SeqCst);
         }
@@ -397,8 +405,15 @@ impl NodePool {
 /// Starts up node end which allows DCNs to register their connection. This will create a Node
 /// object if given a correct API Key. This allows the job end to connect and communicate with the
 /// DCNs.
-pub async fn run(nodepool: Arc<NodePool>, database: Arc<Database>, socket: u16) -> Result<()> {
-    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
+pub async fn run(nodepool: Arc<NodePool>, database: Arc<Database>, port: u16) -> Result<()> {
+    // Bind to the external socket in production mode
+    #[cfg(not(debug_assertions))]
+    let ip = Ipv4Addr::UNSPECIFIED;
+
+    #[cfg(debug_assertions)]
+    let ip = Ipv4Addr::LOCALHOST;
+
+    let socket = SocketAddr::V4(SocketAddrV4::new(ip, port));
     log::info!("Node Socket: {:?}", socket);
     let listener = TcpListener::bind(&socket).await?;
 
