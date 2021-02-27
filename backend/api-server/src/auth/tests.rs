@@ -17,7 +17,7 @@ fn request_without_authorization_header_is_rejected() {
 #[test]
 fn request_without_valid_string_authorization_header_is_rejected() {
     let request = TestRequest::default()
-        .header("Authorization", "�")
+        .insert_header(("Authorization", "�"))
         .to_http_request();
 
     assert!(Claims::try_from(&request).is_err());
@@ -26,7 +26,7 @@ fn request_without_valid_string_authorization_header_is_rejected() {
 #[test]
 fn request_with_invalid_token_is_rejected() {
     let request = TestRequest::default()
-        .header("Authorization", "some valid utf-8")
+        .insert_header(("Authorization", "some valid utf-8"))
         .to_http_request();
 
     assert!(Claims::try_from(&request).is_err());
@@ -45,7 +45,7 @@ fn request_with_valid_token_but_no_bearer_is_rejected() {
 
     // Build the request with the produced token
     let request = TestRequest::default()
-        .header("Authorization", encoded)
+        .insert_header(("Authorization", encoded))
         .to_http_request();
 
     assert!(Claims::try_from(&request).is_err());
@@ -65,7 +65,7 @@ fn request_with_valid_expired_token_is_rejected() {
     // Build the request with the produced token
     let auth_value = format!("Bearer {}", encoded);
     let request = TestRequest::default()
-        .header("Authorization", auth_value)
+        .insert_header(("Authorization", auth_value))
         .to_http_request();
 
     assert!(Claims::try_from(&request).is_err());
@@ -85,7 +85,7 @@ fn request_with_valid_token_is_accepted() {
     // Build the request with the produced token
     let auth_value = format!("Bearer {}", encoded);
     let request = TestRequest::default()
-        .header("Authorization", auth_value)
+        .insert_header(("Authorization", auth_value))
         .to_http_request();
 
     assert!(Claims::try_from(&request).is_ok());
@@ -101,7 +101,7 @@ fn jwt_tokens_can_expire() {
     // Build the request with the produced token
     let auth_value = format!("Bearer {}", token);
     let request = TestRequest::default()
-        .header("Authorization", auth_value)
+        .insert_header(("Authorization", auth_value))
         .to_http_request();
 
     assert!(Claims::try_from(&request).is_ok());
@@ -126,7 +126,7 @@ fn tokens_encoded_with_a_different_key_are_rejected() {
     // Build the request with the produced token
     let auth_value = format!("Bearer {}", encoded);
     let request = TestRequest::default()
-        .header("Authorization", auth_value)
+        .insert_header(("Authorization", auth_value))
         .to_http_request();
 
     assert!(Claims::try_from(&request).is_err());

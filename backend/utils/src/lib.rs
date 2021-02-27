@@ -46,6 +46,33 @@ pub struct Column {
 pub type Columns = HashMap<String, Column>;
 
 impl Column {
+    /// Creates a new column which is guaranteed to be categorical
+    /// Used in classification problems where the prediction column
+    /// could be accidentally inferred as a numerical column
+    pub fn categorical(name: &str, dataset: &str) -> Column {
+        let mut reader = Reader::from_reader(dataset.as_bytes());
+        let headers = reader.headers().unwrap().to_owned();
+        let records: Vec<StringRecord> = reader.records().filter_map(Result::ok).collect();
+        let values = column_values(
+            name.to_string(),
+            &records,
+            headers.iter().position(|h| h == name).unwrap(),
+        )
+        .1;
+        Column {
+            name: name.to_string(),
+            pseudonym: generate_string(16),
+            column_type: ColumnType::Categorical(
+                values
+                    .iter()
+                    .filter(|v| *v != "")
+                    .zip(values.iter().map(|v| Column::obfuscate(v)))
+                    .map(|(v, o)| (v.to_string(), o))
+                    .collect(),
+            ),
+        }
+    }
+
     /// Given a `value` for this `Column`, anonymise it based on this `Column`'s `column_type`
     ///
     /// Once a `Column` has been constructed, it is simple to anonymise data from the same domain
@@ -140,6 +167,7 @@ impl From<ColumnValues> for Column {
         // check if all values in the column are numerical
         if let Ok(numerical) = values
             .iter()
+            .filter(|v| *v != "")
             .map(|v| f64::from_str(v))
             .collect::<Result<Vec<_>, _>>()
         {
@@ -165,6 +193,7 @@ impl From<ColumnValues> for Column {
             let column_type = ColumnType::Categorical(
                 values
                     .iter()
+                    .filter(|v| *v != "")
                     // obfuscate each value in the column with a random pseudonym
                     .zip(values.iter().map(|v| Column::obfuscate(v)))
                     .map(|(v, o)| (v.to_string(), o))
@@ -357,6 +386,16 @@ pub fn generate_ids(dataset: &str) -> (String, Vec<String>) {
 /// output based on the level of the message. It also suppresses output from libraries unless they
 /// are warnings or errors, and enables all log levels for the current binary.
 pub fn setup_logger(lvl_for: &'static str) {
+    let levels = vec![(lvl_for, log::LevelFilter::Trace)];
+
+    setup_logger_with_filters(levels)
+}
+
+pub fn setup_logger_with_filters<Conditions, Name>(conditions: Conditions)
+where
+    Conditions: IntoIterator<Item = (Name, log::LevelFilter)>,
+    Name: Into<String>,
+{
     let colours_line = ColoredLevelConfig::new()
         .error(Color::Red)
         .warn(Color::Yellow)
@@ -364,7 +403,7 @@ pub fn setup_logger(lvl_for: &'static str) {
         .debug(Color::Blue)
         .trace(Color::BrightBlack);
 
-    fern::Dispatch::new()
+    let mut dispatch = fern::Dispatch::new()
         .format(move |out, message, record| {
             out.finish(format_args!(
                 "{colours_line}[{date}][{target}][{level}]\x1B[0m {message}",
@@ -378,8 +417,13 @@ pub fn setup_logger(lvl_for: &'static str) {
                 message = message,
             ));
         })
-        .level(log::LevelFilter::Warn)
-        .level_for(lvl_for, log::LevelFilter::Trace)
+        .level(log::LevelFilter::Warn);
+
+    for (module_name, level) in conditions {
+        dispatch = dispatch.level_for(module_name.into(), level);
+    }
+
+    dispatch
         .chain(std::io::stdout())
         .apply()
         .expect("Failed to initialise the logger");

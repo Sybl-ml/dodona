@@ -5,9 +5,14 @@ use mongodb::bson;
 use serde::Serialize;
 use thiserror::Error;
 
+/// Defines a custom result type.
+pub type ServerResult<T> = std::result::Result<T, ServerError>;
+/// Defines the default response type of each handler.
+pub type ServerResponse = ServerResult<HttpResponse>;
+
 /// Defines HTTP errors which can be returned
 #[derive(Error, Debug)]
-pub enum DodonaError {
+pub enum ServerError {
     /// Not Found HTTP Error
     #[error("Requested file was not found")]
     NotFound,
@@ -28,7 +33,7 @@ pub enum DodonaError {
     Unauthorized,
 }
 
-impl DodonaError {
+impl ServerError {
     /// Method to return string version of Enum
     pub fn name(&self) -> &'static str {
         match self {
@@ -46,7 +51,7 @@ impl DodonaError {
 macro_rules! error_map {
     ($($error:path => $code:ident,)*) => {
         $(
-            impl From<$error> for DodonaError {
+            impl From<$error> for ServerError {
                 fn from(_error: $error) -> Self {
                     Self::$code
                 }
@@ -57,6 +62,7 @@ macro_rules! error_map {
 
 error_map! {
     std::str::Utf8Error => UnprocessableEntity,
+    std::string::FromUtf8Error => UnprocessableEntity,
     std::num::ParseIntError => UnprocessableEntity,
     bson::oid::Error => UnprocessableEntity,
     bson::document::ValueAccessError => UnprocessableEntity,
@@ -67,9 +73,10 @@ error_map! {
     jsonwebtoken::errors::Error => Unauthorized,
     base64::DecodeError => UnprocessableEntity,
     utils::compress::CompressionError => UnprocessableEntity,
+    anyhow::Error => Unknown,
 }
 
-impl ResponseError for DodonaError {
+impl ResponseError for ServerError {
     /// Function to return the HTTP status code of Enum
     fn status_code(&self) -> StatusCode {
         match *self {
@@ -85,12 +92,14 @@ impl ResponseError for DodonaError {
     /// Function which builds error response
     fn error_response(&self) -> HttpResponse {
         let status_code = self.status_code();
+
         let error_response = ErrorResponse {
             code: status_code.as_u16(),
             error: self.name(),
             message: self.to_string(),
         };
-        HttpResponse::build(status_code).json(error_response)
+
+        HttpResponse::build(status_code).json(&error_response)
     }
 }
 

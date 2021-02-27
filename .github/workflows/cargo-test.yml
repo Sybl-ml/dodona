@@ -15,7 +15,18 @@ jobs:
       with:
         mongodb-version: 4.4
 
-    - name: cargo test
+    - name: Checkout branch
       uses: actions/checkout@v2
 
-    - run: "cd backend && cargo test"
+    - name: Install latest `rustc`
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        default: true
+
+    - name: cargo test
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --manifest-path backend/Cargo.toml

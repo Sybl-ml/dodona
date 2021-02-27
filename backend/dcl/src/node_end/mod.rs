@@ -5,9 +5,12 @@
 //! that [`Node`]. This allows the Job End to ask for a [`TcpStream`] and receive one for a DCN.
 
 use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str;
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 
 use anyhow::Result;
 use mongodb::{
@@ -15,11 +18,12 @@ use mongodb::{
     Database,
 };
 use rand::Rng;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::RwLock;
+use tokio::sync::{Notify, RwLock};
 
-use messages::{ClientMessage, WriteLengthPrefix};
+use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
+use models::job_performance::JobPerformance;
 use models::models::Status;
 
 use crate::protocol;
@@ -90,25 +94,34 @@ pub struct NodeInfo {
 
 impl NodeInfo {
     /// creates new [`NodeInfo`] instance
-    pub fn new() -> Self {
+    pub fn new(performance: f64) -> Self {
         Self {
             alive: true,
             using: false,
-            performance: 0.0,
+            performance,
         }
+    }
+
+    /// gets the past 5 performances of node from DB
+    /// and averages them out. To be used when a node
+    /// is created.
+    pub async fn from_database(database: Arc<Database>, model_id: &str) -> Result<NodeInfo> {
+        let performances = JobPerformance::get_past_k(database, model_id, 5).await?;
+
+        let mut perf = 0.0;
+
+        if !performances.is_empty() {
+            perf = performances.iter().sum::<f64>() / performances.len() as f64;
+        }
+
+        Ok(NodeInfo::new(perf))
     }
 }
 
 impl Default for NodeInfo {
     fn default() -> Self {
-        Self::new()
+        Self::new(0.0)
     }
-}
-
-/// Struct to deserialise response message from
-#[derive(Debug, Deserialize)]
-pub struct ConfigResponse {
-    response: String,
 }
 
 /// Struct holding all compute node connections and information about them
@@ -118,12 +131,21 @@ pub struct NodePool {
     pub nodes: RwLock<HashMap<String, Node>>,
     /// [`HashMap`] of [`NodeInfo`] objects with unique IDs
     pub info: RwLock<HashMap<String, NodeInfo>>,
+    /// Value to keep track of the number of active nodes in nodepool
+    pub active: AtomicUsize,
+    /// Notify struct for alerting changes to Job End
+    pub job_notify: Arc<Notify>,
 }
 
 impl NodePool {
     /// Returns a [`NodePool`] instance
-    pub fn new() -> Self {
-        NodePool::default()
+    pub fn new(job_notify: Arc<Notify>) -> Self {
+        Self {
+            nodes: RwLock::new(HashMap::new()),
+            info: RwLock::new(HashMap::new()),
+            active: AtomicUsize::new(0),
+            job_notify,
+        }
     }
 
     /// Adds new [`Node`] to [`NodePool`]
@@ -131,7 +153,7 @@ impl NodePool {
     /// Function will take in a new [`Node`] and will create an ID for it. It will also create an
     /// associated [`NodeInfo`] instance to also be stored under the same ID. These are then stored
     /// in their respective [`HashMap`]s
-    pub async fn add(&self, node: Node) {
+    pub async fn add(&self, node: Node, database: Arc<Database>) {
         let id = node.get_model_id().to_string();
 
         let mut node_vec = self.nodes.write().await;
@@ -140,7 +162,13 @@ impl NodePool {
         log::info!("Adding node to the pool with id: {}", id);
 
         node_vec.insert(id.clone(), node);
-        info_vec.insert(id.clone(), NodeInfo::new());
+        info_vec.insert(
+            id.clone(),
+            NodeInfo::from_database(database, &id).await.unwrap(),
+        );
+
+        self.active.fetch_add(1, Ordering::SeqCst);
+        self.job_notify.notify_waiters();
     }
 
     /// Gets [`TcpStream`] reference and its [`ObjectId`]
@@ -165,7 +193,7 @@ impl NodePool {
         None
     }
 
-    /// Creates a cluster of `size` nodes to use
+    /// Creates a cluster based on a JobConfig `config`
     ///
     /// It is given a cluster size and searches the nodepool for available clusters and builds the
     /// cluster as a hashmap.  When the size is reached, the cluster is output. If it is empty then
@@ -173,13 +201,21 @@ impl NodePool {
     /// it is still returned. This also uses the performance metric to build well performing clusters.
     pub async fn build_cluster(
         &self,
-        size: usize,
         config: ClientMessage,
     ) -> Option<HashMap<String, Arc<RwLock<TcpStream>>>> {
+        let size = match config {
+            ClientMessage::JobConfig { cluster_size, .. } => cluster_size as usize,
+            _ => 1,
+        };
+
         let nodes_read = self.nodes.read().await;
         let mut accepted_job: Vec<(String, f64)> = Vec::new();
         let mut better_nodes: Vec<(String, f64)> = Vec::new();
         let mut info_write = self.info.write().await;
+
+        if self.active.load(Ordering::SeqCst) < size {
+            return None;
+        }
 
         // Ask all alive and free nodes if they want the job
         // If they do, their ID is added to accepted_job
@@ -194,8 +230,16 @@ impl NodePool {
                     if info.performance > 0.5 {
                         better_nodes.push((id.clone(), info.performance));
                     }
+                } else {
+                    info.using = false;
                 }
             }
+        }
+
+        // Checks if number of nodes that accepted the job is less than
+        // the size of the cluster required.
+        if size > accepted_job.len() {
+            return None;
         }
 
         // Buidling actual cluster
@@ -218,8 +262,8 @@ impl NodePool {
             cluster.insert(chosen_node.clone(), stream);
             cluster_performance = (cluster_performance + performance) / cluster.len() as f64;
 
-            // If accepted_job.len() == 0, output cluster
-            if accepted_job.len() == 0 {
+            // If accepted_job.is_empty(), output cluster
+            if accepted_job.is_empty() {
                 break;
             }
         }
@@ -229,6 +273,12 @@ impl NodePool {
             &cluster,
             &cluster_performance
         );
+
+        self.active.fetch_sub(cluster.len(), Ordering::SeqCst);
+
+        for (model_id, _) in accepted_job.iter() {
+            info_write.get_mut(model_id).unwrap().using = false;
+        }
 
         // output cluster
         match cluster.len() {
@@ -247,14 +297,14 @@ impl NodePool {
         better_nodes: &mut Vec<(String, f64)>,
         cluster_performance: f64,
     ) -> (String, f64) {
-        if cluster_performance == 0.0 || cluster_performance > 0.5 || better_nodes.len() == 0 {
+        if cluster_performance == 0.0 || cluster_performance > 0.5 || better_nodes.is_empty() {
             let index = rand::thread_rng().gen_range(0..nodes.len());
             let value = nodes.remove(index);
 
             // Remove from better nodes if exists
             better_nodes.retain(|item| value != *item);
 
-            return value;
+            value
         } else {
             let index = rand::thread_rng().gen_range(0..better_nodes.len());
             // Get node which has performance of 0.5 or better
@@ -263,7 +313,7 @@ impl NodePool {
             // Remove from nodes
             nodes.retain(|item| value != *item);
 
-            return value;
+            value
         }
     }
 
@@ -278,18 +328,16 @@ impl NodePool {
         let mut buffer = [0_u8; 1024];
         dcn_stream.write(&config.as_bytes()).await.unwrap();
 
-        // TODO: Update to use proper length prefixing
-        let size = dcn_stream.read(&mut buffer).await.unwrap();
-        let config_response = std::str::from_utf8(&buffer[4..size]).unwrap();
-        let config_response: ConfigResponse = serde_json::from_str(&config_response).unwrap();
+        let config_response = ClientMessage::from_stream(&mut *dcn_stream, &mut buffer).await;
 
-        log::info!(
-            "(Node {}) Config response: {:?}",
-            &key,
-            config_response.response
-        );
+        let accept = match config_response.unwrap() {
+            ClientMessage::ConfigResponse { accept } => accept,
+            _ => unreachable!(),
+        };
 
-        config_response.response == "sure"
+        log::info!("(Node {}) Config response: {:?}", &key, accept);
+
+        accept
     }
 
     /// Changes the `using` flag on a [`NodeInfo`] object
@@ -299,6 +347,8 @@ impl NodePool {
     pub async fn end(&self, key: &str) -> Result<()> {
         let mut info_write = self.info.write().await;
         info_write.get_mut(key).unwrap().using = false;
+        self.active.fetch_add(1, Ordering::SeqCst);
+        self.job_notify.notify_waiters();
 
         Ok(())
     }
@@ -310,6 +360,13 @@ impl NodePool {
     pub async fn update_node_alive(&self, id: &str, status: bool) {
         let mut info_write = self.info.write().await;
         let node_info = info_write.get_mut(id).unwrap();
+
+        if node_info.alive == false && status == true {
+            self.active.fetch_add(1, Ordering::SeqCst);
+            self.job_notify.notify_waiters();
+        } else if node_info.alive == true && status == false {
+            self.active.fetch_sub(1, Ordering::SeqCst);
+        }
 
         node_info.alive = status;
     }
@@ -348,8 +405,15 @@ impl NodePool {
 /// Starts up node end which allows DCNs to register their connection. This will create a Node
 /// object if given a correct API Key. This allows the job end to connect and communicate with the
 /// DCNs.
-pub async fn run(nodepool: Arc<NodePool>, database: Arc<Database>, socket: u16) -> Result<()> {
-    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
+pub async fn run(nodepool: Arc<NodePool>, database: Arc<Database>, port: u16) -> Result<()> {
+    // Bind to the external socket in production mode
+    #[cfg(not(debug_assertions))]
+    let ip = Ipv4Addr::UNSPECIFIED;
+
+    #[cfg(debug_assertions)]
+    let ip = Ipv4Addr::LOCALHOST;
+
+    let socket = SocketAddr::V4(SocketAddrV4::new(ip, port));
     log::info!("Node Socket: {:?}", socket);
     let listener = TcpListener::bind(&socket).await?;
 
@@ -384,10 +448,10 @@ async fn process_connection(
     log::info!("\tModel ID: {}", model_id);
     log::info!("\tToken: {}", token);
 
-    update_model_status(database, &model_id).await?;
+    update_model_status(Arc::clone(&database), &model_id).await?;
 
     let node = Node::new(stream, model_id);
-    nodepool.add(node).await;
+    nodepool.add(node, Arc::clone(&database)).await;
 
     Ok(())
 }

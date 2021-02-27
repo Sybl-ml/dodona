@@ -43,7 +43,7 @@ pub fn compress_data(data: &str) -> Result<Vec<u8>, CompressionError> {
 /// Compresses a vector of raw bytes.
 pub fn compress_bytes(bytes: &[u8]) -> Result<Vec<u8>, CompressionError> {
     let mut write_compress = BzEncoder::new(vec![], Compression::best());
-    write_compress.write(bytes).unwrap();
+    write_compress.write_all(bytes).unwrap();
     Ok(write_compress.finish()?)
 }
 
@@ -52,11 +52,11 @@ pub fn compress_vec(data: &[&str]) -> Result<Vec<u8>, CompressionError> {
     let mut write_compress = BzEncoder::new(vec![], Compression::best());
 
     for (i, e) in data.iter().enumerate() {
-        write_compress.write(e.as_bytes()).unwrap();
+        write_compress.write_all(e.as_bytes()).unwrap();
 
         // Write newlines in for decompression
         if i != data.len() - 1 {
-            write_compress.write(&[b'\n']).unwrap();
+            write_compress.write_all(&[b'\n']).unwrap();
         }
     }
 

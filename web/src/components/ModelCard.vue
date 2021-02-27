@@ -82,7 +82,7 @@
               </h1>
               <b-card-title>Unlock Model</b-card-title>
               <b-card-text>Please provide your password to confirm</b-card-text>
-              <b-form class="mt-5 mb-3" @submit="onSubmit">
+              <b-form class="mt-5 mb-3" @submit.prevent="onSubmit">
                 <b-form-input
                   type="password"
                   id="name"
@@ -109,8 +109,8 @@
               :ref="`model-performance-${i}`"
             />
             <b-card-text>Total Runs: {{ data.times_run }}</b-card-text>
-        </b-card>
-      </b-collapse>
+          </b-card>
+        </b-collapse>
       </b-col>
     </b-row>
   </b-container>
@@ -143,9 +143,8 @@ export default {
   },
   async mounted() {
     try {
-      let data = await this.$http.post(
-        `http://localhost:3001/api/clients/m/performance`,
-        { id: this.data._id.$oid }
+      let data = await this.$http.get(
+        `api/clients/models/${this.data._id.$oid}/performance`,
       );
       this.performance = data.data;
     } catch (err) {
@@ -169,9 +168,8 @@ export default {
   methods: {
     async onSubmit() {
       let response = await this.$http.post(
-        "http://localhost:3001/api/clients/m/unlock",
+        `api/clients/models/${this.data._id.$oid}/unlock`,
         {
-          id: this.data._id.$oid,
           password: this.password,
         }
       );

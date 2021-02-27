@@ -2,7 +2,7 @@
 
 use std::fmt::Display;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use mongodb::bson::bson;
 use serde::Serialize;
 use tokio::io::AsyncWriteExt;
@@ -75,8 +75,12 @@ impl<'a> Handler<'a> {
 
     /// Registers a new model with the API server.
     async fn register_new_model(&mut self) -> Result<()> {
-        let (model_name, email) = match self.current_msg.take().unwrap() {
-            ClientMessage::NewModel { model_name, email } => (model_name, email),
+        let (email, password, model_name) = match self.current_msg.take().unwrap() {
+            ClientMessage::NewModel {
+                email,
+                password,
+                model_name,
+            } => (email, password, model_name),
             _ => unreachable!(),
         };
 
@@ -84,11 +88,12 @@ impl<'a> Handler<'a> {
 
         // Query the API server
         let body = bson!({
-            "model_name": &model_name,
             "email": &email,
+            "password": &password,
+            "modelName": &model_name,
         });
 
-        let endpoint = "/api/clients/m/new";
+        let endpoint = "/api/clients/models/new";
         let text = get_response_text(endpoint, body).await?;
 
         let message = RawMessage::new(text);
@@ -114,12 +119,12 @@ impl<'a> Handler<'a> {
 
         // Query the API server
         let body = bson!({
-            "model_name": &model_name,
+            "modelName": &model_name,
             "email": &email,
-            "challenge_response": &response,
+            "challengeResponse": &response,
         });
 
-        let endpoint = "/api/clients/m/verify";
+        let endpoint = "/api/clients/models/verify";
         let text = get_response_text(endpoint, body).await?;
 
         let message = RawMessage::new(text);
@@ -141,16 +146,13 @@ impl<'a> Handler<'a> {
 
         // Query the API server
         let body = bson!({
-            "id": &id,
             "token": &token,
         });
 
-        let endpoint = "/api/clients/m/authenticate";
-        let text = get_response_text(endpoint, body).await?;
+        let endpoint = format!("/api/clients/models/{}/authenticate", &id);
+        let text = get_response_text(&endpoint, body).await?;
 
         let message = RawMessage::new(text);
-
-        log::info!("RAW MESSAGE: {:?}", &message);
 
         // Send the response back to the client
         self.stream.write(&message.as_bytes()).await?;
@@ -173,6 +175,14 @@ pub async fn get_response_text<S: Display + Serialize>(endpoint: &str, body: S) 
 
     let request = reqwest::Client::new().post(&url).json(&body);
     let response = request.send().await?;
+    let status = response.status();
+
+    // Check the status code of the response
+    if !status.is_success() {
+        let error = format!("Request to {} failed: {}", url, status);
+        return Err(anyhow!(error));
+    }
+
     let text = response.text().await?;
 
     log::debug!("Response body: {:?}", text);

@@ -17,12 +17,14 @@ pub static PROJECT_ID: &str = "5f8ca1a80065f27c0089e8b5";
 pub static DATASET_ID: &str = "5f8ca1a80065f27b0089e8b6";
 pub static MODEL1_ID: &str = "5f8ca1a80065f27b0089e8b7";
 pub static MODEL2_ID: &str = "5f8ca1a80065f27b0089e8b8";
+pub static MODEL3_ID: &str = "5f8ca1a80065f27b0089e8b9";
 pub static DATASET: &str = "col1,col2,\nr1c1,r1c2,\nr2c1,r2c2,\n";
 
 pub struct Params {
     pub conn_str: String,
     pub node_socket: u16,
-    pub interface_socket: u16,
+    pub broker_socket: u16,
+    pub database_name: String,
 }
 
 pub fn initialise() -> Params {
@@ -32,13 +34,15 @@ pub fn initialise() -> Params {
     let conn_str = env::var("CONN_STR").expect("CONN_STR must be set");
     let node_socket =
         u16::from_str(&env::var("NODE_SOCKET").expect("NODE_SOCKET must be set")).unwrap();
-    let interface_socket =
-        u16::from_str(&env::var("INTERFACE_SOCKET").expect("INTERFACE_SOCKET must be set"))
-            .unwrap();
+    let broker_socket =
+        u16::from_str(&env::var("BROKER_PORT").unwrap_or_else(|_| "9092".to_string())).unwrap();
+    let database_name = env::var("DATABASE_NAME").unwrap_or_else(|_| String::from("sybl"));
+
     Params {
         conn_str,
         node_socket,
-        interface_socket,
+        broker_socket,
+        database_name,
     }
 }
 
@@ -47,10 +51,17 @@ pub async fn initialise_with_db() -> (Database, Params) {
     let mut lock = MUTEX.lock().await;
 
     let params = initialise();
+
+    // Ensure that we aren't using the Atlas instance
+    assert!(
+        !params.conn_str.starts_with("mongodb+srv"),
+        "Please setup a local MongoDB instance for running the tests"
+    );
+
     let client = mongodb::Client::with_uri_str(&params.conn_str)
         .await
         .unwrap();
-    let database = client.database("sybl");
+    let database = client.database(&params.database_name);
 
     // Check whether this is the first time being run
     if *lock {

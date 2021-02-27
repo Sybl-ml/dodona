@@ -24,7 +24,7 @@ export default {
     let user_id = $cookies.get("token");
     try {
       let data = await this.$http.get(
-        `http://localhost:3001/api/users`
+        `api/users`
       );
       this.user_data = data.data
     } catch (err) {

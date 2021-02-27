@@ -84,7 +84,7 @@ export default {
       }
       try {
         let user_data = await this.$http.get(
-          `http://localhost:3001/api/users`
+          `api/users`
         );
         this.name = user_data.data.first_name + " " + user_data.data.last_name;
         this.email = user_data.data.email;

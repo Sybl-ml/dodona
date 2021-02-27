@@ -8,9 +8,10 @@ use futures::stream::StreamExt;
 use mongodb::bson::{doc, oid::ObjectId};
 
 use dcl::job_end::finance::Pricing;
-use dcl::job_end::ml::{evaluate_model, model_performance, weight_predictions};
+use dcl::job_end::ml::{evaluate_model, model_performance, penalise, weight_predictions};
 use dcl::job_end::{ClusterInfo, ModelID, WriteBackMemory};
 use messages::ClientMessage;
+use models::jobs::PredictionType;
 use models::users::User;
 
 mod common;
@@ -33,7 +34,7 @@ async fn test_write_back_predictions() {
         wb_clone.write_predictions(mid_clone, pred_map_clone);
     });
 
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    tokio::time::sleep(Duration::from_millis(1)).await;
 
     let predictions = wb.get_predictions();
     let pred_val = predictions.get(&(model_id, 1)).unwrap();
@@ -43,7 +44,7 @@ async fn test_write_back_predictions() {
 #[tokio::test]
 async fn test_write_back_errors() {
     let model_id: ModelID = ModelID::from("ModelID1");
-    let error: f64 = 10.0;
+    let error: Option<f64> = Some(10.0);
 
     let wb: WriteBackMemory = WriteBackMemory::new();
 
@@ -55,7 +56,7 @@ async fn test_write_back_errors() {
         wb_clone.write_error(mid_clone, error);
     });
 
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    tokio::time::sleep(Duration::from_millis(1)).await;
 
     let errors = wb.get_errors();
     let error_val = errors.get(&model_id).unwrap();
@@ -154,35 +155,78 @@ fn test_weight_predictions() {
     let validation_ans: HashMap<(ModelID, String), String> = HashMap::from_iter(validation);
     let prediction_rids: HashMap<(ModelID, String), usize> = HashMap::from_iter(rids);
 
-    let info = ClusterInfo {
-        project_id: ObjectId::with_string(common::USER_ID).unwrap(),
-        columns: HashMap::new(),
-        config: ClientMessage::Alive { timestamp: 0 },
-        validation_ans: validation_ans,
-        prediction_rids: prediction_rids,
-    };
-
     let predictions = vec![
         "1,1\n2,2\n3,3\n4,4\n5,5\n6,6\n7,7\n8,8",
         "1,0\n2,0\n3,0\n4,0\n5,0\n6,0\n7,0\n8,0",
         "1,1\n2,2\n3,0\n4,0\n5,0\n6,0\n7,0\n8,0",
     ];
 
+    // Tests for classification-based problems
+
+    let info = ClusterInfo {
+        project_id: ObjectId::with_string(common::USER_ID).unwrap(),
+        columns: HashMap::new(),
+        config: ClientMessage::JobConfig {
+            timeout: 0,
+            cluster_size: 3,
+            column_types: vec![],
+            prediction_column: "".to_string(),
+            prediction_type: PredictionType::Classification,
+        },
+        validation_ans: validation_ans.clone(),
+        prediction_rids: prediction_rids.clone(),
+    };
+
     let mut model_predictions: HashMap<(ModelID, usize), String> = HashMap::new();
-    let mut model_errors: HashMap<ModelID, f64> = HashMap::new();
+    let mut model_errors: HashMap<ModelID, Option<f64>> = HashMap::new();
 
     for (model, prediction) in ids.iter().zip(predictions.iter()) {
         let (test, model_error) = evaluate_model(&model, &prediction.to_string(), &info).unwrap();
         for (index, prediction) in test.into_iter() {
             model_predictions.insert((model.clone(), index), prediction);
         }
-        model_errors.insert(model.to_string(), model_error);
+        model_errors.insert(model.to_string(), Some(model_error));
     }
 
-    let (weights, final_predictions) = weight_predictions(model_predictions, model_errors);
+    let (weights, final_predictions) = weight_predictions(&model_predictions, &model_errors, &info);
+
     let sum = weights.values().sum::<f64>();
     assert!(approx_eq!(f64, sum, 1.0, ulps = 2));
     assert_eq!(final_predictions.join("\n"), "5\n6\n7\n8");
+
+    // Tests for regression-based problems
+
+    let info = ClusterInfo {
+        project_id: ObjectId::with_string(common::USER_ID).unwrap(),
+        columns: HashMap::new(),
+        config: ClientMessage::JobConfig {
+            timeout: 0,
+            cluster_size: 3,
+            column_types: vec![],
+            prediction_column: "".to_string(),
+            prediction_type: PredictionType::Regression,
+        },
+        validation_ans: validation_ans,
+        prediction_rids: prediction_rids,
+    };
+
+    let mut model_predictions: HashMap<(ModelID, usize), String> = HashMap::new();
+    let mut model_errors: HashMap<ModelID, Option<f64>> = HashMap::new();
+
+    for (model, prediction) in ids.iter().zip(predictions.iter()) {
+        let (test, model_error) = evaluate_model(&model, &prediction.to_string(), &info).unwrap();
+        for (index, prediction) in test.into_iter() {
+            model_predictions.insert((model.clone(), index), prediction);
+        }
+        model_errors.insert(model.to_string(), Some(model_error));
+    }
+
+    let (weights, final_predictions) = weight_predictions(&model_predictions, &model_errors, &info);
+    let sum = weights.values().sum::<f64>();
+    assert!(approx_eq!(f64, sum, 1.0, ulps = 2));
+    for (prediction, actual) in final_predictions.iter().zip("5\n6\n7\n8".split("\n")) {
+        assert!(prediction.parse::<f64>().unwrap() - actual.parse::<f64>().unwrap() < 0.1);
+    }
 }
 
 #[tokio::test]
@@ -225,10 +269,16 @@ async fn test_model_performance() {
     .cloned()
     .collect();
 
+    let bad_models: Vec<ModelID> = vec![String::from(common::MODEL3_ID)];
+
     let database = Arc::new(database);
     let proj_id = ObjectId::with_string(common::PROJECT_ID).unwrap();
 
     model_performance(Arc::clone(&database), model_weights.clone(), &proj_id, None)
+        .await
+        .unwrap();
+
+    penalise(Arc::clone(&database), bad_models, &proj_id, None)
         .await
         .unwrap();
 
@@ -240,6 +290,8 @@ async fn test_model_performance() {
 
         job_perf_vec.push(perf);
     }
+
+    job_perf_vec.push(0.0);
 
     let job_perfs = database.collection("job_performances");
     let filter = doc! {"project_id": ObjectId::with_string(common::PROJECT_ID).unwrap()};

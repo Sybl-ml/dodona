@@ -3,19 +3,23 @@
 //! Listens to traffic over a socket and maintains a transmitter end of
 //! a mpsc channel which allows it to send data to the job end.
 
-use anyhow::Result;
-use mongodb::bson::{doc, oid::ObjectId};
-use mongodb::Database;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::Arc;
-use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::mpsc::Sender;
+
+use anyhow::Result;
+use mongodb::bson::doc;
+use mongodb::Database;
+use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
+use rdkafka::consumer::{stream_consumer::StreamConsumer, Consumer, DefaultConsumerContext};
+use rdkafka::Message;
+use tokio_stream::StreamExt;
+
+use messages::ClientMessage;
+use models::datasets::Dataset;
+use models::jobs::JobConfiguration;
 use utils::compress::decompress_data;
 
-use crate::DatasetPair;
-use messages::{ClientMessage, ReadLengthPrefix};
-use models::datasets::Dataset;
-use models::jobs::{Job, JobConfiguration};
+use crate::{DatasetPair, JobControl};
 
 /// Starts up interface server
 ///
@@ -23,46 +27,69 @@ use models::jobs::{Job, JobConfiguration};
 /// read in data from an interface. Messages read over this are taken and the
 /// corresponding dataset is found and decompressed before being passed to the
 /// job end to be sent to a compute node.
-pub async fn run(
-    socket: u16,
-    db_conn: Arc<Database>,
-    tx: Sender<(ObjectId, DatasetPair, ClientMessage)>,
-) -> Result<()> {
-    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), socket);
-    log::info!("Interface Socket: {:?}", socket);
-    let listener = TcpListener::bind(&socket).await?;
+pub async fn run(port: u16, db_conn: Arc<Database>, job_control: JobControl) -> Result<()> {
+    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port).to_string();
+    log::info!("Broker Socket: {:?}", addr);
 
-    while let Ok((inbound, _)) = listener.accept().await {
-        log::info!("Interface Connection: {}", inbound.peer_addr()?);
+    let consumer: StreamConsumer<DefaultConsumerContext> = ClientConfig::new()
+        .set("group.id", "job_config")
+        .set("bootstrap.servers", addr)
+        .set("enable.partition.eof", "false")
+        .set("session.timeout.ms", "6000")
+        .set("enable.auto.commit", "true")
+        .set_log_level(RDKafkaLogLevel::Debug)
+        .create()
+        .expect("Consumer creation failed");
 
-        let db_conn_clone = Arc::clone(&db_conn);
-        let tx_clone = tx.clone();
+    consumer
+        .subscribe(&["jobs"])
+        .expect("Can't subscribe to jobs");
+
+    // Ignore any errors in the stream
+    let mut message_stream = consumer.stream().filter_map(Result::ok);
+
+    while let Some(message) = message_stream.next().await {
+        // Interpret the content as a string
+        let payload = match message.payload_view::<[u8]>() {
+            // This cannot fail, `rdkafka` always returns `Ok(bytes)`
+            Some(view) => view.unwrap(),
+            None => {
+                log::warn!("Received an empty message from Kafka");
+                continue;
+            }
+        };
+
+        log::debug!(
+            "Message key: {:?}, timestamp: {:?}",
+            message.key(),
+            message.timestamp()
+        );
+
+        let database = Arc::clone(&db_conn);
+        let jc_clone = job_control.clone();
+        let job_config = serde_json::from_slice(&payload).unwrap();
 
         tokio::spawn(async move {
-            process_connection(inbound, db_conn_clone, tx_clone)
-                .await
-                .unwrap();
+            process_job(database, jc_clone, job_config).await.unwrap();
         });
     }
+
     Ok(())
 }
 
-async fn process_connection(
-    mut stream: TcpStream,
+async fn process_job(
     db_conn: Arc<Database>,
-    tx: Sender<(ObjectId, DatasetPair, ClientMessage)>,
+    job_control: JobControl,
+    job_config: JobConfiguration,
 ) -> Result<()> {
-    let mut buffer = [0_u8; 4096];
-
-    let job = Job::from_stream(&mut stream, &mut buffer).await?;
-
     let JobConfiguration {
         dataset_id,
         timeout,
+        cluster_size,
         column_types,
         prediction_column,
         prediction_type,
-    } = job.config;
+    } = job_config;
 
     log::info!("Received a message from the interface:");
     log::debug!("\tDataset Identifier: {}", dataset_id);
@@ -80,7 +107,7 @@ async fn process_connection(
         .expect("Failed to find a document with the previous filter");
     let dataset: Dataset = mongodb::bson::de::from_document(doc)?;
 
-    log::debug!("{:?}", &dataset);
+    log::debug!("Fetched dataset with id: {}", dataset.id);
 
     // Get the data from the struct
     let comp_train = dataset.dataset.unwrap().bytes;
@@ -94,21 +121,22 @@ async fn process_connection(
     let train = std::str::from_utf8(&train_bytes)?.to_string();
     let predict = std::str::from_utf8(&predict_bytes)?.to_string();
 
-    log::debug!("Decompressed train: {:?}", &train);
-    log::debug!("Decompressed predict: {:?}", &predict);
+    log::debug!("Decompressed {} bytes of training data", train.len());
+    log::debug!("Decompressed {} bytes of prediction data", predict.len());
 
-    tx.send((
+    job_control.job_queue.push((
         dataset.project_id,
         DatasetPair { train, predict },
         ClientMessage::JobConfig {
             timeout,
+            cluster_size,
             column_types,
             prediction_column,
             prediction_type,
         },
-    ))
-    .await
-    .unwrap_or_else(|error| log::error!("Error while sending over MPSC: {}", error));
+    ));
+
+    job_control.notify.notify_waiters();
 
     Ok(())
 }

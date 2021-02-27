@@ -1,7 +1,17 @@
 <template>
   <b-container fluid>
     <b-row>
-      <b-col lg="8" v-if="ready">
+      <b-col lg="8" sm="12" v-if="checkStatus('Processing')">
+        <h4>Project Is Running ...</h4>
+        <b-progress
+          :value="value"
+          :variant="progressColor"
+          height="2rem"
+          show-progress
+          animated
+        ></b-progress>
+      </b-col>
+      <b-col lg="8" sm="12" v-else-if="checkStatus('Ready')">
         <h4>Description:</h4>
         <p>{{ description }}</p>
         <h4>Linked Dataset:</h4>
@@ -36,13 +46,6 @@
         </b-modal>
 
         <h4>Job Configuration:</h4>
-        <b-progress
-          :value="value"
-          :variant="progressColor"
-          height="2rem"
-          show-progress
-          animated
-        ></b-progress>
         <b-container fluid>
           <b-row class="mt-4">
             <b-col>
@@ -55,6 +58,21 @@
                   size="sm"
                   type="number"
                   v-model="timeout"
+                ></b-form-input>
+              </b-form-group>
+            </b-col>
+          </b-row>
+          <b-row class="mt-4">
+            <b-col>
+              <b-form-group
+                label="Cluster Size"
+                label-for="dropdown-form-cluster-size"
+              >
+                <b-form-input
+                  id="dropdown-form-cluster-size"
+                  size="sm"
+                  type="number"
+                  v-model="cluster_size"
                 ></b-form-input>
               </b-form-group>
             </b-col>
@@ -98,8 +116,7 @@
           </b-button>
         </p>
       </b-col>
-
-      <b-col lg="8" v-else>
+      <b-col lg="8" sm="12" v-else>
         <h4>Description:</h4>
         <p>{{ description }}</p>
         <h5>To continue you must provide a dataset</h5>
@@ -110,6 +127,76 @@
           v-model="file"
         />
         <b-button variant="secondary" @click="addData">Upload</b-button>
+      </b-col>
+      <b-col lg="4" sm="12">
+        <b-card
+          border-variant="primary"
+          header-bg-variant="primary"
+          header-text-variant="white"
+          class="h-100 shadow"
+          v-if="!checkStatus('Unfinished')"
+        >
+          <template #header>
+            <h4 class="mb-0">Analysis</h4>
+          </template>
+
+          <b-form-group
+            label="Select a Column:"
+            label-for="dropdown-analysis-select"
+          >
+            <b-form-select
+              id="dropdown-analysis-select"
+              size="sm"
+              :options="getAnalysisOptions"
+              v-model="analysis_selected"
+              v-on:change="update_analysis"
+            />
+          </b-form-group>
+          <b-row
+            v-if="!analysis_loaded"
+            class="justify-content-center text-center"
+          >
+            <b-spinner />
+          </b-row>
+          <div v-else>
+            <div v-if="this.analysis.columns[this.analysis_selected].Numerical">
+              <p>
+                MAX -
+                {{
+                  this.analysis.columns[this.analysis_selected].Numerical.max
+                }}
+              </p>
+              <p>
+                MIN -
+                {{
+                  this.analysis.columns[this.analysis_selected].Numerical.min
+                }}
+              </p>
+              <p>
+                SUM -
+                {{
+                  this.analysis.columns[this.analysis_selected].Numerical.sum
+                }}
+              </p>
+              <p>
+                AVG -
+                {{
+                  this.analysis.columns[this.analysis_selected].Numerical.avg
+                }}
+              </p>
+            </div>
+            <div v-else>
+              <data-analytics-bar
+                :chart-data="
+                  this.analysis.columns[this.analysis_selected].Categorical
+                    .values
+                "
+                :name="this.analysis_selected"
+                ref="analysis_chart"
+              />
+            </div>
+          </div>
+        </b-card>
       </b-col>
     </b-row>
   </b-container>
@@ -127,15 +214,21 @@
 </style>
 
 <script>
+import DataAnalyticsBar from "@/components/charts/DataAnalyticsBar";
 export default {
   name: "ProjectOverview",
+  components: {
+    DataAnalyticsBar,
+  },
   data() {
     return {
       timeout: 10,
+      cluster_size: 2,
       value: 64,
       file: null,
       problemType: null,
       predColumn: null,
+      analysis_selected: null,
 
       problemTypeOptions: [
         {
@@ -160,7 +253,9 @@ export default {
     dataDate: Date,
     dataHead: Object,
     dataTypes: Object,
-    ready: Boolean,
+    status: String,
+    analysis: Object,
+    analysis_loaded: Boolean,
   },
   computed: {
     getDatasetDate() {
@@ -177,7 +272,7 @@ export default {
         return "warning";
       } else if (this.value < 50) {
         return "primary";
-      } else if (this.ready < 75) {
+      } else if (this.value < 75) {
         return "ready";
       }
     },
@@ -195,14 +290,31 @@ export default {
     startDisabled() {
       return this.predColumn == null || this.problemType == null;
     },
+    getAnalysisOptions() {
+      if (this.analysis_loaded) {
+        let keys = Object.keys(this.analysis.columns);
+        this.analysis_selected = keys[0];
+        return keys;
+      }
+      return [];
+    },
   },
   methods: {
     async start() {
+      this.timeout = parseInt(this.timeout)
+      this.cluster_size = parseInt(this.cluster_size)
+      if (this.timeout <= 0) {
+        this.timeout = 1;
+      }
+      if (this.cluster_size <= 0) {
+        this.cluster_size = 1;
+      }
       try {
         await this.$http.post(
-          `http://localhost:3001/api/projects/p/${this.projectId}/process`,
+          `api/projects/${this.projectId}/process`,
           {
             timeout: this.timeout,
+            clusterSize: this.cluster_size,
             predictionType: this.problemType,
             predictionColumn: this.predColumn,
           }
@@ -217,7 +329,7 @@ export default {
     async deleteDataset() {
       try {
         let project_response = await this.$http.delete(
-          `http://localhost:3001/api/projects/p/${this.projectId}/data`
+          `api/projects/${this.projectId}/data`
         );
       } catch (err) {
         console.log(err);
@@ -233,7 +345,7 @@ export default {
     },
     async sendFile(e) {
       let project_response = await this.$http.put(
-        `http://localhost:3001/api/projects/p/${this.projectId}/data`,
+        `api/projects/${this.projectId}/data`,
         {
           name: this.file.name,
           content: e.target.result,
@@ -241,6 +353,15 @@ export default {
       );
 
       // On Success should update dashboard using emitters
+    },
+    update_analysis() {
+      if (this.analysis.columns[this.analysis_selected].Categorical)
+        this.$refs.analysis_chart.renderNewData(
+          this.analysis.columns[this.analysis_selected].Categorical.values
+        );
+    },
+    checkStatus(status_check) {
+      return this.status == status_check;
     },
   },
 };
