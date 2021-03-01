@@ -4,7 +4,19 @@
       <b-col>
         <h1>Settings</h1>
         <hr>
-        <h5><b>API Key:</b> {{ user_data.api_key }}</h5>
+        <h5>Change Avatar Icon:</h5>
+        <avatar-upload @upload="onUpload"/>
+        <b-button
+          size="sm"
+          variant="ready"
+          type="submit"
+          style="width:10rem"
+          v-b-tooltip.hover
+          @click="uploadAvatar"
+          :disabled="!avatarSrc"
+        >
+          Update
+        </b-button> 
       </b-col>
     </b-row>
   </b-container>
@@ -13,12 +25,18 @@
 <style>
 </style>
 <script>
+import AvatarUpload from "@/components/AvatarUpload.vue";
+
 export default {
   name: "Settings",
   data() {
     return {
       user_data: {},
+      avatarSrc: "",
     }
+  },
+  components: {
+    AvatarUpload,
   },
   async mounted() {
     let user_id = $cookies.get("token");
@@ -32,6 +50,17 @@ export default {
     }
       console.log(this.user_data)
   },
-  methods: {},
+  methods: {
+    onUpload(avatarSrc){
+      this.avatarSrc = avatarSrc;
+    },
+    uploadAvatar(){
+      if (this.avatarSrc) {
+        this.$http.post("api/users/avatar", {
+          avatar: this.avatarSrc.split(",")[1],
+        });
+      }
+    },
+  },
 };
 </script>
