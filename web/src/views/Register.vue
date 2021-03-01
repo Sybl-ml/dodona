@@ -12,11 +12,11 @@
         <b-card no-body class="text-left mt-3 mb-5 vh-80">
           <navigatable-tab
             :tabs="[
-              { key: '1', title: '1. Name', disabled: false },
-              { key: '2', title: '2. Details', disabled: false },
-              { key: '3', title: '3. Photo', disabled: false },
-              { key: '4', title: '4. Payment', disabled: true },
-              { key: '5', title: '5. Create', disabled: false },
+              { key: '1', title: '1. Name' },
+              { key: '2', title: '2. Details' },
+              { key: '3', title: '3. Photo' },
+              { key: '4', title: '4. Payment' },
+              { key: '5', title: '5. Create'},
             ]"
           >
             <template v-slot:1>
@@ -55,6 +55,10 @@
 
             <template v-slot:3>
               <avatar-upload @upload="onUpload"/>
+            </template>
+
+            <template v-slot:4>
+              <h4>To Be Completed...</h4>
             </template>
 
             <template v-slot:5>
