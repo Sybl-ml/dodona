@@ -1,5 +1,5 @@
 //! Defines the structure of users in the `MongoDB` instance.
-use mongodb::bson::{doc, oid::ObjectId};
+use mongodb::bson::{doc, oid::ObjectId, Binary};
 use serde::{Deserialize, Serialize};
 use tokio_stream::StreamExt;
 
@@ -26,6 +26,8 @@ pub struct User {
     pub client: bool,
     /// The user's credits
     pub credits: i32,
+    /// Avatar Image
+    pub avatar: Option<Binary>,
 }
 
 impl User {
@@ -40,6 +42,7 @@ impl User {
             api_key: crypto::generate_user_api_key(),
             client: false,
             credits: 10,
+            avatar: None,
         }
     }
 

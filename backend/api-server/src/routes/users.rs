@@ -1,7 +1,9 @@
 //! Defines the routes specific to user operations.
 
 use actix_web::web;
-use mongodb::bson::{de::from_document, doc, document::Document, ser::to_document};
+use mongodb::bson::{
+    spec::BinarySubtype, de::from_document, doc, document::Document, ser::to_document, Binary,
+};
 use tokio_stream::StreamExt;
 
 use models::users::User;
@@ -82,6 +84,69 @@ pub async fn new(
     let jwt = auth::Claims::create_token(identifier.clone())?;
 
     response_from_json(doc! {"token": jwt})
+}
+
+/// 
+///
+/// 
+/// 
+/// 
+pub async fn new_avatar(
+    claims: auth::Claims,
+    state: web::Data<State>,
+    payload: web::Json<payloads::AvatarOptions>,
+) -> ServerResponse {
+    let users = state.database.collection("users");
+
+    let avatar = &payload.avatar;
+    log::debug!("{:?}", avatar);
+
+    let bytes = base64::decode(avatar)?;
+    log::debug!("Recieved {} bytes for avatar image", bytes.len());
+
+    let binary = Binary {
+        subtype: BinarySubtype::Generic,
+        bytes,
+    };
+
+    let filter = doc! { "_id": &claims.id };
+    let update = doc! { "$set": { "avatar": binary } };
+
+    users.update_one(filter, update, None).await?;
+
+    response_from_json(doc! {"status": "changed"})
+}
+
+
+/// 
+///
+/// 
+/// 
+/// 
+pub async fn get_avatar(
+    claims: auth::Claims,
+    state: web::Data<State>,
+    payload: web::Json<payloads::AvatarOptions>,
+) -> ServerResponse {
+    let users = state.database.collection("users");
+
+    let avatar = &payload.avatar;
+    log::debug!("{:?}", avatar);
+
+    let bytes = base64::decode(avatar)?;
+    log::debug!("Recieved {} bytes for avatar image", bytes.len());
+
+    let binary = Binary {
+        subtype: BinarySubtype::Generic,
+        bytes,
+    };
+
+    let filter = doc! { "_id": &claims.id };
+    let update = doc! { "$set": { "avatar": binary } };
+
+    users.update_one(filter, update, None).await?;
+
+    response_from_json(doc! {"status": "changed"})
 }
 
 /// Edits a user in the database and updates their information.

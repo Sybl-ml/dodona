@@ -234,9 +234,9 @@ export default {
         if (response.token === "null") {
           this.failed = false;
         } else {
-          this.uploadAvatar();
           $cookies.set("token", response.token, { path: "/", sameSite: true });
-          // this.$router.push("dashboard");
+          this.uploadAvatar();
+          this.$router.push("dashboard");
         }
       }
 
@@ -249,14 +249,10 @@ export default {
       this.avatarSrc = avatarSrc;
     },
     uploadAvatar(){
-      console.log(this.avatarSrc);
-
-      this.$http.post("api/users/new/avatar", {
-        avatar: this.avatarSrc.split(",")[1],
-      });
-      
-      if (response){
-        console.log(response);
+      if (this.avatarSrc) {
+        this.$http.post("api/users/avatar", {
+          avatar: this.avatarSrc.split(",")[1],
+        });
       }
     },
   },

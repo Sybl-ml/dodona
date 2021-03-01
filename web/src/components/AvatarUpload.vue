@@ -29,11 +29,7 @@ const base64Encode = (data) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(data);
-    reader.onload = () => {
-      resolve(reader.result);
-
-      console.log(reader);
-    };
+    reader.onload = () => resolve(reader.result);
     reader.onerror = (error) => reject(error);
   });
 
@@ -54,7 +50,6 @@ export default {
       this.image = e.target.files[0];
       base64Encode(this.image)
         .then((value) => {
-          console.log(value);
           if (this.image.size > 32000) {
             alert(
               `Avatar images must be less than 32KB, image was ${this.image
@@ -73,6 +68,8 @@ export default {
     },
     clearImage() {
       this.image = null;
+      this.imageSrc = null;
+      this.$emit("upload", this.imageSrc);
     },
   },
 };
