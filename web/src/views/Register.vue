@@ -14,7 +14,7 @@
             :tabs="[
               { key: '1', title: '1. Name', disabled: false },
               { key: '2', title: '2. Details', disabled: false },
-              { key: '3', title: '3. Photo', disabled: true },
+              { key: '3', title: '3. Photo', disabled: false },
               { key: '4', title: '4. Payment', disabled: true },
               { key: '5', title: '5. Create', disabled: false },
             ]"
@@ -52,6 +52,11 @@
               </b-card-text>
               <b-form-datepicker v-model="dob" class="mb-3"></b-form-datepicker>
             </template>
+
+            <template v-slot:3>
+              <avatar-upload @upload="onUpload"/>
+            </template>
+
             <template v-slot:5>
               <b-card-text
                 >Please provide your required login infomation...</b-card-text
@@ -125,7 +130,7 @@
               >
                 Missing or Invalid Credentials
               </b-tooltip>
-            </template> 
+            </template>
           </navigatable-tab>
         </b-card>
       </b-col>
@@ -133,6 +138,10 @@
     <b-row class="justify-content-center text-center">
       <b-alert v-model="failed" variant="danger" dismissible>
         Something is wrong with your infomation
+      </b-alert> </b-row
+    ><b-row class="justify-content-center text-center">
+      <b-alert v-model="overAge" variant="warning" dismissible>
+        You must be at least 18 to make an account
       </b-alert>
     </b-row>
   </b-container>
@@ -141,6 +150,7 @@
 <script>
 import IconLogo from "@/components/icons/IconLogo";
 import NavigatableTab from "@/components/NavigatableTab.vue";
+import AvatarUpload from "@/components/AvatarUpload.vue";
 
 export default {
   data() {
@@ -148,11 +158,12 @@ export default {
       email: "",
       password: "",
       confirmPassword: "",
-      overAge: true,
       preferedCurrency: "",
       dob: "",
       firstName: "",
       lastName: "",
+
+      avatarSrc: null,
 
       submitted: false,
       hidePassword: true,
@@ -170,6 +181,7 @@ export default {
   components: {
     IconLogo,
     NavigatableTab,
+    AvatarUpload,
   },
   computed: {
     validCredentials() {
@@ -179,7 +191,7 @@ export default {
         this.lastName &&
         this.password &&
         this.confirmPassword &&
-        this.overAge &&
+        !this.overAge &&
         this.password === this.confirmPassword
       );
     },
@@ -189,11 +201,15 @@ export default {
     passwordIcon() {
       return this.hidePassword ? "eye-fill" : "eye-slash-fill";
     },
-    invalidFeedback() {
-      if (this.firstName.length > 0) {
-        return "Enter at least 4 characters.";
+    overAge() {
+      if (this.dob) {
+        let diff = new Date(Date.now() - Date.parse(this.dob));
+        let age = diff.getUTCFullYear() - 1970;
+        if (age < 18) {
+          return true;
+        }
       }
-      return "Please enter something.";
+      return false;
     },
   },
   methods: {
@@ -209,6 +225,8 @@ export default {
         password: this.password,
         firstName: this.firstName,
         lastName: this.lastName,
+        currency: this.preferedCurrency,
+        dob: this.dob,
       });
 
       if (response) {
@@ -216,8 +234,9 @@ export default {
         if (response.token === "null") {
           this.failed = false;
         } else {
+          this.uploadAvatar();
           $cookies.set("token", response.token, { path: "/", sameSite: true });
-          this.$router.push("dashboard");
+          // this.$router.push("dashboard");
         }
       }
 
@@ -225,6 +244,20 @@ export default {
 
       this.failed = true;
       this.submitted = false;
+    },
+    onUpload(avatarSrc){
+      this.avatarSrc = avatarSrc;
+    },
+    uploadAvatar(){
+      console.log(this.avatarSrc);
+
+      this.$http.post("api/users/new/avatar", {
+        avatar: this.avatarSrc.split(",")[1],
+      });
+      
+      if (response){
+        console.log(response);
+      }
     },
   },
 };
