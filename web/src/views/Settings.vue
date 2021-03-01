@@ -59,7 +59,7 @@ export default {
           avatar: this.avatarSrc.split(",")[1],
         });
       }
-      this.$router.push("dashboard");
+      window.location.reload()
     },
   },
 };
