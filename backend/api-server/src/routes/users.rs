@@ -86,11 +86,9 @@ pub async fn new(
     response_from_json(doc! {"token": jwt})
 }
 
+/// Uploads a profile picture to a users account
 ///
-///
-///
-///
-///
+/// Takes a Base64 string, compresses it and then converts to a vector of u8
 pub async fn new_avatar(
     claims: auth::Claims,
     state: web::Data<State>,
@@ -117,11 +115,10 @@ pub async fn new_avatar(
     response_from_json(doc! {"status": "changed"})
 }
 
+/// Gets the users avatar
 ///
-///
-///
-///
-///
+/// Retrieves the avatar binary data from the database and decompresses it
+/// After converting to Base64 string it is returned to the user
 pub async fn get_avatar(
     claims: auth::Claims,
     state: web::Data<State>,
@@ -140,8 +137,8 @@ pub async fn get_avatar(
         Some(binary) => {
             base64::encode(binary.bytes)
         }
-        None => {
-            "".to_string()
+        None => { 
+           "".to_string()
         }
     };
 
