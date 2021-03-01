@@ -2,7 +2,7 @@
 
 use actix_web::web;
 use mongodb::bson::{
-    spec::BinarySubtype, de::from_document, doc, document::Document, ser::to_document, Binary,
+    de::from_document, doc, document::Document, ser::to_document, spec::BinarySubtype, Binary,
 };
 use tokio_stream::StreamExt;
 
@@ -86,11 +86,11 @@ pub async fn new(
     response_from_json(doc! {"token": jwt})
 }
 
-/// 
 ///
-/// 
-/// 
-/// 
+///
+///
+///
+///
 pub async fn new_avatar(
     claims: auth::Claims,
     state: web::Data<State>,
@@ -117,36 +117,35 @@ pub async fn new_avatar(
     response_from_json(doc! {"status": "changed"})
 }
 
-
-/// 
 ///
-/// 
-/// 
-/// 
+///
+///
+///
+///
 pub async fn get_avatar(
     claims: auth::Claims,
     state: web::Data<State>,
-    payload: web::Json<payloads::AvatarOptions>,
 ) -> ServerResponse {
     let users = state.database.collection("users");
 
-    let avatar = &payload.avatar;
-    log::debug!("{:?}", avatar);
+    let filter: Document = doc! { "_id": claims.id };
+    let document = users
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
 
-    let bytes = base64::decode(avatar)?;
-    log::debug!("Recieved {} bytes for avatar image", bytes.len());
+    let user: User = from_document(document)?;
 
-    let binary = Binary {
-        subtype: BinarySubtype::Generic,
-        bytes,
+    let encoded_image = match user.avatar {
+        Some(binary) => {
+            base64::encode(binary.bytes)
+        }
+        None => {
+            "".to_string()
+        }
     };
 
-    let filter = doc! { "_id": &claims.id };
-    let update = doc! { "$set": { "avatar": binary } };
-
-    users.update_one(filter, update, None).await?;
-
-    response_from_json(doc! {"status": "changed"})
+    response_from_json(doc! {"img": encoded_image})
 }
 
 /// Edits a user in the database and updates their information.

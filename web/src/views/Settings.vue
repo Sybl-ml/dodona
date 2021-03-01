@@ -48,7 +48,6 @@ export default {
     } catch (err) {
       console.log(err);
     }
-      console.log(this.user_data)
   },
   methods: {
     onUpload(avatarSrc){
@@ -60,6 +59,7 @@ export default {
           avatar: this.avatarSrc.split(",")[1],
         });
       }
+      this.$router.push("dashboard");
     },
   },
 };

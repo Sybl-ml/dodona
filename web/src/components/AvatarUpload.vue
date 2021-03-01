@@ -38,6 +38,7 @@ export default {
     return {
       image: null,
       imageSrc: null,
+      avatar: "",
     };
   },
   computed: {
@@ -68,9 +69,24 @@ export default {
     },
     clearImage() {
       this.image = null;
-      this.imageSrc = null;
-      this.$emit("upload", this.imageSrc);
+      this.imageSrc = "data:image/png;base64," + this.avatar;
+      this.$emit("upload", null);
     },
+    async getAvatar() {
+      let response = await this.$http
+        .get(`api/users/avatar`)
+        .then((response) => {
+          console.log(response);
+          this.avatar = response.data.img;
+          this.imageSrc = "data:image/png;base64," + this.avatar;
+        })
+        .catch((error) => {
+          console.log(error);
+        });
+    },
+  },
+  async mounted() {
+    this.getAvatar();
   },
 };
 </script>
