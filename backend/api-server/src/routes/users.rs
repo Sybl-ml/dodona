@@ -96,10 +96,7 @@ pub async fn new_avatar(
 ) -> ServerResponse {
     let users = state.database.collection("users");
 
-    let avatar = &payload.avatar;
-    log::debug!("{:?}", avatar);
-
-    let bytes = base64::decode(avatar)?;
+    let bytes = base64::decode(&payload.avatar)?;
     log::debug!("Recieved {} bytes for avatar image", bytes.len());
 
     let binary = Binary {
@@ -130,10 +127,10 @@ pub async fn get_avatar(claims: auth::Claims, state: web::Data<State>) -> Server
 
     let user: User = from_document(document)?;
 
-    let encoded_image = match user.avatar {
-        Some(binary) => base64::encode(binary.bytes),
-        None => "".to_string(),
-    };
+    let encoded_image = user
+        .avatar
+        .map(|b| base64::encode(b.bytes))
+        .unwrap_or_default();
 
     response_from_json(doc! {"img": encoded_image})
 }
