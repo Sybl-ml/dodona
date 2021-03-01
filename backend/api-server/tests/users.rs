@@ -146,7 +146,6 @@ async fn users_can_upload_an_avatar_image() -> Result<()> {
         .to_request();
 
     let res = test::call_service(&mut app, req).await;
-    
     let body: AuthResponse = test::read_body_json(res).await;
     assert!(body.token != "null");
 
@@ -157,17 +156,14 @@ async fn users_can_upload_an_avatar_image() -> Result<()> {
 async fn users_can_retrieve_an_avatar_image() -> Result<()> {
     let mut app = api_with! { post: "/api/users/avatar" => users::new_avatar };
 
-
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
         .uri("/api/users/avatar")
         .to_request();
 
     let res = test::call_service(&mut app, req).await;
-    
     let body: AuthResponse = test::read_body_json(res).await;
     assert!(body.token != "null");
-    
     Ok(())
 }
 #[actix_rt::test]

@@ -160,8 +160,14 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
             .route("/api/users", web::get().to(routes::users::get))
             .route("/api/users/filter", web::post().to(routes::users::filter))
             .route("/api/users/new", web::post().to(routes::users::new))
-            .route("/api/users/avatar", web::post().to(routes::users::new_avatar))
-            .route("/api/users/avatar", web::get().to(routes::users::get_avatar))
+            .route(
+                "/api/users/avatar",
+                web::post().to(routes::users::new_avatar),
+            )
+            .route(
+                "/api/users/avatar",
+                web::get().to(routes::users::get_avatar),
+            )
             .route("/api/users/edit", web::post().to(routes::users::edit))
             .route("/api/users/login", web::post().to(routes::users::login))
             .route("/api/users/delete", web::post().to(routes::users::delete))

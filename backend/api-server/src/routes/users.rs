@@ -119,10 +119,7 @@ pub async fn new_avatar(
 ///
 /// Retrieves the avatar binary data from the database and decompresses it
 /// After converting to Base64 string it is returned to the user
-pub async fn get_avatar(
-    claims: auth::Claims,
-    state: web::Data<State>,
-) -> ServerResponse {
+pub async fn get_avatar(claims: auth::Claims, state: web::Data<State>) -> ServerResponse {
     let users = state.database.collection("users");
 
     let filter: Document = doc! { "_id": claims.id };
@@ -134,12 +131,8 @@ pub async fn get_avatar(
     let user: User = from_document(document)?;
 
     let encoded_image = match user.avatar {
-        Some(binary) => {
-            base64::encode(binary.bytes)
-        }
-        None => { 
-           "".to_string()
-        }
+        Some(binary) => base64::encode(binary.bytes),
+        None => "".to_string(),
     };
 
     response_from_json(doc! {"img": encoded_image})
