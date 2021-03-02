@@ -1,7 +1,7 @@
 //! Contains the builder functions used to generate message for DCL-DCN protcol
 
 use models::jobs::{JobConfiguration, PredictionType};
-use std::convert::TryFrom;
+use std::convert::From;
 use utils::Columns;
 
 /// Different messages to be passed between DCL and DCN
@@ -92,10 +92,8 @@ impl ClientMessage {
     }
 }
 
-impl TryFrom<JobConfiguration> for ClientMessage {
-    type Error = &'static str;
-
-    fn try_from(value: JobConfiguration) -> Result<Self, Self::Error> {
+impl From<JobConfiguration> for ClientMessage {
+    fn from(value: JobConfiguration) -> Self {
         let JobConfiguration {
             timeout,
             cluster_size,
@@ -105,12 +103,12 @@ impl TryFrom<JobConfiguration> for ClientMessage {
             ..
         } = value;
 
-        Ok(ClientMessage::JobConfig {
+        ClientMessage::JobConfig {
             timeout,
             cluster_size,
             column_types,
             prediction_column,
             prediction_type,
-        })
+        }
     }
 }

@@ -4,7 +4,7 @@ use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 use std::cmp::max;
 use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::convert::From;
 use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -180,7 +180,7 @@ pub async fn run(
             log::info!("Columns: {:?}", &columns);
 
             let config_clone = config.clone();
-            let anon_config = ClientMessage::try_from(config_clone).unwrap();
+            let anon_config = ClientMessage::from(config_clone);
 
             let cluster = match nodepool
                 .build_cluster(anon_config.anonymise(&columns))
