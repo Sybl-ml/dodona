@@ -405,7 +405,7 @@ async fn run_cluster(
         let train_predict = prediction_bag.get(&model_id).unwrap().clone();
 
         tokio::spawn(async move {
-            dcl_protcol(
+            dcl_protocol(
                 np_clone,
                 database_clone,
                 model_id,
@@ -465,7 +465,7 @@ async fn run_cluster(
 }
 
 /// Function to execute DCL protocol
-pub async fn dcl_protcol(
+pub async fn dcl_protocol(
     nodepool: Arc<NodePool>,
     database: Arc<Database>,
     model_id: String,
