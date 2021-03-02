@@ -4,6 +4,7 @@ use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 use std::cmp::max;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -21,6 +22,7 @@ use tokio::time::timeout;
 use crate::node_end::NodePool;
 use crate::JobControl;
 use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
+use models::jobs::JobConfiguration;
 use models::jobs::PredictionType;
 use models::predictions::Prediction;
 use models::projects::Status;
@@ -41,7 +43,7 @@ pub struct ClusterInfo {
     /// Columns in dataset
     pub columns: Columns,
     /// Config
-    pub config: ClientMessage,
+    pub config: JobConfiguration,
     /// Validation results
     pub validation_ans: HashMap<(ModelID, String), String>,
     /// Test record IDs
@@ -177,7 +179,13 @@ pub async fn run(
 
             log::info!("Columns: {:?}", &columns);
 
-            let cluster = match nodepool.build_cluster(config.anonymise(&columns)).await {
+            let config_clone = config.clone();
+            let anon_config = ClientMessage::try_from(config_clone).unwrap();
+
+            let cluster = match nodepool
+                .build_cluster(anon_config.anonymise(&columns))
+                .await
+            {
                 Some(c) => c,
                 _ => {
                     log::info!("No cluster could be built");
@@ -201,23 +209,12 @@ pub async fn run(
             let mut validation = Vec::new();
             let test = msg.predict.trim().split('\n').skip(1).collect::<Vec<_>>();
 
-            let (prediction_column, prediction_type, timeout) = match config {
-                ClientMessage::JobConfig {
-                    ref prediction_column,
-                    prediction_type,
-                    timeout,
-                    ..
-                } => (
-                    prediction_column.to_string(),
-                    prediction_type,
-                    Duration::from_secs((timeout * 60) as u64),
-                ),
-                _ => (
-                    headers.split(',').last().unwrap().to_string(),
-                    PredictionType::Classification,
-                    Duration::from_secs(600),
-                ),
-            };
+            let JobConfiguration {
+                prediction_column,
+                prediction_type,
+                timeout,
+                ..
+            } = config.clone();
 
             if prediction_type == PredictionType::Classification {
                 columns.insert(
@@ -246,7 +243,7 @@ pub async fn run(
                 config: config.clone(),
                 validation_ans: validation_ans.clone(),
                 prediction_rids: prediction_rids.clone(),
-                timeout,
+                timeout: Duration::from_secs((timeout * 60) as u64),
             };
 
             let np_clone = Arc::clone(&nodepool);

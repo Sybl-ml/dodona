@@ -2,7 +2,6 @@
 use crate::job_end::{
     ClusterInfo, ModelErrors, ModelID, ModelPredictions, ModelWeights, Predictions,
 };
-use messages::ClientMessage;
 use models::job_performance::JobPerformance;
 use models::jobs::PredictionType;
 use mongodb::{
@@ -42,12 +41,7 @@ pub fn weight_predictions(
     let mut indexes: Vec<&usize> = test_examples.into_iter().collect();
     indexes.sort();
 
-    let job_type = match &info.config {
-        ClientMessage::JobConfig {
-            prediction_type, ..
-        } => *prediction_type,
-        _ => PredictionType::Classification,
-    };
+    let job_type = info.config.prediction_type;
 
     let mut predictions: Vec<String> = Vec::new();
 
@@ -105,12 +99,7 @@ pub fn evaluate_model(
     let mut model_error: f64 = 1.0;
     let mut model_predictions: Predictions = HashMap::new();
 
-    let job_type = match &info.config {
-        ClientMessage::JobConfig {
-            prediction_type, ..
-        } => *prediction_type,
-        _ => PredictionType::Classification,
-    };
+    let job_type = info.config.prediction_type;
 
     let mut predictions: Vec<_> = predictions.trim().split('\n').collect();
 
