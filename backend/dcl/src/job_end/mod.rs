@@ -6,6 +6,7 @@ use std::cmp::max;
 use std::collections::HashMap;
 use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use anyhow::Result;
 use mongodb::{
@@ -15,6 +16,7 @@ use mongodb::{
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio::sync::{Notify, RwLock};
+use tokio::time::timeout;
 
 use crate::node_end::NodePool;
 use crate::JobControl;
@@ -44,6 +46,8 @@ pub struct ClusterInfo {
     pub validation_ans: HashMap<(ModelID, String), String>,
     /// Test record IDs
     pub prediction_rids: HashMap<(ModelID, String), usize>,
+    /// Timeout for the job
+    pub timeout: Duration,
 }
 
 /// The `String` predictions of model `ModelID` on test example `usize`
@@ -197,15 +201,21 @@ pub async fn run(
             let mut validation = Vec::new();
             let test = msg.predict.trim().split('\n').skip(1).collect::<Vec<_>>();
 
-            let (prediction_column, prediction_type) = match config {
+            let (prediction_column, prediction_type, timeout) = match config {
                 ClientMessage::JobConfig {
                     ref prediction_column,
                     prediction_type,
+                    timeout,
                     ..
-                } => (prediction_column.to_string(), prediction_type),
+                } => (
+                    prediction_column.to_string(),
+                    prediction_type,
+                    Duration::from_secs((timeout * 60) as u64),
+                ),
                 _ => (
                     headers.split(',').last().unwrap().to_string(),
                     PredictionType::Classification,
+                    Duration::from_secs(600),
                 ),
             };
 
@@ -236,6 +246,7 @@ pub async fn run(
                 config: config.clone(),
                 validation_ans: validation_ans.clone(),
                 prediction_rids: prediction_rids.clone(),
+                timeout,
             };
 
             let np_clone = Arc::clone(&nodepool);
@@ -405,7 +416,9 @@ async fn run_cluster(
         let train_predict = prediction_bag.get(&model_id).unwrap().clone();
 
         tokio::spawn(async move {
-            dcl_protocol(
+            let wait: Duration = info_clone.timeout.clone();
+
+            let future = dcl_protocol(
                 np_clone,
                 database_clone,
                 model_id,
@@ -414,9 +427,9 @@ async fn run_cluster(
                 cc_clone,
                 train_predict,
                 wbm_clone,
-            )
-            .await
-            .unwrap();
+            );
+
+            timeout(wait, future).await.unwrap()
         });
     }
 
