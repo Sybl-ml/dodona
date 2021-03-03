@@ -14,7 +14,6 @@ use rdkafka::consumer::{stream_consumer::StreamConsumer, Consumer, DefaultConsum
 use rdkafka::Message;
 use tokio_stream::StreamExt;
 
-use messages::ClientMessage;
 use models::datasets::Dataset;
 use models::jobs::JobConfiguration;
 use utils::compress::decompress_data;
@@ -85,11 +84,9 @@ async fn process_job(
     let JobConfiguration {
         dataset_id,
         timeout,
-        cluster_size,
         column_types,
-        prediction_column,
-        prediction_type,
-    } = job_config;
+        ..
+    } = job_config.clone();
 
     log::info!("Received a message from the interface:");
     log::debug!("\tDataset Identifier: {}", dataset_id);
@@ -127,13 +124,7 @@ async fn process_job(
     job_control.job_queue.push((
         dataset.project_id,
         DatasetPair { train, predict },
-        ClientMessage::JobConfig {
-            timeout,
-            cluster_size,
-            column_types,
-            prediction_column,
-            prediction_type,
-        },
+        job_config,
     ));
 
     job_control.notify.notify_waiters();

@@ -4,8 +4,10 @@ use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 use std::cmp::max;
 use std::collections::HashMap;
+use std::convert::From;
 use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use anyhow::Result;
 use mongodb::{
@@ -15,10 +17,12 @@ use mongodb::{
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio::sync::{Notify, RwLock};
+use tokio::time::timeout;
 
 use crate::node_end::NodePool;
 use crate::JobControl;
 use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
+use models::jobs::JobConfiguration;
 use models::jobs::PredictionType;
 use models::predictions::Prediction;
 use models::projects::Status;
@@ -39,11 +43,13 @@ pub struct ClusterInfo {
     /// Columns in dataset
     pub columns: Columns,
     /// Config
-    pub config: ClientMessage,
+    pub config: JobConfiguration,
     /// Validation results
     pub validation_ans: HashMap<(ModelID, String), String>,
     /// Test record IDs
     pub prediction_rids: HashMap<(ModelID, String), usize>,
+    /// Timeout for the job
+    pub timeout: Duration,
 }
 
 /// The `String` predictions of model `ModelID` on test example `usize`
@@ -173,7 +179,13 @@ pub async fn run(
 
             log::info!("Columns: {:?}", &columns);
 
-            let cluster = match nodepool.build_cluster(config.anonymise(&columns)).await {
+            let config_clone = config.clone();
+            let anon_config = ClientMessage::from(config_clone);
+
+            let cluster = match nodepool
+                .build_cluster(anon_config.anonymise(&columns))
+                .await
+            {
                 Some(c) => c,
                 _ => {
                     log::info!("No cluster could be built");
@@ -197,17 +209,12 @@ pub async fn run(
             let mut validation = Vec::new();
             let test = msg.predict.trim().split('\n').skip(1).collect::<Vec<_>>();
 
-            let (prediction_column, prediction_type) = match config {
-                ClientMessage::JobConfig {
-                    ref prediction_column,
-                    prediction_type,
-                    ..
-                } => (prediction_column.to_string(), prediction_type),
-                _ => (
-                    headers.split(',').last().unwrap().to_string(),
-                    PredictionType::Classification,
-                ),
-            };
+            let JobConfiguration {
+                prediction_column,
+                prediction_type,
+                timeout,
+                ..
+            } = config.clone();
 
             if prediction_type == PredictionType::Classification {
                 columns.insert(
@@ -236,6 +243,7 @@ pub async fn run(
                 config: config.clone(),
                 validation_ans: validation_ans.clone(),
                 prediction_rids: prediction_rids.clone(),
+                timeout: Duration::from_secs((timeout * 60) as u64),
             };
 
             let np_clone = Arc::clone(&nodepool);
@@ -405,7 +413,9 @@ async fn run_cluster(
         let train_predict = prediction_bag.get(&model_id).unwrap().clone();
 
         tokio::spawn(async move {
-            dcl_protcol(
+            let wait: Duration = info_clone.timeout.clone();
+
+            let future = dcl_protocol(
                 np_clone,
                 database_clone,
                 model_id,
@@ -414,9 +424,9 @@ async fn run_cluster(
                 cc_clone,
                 train_predict,
                 wbm_clone,
-            )
-            .await
-            .unwrap();
+            );
+
+            timeout(wait, future).await.unwrap()
         });
     }
 
@@ -465,7 +475,7 @@ async fn run_cluster(
 }
 
 /// Function to execute DCL protocol
-pub async fn dcl_protcol(
+pub async fn dcl_protocol(
     nodepool: Arc<NodePool>,
     database: Arc<Database>,
     model_id: String,
