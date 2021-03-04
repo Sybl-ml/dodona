@@ -42,7 +42,7 @@
             drop-placeholder="Drop file here..."
             v-model="file"
           />
-          <b-alert show variant="danger" dismissible>
+          <b-alert show variant="warning" dismissible>
             <strong>TIP:</strong> You can upload a dataset later
           </b-alert></template
         >
