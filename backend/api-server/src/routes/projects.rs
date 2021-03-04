@@ -147,7 +147,7 @@ pub async fn new(
     let name = crypto::clean(&payload.name);
     let description = crypto::clean(&payload.description);
 
-    let project = Project::new(&name, &description, claims.id.clone());
+    let project = Project::new(&name, &description, payload.tags.clone(), claims.id.clone());
 
     let document = to_document(&project)?;
     let id = projects.insert_one(document, None).await?.inserted_id;

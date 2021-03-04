@@ -1,7 +1,7 @@
 //! Defines the structure of projects in the `MongoDB` instance.
 
 use chrono::Utc;
-use mongodb::bson::{self, doc, oid::ObjectId, Bson};
+use mongodb::bson::{self, doc, oid::ObjectId, Array, Bson};
 use serde::{Deserialize, Serialize};
 use tokio_stream::StreamExt;
 
@@ -41,6 +41,8 @@ pub struct Project {
     pub name: String,
     /// The description of the project set by user
     pub description: String,
+    /// The tags of the project set by user
+    pub tags: Array,
     /// The date and time that the project was created
     pub date_created: bson::DateTime,
     /// The identifier of the user who created the project
@@ -51,11 +53,17 @@ pub struct Project {
 
 impl Project {
     /// Creates a new instance of [`Project`].
-    pub fn new<T: Into<String>>(name: T, description: T, user_id: ObjectId) -> Self {
+    pub fn new<T: Into<String>>(
+        name: T,
+        description: T,
+        tags: Array,
+        user_id: ObjectId,
+    ) -> Self {
         Self {
             id: ObjectId::new(),
             name: name.into(),
             description: description.into(),
+            tags,
             date_created: bson::DateTime(Utc::now()),
             user_id,
             status: Status::Unfinished,

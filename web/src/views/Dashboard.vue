@@ -5,7 +5,12 @@
         <b-col xs="12" order-xs="2" lg="3">
           <b-row>
             <b-col class="mb-2">
-              <b-form-input class="shadow-sm" v-model="search" placeholder="Search" block />
+              <b-form-input
+                class="shadow-sm"
+                v-model="search"
+                placeholder="Search"
+                block
+              />
             </b-col>
           </b-row>
           <b-row class="text-left">
@@ -27,14 +32,20 @@
                   },
                 }"
               >
-                <b-card class="mb-2 shadow-sm" no-body :class="p.status.toLowerCase()" style="border: none">
+                <b-card
+                  class="mb-2 shadow-sm"
+                  no-body
+                  :class="p.status.toLowerCase()"
+                  style="border: none"
+                >
                   <b-row
                     no-gutters
                     class="ml-2"
                     style="background-color: white"
                   >
                     <b-col>
-                      <b-card-body :title="p.name" title-tag="h5">
+                      <b-card-body title-tag="h5">
+                        <b-card-title>{{ p.name }} </b-card-title>
                         <b-card-text>
                           <b-icon-play-fill
                             v-if="p.status == 'Unfinished'"
@@ -54,6 +65,14 @@
                             style="color: #00bf26"
                           />
                           {{ p.status }}
+                          <b-badge
+                            pill
+                            variant="success"
+                            class="mx-1"
+                            v-for="tag in p.tags"
+                            v-bind:key="tag.id"
+                            >{{ tag }}</b-badge
+                          >
                         </b-card-text>
                       </b-card-body>
                     </b-col>
@@ -90,7 +109,7 @@
   background-color: #6391ff !important;
 }
 .processing {
-  background-color: #FFC12F !important;
+  background-color: #ffc12f !important;
 }
 .completed {
   background-color: #00bf26 !important;
@@ -111,9 +130,7 @@ export default {
   async mounted() {
     let user_id = $cookies.get("token");
 
-    let response = await this.$http.get(
-      `api/projects`
-    );
+    let response = await this.$http.get(`api/projects`);
 
     this.projects = response.data.map((x) => {
       let y = {
@@ -146,9 +163,7 @@ export default {
       }
     },
     async addProject(id) {
-      let project_response = await this.$http.get(
-        `api/projects/${id}`
-      );
+      let project_response = await this.$http.get(`api/projects/${id}`);
 
       let x = project_response.data.project;
       let y = {
@@ -159,7 +174,7 @@ export default {
       };
       delete y._id;
 
-      this.projects.push(y)
+      this.projects.push(y);
     },
     deleteProject(id) {
       let index = 0;
@@ -182,7 +197,7 @@ export default {
     },
   },
   computed: {
-    filtered_projects: function () {
+    filtered_projects: function() {
       return this.projects.filter((x) => {
         if (x["name"].includes(this.search)) {
           return x;

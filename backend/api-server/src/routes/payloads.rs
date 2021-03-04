@@ -1,6 +1,6 @@
 //! Contains the expected payloads for each endpoint.
 
-use mongodb::bson::Document;
+use mongodb::bson::{Array, Document};
 
 use models::jobs::PredictionType;
 
@@ -52,6 +52,8 @@ pub struct NewProjectOptions {
     pub name: String,
     /// The description of the project
     pub description: String,
+    /// The tags of the project
+    pub tags: Array,
 }
 
 /// Stores the options for uploading a dataset.

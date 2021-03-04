@@ -6,11 +6,9 @@
     <b-card no-body>
       <navigatable-tab
         :tabs="[
-          { key: '1', title: '1. Details', disabled: false },
-          { key: '2', title: '2. Data', disabled: false },
-          { key: '3', title: '3. Processing', disabled: true },
-          { key: '4', title: '4. Configure', disabled: true },
-          { key: '5', title: '5. Finish', disabled: false },
+          { key: '1', title: '1. Details' },
+          { key: '2', title: '2. Data' },
+          { key: '3', title: '3. Finish' },
         ]"
       >
         <template v-slot:1>
@@ -25,7 +23,13 @@
             v-model="description"
             class="mb-3"
           />
-          <b-form-tags class="mb-3" v-model="descriptions"></b-form-tags>
+          <b-form-tags
+            class="mb-3"
+            tag-variant="success"
+            tag-pills
+            remove-on-delete
+            v-model="tags"
+          ></b-form-tags>
         </template>
 
         <template v-slot:2>
@@ -40,12 +44,26 @@
           />
           <b-alert show variant="danger" dismissible>
             <strong>TIP:</strong> You can upload a dataset later
-          </b-alert></template>
+          </b-alert></template
+        >
 
-          <template v-slot:5>
-            <b-card-text>Confirm the Details Below Before Creation</b-card-text>
+        <template v-slot:3>
+          <b-card-text>Confirm the Details Below Before Creation</b-card-text>
           <b-table striped hover :items="reviewItems"></b-table>
+          <h5>
+            Selected Tags:
+            <b-badge
+              pill
+              variant="success"
+              class="mx-1"
+              v-for="tag in tags"
+              v-bind:key="tag.id"
+              >{{ tag }}</b-badge
+            >
+          </h5>
+          <h5 v-if="file"> File Uploaded: {{file.name}}</h5>
           <b-button
+            :disabled="!name"
             size="sm"
             @click="onSubmit"
             variant="ready"
@@ -57,7 +75,7 @@
               v-show="!submitted && complete"
             ></b-icon-check-all>
           </b-button>
-          </template>
+        </template>
       </navigatable-tab>
     </b-card>
   </b-container>
@@ -90,17 +108,16 @@ export default {
       project_id: "",
       complete: true,
       submitted: false,
-      descriptions: [],
-      reviewItems: [
-        { age: 40, first_name: "Dickerson", last_name: "Macdonald" },
-        { age: 21, first_name: "Larsen", last_name: "Shaw" },
-        { age: 89, first_name: "Geneva", last_name: "Wilson" },
-        { age: 38, first_name: "Jami", last_name: "Carney" },
-      ],
+      tags: [],
     };
   },
   components: {
     NavigatableTab,
+  },
+  computed: {
+    reviewItems() {
+      return [{ project_name: this.name, description: this.description }];
+    },
   },
   methods: {
     sleep(ms) {
@@ -113,13 +130,11 @@ export default {
       this.upload_in_progress = true;
       let user_id = $cookies.get("token");
       try {
-        let project_response = await this.$http.post(
-          `api/projects/new`,
-          {
-            name: this.name,
-            description: this.description,
-          }
-        );
+        let project_response = await this.$http.post(`api/projects/new`, {
+          name: this.name,
+          description: this.description,
+          tags: this.tags,
+        });
 
         this.project_id = project_response.data.project_id.$oid;
       } catch (err) {
@@ -129,7 +144,7 @@ export default {
       if (this.file) {
         this.readFile();
       }
-      
+
       await this.sleep(1000);
 
       this.$router.replace("/dashboard/" + this.project_id);
