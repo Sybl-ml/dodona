@@ -49,8 +49,6 @@
 
         <h4>Job Configuration:</h4>
         <b-container fluid>
-          <b-row class="mt-4">
-            <b-col>
               <b-form-group
                 label="Timeout (mins)"
                 label-for="dropdown-form-timeout"
@@ -62,10 +60,6 @@
                   v-model="timeout"
                 ></b-form-input>
               </b-form-group>
-            </b-col>
-          </b-row>
-          <b-row class="mt-4">
-            <b-col>
               <b-form-group
                 label="Cluster Size"
                 label-for="dropdown-form-cluster-size"
@@ -77,10 +71,6 @@
                   v-model="cluster_size"
                 ></b-form-input>
               </b-form-group>
-            </b-col>
-          </b-row>
-          <b-row>
-            <b-col>
               <b-form-group label="Problem Type" label-for="dropdown-form-type">
                 <b-form-select
                   id="dropdown-form-type"
@@ -89,10 +79,6 @@
                   v-model="problemType"
                 />
               </b-form-group>
-            </b-col>
-          </b-row>
-          <b-row>
-            <b-col>
               <b-form-group
                 label="Prediction Column"
                 label-for="dropdown-pred-col"
@@ -104,19 +90,18 @@
                   v-model="predColumn"
                 />
               </b-form-group>
-            </b-col>
-          </b-row>
         </b-container>
         <h4>To start computation click the button below</h4>
-        <p class="display-1 text-center">
+        <div class="text-center">
           <b-button
             @click="start"
+            variant="outline-success"
             :disabled="startDisabled"
-            class="empty-button"
+            size="lg"
           >
-            <b-icon-play-fill font-scale="7.5" variant="success" />
+            Start <b-icon-play-fill/>
           </b-button>
-        </p>
+        </div>
       </b-col>
       <b-col lg="8" sm="12" v-else>
         <h4>Description:</h4>
@@ -209,11 +194,6 @@
 <style scoped>
 .input-table {
   overflow-y: scroll;
-}
-
-.empty-button {
-  background-color: white !important;
-  border-color: white !important;
 }
 
 .scrollable_description
