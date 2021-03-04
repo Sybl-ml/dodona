@@ -119,9 +119,6 @@
       </b-col>
       <b-col lg="4" sm="12">
         <b-card
-          border-variant="primary"
-          header-bg-variant="primary"
-          header-text-variant="white"
           class="h-100 shadow"
           v-if="!checkStatus('Unfinished')"
         >
