@@ -13,7 +13,9 @@
       </b-col>
       <b-col lg="8" sm="12" v-else-if="checkStatus('Ready')">
         <h4>Description:</h4>
-        <p>{{ description }}</p>
+        <div class="scrollable_description">
+          {{ description }} 
+        </div>
         <h4>Linked Dataset:</h4>
         <b-button-group size="sm" class="mb-3">
           <b-button variant="secondary" @click="$emit('input-tab')">{{
@@ -118,7 +120,9 @@
       </b-col>
       <b-col lg="8" sm="12" v-else>
         <h4>Description:</h4>
-        <p>{{ description }}</p>
+        <div class="scrollable_description">
+          {{ description }} 
+        </div>
         <h5>To continue you must provide a dataset</h5>
         <b-form-file
           class="mb-3"
@@ -210,6 +214,12 @@
 .empty-button {
   background-color: white !important;
   border-color: white !important;
+}
+
+.scrollable_description
+{
+  max-height: 10.5rem;
+  overflow:auto;
 }
 </style>
 
