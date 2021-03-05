@@ -1,4 +1,4 @@
-use actix_web::web::post;
+use actix_web::web::{get, post};
 use actix_web::{middleware, test, App, Result};
 use api_server::routes::users;
 use mongodb::bson::{doc, document::Document};
@@ -135,37 +135,54 @@ async fn users_cannot_login_without_correct_email() -> Result<()> {
 async fn users_can_upload_an_avatar_image() -> Result<()> {
     let mut app = api_with! { post: "/api/users/avatar" => users::new_avatar };
 
-    let doc = doc! {
-        "avatar": "iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAAAXNSR0IArs4c6QAAAJZlWElmTU0AKgAAAAgABAEaAAUAAAABAAAAPgEbAAUAAAABAAAARgEoAAMAAAABAAIAAIdpAAQAAAABAAAATgAAAAAAAACQAAAAAQAAAJAAAAABAASShgAHAAAAEgAAAISgAQADAAAAAQABAACgAgAEAAAAAQAAAAygAwAEAAAAAQAAAAwAAAAAQVNDSUkAAABTY3JlZW5zaG902tFykgAAAAlwSFlzAAAWJQAAFiUBSVIk8AAAAdRpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IlhNUCBDb3JlIDYuMC4wIj4KICAgPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4KICAgICAgPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIKICAgICAgICAgICAgeG1sbnM6ZXhpZj0iaHR0cDovL25zLmFkb2JlLmNvbS9leGlmLzEuMC8iPgogICAgICAgICA8ZXhpZjpQaXhlbFlEaW1lbnNpb24+MTI8L2V4aWY6UGl4ZWxZRGltZW5zaW9uPgogICAgICAgICA8ZXhpZjpQaXhlbFhEaW1lbnNpb24+MTI8L2V4aWY6UGl4ZWxYRGltZW5zaW9uPgogICAgICAgICA8ZXhpZjpVc2VyQ29tbWVudD5TY3JlZW5zaG90PC9leGlmOlVzZXJDb21tZW50PgogICAgICA8L3JkZjpEZXNjcmlwdGlvbj4KICAgPC9yZGY6UkRGPgo8L3g6eG1wbWV0YT4K5bXnRQAAABxpRE9UAAAAAgAAAAAAAAAGAAAAKAAAAAYAAAAGAAAASBhkRZUAAAAUSURBVCgVYpSTk/vPQAJgHIkaAAAAAP//Y8W78gAAABFJREFUY5STk/vPQAJgHIkaAPjVEDmlIa45AAAAAElFTkSuQmCC"
-    };
+    // Trim here as trailing newlines will cause a 422
+    let doc = doc! { "avatar": include_str!("assets/base64_avatar.txt").trim() };
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
         .uri("/api/users/avatar")
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .set_json(&doc)
         .to_request();
 
     let res = test::call_service(&mut app, req).await;
-    let body: AuthResponse = test::read_body_json(res).await;
-    assert!(body.token != "null");
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
     Ok(())
 }
 
 #[actix_rt::test]
 async fn users_can_retrieve_an_avatar_image() -> Result<()> {
-    let mut app = api_with! { post: "/api/users/avatar" => users::new_avatar };
+    let mut app = api_with! {
+        post: "/api/users/avatar" => users::new_avatar,
+        get: "/api/users/avatar" => users::get_avatar,
+    };
+
+    // Trim here as trailing newlines will cause a 422
+    let doc = doc! { "avatar": include_str!("assets/base64_avatar.txt").trim() };
+
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::POST)
+        .uri("/api/users/avatar")
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
+        .set_json(&doc)
+        .to_request();
+
+    let res = test::call_service(&mut app, req).await;
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
         .uri("/api/users/avatar")
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .to_request();
 
     let res = test::call_service(&mut app, req).await;
-    let body: AuthResponse = test::read_body_json(res).await;
-    assert!(body.token != "null");
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
+
     Ok(())
 }
+
 #[actix_rt::test]
 async fn filter_finds_given_user_and_no_others() -> Result<()> {
     let mut app = api_with! { post: "/api/users/filter" => users::filter };
