@@ -10,8 +10,7 @@ use mongodb::bson::{doc, oid::ObjectId};
 use dcl::job_end::finance::Pricing;
 use dcl::job_end::ml::{evaluate_model, model_performance, penalise, weight_predictions};
 use dcl::job_end::{ClusterInfo, ModelID, WriteBackMemory};
-use messages::ClientMessage;
-use models::jobs::PredictionType;
+use models::jobs::{JobConfiguration, PredictionType};
 use models::users::User;
 
 mod common;
@@ -94,9 +93,17 @@ fn test_evaluate_model() {
     let info = ClusterInfo {
         project_id: ObjectId::with_string(common::USER_ID).unwrap(),
         columns: HashMap::new(),
-        config: ClientMessage::Alive { timestamp: 0 },
+        config: JobConfiguration {
+            dataset_id: ObjectId::new(),
+            timeout: 0,
+            cluster_size: 3,
+            column_types: vec![],
+            prediction_column: "".to_string(),
+            prediction_type: PredictionType::Classification,
+        },
         validation_ans: validation_ans,
         prediction_rids: prediction_rids,
+        timeout: Duration::from_secs(6000),
     };
 
     let predictions = "2,3\n3,2\n4,1\n5,0\n6,0\n7,0\n8,0".to_owned();
@@ -166,7 +173,8 @@ fn test_weight_predictions() {
     let info = ClusterInfo {
         project_id: ObjectId::with_string(common::USER_ID).unwrap(),
         columns: HashMap::new(),
-        config: ClientMessage::JobConfig {
+        config: JobConfiguration {
+            dataset_id: ObjectId::new(),
             timeout: 0,
             cluster_size: 3,
             column_types: vec![],
@@ -175,6 +183,7 @@ fn test_weight_predictions() {
         },
         validation_ans: validation_ans.clone(),
         prediction_rids: prediction_rids.clone(),
+        timeout: Duration::from_secs(6000),
     };
 
     let mut model_predictions: HashMap<(ModelID, usize), String> = HashMap::new();
@@ -199,7 +208,8 @@ fn test_weight_predictions() {
     let info = ClusterInfo {
         project_id: ObjectId::with_string(common::USER_ID).unwrap(),
         columns: HashMap::new(),
-        config: ClientMessage::JobConfig {
+        config: JobConfiguration {
+            dataset_id: ObjectId::new(),
             timeout: 0,
             cluster_size: 3,
             column_types: vec![],
@@ -208,6 +218,7 @@ fn test_weight_predictions() {
         },
         validation_ans: validation_ans,
         prediction_rids: prediction_rids,
+        timeout: Duration::from_secs(6000),
     };
 
     let mut model_predictions: HashMap<(ModelID, usize), String> = HashMap::new();
