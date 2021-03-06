@@ -39,6 +39,7 @@
             :dataHead="dataHead"
             @get-data="fetchData"
             :training_data="training_data"
+            :predict_data="prediction_data"
             :datasetName="datasetName"
             :loading="loading"
           />
@@ -61,8 +62,10 @@
             :key="projectId"
             :name="name"
             :description="description"
+            :tags="tags"
             @update:name="updateName"
             @update:description="updateDescription"
+            @update:tags="updateTags"
             @delete:project="$emit('delete:project', projectId)"
           />
         </b-tab>
@@ -94,6 +97,7 @@ export default {
       dataTypes: {},
 
       training_data: null,
+      prediction_data: null,
       loading: false,
 
       analysis: {},
@@ -157,9 +161,10 @@ export default {
         `api/projects/${this.projectId}/data`
       );
 
-      let project_data = project_response.data.dataset;
-
-      this.training_data = Papa.parse(project_data, { header: true });
+      let project_data = project_response.data;
+      
+      this.training_data = Papa.parse(project_data.dataset, { header: true });
+      this.prediction_data = Papa.parse(project_data.predict, { header: true });
       this.loading = false;
     },
     async fetchResults() {
@@ -186,6 +191,7 @@ export default {
       this.results = null;
       this.predict_data = null;
       this.training_data = null;
+      this.prediction_data = null;
       this.loading = false;
       this.results_loading = false;
       this.analysis_loaded = false;
@@ -201,6 +207,10 @@ export default {
     updateDescription(newDescription) {
       this.description = newDescription;
       this.$emit("update:description", newDescription, this.projectId);
+    },
+    updateTags(newTags) {
+      this.tags = newTags;
+      this.$emit("update:tags", newTags, this.projectId);
     },
     updateProject(id) {
       this.$emit("update:project", id);
