@@ -48,7 +48,16 @@
         </b-modal>
 
         <h4>Job Configuration:</h4>
-        <b-container fluid>
+        <b-button
+          v-b-toggle.job-config
+          pill
+          variant="outline-mid"
+          size="sm"
+          class="mb-3"
+          @click="expandJob = !expandJob"
+          >{{ expandJob ? "Show" : "Hide" }}</b-button
+        >
+        <b-collapse id="job-config">
           <b-form-group
             label="Timeout (mins)"
             label-for="dropdown-form-timeout"
@@ -87,7 +96,7 @@
               v-model="predColumn"
             />
           </b-form-group>
-        </b-container>
+        </b-collapse>
         <h4>To start computation click the button below</h4>
         <div class="text-center">
           <b-button
@@ -228,6 +237,7 @@ export default {
       problemType: null,
       predColumn: null,
       analysis_selected: null,
+      expandJob: true,
 
       problemTypeOptions: [
         {
