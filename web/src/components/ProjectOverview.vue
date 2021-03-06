@@ -109,12 +109,7 @@
           {{ description }} 
         </div>
         <h5>To continue you must provide a dataset</h5>
-        <b-form-file
-          class="mb-3"
-          placeholder="Select a dataset"
-          drop-placeholder="Drop file here..."
-          v-model="file"
-        />
+        <file-upload v-model="file"/>
         <b-button variant="secondary" @click="addData">Upload</b-button>
       </b-col>
       <b-col lg="4" sm="12">
@@ -202,9 +197,27 @@
 
 <script>
 import DataAnalyticsBar from "@/components/charts/DataAnalyticsBar";
+import FileUpload from "@/components/FileUpload";
+
+const readUploadedFileAsText = (inputFile) => {
+  const temporaryFileReader = new FileReader();
+  return new Promise((resolve, reject) => {
+    temporaryFileReader.onerror = () => {
+      temporaryFileReader.abort();
+      reject(new DOMException("Problem parsing input file."));
+    };
+
+    temporaryFileReader.onload = () => {
+      resolve(temporaryFileReader.result);
+    };
+    temporaryFileReader.readAsText(inputFile);
+  });
+};
+
 export default {
   name: "ProjectOverview",
   components: {
+    FileUpload,
     DataAnalyticsBar,
   },
   data() {
@@ -322,24 +335,52 @@ export default {
         console.log(err);
       }
       this.$refs["deleteDataCheck"].hide();
+
+      window.location.reload();
     },
-    addData() {
-      if (this.file) {
-        this.file_reader = new FileReader();
-        this.file_reader.onload = this.sendFile;
-        this.file_reader.readAsText(this.file);
+    async addData() {
+      if (this.file){
+        this.processFile()
       }
     },
-    async sendFile(e) {
+    async sendFile(file, name) {
       let project_response = await this.$http.put(
         `api/projects/${this.projectId}/data`,
         {
-          name: this.file.name,
-          content: e.target.result,
+          name: name,
+          content: file,
         }
       );
-
       // On Success should update dashboard using emitters
+      window.location.reload();
+    },
+    async processFile() {
+      if (this.file.file) {
+        try {
+          const file = await readUploadedFileAsText(this.file.file);
+          this.sendFile(file, this.file.file.name);
+        } catch (e) {
+          console.warn(e.message);
+        }
+      }
+      else if (this.file.train){
+        try {
+          let train = await readUploadedFileAsText(this.file.train);
+          let predict = await readUploadedFileAsText(this.file.predict);
+          let trainLine = train.split('\n')[0]
+          let predictLine = predict.split('\n')[0]
+
+          if (trainLine == predictLine) {
+            let lines = predict.split('\n');
+            lines.splice(0,1);
+            let file = train + lines.join('\n');
+            
+            this.sendFile(file, this.file.train.name);
+          }
+        } catch (e) {
+          console.warn(e.message);
+        }
+      }
     },
     update_analysis() {
       if (this.analysis.columns[this.analysis_selected].Categorical)

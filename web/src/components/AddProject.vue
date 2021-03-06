@@ -36,13 +36,8 @@
           <b-card-text>
             Please upload a dataset...
           </b-card-text>
-          <b-form-file
-            class="mb-3"
-            placeholder="Choose a file or drop it here..."
-            drop-placeholder="Drop file here..."
-            v-model="file"
-          />
-          <b-alert show variant="warning" dismissible>
+          <file-upload v-model="file" />
+          <b-alert show variant="primary" dismissible>
             <strong>TIP:</strong> You can upload a dataset later
           </b-alert></template
         >
@@ -61,7 +56,7 @@
               >{{ tag }}</b-badge
             >
           </h5>
-          <h5 v-if="file"> File Uploaded: {{file.name}}</h5>
+          <h5 v-if="file && file.file">File Uploaded: {{ file.file.name }}</h5>
           <b-button
             :disabled="!name"
             size="sm"
@@ -95,6 +90,23 @@
 
 <script>
 import NavigatableTab from "./NavigatableTab.vue";
+import FileUpload from "@/components/FileUpload";
+
+const readUploadedFileAsText = (inputFile) => {
+  const temporaryFileReader = new FileReader();
+
+  return new Promise((resolve, reject) => {
+    temporaryFileReader.onerror = () => {
+      temporaryFileReader.abort();
+      reject(new DOMException("Problem parsing input file."));
+    };
+
+    temporaryFileReader.onload = () => {
+      resolve(temporaryFileReader.result);
+    };
+    temporaryFileReader.readAsText(inputFile);
+  });
+};
 
 export default {
   name: "AddProject",
@@ -104,15 +116,16 @@ export default {
       description: "",
       file: null,
       upload_in_progress: false,
-      file_reader: null,
       project_id: "",
       complete: true,
       submitted: false,
       tags: [],
+      train: null,
     };
   },
   components: {
     NavigatableTab,
+    FileUpload,
   },
   computed: {
     reviewItems() {
@@ -128,7 +141,6 @@ export default {
     async onSubmit() {
       this.submitted = true;
       this.upload_in_progress = true;
-      let user_id = $cookies.get("token");
       try {
         let project_response = await this.$http.post(`api/projects/new`, {
           name: this.name,
@@ -140,30 +152,52 @@ export default {
       } catch (err) {
         console.log(err);
       }
-
       if (this.file) {
-        this.readFile();
+        this.processFile()
       }
-
-      await this.sleep(1000);
-
+      
+      await this.sleep(100);
+      
       this.$router.replace("/dashboard/" + this.project_id);
       this.$emit("insert:project", this.project_id);
     },
-    readFile() {
-      this.file_reader = new FileReader();
-      this.file_reader.onload = this.sendFile;
-      this.file_reader.readAsText(this.file);
-    },
-    async sendFile(e) {
+    async sendFile(file, name) {
       let project_response = await this.$http.put(
         `api/projects/${this.project_id}/data`,
         {
-          name: this.file.name,
-          content: e.target.result,
+          name: name,
+          content: file,
         }
       );
     },
+    async processFile() {
+      if (this.file.file) {
+        try {
+          const file = await readUploadedFileAsText(this.file.file);
+          this.sendFile(file, this.file.file.name);
+        } catch (e) {
+          console.warn(e.message);
+        }
+      }
+      else if (this.file.train){
+        try {
+          let train = await readUploadedFileAsText(this.file.train);
+          let predict = await readUploadedFileAsText(this.file.predict);
+          let trainLine = train.split('\n')[0]
+          let predictLine = predict.split('\n')[0]
+
+          if (trainLine == predictLine) {
+            let lines = predict.split('\n');
+            lines.splice(0,1);
+            let file = train + lines.join('\n');
+            
+            this.sendFile(file, this.file.train.name);
+          }
+        } catch (e) {
+          console.warn(e.message);
+        }
+      }
+    }
   },
 };
 </script>
