@@ -101,7 +101,7 @@
         <div class="text-center">
           <b-button
             @click="start"
-            variant="outline-success"
+            variant="success"
             :disabled="startDisabled"
             size="lg"
           >
