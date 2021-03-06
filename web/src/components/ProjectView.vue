@@ -2,7 +2,17 @@
   <b-container fluid>
     <b-card style="height:7rem;border:none;box-shadow:none">
       <h2>{{ name }}</h2>
-      <p>{{ getProjectDate }}</p>
+      <p>
+        {{ getProjectDate }}
+        <b-badge
+          pill
+          variant="success"
+          class="mx-1"
+          v-for="tag in tags"
+          v-bind:key="tag.id"
+          >{{ tag }}</b-badge
+        >
+      </p>
     </b-card>
     <b-card no-body class="shadow">
       <b-tabs pills card>
@@ -75,6 +85,7 @@ export default {
       name: "",
       description: "",
       status: "",
+      tags: null,
       dateCreated: new Date(),
 
       datasetDate: new Date(),
@@ -125,6 +136,7 @@ export default {
 
       this.name = project_info.name;
       this.description = project_info.description;
+      this.tags = project_info.tags;
       this.dateCreated = new Date(project_info.date_created.$date);
       this.status = project_info.status;
       if (project_details) {
