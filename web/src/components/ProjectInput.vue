@@ -1,8 +1,8 @@
 <template>
   <b-container fluid>
-    <b-row>
+    <!-- <b-row>
       <h4>{{ this.datasetName }}</h4>
-    </b-row>
+    </b-row> -->
     <b-row>
       <b-col v-if="!training_data && !loading" class="text-center">
         <b-row class="head-input-table">
@@ -19,25 +19,29 @@
           font-scale="4"
         ></b-icon>
       </b-col>
-      <b-col v-else class="input-table">
-        <pagination-table
-          :fields="buildFields(this.training_data.meta.fields)"
-          :data="this.training_data.data"
-        />
+      <b-col v-else>
+        <b-tabs class="mb-3" pills>
+          <b-tab title="Select Datset:" disabled></b-tab>
+          <b-tab title="Training" active lazy>
+            <br>
+            <pagination-table
+              :fields="buildFields(this.training_data.meta.fields)"
+              :data="this.training_data.data"
+            />
+          </b-tab>
+          <b-tab title="Prediction" active lazy>
+            <br>
+            <!-- <pagination-table
+              :fields="buildFields(this.prediction_data.meta.fields)"
+              :data="this.prediction_data.data"
+            /> -->
+          </b-tab>
+        </b-tabs>
       </b-col>
     </b-row>
   </b-container>
 </template>
 
-<style scoped>
-.input-table {
-  height: calc(52px * 12);
-  overflow-y: scroll;
-}
-.head-input-table {
-  height: calc(52px * 6);
-}
-</style>
 
 <script>
 import VuetableFieldHandle from "vuetable-2/src/components/VuetableFieldHandle.vue";
@@ -52,6 +56,7 @@ export default {
     projectId: String,
     datasetName: String,
     training_data: Object,
+    prediction_data: Object,
     dataHead: Object,
     loading: Boolean,
   },
@@ -62,7 +67,8 @@ export default {
           name: VuetableFieldHandle,
         },
       ];
-
+      console.log(this.training_data)
+      console.log(this.prediction_data)
       fields.forEach(function(item, index) {
         built_fields.push({
           name: item,
