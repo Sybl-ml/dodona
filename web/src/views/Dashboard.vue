@@ -208,7 +208,12 @@ export default {
   computed: {
     filtered_projects: function() {
       return this.projects.filter((x) => {
+        
         if (x["name"].includes(this.search)) {
+          return x;
+        }
+
+        if (x["tags"].includes(this.search)) {
           return x;
         }
       });
