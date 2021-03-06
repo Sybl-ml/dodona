@@ -13,7 +13,7 @@
       </b-col>
       <b-col lg="8" sm="12" v-else-if="checkStatus('Ready')">
         <h4>Description:</h4>
-        <div class="scrollable_description">
+        <div class="scrollable_description mb-3">
           {{ description }}
         </div>
         <h4>Linked Dataset:</h4>
@@ -51,7 +51,7 @@
         <b-button
           v-b-toggle.job-config
           pill
-          variant="outline-mid"
+          variant="mid"
           size="sm"
           class="mb-3"
           @click="expandJob = !expandJob"
@@ -111,7 +111,7 @@
       </b-col>
       <b-col lg="8" sm="12" v-else>
         <h4>Description:</h4>
-        <div class="scrollable_description">
+        <div class="scrollable_description mb-3">
           {{ description }}
         </div>
         <h5>To continue you must provide a dataset</h5>
