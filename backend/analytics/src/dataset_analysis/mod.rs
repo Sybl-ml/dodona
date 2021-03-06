@@ -15,7 +15,7 @@ use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
 use utils::compress::decompress_data;
 
-const BIN_COUNT: u64 = 32;
+const BIN_COUNT: u64 = 4;
 
 /// Prepare Data for analysis
 ///
@@ -133,13 +133,8 @@ pub fn analyse_project(
                 let bin_size = (content.max - content.min) / BIN_COUNT as f64;
                 for x in 1..BIN_COUNT {
                     let lower = x as f64 * bin_size + content.min;
-                    let upper = lower + bin_size;
 
-                    let mut bounds = lower.to_string();
-                    bounds.push_str(" - ");
-                    bounds.push_str(&upper.to_string());
-
-                    content.values.insert(bounds, 0);
+                    content.values.insert(lower.to_string(), 0);
                 }
 
             }
@@ -167,13 +162,8 @@ pub fn analyse_project(
                     let normalized_value = (attr_val - content.min) / bin_size;
 
                     let lower = normalized_value.floor() * bin_size + content.min;
-                    let upper = lower + bin_size;
 
-                    let mut bounds = lower.to_string();
-                    bounds.push_str(" - ");
-                    bounds.push_str(&upper.to_string());
-
-                    *content.values.entry(bounds).or_insert(0) += 1;
+                    *content.values.entry(lower.to_string()).or_insert(0) += 1;
                 }
             };
         }
