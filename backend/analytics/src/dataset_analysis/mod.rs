@@ -15,6 +15,8 @@ use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
 use utils::compress::decompress_data;
 
+const BIN_COUNT: u64 = 32;
+
 /// Prepare Data for analysis
 ///
 /// Takes the project id and locates the linked dataset
@@ -128,11 +130,54 @@ pub fn analyse_project(
         {
             ColumnAnalysis::Numerical(content) => {
                 content.avg = content.sum / dataset_length as f64;
+                let bin_size = (content.max - content.min) / BIN_COUNT as f64;
+                for x in 1..BIN_COUNT {
+                    let lower = x as f64 * bin_size + content.min;
+                    let upper = lower + bin_size;
+
+                    let mut bounds = lower.to_string();
+                    bounds.push_str(" - ");
+                    bounds.push_str(&upper.to_string());
+
+                    content.values.insert(bounds, 0);
+                }
+
             }
             _ => {}
         };
     });
 
+    reader = Reader::from_reader(std::io::Cursor::new(dataset));
+
+    for result in reader.records() {
+        let row = result.expect("Failed to read row");
+        log::debug!("TEST");
+
+        for (elem, header) in row.iter().zip(headers.iter()) {
+            match tracker
+                .get_mut(header)
+                .expect("Failed to access header data")
+            {
+                ColumnAnalysis::Categorical(_) => {}
+                ColumnAnalysis::Numerical(content) => {
+                    let bin_size = (content.max - content.min) / BIN_COUNT as f64;
+                    log::debug!("{:?}", elem);
+                    let attr_val = f64::from_str(elem).expect("Failed to convert to float");
+
+                    let normalized_value = (attr_val - content.min) / bin_size;
+
+                    let lower = normalized_value.floor() * bin_size + content.min;
+                    let upper = lower + bin_size;
+
+                    let mut bounds = lower.to_string();
+                    bounds.push_str(" - ");
+                    bounds.push_str(&upper.to_string());
+
+                    *content.values.entry(bounds).or_insert(0) += 1;
+                }
+            };
+        }
+    }
     log::debug!("Generated Analysis {:?}", &tracker);
     return tracker;
 }

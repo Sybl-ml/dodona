@@ -14,7 +14,7 @@
       <b-col lg="8" sm="12" v-else-if="checkStatus('Ready')">
         <h4>Description:</h4>
         <div class="scrollable_description">
-          {{ description }} 
+          {{ description }}
         </div>
         <h4>Linked Dataset:</h4>
         <b-button-group size="sm" class="mb-3">
@@ -49,47 +49,44 @@
 
         <h4>Job Configuration:</h4>
         <b-container fluid>
-              <b-form-group
-                label="Timeout (mins)"
-                label-for="dropdown-form-timeout"
-              >
-                <b-form-input
-                  id="dropdown-form-timeout"
-                  size="sm"
-                  type="number"
-                  v-model="timeout"
-                ></b-form-input>
-              </b-form-group>
-              <b-form-group
-                label="Cluster Size"
-                label-for="dropdown-form-cluster-size"
-              >
-                <b-form-input
-                  id="dropdown-form-cluster-size"
-                  size="sm"
-                  type="number"
-                  v-model="cluster_size"
-                ></b-form-input>
-              </b-form-group>
-              <b-form-group label="Problem Type" label-for="dropdown-form-type">
-                <b-form-select
-                  id="dropdown-form-type"
-                  size="sm"
-                  :options="problemTypeOptions"
-                  v-model="problemType"
-                />
-              </b-form-group>
-              <b-form-group
-                label="Prediction Column"
-                label-for="dropdown-pred-col"
-              >
-                <b-form-select
-                  id="dropdown-pred-col"
-                  size="sm"
-                  :options="getColumnNames"
-                  v-model="predColumn"
-                />
-              </b-form-group>
+          <b-form-group
+            label="Timeout (mins)"
+            label-for="dropdown-form-timeout"
+          >
+            <b-form-input
+              id="dropdown-form-timeout"
+              size="sm"
+              type="number"
+              v-model="timeout"
+            ></b-form-input>
+          </b-form-group>
+          <b-form-group
+            label="Cluster Size"
+            label-for="dropdown-form-cluster-size"
+          >
+            <b-form-input
+              id="dropdown-form-cluster-size"
+              size="sm"
+              type="number"
+              v-model="cluster_size"
+            ></b-form-input>
+          </b-form-group>
+          <b-form-group label="Problem Type" label-for="dropdown-form-type">
+            <b-form-select
+              id="dropdown-form-type"
+              size="sm"
+              :options="problemTypeOptions"
+              v-model="problemType"
+            />
+          </b-form-group>
+          <b-form-group label="Prediction Column" label-for="dropdown-pred-col">
+            <b-form-select
+              id="dropdown-pred-col"
+              size="sm"
+              :options="getColumnNames"
+              v-model="predColumn"
+            />
+          </b-form-group>
         </b-container>
         <h4>To start computation click the button below</h4>
         <div class="text-center">
@@ -99,24 +96,23 @@
             :disabled="startDisabled"
             size="lg"
           >
-            Start <b-icon-play-fill/>
+            Start <b-icon-play-fill />
           </b-button>
         </div>
       </b-col>
       <b-col lg="8" sm="12" v-else>
         <h4>Description:</h4>
         <div class="scrollable_description">
-          {{ description }} 
+          {{ description }}
         </div>
         <h5>To continue you must provide a dataset</h5>
-        <file-upload v-model="file"/>
-        <b-button block size="sm" variant="secondary" @click="addData">Upload</b-button>
+        <file-upload v-model="file" />
+        <b-button block size="sm" variant="secondary" @click="addData"
+          >Upload</b-button
+        >
       </b-col>
       <b-col lg="4" sm="12">
-        <b-card
-          class="h-100 shadow"
-          v-if="!checkStatus('Unfinished')"
-        >
+        <b-card class="h-100 shadow" v-if="!checkStatus('Unfinished')">
           <template #header>
             <h4 class="mb-0">Analysis</h4>
           </template>
@@ -141,6 +137,14 @@
           </b-row>
           <div v-else>
             <div v-if="this.analysis.columns[this.analysis_selected].Numerical">
+              <numerical-data-analytics-bar
+                :chart-data="
+                  this.analysis.columns[this.analysis_selected].Numerical
+                    .values
+                "
+                :name="this.analysis_selected"
+                ref="analysis_chart"
+              />
               <p>
                 MAX -
                 {{
@@ -151,12 +155,6 @@
                 MIN -
                 {{
                   this.analysis.columns[this.analysis_selected].Numerical.min
-                }}
-              </p>
-              <p>
-                SUM -
-                {{
-                  this.analysis.columns[this.analysis_selected].Numerical.sum
                 }}
               </p>
               <p>
@@ -188,15 +186,15 @@
   overflow-y: scroll;
 }
 
-.scrollable_description
-{
+.scrollable_description {
   max-height: 10.5rem;
-  overflow:auto;
+  overflow: auto;
 }
 </style>
 
 <script>
 import DataAnalyticsBar from "@/components/charts/DataAnalyticsBar";
+import NumericalDataAnalyticsBar from "@/components/charts/NumericalDataAnalyticsBar";
 import FileUpload from "@/components/FileUpload";
 
 const readUploadedFileAsText = (inputFile) => {
@@ -219,6 +217,7 @@ export default {
   components: {
     FileUpload,
     DataAnalyticsBar,
+    NumericalDataAnalyticsBar
   },
   data() {
     return {
@@ -301,8 +300,8 @@ export default {
   },
   methods: {
     async start() {
-      this.timeout = parseInt(this.timeout)
-      this.cluster_size = parseInt(this.cluster_size)
+      this.timeout = parseInt(this.timeout);
+      this.cluster_size = parseInt(this.cluster_size);
       if (this.timeout <= 0) {
         this.timeout = 1;
       }
@@ -310,15 +309,12 @@ export default {
         this.cluster_size = 1;
       }
       try {
-        await this.$http.post(
-          `api/projects/${this.projectId}/process`,
-          {
-            timeout: this.timeout,
-            clusterSize: this.cluster_size,
-            predictionType: this.problemType,
-            predictionColumn: this.predColumn,
-          }
-        );
+        await this.$http.post(`api/projects/${this.projectId}/process`, {
+          timeout: this.timeout,
+          clusterSize: this.cluster_size,
+          predictionType: this.problemType,
+          predictionColumn: this.predColumn,
+        });
       } catch (err) {
         console.log(err);
       }
@@ -339,8 +335,8 @@ export default {
       window.location.reload();
     },
     async addData() {
-      if (this.file){
-        this.processFile()
+      if (this.file) {
+        this.processFile();
       }
     },
     async sendFile(file, name) {
@@ -362,19 +358,18 @@ export default {
         } catch (e) {
           console.warn(e.message);
         }
-      }
-      else if (this.file.train){
+      } else if (this.file.train) {
         try {
           let train = await readUploadedFileAsText(this.file.train);
           let predict = await readUploadedFileAsText(this.file.predict);
-          let trainLine = train.split('\n')[0]
-          let predictLine = predict.split('\n')[0]
+          let trainLine = train.split("\n")[0];
+          let predictLine = predict.split("\n")[0];
 
           if (trainLine == predictLine) {
-            let lines = predict.split('\n');
-            lines.splice(0,1);
-            let file = train + lines.join('\n');
-            
+            let lines = predict.split("\n");
+            lines.splice(0, 1);
+            let file = train + lines.join("\n");
+
             this.sendFile(file, this.file.train.name);
           }
         } catch (e) {
