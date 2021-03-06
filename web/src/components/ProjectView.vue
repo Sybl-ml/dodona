@@ -32,7 +32,7 @@
             v-on:input-tab="viewInput"
           />
         </b-tab>
-        <b-tab title="Input" ref="inputTab">
+        <b-tab title="Input" ref="inputTab" :disabled="datasetName == '' ">
           <project-input
             :projectId="projectId"
             :key="projectId"
@@ -44,7 +44,7 @@
             :loading="loading"
           />
         </b-tab>
-        <b-tab title="Output" lazy>
+        <b-tab title="Output" lazy :disabled="false">
           <project-output
             :disabled="!results"
             :projectId="projectId"
@@ -182,15 +182,16 @@ export default {
       // this.description = "";
       // this.dateCreated = new Date();
 
-      // this.datasetName = "";
-      // this.datasetDate = new Date();
-      // this.dataHead = {};
-      // this.dataTypes = {};
+      this.datasetName = "";
+      this.datasetDate = new Date();
+      this.dataHead = {};
+      this.dataTypes = {};
 
       this.analysis = null;
       this.results = null;
       this.predict_data = null;
       this.training_data = null;
+      
       this.prediction_data = null;
       this.loading = false;
       this.results_loading = false;
