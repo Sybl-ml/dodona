@@ -33,7 +33,7 @@
           <b-col sm="6">
             <b-form-file
               class="mb-3"
-              placeholder="Precition ..."
+              placeholder="Prediction ..."
               drop-placeholder="Drop file here..."
               @input="handlePredict"
             />
