@@ -53,8 +53,6 @@ export default {
       //   data[Math.round(parseFloat(key),5)] = data[key];
       //   delete data[key];
       // }
-      console.log(data);
-      console.log(Object.values(data));
 
       let arrayOfObj = labels.map(function(d, _) {
         return {
@@ -67,7 +65,6 @@ export default {
         return a.label < b.label;
       });
 
-      console.log(arrayOfObj)
 
       // for (let i = 0; i < labels.length - 1; i++) {
       //   labels[i] = "-" + labels[i+1]

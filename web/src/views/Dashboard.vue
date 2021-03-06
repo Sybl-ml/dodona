@@ -84,8 +84,9 @@
         </b-col>
         <b-col lg="9">
           <router-view
-            @update:description="updateDescription"
             @update:name="updateName"
+            @update:description="updateDescription"
+            @update:tags="updateTags"
             @delete:project="deleteProject"
             @insert:project="addProject"
             @update:project="updateProject"
@@ -158,6 +159,14 @@ export default {
       for (var i in this.projects) {
         if (this.projects[i].id == id) {
           Vue.set(this.projects[i], "description", newDescription);
+          break;
+        }
+      }
+    },
+    updateTags(newTags, id) {
+      for (var i in this.projects) {
+        if (this.projects[i].id == id) {
+          Vue.set(this.projects[i], "tags", newTags);
           break;
         }
       }
