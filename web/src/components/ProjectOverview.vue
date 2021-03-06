@@ -110,7 +110,7 @@
         </div>
         <h5>To continue you must provide a dataset</h5>
         <file-upload v-model="file"/>
-        <b-button variant="secondary" @click="addData">Upload</b-button>
+        <b-button block size="sm" variant="secondary" @click="addData">Upload</b-button>
       </b-col>
       <b-col lg="4" sm="12">
         <b-card
