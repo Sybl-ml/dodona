@@ -103,7 +103,10 @@ pub fn analyse_project(
                 .expect("Failed to access header data")
             {
                 ColumnAnalysis::Categorical(content) => {
-                    *content.values.entry(elem.to_string()).or_insert(0) += 1;
+                    *content
+                        .values
+                        .entry(elem.to_string().trim().to_string())
+                        .or_insert(0) += 1;
                 }
                 ColumnAnalysis::Numerical(content) => {
                     content.min = content
