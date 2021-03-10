@@ -185,7 +185,7 @@ pub async fn add_data(
         data.delete(&state.database).await?;
     }
 
-    let data = crypto::clean(&payload.content.trim());
+    let data = payload.content.trim();
     let analysis = utils::analysis::analyse(&data);
     let (train, predict) = utils::infer_train_and_predict(&data);
     let column_types = analysis.types;
