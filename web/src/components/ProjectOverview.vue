@@ -148,8 +148,7 @@
             <div v-if="this.analysis.columns[this.analysis_selected].Numerical">
               <numerical-data-analytics-bar
                 :chart-data="
-                  this.analysis.columns[this.analysis_selected].Numerical
-                    .values
+                  this.analysis.columns[this.analysis_selected].Numerical.values
                 "
                 :name="this.analysis_selected"
                 ref="analysis_chart"
@@ -226,7 +225,7 @@ export default {
   components: {
     FileUpload,
     DataAnalyticsBar,
-    NumericalDataAnalyticsBar
+    NumericalDataAnalyticsBar,
   },
   data() {
     return {

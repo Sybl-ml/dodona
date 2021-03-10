@@ -1,5 +1,5 @@
 <script>
-import { Bar, mixins } from "vue-chartjs";
+import { Bar } from "vue-chartjs";
 
 export default {
   extends: Bar,
@@ -43,7 +43,7 @@ export default {
   },
   methods: {
     renderNewData(data) {
-      let labels = Object.keys(data);
+      // let labels = Object.keys(data);
       // for (let i = 0; i < labels.length - 1; i++) {
       //   labels[i] = parseFloat(labels[i]).toPrecision(4);
       // }
@@ -54,16 +54,16 @@ export default {
       //   delete data[key];
       // }
 
-      let arrayOfObj = labels.map(function(d, _) {
-        return {
-          label: parseFloat(d),
-          data: data[d]
-        };
-      });
+      // let arrayOfObj = labels.map(function(d, _) {
+      //   return {
+      //     label: parseFloat(d),
+      //     data: data[d]
+      //   };
+      // });
 
-      arrayOfObj = arrayOfObj.sort(function(a, b) {
-        return a.label < b.label;
-      });
+      // arrayOfObj = arrayOfObj.sort(function(a, b) {
+      //   return a.label < b.label;
+      // });
 
 
       // for (let i = 0; i < labels.length - 1; i++) {
@@ -75,7 +75,7 @@ export default {
         datasets: [
           {
             label: this.name,
-            backgroundColor: "RGB(99, 255, 222)",
+            backgroundColor: "rgb(99, 255, 222)",
             data: Object.values(data),
           },
         ],

@@ -25,16 +25,18 @@
           <b-tab title="Training" active lazy>
             <br>
             <pagination-table
+              v-if="this.training_data"
               :fields="buildFields(this.training_data.meta.fields)"
               :data="this.training_data.data"
             />
           </b-tab>
           <b-tab title="Prediction" active lazy>
             <br>
-            <!-- <pagination-table
+            <pagination-table
+              v-if="this.prediction_data"
               :fields="buildFields(this.prediction_data.meta.fields)"
               :data="this.prediction_data.data"
-            /> -->
+            />
           </b-tab>
         </b-tabs>
       </b-col>
