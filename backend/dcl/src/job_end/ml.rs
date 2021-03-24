@@ -47,7 +47,7 @@ pub fn weight_predictions(
 
     match job_type {
         PredictionType::Classification => {
-            for i in indexes.iter() {
+            for i in &indexes {
                 // Add the weight of each model to each possible prediction
                 let mut possible: HashMap<&str, f64> = HashMap::new();
                 for model in &models {
@@ -69,7 +69,7 @@ pub fn weight_predictions(
             }
         }
         PredictionType::Regression => {
-            for i in indexes.iter() {
+            for i in &indexes {
                 // Create a weighted average taken from all model predictions
                 let mut weighted_average: f64 = 0.0;
                 for model in &models {
@@ -168,7 +168,8 @@ pub async fn model_performance(
     let job_performances = database.collection("job_performances");
     let model_num = weights.len();
     let mut job_perf_vec: Vec<Document> = Vec::new();
-    for (model, weight) in weights.iter() {
+
+    for (model, weight) in &weights {
         let val = (weight * model_num as f64) - 1.0;
         let perf: f64 = 0.5 * ((2.0 * val).tanh()) + 0.5;
         log::info!(

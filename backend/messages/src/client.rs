@@ -81,11 +81,11 @@ impl ClientMessage {
                 prediction_column,
                 prediction_type,
             } => ClientMessage::JobConfig {
-                timeout: timeout.clone(),
-                cluster_size: cluster_size.clone(),
+                timeout: *timeout,
+                cluster_size: *cluster_size,
                 column_types: column_types.clone(),
                 prediction_column: columns.get(prediction_column).unwrap().pseudonym.clone(),
-                prediction_type: prediction_type.clone(),
+                prediction_type: *prediction_type,
             },
             _ => self.clone(),
         }

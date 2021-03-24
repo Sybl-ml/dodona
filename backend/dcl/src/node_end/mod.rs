@@ -276,7 +276,7 @@ impl NodePool {
 
         self.active.fetch_sub(cluster.len(), Ordering::SeqCst);
 
-        for (model_id, _) in accepted_job.iter() {
+        for (model_id, _) in &accepted_job {
             info_write.get_mut(model_id).unwrap().using = false;
         }
 
@@ -361,10 +361,10 @@ impl NodePool {
         let mut info_write = self.info.write().await;
         let node_info = info_write.get_mut(id).unwrap();
 
-        if node_info.alive == false && status == true {
+        if !node_info.alive && status {
             self.active.fetch_add(1, Ordering::SeqCst);
             self.job_notify.notify_waiters();
-        } else if node_info.alive == true && status == false {
+        } else if node_info.alive && !status {
             self.active.fetch_sub(1, Ordering::SeqCst);
         }
 

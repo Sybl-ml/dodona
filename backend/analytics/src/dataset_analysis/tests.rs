@@ -19,7 +19,7 @@ Boston,UK,1
     ];
 
     // Run analysis
-    let analysis_data = analyse_project(data, column_data.clone());
+    let analysis_data = analyse_project(data, &column_data);
 
     // Generate Expected Output
     let mut country = CategoricalAnalysis::default();

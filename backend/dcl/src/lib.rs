@@ -46,16 +46,14 @@ impl JobQueue {
     pub fn filter(&self, active: &AtomicUsize) -> Vec<usize> {
         let jq_mutex = self.0.lock().unwrap();
 
-        let jq_filter: Vec<_> = jq_mutex
+        jq_mutex
             .iter()
             .enumerate()
             .filter(|(_, (_, _, config))| {
                 (config.cluster_size as usize) <= active.load(Ordering::SeqCst)
             })
             .map(|(idx, _)| idx)
-            .collect();
-
-        return jq_filter;
+            .collect()
     }
 
     /// Using an index, this function will remove the required job from the [`JobQueue`]. This is so that
