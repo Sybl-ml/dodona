@@ -1,7 +1,9 @@
 //! Defines the routes specific to user operations.
 
 use actix_web::web;
-use mongodb::bson::{de::from_document, doc, document::Document, ser::to_document};
+use mongodb::bson::{
+    de::from_document, doc, document::Document, ser::to_document, spec::BinarySubtype, Binary,
+};
 use tokio_stream::StreamExt;
 
 use models::users::User;
@@ -82,6 +84,55 @@ pub async fn new(
     let jwt = auth::Claims::create_token(identifier.clone())?;
 
     response_from_json(doc! {"token": jwt})
+}
+
+/// Uploads a profile picture to a users account
+///
+/// Takes a Base64 string, compresses it and then converts to a vector of u8
+pub async fn new_avatar(
+    claims: auth::Claims,
+    state: web::Data<State>,
+    payload: web::Json<payloads::AvatarOptions>,
+) -> ServerResponse {
+    let users = state.database.collection("users");
+
+    let bytes = base64::decode(&payload.avatar)?;
+    log::debug!("Recieved {} bytes for avatar image", bytes.len());
+
+    let binary = Binary {
+        subtype: BinarySubtype::Generic,
+        bytes,
+    };
+
+    let filter = doc! { "_id": &claims.id };
+    let update = doc! { "$set": { "avatar": binary } };
+
+    users.update_one(filter, update, None).await?;
+
+    response_from_json(doc! {"status": "changed"})
+}
+
+/// Gets the users avatar
+///
+/// Retrieves the avatar binary data from the database and decompresses it
+/// After converting to Base64 string it is returned to the user
+pub async fn get_avatar(claims: auth::Claims, state: web::Data<State>) -> ServerResponse {
+    let users = state.database.collection("users");
+
+    let filter: Document = doc! { "_id": claims.id };
+    let document = users
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
+
+    let user: User = from_document(document)?;
+
+    let encoded_image = user
+        .avatar
+        .map(|b| base64::encode(b.bytes))
+        .unwrap_or_default();
+
+    response_from_json(doc! {"img": encoded_image})
 }
 
 /// Edits a user in the database and updates their information.

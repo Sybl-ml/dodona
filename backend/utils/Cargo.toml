@@ -7,20 +7,19 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-csv = "1.1.4"
+csv = "1.1.6"
 crypto = { path = "../crypto" }
-log = "0.4.11"
-bzip2 = "0.4.1"
-anyhow = "1.0"
-pbkdf2 = "0.5.0"
+log = "0.4.14"
+bzip2 = "0.4.2"
+anyhow = "1.0.39"
 chrono = "0.4.19"
-thiserror = "1.0.23"
-rand = "0.8.2"
+thiserror = "1.0.24"
+rand = "0.8.3"
 
 [dependencies.fern]
-version = "0.5"
+version = "0.6.0"
 features = ["colored"]
 
 [dependencies.serde]
-version = "1"
+version = "1.0.125"
 features = ["derive"]

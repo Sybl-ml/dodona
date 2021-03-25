@@ -2,7 +2,6 @@
 use crate::job_end::{
     ClusterInfo, ModelErrors, ModelID, ModelPredictions, ModelWeights, Predictions,
 };
-use messages::ClientMessage;
 use models::job_performance::JobPerformance;
 use models::jobs::PredictionType;
 use mongodb::{
@@ -42,18 +41,13 @@ pub fn weight_predictions(
     let mut indexes: Vec<&usize> = test_examples.into_iter().collect();
     indexes.sort();
 
-    let job_type = match &info.config {
-        ClientMessage::JobConfig {
-            prediction_type, ..
-        } => *prediction_type,
-        _ => PredictionType::Classification,
-    };
+    let job_type = info.config.prediction_type;
 
     let mut predictions: Vec<String> = Vec::new();
 
     match job_type {
         PredictionType::Classification => {
-            for i in indexes.iter() {
+            for i in &indexes {
                 // Add the weight of each model to each possible prediction
                 let mut possible: HashMap<&str, f64> = HashMap::new();
                 for model in &models {
@@ -75,7 +69,7 @@ pub fn weight_predictions(
             }
         }
         PredictionType::Regression => {
-            for i in indexes.iter() {
+            for i in &indexes {
                 // Create a weighted average taken from all model predictions
                 let mut weighted_average: f64 = 0.0;
                 for model in &models {
@@ -105,12 +99,7 @@ pub fn evaluate_model(
     let mut model_error: f64 = 1.0;
     let mut model_predictions: Predictions = HashMap::new();
 
-    let job_type = match &info.config {
-        ClientMessage::JobConfig {
-            prediction_type, ..
-        } => *prediction_type,
-        _ => PredictionType::Classification,
-    };
+    let job_type = info.config.prediction_type;
 
     let mut predictions: Vec<_> = predictions.trim().split('\n').collect();
 
@@ -179,7 +168,8 @@ pub async fn model_performance(
     let job_performances = database.collection("job_performances");
     let model_num = weights.len();
     let mut job_perf_vec: Vec<Document> = Vec::new();
-    for (model, weight) in weights.iter() {
+
+    for (model, weight) in &weights {
         let val = (weight * model_num as f64) - 1.0;
         let perf: f64 = 0.5 * ((2.0 * val).tanh()) + 0.5;
         log::info!(

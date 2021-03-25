@@ -31,7 +31,7 @@ pub async fn prepare_dataset(database: &Arc<Database>, project_id: &ObjectId) ->
     let document = datasets
         .find_one(doc! { "project_id": &project_id }, None)
         .await?
-        .ok_or(anyhow!("Dataset doesn't exist"))?;
+        .ok_or_else(|| anyhow!("Dataset doesn't exist"))?;
 
     let dataset: Dataset = from_document(document)?;
     let comp_train = dataset.dataset.expect("missing training dataset").bytes;
@@ -42,7 +42,7 @@ pub async fn prepare_dataset(database: &Arc<Database>, project_id: &ObjectId) ->
     let document = dataset_details
         .find_one(doc! { "project_id": &project_id }, None)
         .await?
-        .ok_or(anyhow!("Dataset Details doesn't exist"))?;
+        .ok_or_else(|| anyhow!("Dataset Details doesn't exist"))?;
 
     let dataset_detail: DatasetDetails = from_document(document)?;
     let column_types = dataset_detail.column_types;
@@ -58,7 +58,7 @@ pub async fn prepare_dataset(database: &Arc<Database>, project_id: &ObjectId) ->
         })
         .collect::<Vec<_>>();
 
-    let analysis = analyse_project(&train, column_data);
+    let analysis = analyse_project(&train, &column_data);
 
     let analysis = DatasetAnalysis::new(project_id.clone(), analysis);
     let document = to_document(&analysis)?;
@@ -71,7 +71,7 @@ pub async fn prepare_dataset(database: &Arc<Database>, project_id: &ObjectId) ->
 /// Converts dataset string to a reader and performs statistical analysis
 pub fn analyse_project(
     dataset: &str,
-    column_data: Vec<(String, char)>,
+    column_data: &[(String, char)],
 ) -> HashMap<String, ColumnAnalysis> {
     let mut reader = Reader::from_reader(std::io::Cursor::new(dataset));
 
@@ -169,7 +169,8 @@ pub fn analyse_project(
         }
     }
     log::debug!("Generated Analysis {:?}", &tracker);
-    return tracker;
+
+    tracker
 }
 
 #[cfg(test)]

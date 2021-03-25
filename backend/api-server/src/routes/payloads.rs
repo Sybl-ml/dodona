@@ -44,6 +44,14 @@ pub struct EditUserOptions {
     pub email: String,
 }
 
+/// Stores the options for a new avatar image.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AvatarOptions {
+    /// The avatar data for storage
+    pub avatar: String,
+}
+
 /// Stores the options for creating a new project.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
