@@ -92,7 +92,13 @@ fn create_user_with_id(
     bson::ser::to_document(&user).unwrap()
 }
 
-fn create_project_with_id(id: &str, name: &str, desc: &str, &tags: Array, uid: &str) -> bson::Document {
+fn create_project_with_id(
+    id: &str,
+    name: &str,
+    desc: &str,
+    &tags: Array,
+    uid: &str,
+) -> bson::Document {
     let mut project = Project::new(name, desc, tags, ObjectId::with_string(uid).unwrap());
 
     project.id = ObjectId::with_string(id).unwrap();
@@ -179,10 +185,21 @@ async fn insert_test_users(database: &mongodb::Database) {
 }
 
 async fn insert_test_projects(database: &mongodb::Database) {
-    let tags = ["test","tag"];
-    let project = create_project_with_id(PROJECT_ID, "Test Project", "Test Description", &tags, USER_ID);
-    let project_2 =
-        create_project_with_id(PROJECT_ID_2, "Test Project", "Project the second", &tags, USER_ID);
+    let tags = ["test", "tag"];
+    let project = create_project_with_id(
+        PROJECT_ID,
+        "Test Project",
+        "Test Description",
+        &tags,
+        USER_ID,
+    );
+    let project_2 = create_project_with_id(
+        PROJECT_ID_2,
+        "Test Project",
+        "Project the second",
+        &tags,
+        USER_ID,
+    );
 
     let projects = database.collection("projects");
     projects.insert_one(project, None).await.unwrap();
