@@ -61,12 +61,13 @@ export default {
       this.progress = 0;
 
       this.currentFile = this.selectedFiles.item(0);
-      UploadService.upload(this.currentFile, event => {
+
+      this.upload_file(this.currentFile, event => {
         this.progress = Math.round((100 * event.loaded) / event.total);
       })
         .then(response => {
           this.message = response.data.message;
-          return UploadService.getFiles();
+          return this.getFiles();
         })
         .then(files => {
           this.fileInfos = files.data;
@@ -78,6 +79,22 @@ export default {
         });
 
       this.selectedFiles = undefined;
+    },
+
+    upload_file(file, onUploadProgress) {
+      let formData = new FormData();
+
+      formData.append("file", file);
+
+      return this.$http.put(`api/projects/${this.projectId}/data`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data"
+        },
+        onUploadProgress
+      });
+    },
+    getFiles() {
+      return this.$http.get("/files");
     }
   },
   mounted() {
