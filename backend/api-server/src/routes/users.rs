@@ -79,7 +79,7 @@ pub async fn new(
         .update_one(filter, doc! { "$setOnInsert": document }, options)
         .await?;
 
-    // let inserted_id = users.insert_one(document, None).await?.inserted_id;
+    // If there is no id, a user already existed
     let upserted = update_result.upserted_id.ok_or(ServerError::Conflict)?;
     let user_id = upserted.as_object_id().ok_or(ServerError::Unknown)?;
 
