@@ -65,7 +65,7 @@ impl Column {
             column_type: ColumnType::Categorical(
                 values
                     .iter()
-                    .filter(|v| *v != "")
+                    .filter(|v| !v.is_empty())
                     .zip(values.iter().map(|v| Column::obfuscate(v)))
                     .map(|(v, o)| (v.to_string(), o))
                     .collect(),
@@ -167,7 +167,7 @@ impl From<ColumnValues> for Column {
         // check if all values in the column are numerical
         if let Ok(numerical) = values
             .iter()
-            .filter(|v| *v != "")
+            .filter(|v| !v.is_empty())
             .map(|v| f64::from_str(v))
             .collect::<Result<Vec<_>, _>>()
         {
@@ -193,7 +193,7 @@ impl From<ColumnValues> for Column {
             let column_type = ColumnType::Categorical(
                 values
                     .iter()
-                    .filter(|v| *v != "")
+                    .filter(|v| !v.is_empty())
                     // obfuscate each value in the column with a random pseudonym
                     .zip(values.iter().map(|v| Column::obfuscate(v)))
                     .map(|(v, o)| (v.to_string(), o))

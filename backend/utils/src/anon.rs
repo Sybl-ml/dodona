@@ -43,12 +43,10 @@ pub fn anonymise_dataset(dataset: &str, columns: &Columns) -> Option<String> {
     });
 
     // return the anonymised dataset as a `String`
-    Some(
-        writer
-            .into_inner()
-            .ok()
-            .and_then(|l| String::from_utf8(l).ok())?,
-    )
+    writer
+        .into_inner()
+        .ok()
+        .and_then(|l| String::from_utf8(l).ok())
 }
 
 pub fn anonymise_row(

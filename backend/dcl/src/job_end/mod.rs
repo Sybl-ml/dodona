@@ -80,7 +80,8 @@ impl WriteBackMemory {
     /// Function to write back a hashmap of (index, prediction) tuples
     pub fn write_predictions(&self, id: ModelID, pred_map: HashMap<usize, String>) {
         let mut predictions = self.predictions.lock().unwrap();
-        for (index, prediction) in pred_map.into_iter() {
+
+        for (index, prediction) in pred_map {
             predictions.insert((id.clone(), index), prediction);
         }
     }
@@ -189,9 +190,11 @@ pub async fn run(
                 Some(c) => c,
                 _ => {
                     log::info!("No cluster could be built");
-                    &job_control
+
+                    job_control
                         .job_queue
                         .insert(index, (project_id, msg, config));
+
                     continue;
                 }
             };
@@ -231,11 +234,11 @@ pub async fn run(
             let (bags, validation_ans, prediction_rids) = prepare_cluster(
                 &cluster,
                 headers,
-                train,
-                test,
-                validation,
+                &train,
+                &test,
+                &validation,
                 &columns,
-                prediction_column,
+                &prediction_column,
             );
             let info = ClusterInfo {
                 project_id: project_id.clone(),
@@ -272,11 +275,11 @@ pub async fn run(
 pub fn prepare_cluster(
     cluster: &HashMap<String, Arc<RwLock<TcpStream>>>,
     headers: &str,
-    train: Vec<&str>,
-    test: Vec<&str>,
-    validation: Vec<&str>,
+    train: &[&str],
+    test: &[&str],
+    validation: &[&str],
     columns: &Columns,
-    prediction_column: String,
+    prediction_column: &str,
 ) -> (
     HashMap<ModelID, (String, String)>,
     HashMap<(ModelID, String), String>,
@@ -343,7 +346,7 @@ pub fn prepare_cluster(
             &anon_valid_ans
         );
 
-        let mut anon_valid_ans: Vec<_> = anon_valid_ans.trim().split("\n").collect();
+        let mut anon_valid_ans: Vec<_> = anon_valid_ans.trim().lines().collect();
         let mut anon_valid: Vec<String> = Vec::new();
 
         anon_valid_ans.remove(0);
@@ -353,12 +356,12 @@ pub fn prepare_cluster(
             let values: Vec<_> = record.split(',').zip(headers.split(',')).collect();
             let anon_ans = values
                 .iter()
-                .filter_map(|(v, h)| (*h == prediction_column).then(|| *v))
-                .next()
+                .find_map(|(v, h)| (*h == prediction_column).then(|| *v))
                 .unwrap()
                 .to_string();
+
             let ans = columns
-                .get(&prediction_column)
+                .get(prediction_column)
                 .unwrap()
                 .deanonymise(anon_ans)
                 .unwrap();
@@ -367,14 +370,14 @@ pub fn prepare_cluster(
             anon_valid.push(
                 values
                     .iter()
-                    .map(|(v, h)| if *h != prediction_column { *v } else { "" })
+                    .map(|(v, h)| if *h == prediction_column { "" } else { *v })
                     .collect::<Vec<_>>()
                     .join(","),
             );
         }
 
         let mut anon_valid: Vec<&str> = anon_valid.iter().map(|s| s.as_ref()).collect();
-        let mut anon_test = anon_test.trim().split("\n").collect::<Vec<_>>();
+        let mut anon_test = anon_test.trim().lines().collect::<Vec<_>>();
 
         // Get the new anonymised headers for test set
         let new_headers = anon_test.remove(0);
@@ -413,7 +416,7 @@ async fn run_cluster(
         let train_predict = prediction_bag.get(&model_id).unwrap().clone();
 
         tokio::spawn(async move {
-            let wait: Duration = info_clone.timeout.clone();
+            let wait = info_clone.timeout;
 
             let future = dcl_protocol(
                 np_clone,
