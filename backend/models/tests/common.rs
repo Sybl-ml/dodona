@@ -96,10 +96,15 @@ fn create_project_with_id(
     id: &str,
     name: &str,
     desc: &str,
-    tags: &Array,
+    tags: bson::Bson,
     uid: &str,
 ) -> bson::Document {
-    let mut project = Project::new(name, desc, *tags, ObjectId::with_string(uid).unwrap());
+    let mut project = Project::new(
+        name,
+        desc,
+        *tags.as_array().unwrap(),
+        ObjectId::with_string(uid).unwrap(),
+    );
 
     project.id = ObjectId::with_string(id).unwrap();
 
@@ -185,19 +190,19 @@ async fn insert_test_users(database: &mongodb::Database) {
 }
 
 async fn insert_test_projects(database: &mongodb::Database) {
-    let tags = bson::bson!(["test", "tag"]).as_array().unwrap();
     let project = create_project_with_id(
         PROJECT_ID,
         "Test Project",
         "Test Description",
-        tags,
+        bson::bson!(["test", "tag"]),
         USER_ID,
     );
+
     let project_2 = create_project_with_id(
         PROJECT_ID_2,
         "Test Project",
         "Project the second",
-        tags,
+        bson::bson!(["test", "tag"]),
         USER_ID,
     );
 
