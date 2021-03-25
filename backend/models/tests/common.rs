@@ -186,7 +186,6 @@ async fn insert_test_users(database: &mongodb::Database) {
 
 async fn insert_test_projects(database: &mongodb::Database) {
     let tags = bson::bson!(["test", "tag"]).as_array().unwrap();
-    
     let project = create_project_with_id(
         PROJECT_ID,
         "Test Project",
