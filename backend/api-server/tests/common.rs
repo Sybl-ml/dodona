@@ -165,7 +165,12 @@ fn create_client_with_id(
 }
 
 fn create_project_with_id(id: &str, name: &str, desc: &str, uid: &str) -> bson::Document {
-    let mut project = Project::new(name, desc, ObjectId::with_string(uid).unwrap());
+    let mut project = Project::new(
+        name,
+        desc,
+        vec![bson::bson!("test"), bson::bson!("tag")],
+        ObjectId::with_string(uid).unwrap(),
+    );
 
     project.id = ObjectId::with_string(id).unwrap();
 
