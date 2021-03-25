@@ -136,7 +136,6 @@ pub fn analyse_project(
 
                     content.values.insert(lower.to_string(), 0);
                 }
-
             }
             _ => {}
         };

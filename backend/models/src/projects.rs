@@ -53,12 +53,7 @@ pub struct Project {
 
 impl Project {
     /// Creates a new instance of [`Project`].
-    pub fn new<T: Into<String>>(
-        name: T,
-        description: T,
-        tags: Array,
-        user_id: ObjectId,
-    ) -> Self {
+    pub fn new<T: Into<String>>(name: T, description: T, tags: Array, user_id: ObjectId) -> Self {
         Self {
             id: ObjectId::new(),
             name: name.into(),
