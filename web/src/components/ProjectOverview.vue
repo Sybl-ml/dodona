@@ -127,6 +127,8 @@
           v-model="file"
         />
         <b-button variant="secondary" @click="addData">Upload</b-button>
+
+        <upload-files></upload-files>
       </b-col>
       <b-col lg="4" sm="12">
         <b-card
@@ -215,10 +217,12 @@
 
 <script>
 import DataAnalyticsBar from "@/components/charts/DataAnalyticsBar";
+import UploadFiles from "@/components/UploadFiles";
 export default {
   name: "ProjectOverview",
   components: {
     DataAnalyticsBar,
+    UploadFiles
   },
   data() {
     return {
