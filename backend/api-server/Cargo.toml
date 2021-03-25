@@ -7,29 +7,27 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-actix = "0.11.0-beta.2"
 actix-web = "4.0.0-beta.4"
-actix-rt = "2.0.2"
+actix-rt = "2.1.0"
 actix-cors = { git = "https://github.com/actix/actix-extras", branch = "master" }
-anyhow = "1.0.38"
-tokio = { version = "1.2.0", features = ["full"] }
-tokio-stream = "0.1.3"
-rdkafka = { version = "0.25", features = ["cmake-build"] }
-serde = { version = "1.0.123", features = ["derive"] }
-serde_json = "1.0.62"
+anyhow = "1.0.39"
+tokio = { version = "1.4.0", features = ["full"] }
+tokio-stream = "0.1.5"
+rdkafka = { version = "0.26.0", features = ["cmake-build"] }
+serde = { version = "1.0.125", features = ["derive"] }
+serde_json = "1.0.64"
 pbkdf2 = "0.6.0"
 log = "0.4.14"
 toml = "0.5.8"
-bzip2 = "0.4.1"
-csv = "1.1.5"
-thiserror = "1.0.23"
+bzip2 = "0.4.2"
+csv = "1.1.6"
+thiserror = "1.0.24"
 chrono = "0.4.19"
 base64 = "0.13.0"
 config = { path = "../config" }
-messages = { path = "../messages" }
 crypto = { path = "../crypto" }
 models = { path = "../models" }
 utils = { path = "../utils" }
 mongodb = "2.0.0-alpha"
-futures-util = "0.3.12"
+futures-util = "0.3.13"
 jsonwebtoken = "7.2.0"
