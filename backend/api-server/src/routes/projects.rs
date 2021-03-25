@@ -218,48 +218,7 @@ pub async fn add_data(
         data.delete(&state.database).await?;
     }
 
-    let analysis = utils::analysis::analyse(&data);
-    let (train, predict) = utils::infer_train_and_predict(&data);
-    let column_types = analysis.types;
-    let data_head = analysis.header;
-
-    // Compress the input data
-    let compressed = compress_vec(&train)?;
-    let compressed_predict = compress_vec(&predict)?;
-
-    log::debug!(
-        "Compressed {} bytes of data to {} bytes of training and {} bytes of prediction",
-        data.len(),
-        compressed.len(),
-        compressed_predict.len()
-    );
-
-    let details = DatasetDetails::new(
-        payload.name.clone(),
-        object_id.clone(),
-        data_head,
-        column_types,
-    );
-    let dataset = Dataset::new(object_id.clone(), compressed, compressed_predict);
-
-    // Update the project status
-    projects
-        .update_one(
-            doc! { "_id": &object_id},
-            doc! {"$set": {"status": Status::Ready}},
-            None,
-        )
-        .await?;
-
-    // Insert the dataset details and the dataset itself
-    let document = to_document(&details)?;
-    dataset_details.insert_one(document, None).await?;
-
-    let document = to_document(&dataset)?;
-    let id = datasets.insert_one(document, None).await?.inserted_id;
-
-    // Communicate with Analytics Server
-    produce_analytics_message(&object_id).await;
+    let id = file.id;
 
     response_from_json(doc! {"dataset_id": id})
 }
