@@ -1,6 +1,7 @@
 //! Contains the builder functions used to generate message for DCL-DCN protcol
 
-use models::jobs::PredictionType;
+use models::jobs::{JobConfiguration, PredictionType};
+use std::convert::From;
 use utils::Columns;
 
 /// Different messages to be passed between DCL and DCN
@@ -80,13 +81,34 @@ impl ClientMessage {
                 prediction_column,
                 prediction_type,
             } => ClientMessage::JobConfig {
-                timeout: timeout.clone(),
-                cluster_size: cluster_size.clone(),
+                timeout: *timeout,
+                cluster_size: *cluster_size,
                 column_types: column_types.clone(),
                 prediction_column: columns.get(prediction_column).unwrap().pseudonym.clone(),
-                prediction_type: prediction_type.clone(),
+                prediction_type: *prediction_type,
             },
             _ => self.clone(),
+        }
+    }
+}
+
+impl From<JobConfiguration> for ClientMessage {
+    fn from(value: JobConfiguration) -> Self {
+        let JobConfiguration {
+            timeout,
+            cluster_size,
+            column_types,
+            prediction_column,
+            prediction_type,
+            ..
+        } = value;
+
+        ClientMessage::JobConfig {
+            timeout,
+            cluster_size,
+            column_types,
+            prediction_column,
+            prediction_type,
         }
     }
 }

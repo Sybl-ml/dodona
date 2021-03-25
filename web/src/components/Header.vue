@@ -17,7 +17,7 @@
       <b-nav-item disabled>{{ credits }} Credits</b-nav-item>
       <b-nav-item-dropdown right>
         <template #button-content>
-          <b-avatar size="1.75em"></b-avatar>
+          <b-avatar size="1.75em" :src="'data:image/png;base64,'+avatar"></b-avatar>
           {{ name }}
         </template>
         <b-dropdown-item disabled>{{ email }}</b-dropdown-item>
@@ -52,7 +52,6 @@
 </style>
 
 <script>
-import IconBase from "./IconBase";
 import IconLogo from "./icons/IconLogo";
 
 export default {
@@ -71,6 +70,7 @@ export default {
       logoRoute: "/",
       atDashboard: false,
       atLanding: false,
+      avatar: "",
     };
   },
   methods: {
@@ -110,14 +110,19 @@ export default {
         pageName === "Dashboard" ||
         pageName === "Settings" ||
         pageName === "ProjectView" ||
-        pageName === "Nodes"
-          ? true
-          : false;
+        pageName === "Nodes";
+    },
+    async getAvatar () {
+      let response = await this.$http.get(
+        `api/users/avatar`
+      );
+      console.log(response)
+      this.avatar = response.data.img;
     },
   },
   async mounted() {
     this.getUserData();
-
+    this.getAvatar();
     setInterval(() => {
       this.time = new Date().toLocaleString("en-GB", {
         dateStyle: "long",
