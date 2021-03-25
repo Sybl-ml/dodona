@@ -52,7 +52,7 @@ pub fn encoded_key_pair() -> (String, String) {
 pub fn generate_string(n: usize) -> String {
     let mut rng = thread_rng();
     std::iter::repeat(())
-        .map(|()| rng.sample(Alphanumeric))
+        .map(|()| rng.sample(Alphanumeric) as char)
         .take(n)
         .collect()
 }

@@ -12,8 +12,8 @@ serde_json = "1.0"
 anyhow = "1.0"
 tokio-stream = "0.1"
 utils = { path = "../utils" }
-config = { path = "../config" }
 crypto = { path = "../crypto" }
+config = { path = "../config" }
 mongodb = "2.0.0-alpha"
 
 [dev-dependencies]

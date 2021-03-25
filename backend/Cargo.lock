@@ -3,30 +3,6 @@
 version = 3
 
 [[package]]
-name = "actix"
-version = "0.11.0-beta.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0865a034bd84c1cfb2afa66bfd22195b280650817729086268f7744a493fa292"
-dependencies = [
- "actix-rt",
- "actix_derive",
- "bitflags",
- "bytes",
- "crossbeam-channel",
- "futures-core",
- "futures-sink",
- "futures-task",
- "futures-util",
- "log",
- "once_cell",
- "parking_lot",
- "pin-project-lite",
- "smallvec",
- "tokio",
- "tokio-util",
-]
-
-[[package]]
 name = "actix-codec"
 version = "0.4.0-beta.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -243,17 +219,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "actix_derive"
-version = "0.6.0-beta.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4547d62fc2185633c070441fd5ca45e8592a967d18396ca23420877464cf781f"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "adler"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -303,7 +268,6 @@ dependencies = [
  "crypto",
  "csv",
  "log",
- "messages",
  "models",
  "mongodb",
  "rdkafka",
@@ -324,7 +288,6 @@ checksum = "afddf7f520a80dbf76e6f50a35bca42a2331ef227a28b3b6dc5c2e2338d114b1"
 name = "api-server"
 version = "0.1.0"
 dependencies = [
- "actix",
  "actix-cors",
  "actix-rt",
  "actix-web",
@@ -338,7 +301,6 @@ dependencies = [
  "futures-util",
  "jsonwebtoken",
  "log",
- "messages",
  "models",
  "mongodb",
  "pbkdf2 0.6.0",
@@ -684,35 +646,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "crossbeam-channel"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dca26ee1f8d361640700bde38b2c37d8c22b3ce2d360e1fc1c74ea4b0aa7d775"
-dependencies = [
- "cfg-if",
- "crossbeam-utils",
-]
-
-[[package]]
-name = "crossbeam-utils"
-version = "0.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7e9d99fa91428effe99c5c6d4634cdeba32b8cf784fc428a2a687f61a952c49"
-dependencies = [
- "autocfg",
- "cfg-if",
- "lazy_static",
-]
-
-[[package]]
 name = "crypto"
 version = "0.1.0"
 dependencies = [
  "ammonia",
- "base64 0.13.0",
  "html-escape",
  "openssl",
- "rand 0.7.3",
+ "rand 0.8.3",
  "serde_json",
 ]
 
@@ -724,16 +664,6 @@ checksum = "4434400df11d95d556bac068ddfedd482915eb18fe8bea89bc80b6e4b1c179e5"
 dependencies = [
  "generic-array 0.12.4",
  "subtle 1.0.0",
-]
-
-[[package]]
-name = "crypto-mac"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58bcd97a54c7ca5ce2f6eb16f6bede5b0ab5f0055fedc17d2f0b4466e21671ca"
-dependencies = [
- "generic-array 0.14.4",
- "subtle 2.4.0",
 ]
 
 [[package]]
@@ -828,7 +758,7 @@ dependencies = [
  "mockito",
  "models",
  "mongodb",
- "pbkdf2 0.5.0",
+ "pbkdf2 0.6.0",
  "rand 0.8.3",
  "rdkafka",
  "reqwest",
@@ -1220,16 +1150,6 @@ checksum = "5dcb5e64cda4c23119ab41ba960d1e170a774c8e4b9d9e6a9bc18aabf5e59695"
 dependencies = [
  "crypto-mac 0.7.0",
  "digest 0.8.1",
-]
-
-[[package]]
-name = "hmac"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "deae6d9dbb35ec2c502d62b8f7b1c000a0822c3b0794ba36b3149c0a1c840dff"
-dependencies = [
- "crypto-mac 0.9.1",
- "digest 0.9.0",
 ]
 
 [[package]]
@@ -1900,21 +1820,6 @@ checksum = "006c038a43a45995a9670da19e67600114740e8511d4333bf97a56e66a7542d9"
 dependencies = [
  "byteorder",
  "crypto-mac 0.7.0",
-]
-
-[[package]]
-name = "pbkdf2"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7170d73bf11f39b4ce1809aabc95bf5c33564cdc16fc3200ddda17a5f6e5e48b"
-dependencies = [
- "base64 0.12.3",
- "crypto-mac 0.9.1",
- "hmac 0.9.0",
- "rand 0.7.3",
- "rand_core 0.5.1",
- "sha2 0.9.3",
- "subtle 2.4.0",
 ]
 
 [[package]]
@@ -3140,7 +3045,6 @@ dependencies = [
  "csv",
  "fern",
  "log",
- "pbkdf2 0.5.0",
  "rand 0.8.3",
  "serde",
  "thiserror",
