@@ -462,6 +462,8 @@ pub async fn get_predict(
         },
     );
 
+    produce_analytics_message(&object_id).await;
+
     Ok(HttpResponseBuilder::new(StatusCode::OK).streaming(byte_stream))
 }
 
