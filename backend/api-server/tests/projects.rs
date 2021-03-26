@@ -197,7 +197,7 @@ async fn datasets_can_be_added_to_projects() -> Result<()> {
 async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
     let mut app = api_with! {
         put: "/api/projects/{project_id}/data" => projects::add_data,
-        get: "/api/projects/{project_id}/data" => projects::get_data,
+        get: "/api/projects/{project_id}/data" => projects::get_dataset,
     };
 
     let doc = doc! {"content": "age,sex,location\n23,M,Leamington Spa", "name": "Freddie"};
@@ -279,7 +279,7 @@ async fn datasets_cannot_be_added_if_projects_do_not_exist() -> Result<()> {
 #[actix_rt::test]
 async fn dataset_can_be_taken_from_database() -> Result<()> {
     let mut app = api_with! {
-        get: "/api/projects/{project_id}/data" => projects::get_data,
+        get: "/api/projects/{project_id}/data" => projects::get_dataset,
         put: "/api/projects/{project_id}/data" => projects::add_data,
     };
 

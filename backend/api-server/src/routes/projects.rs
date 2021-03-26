@@ -24,7 +24,7 @@ use models::gridfs;
 use models::jobs::{Job, JobConfiguration};
 use models::predictions::Prediction;
 use models::projects::{Project, Status};
-use utils::compress::{compress_vec, decompress_data};
+use utils::compress::{compress_bytes, decompress_data};
 use utils::ColumnType;
 
 use crate::{
@@ -195,9 +195,15 @@ pub async fn add_data(
 
     // Create a new instance of our GridFS files
     log::info!("Creating a new file with name: {}", filename);
-    let mut file = gridfs::File::new(String::from(filename));
+    let mut dataset = gridfs::File::new(String::from(filename));
+    let mut predict = gridfs::File::new(String::from(filename));
 
     let mut initial: bool = true;
+
+    let mut col_num = 1;
+    let mut dataset_buffer: Vec<u8> = Vec::new();
+    let mut predict_buffer: Vec<u8> = Vec::new();
+    let mut general_buffer: Vec<u8> = Vec::new();
 
     // Stream the data into it
     while let Some(Ok(chunk)) = field.next().await {
@@ -205,12 +211,17 @@ pub async fn add_data(
             let data_head = std::str::from_utf8(&chunk).unwrap();
             let data_head = data_head.split("\n").take(6).collect::<Vec<_>>().join("\n");
             log::info!("First 5 lines: {:?}", &data_head);
+            let header = data_head.split("\n").take(1).collect::<Vec<_>>()[0];
+            let header = format!("{}\n", &header);
+            dataset_buffer.extend_from_slice(&header.as_bytes());
+            predict_buffer.extend_from_slice(&header.as_bytes());
 
             initial = false;
 
             let analysis = utils::analysis::analyse(&data_head);
 
             let column_types = analysis.types;
+            col_num = column_types.len();
 
             let details = DatasetDetails::new(
                 String::from(filename),
@@ -223,13 +234,81 @@ pub async fn add_data(
             dataset_details.insert_one(document, None).await?;
         }
 
-        log::debug!("Uploading a chunk of size: {}", chunk.len());
-        file.upload_chunk(&state.database, &chunk).await?;
+        // Concat with general buffer (if it has data)
+        general_buffer.extend_from_slice(&chunk);
+
+        let gen_buf_chunk = general_buffer.clone();
+
+        let data_string = std::str::from_utf8(&gen_buf_chunk)
+            .unwrap()
+            .split("\n")
+            .skip(1);
+        // Split data into rows
+        for row in data_string {
+            // Determine if it is a dataset row or predict row
+            // Add to the correct buffer
+            let cols = row.split(",").collect::<Vec<_>>();
+            if cols.len() == col_num {
+                if row.split(',').last().unwrap().is_empty() {
+                    let complete_row = format!("{}\n", row);
+                    predict_buffer.extend_from_slice(complete_row.as_bytes());
+                } else {
+                    let complete_row = format!("{}\n", row);
+                    dataset_buffer.extend_from_slice(complete_row.as_bytes());
+                }
+            } else {
+                // If any incomplete row, set as general buffer
+                general_buffer = row.as_bytes().iter().cloned().collect();
+            }
+
+            // Check the size of the buffers
+            // If a buffer is too big, flush it into mongo as a chunk
+            if predict_buffer.len() >= 100_000 {
+                log::debug!(
+                    "Uploading a predict chunk of size: {}",
+                    predict_buffer.len()
+                );
+                // Flush buffer into mongodb
+                // Compress data before upload
+                let compressed_predict = compress_bytes(&predict_buffer)?;
+                let bytes_predict = actix_web::web::Bytes::from(compressed_predict);
+                predict
+                    .upload_chunk(&state.database, &bytes_predict)
+                    .await?;
+                predict_buffer.clear();
+                log::info!("Flushed Predict Buffer");
+            }
+            if dataset_buffer.len() >= 100_000 {
+                // Flush buffer into mongodb
+                log::debug!(
+                    "Uploading a dataset chunk of size: {}",
+                    dataset_buffer.len()
+                );
+                // Compress data before upload
+                let compressed = compress_bytes(&dataset_buffer)?;
+                let bytes_data = actix_web::web::Bytes::from(compressed);
+                dataset.upload_chunk(&state.database, &bytes_data).await?;
+                dataset_buffer.clear();
+                log::info!("Flushed Dataset Buffer");
+            }
+        }
     }
 
+    // If anything let in buffers, upload as final chunks
+    let compressed = compress_bytes(&dataset_buffer)?;
+    let bytes_data = actix_web::web::Bytes::from(compressed);
+    dataset.upload_chunk(&state.database, &bytes_data).await?;
+
+    let compressed_predict = compress_bytes(&predict_buffer)?;
+    let bytes_predict = actix_web::web::Bytes::from(compressed_predict);
+    predict
+        .upload_chunk(&state.database, &bytes_predict)
+        .await?;
+
     // Finalise the file and upload its data
-    log::debug!("Uploading the file itself");
-    file.finalise(&state.database).await?;
+    log::debug!("Uploading the dataset and file itself");
+    dataset.finalise(&state.database).await?;
+    predict.finalise(&state.database).await?;
 
     // Check whether the project has data already
     let existing_data = datasets
@@ -243,8 +322,8 @@ pub async fn add_data(
         data.delete(&state.database).await?;
     }
 
-    let dataset = Dataset::new(object_id.clone(), Some(file.id), None);
-    let document = to_document(&dataset)?;
+    let dataset_doc = Dataset::new(object_id.clone(), Some(dataset.id), Some(predict.id));
+    let document = to_document(&dataset_doc)?;
     let id = datasets.insert_one(document, None).await?.inserted_id;
 
     response_from_json(doc! {"dataset_id": id})
@@ -270,12 +349,12 @@ pub async fn overview(
     response_from_json(document)
 }
 
-/// Gets the data associated with a given project.
+/// Gets the dataset associated with a given project.
 ///
-/// Queries the database for the dataset related with a given identifier and decompresses both the
-/// training and prediction data. The data is then converted back to a [`str`] and cleaned before
+/// Queries the database for the dataset related with a given identifier and decompresses the
+/// training data. The data is then converted back to a [`str`] and cleaned before
 /// being sent to the frontend for display.
-pub async fn get_data(
+pub async fn get_dataset(
     claims: auth::Claims,
     state: web::Data<State>,
     project_id: web::Path<String>,
@@ -316,7 +395,67 @@ pub async fn get_data(
             match futures::executor::block_on(cursor.next()) {
                 Some(next) => {
                     let chunk: gridfs::Chunk = from_document(next.unwrap()).unwrap();
-                    Poll::Ready(Some(Ok(actix_web::web::Bytes::from(chunk.data.bytes))))
+                    let chunk_bytes = chunk.data.bytes;
+                    let decomp_train = decompress_data(&chunk_bytes).unwrap();
+                    Poll::Ready(Some(Ok(actix_web::web::Bytes::from(decomp_train))))
+                }
+                None => Poll::Ready(None),
+            }
+        },
+    );
+
+    Ok(HttpResponseBuilder::new(StatusCode::OK).streaming(byte_stream))
+}
+
+/// Gets the predict data associated with a given project.
+///
+/// Queries the database for the dataset related with a given identifier and decompresses the
+/// prediction data. The data is then converted back to a [`str`] and cleaned before
+/// being sent to the frontend for display.
+pub async fn get_predict(
+    claims: auth::Claims,
+    state: web::Data<State>,
+    project_id: web::Path<String>,
+) -> ServerResponse {
+    let datasets = state.database.collection("datasets");
+    let projects = state.database.collection("projects");
+    let files = state.database.collection("files");
+
+    let object_id = check_user_owns_project(&claims.id, &project_id, &projects)
+        .await
+        .unwrap();
+    let filter = doc! { "project_id": &object_id };
+
+    // Find the dataset in the database
+    let document = datasets
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
+
+    // Parse the dataset itself
+    let dataset: Dataset = from_document(document)?;
+
+    let filter = doc! { "_id": &dataset.predict.unwrap() };
+
+    // Find the file in the database
+    let document = files
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
+
+    // Parse the dataset itself
+    let file: gridfs::File = from_document(document)?;
+
+    let mut cursor = file.download_chunks(&state.database).await?;
+    let byte_stream = poll_fn(
+        move |_| -> Poll<Option<Result<actix_web::web::Bytes, actix_web::error::Error>>> {
+            // While Cursor not empty
+            match futures::executor::block_on(cursor.next()) {
+                Some(next) => {
+                    let chunk: gridfs::Chunk = from_document(next.unwrap()).unwrap();
+                    let chunk_bytes = chunk.data.bytes;
+                    let decomp_train = decompress_data(&chunk_bytes).unwrap();
+                    Poll::Ready(Some(Ok(actix_web::web::Bytes::from(decomp_train))))
                 }
                 None => Poll::Ready(None),
             }
