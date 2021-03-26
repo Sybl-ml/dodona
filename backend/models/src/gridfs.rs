@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use chrono::Utc;
-use mongodb::bson::{self, document::Document, oid::ObjectId};
+use mongodb::bson::{self, doc, document::Document, oid::ObjectId};
 
 /// Represents the metadata of a file in the database.
 #[derive(Debug, Serialize, Deserialize)]
@@ -68,6 +68,20 @@ impl File {
         files.insert_one(document, None).await?;
 
         Ok(())
+    }
+
+    pub async fn download_chunks(
+        &self,
+        database: &mongodb::Database,
+    ) -> mongodb::error::Result<mongodb::Cursor<Document>> {
+        let chunks = database.collection("chunks");
+
+        let filter = doc! {"files_id": &self.id};
+        let options = mongodb::options::FindOptions::builder()
+            .sort(doc! {"n": 1})
+            .build();
+
+        chunks.find(filter, options).await
     }
 }
 

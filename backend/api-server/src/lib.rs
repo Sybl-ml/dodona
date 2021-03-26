@@ -74,6 +74,7 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
             .allow_any_origin()
             .allow_any_method()
             .allow_any_header()
+            .disable_vary_header()
             .max_age(3600);
 
         // launch http server

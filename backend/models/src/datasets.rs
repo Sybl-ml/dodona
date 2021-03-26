@@ -13,26 +13,20 @@ pub struct Dataset {
     pub id: ObjectId,
     /// Unique identifier for the associated project
     pub project_id: ObjectId,
-    /// Dataset binary stored in the database
-    pub dataset: Option<Binary>,
-    /// Dataset to be predicted by the model
-    pub predict: Option<Binary>,
+    /// Dataset File ObjectId stored in the database
+    pub dataset: Option<ObjectId>,
+    /// Dataset File ObjectId for prediction stored in the database
+    pub predict: Option<ObjectId>,
 }
 
 impl Dataset {
     /// Creates a new [`Dataset`] for a project with some data.
-    pub fn new(project_id: ObjectId, dataset: Vec<u8>, predict: Vec<u8>) -> Self {
+    pub fn new(project_id: ObjectId, dataset: Option<ObjectId>, predict: Option<ObjectId>) -> Self {
         Self {
             id: ObjectId::new(),
             project_id,
-            dataset: Some(Binary {
-                subtype: bson::spec::BinarySubtype::Generic,
-                bytes: dataset,
-            }),
-            predict: Some(Binary {
-                subtype: bson::spec::BinarySubtype::Generic,
-                bytes: predict,
-            }),
+            dataset: dataset,
+            predict: predict,
         }
     }
 

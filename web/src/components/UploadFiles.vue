@@ -62,23 +62,6 @@ export default {
 
       this.currentFile = this.selectedFiles.item(0);
 
-      this.upload_file(this.currentFile, event => {
-        this.progress = Math.round((100 * event.loaded) / event.total);
-      })
-        .then(response => {
-          this.message = response.data.message;
-          return this.getFiles();
-        })
-        .then(files => {
-          this.fileInfos = files.data;
-        })
-        .catch(() => {
-          this.progress = 0;
-          this.message = "Could not upload the file!";
-          this.currentFile = undefined;
-        });
-
-      this.selectedFiles = undefined;
     },
 
     upload_file(file, onUploadProgress) {

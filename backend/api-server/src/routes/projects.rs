@@ -3,9 +3,11 @@
 use std::env;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::str::FromStr;
+use std::task::Poll;
 
 use actix_multipart::Multipart;
-use actix_web::{web, HttpResponse};
+use actix_web::{dev::HttpResponseBuilder, http::StatusCode, web, HttpResponse};
+use futures::stream::poll_fn;
 use mongodb::{
     bson::{de::from_document, doc, document::Document, oid::ObjectId, ser::to_document},
     Collection,
@@ -167,7 +169,6 @@ pub async fn add_data(
     claims: auth::Claims,
     state: web::Data<State>,
     project_id: web::Path<String>,
-    payload: web::Json<payloads::UploadDatasetOptions>,
     mut dataset: Multipart,
 ) -> ServerResponse {
     let datasets = state.database.collection("datasets");
@@ -196,8 +197,32 @@ pub async fn add_data(
     log::info!("Creating a new file with name: {}", filename);
     let mut file = gridfs::File::new(String::from(filename));
 
+    let mut initial: bool = true;
+
     // Stream the data into it
     while let Some(Ok(chunk)) = field.next().await {
+        if initial {
+            let data_head = std::str::from_utf8(&chunk).unwrap();
+            let data_head = data_head.split("\n").take(6).collect::<Vec<_>>().join("\n");
+            log::info!("First 5 lines: {:?}", &data_head);
+
+            initial = false;
+
+            let analysis = utils::analysis::analyse(&data_head);
+
+            let column_types = analysis.types;
+
+            let details = DatasetDetails::new(
+                String::from(filename),
+                object_id.clone(),
+                data_head,
+                column_types,
+            );
+
+            let document = to_document(&details)?;
+            dataset_details.insert_one(document, None).await?;
+        }
+
         log::debug!("Uploading a chunk of size: {}", chunk.len());
         file.upload_chunk(&state.database, &chunk).await?;
     }
@@ -218,7 +243,9 @@ pub async fn add_data(
         data.delete(&state.database).await?;
     }
 
-    let id = file.id;
+    let dataset = Dataset::new(object_id.clone(), Some(file.id), None);
+    let document = to_document(&dataset)?;
+    let id = datasets.insert_one(document, None).await?.inserted_id;
 
     response_from_json(doc! {"dataset_id": id})
 }
@@ -255,8 +282,11 @@ pub async fn get_data(
 ) -> ServerResponse {
     let datasets = state.database.collection("datasets");
     let projects = state.database.collection("projects");
+    let files = state.database.collection("files");
 
-    let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
+    let object_id = check_user_owns_project(&claims.id, &project_id, &projects)
+        .await
+        .unwrap();
     let filter = doc! { "project_id": &object_id };
 
     // Find the dataset in the database
@@ -268,19 +298,32 @@ pub async fn get_data(
     // Parse the dataset itself
     let dataset: Dataset = from_document(document)?;
 
-    let comp_train = dataset.dataset.expect("missing training dataset").bytes;
-    let comp_predict = dataset.predict.expect("missing prediction dataset").bytes;
+    let filter = doc! { "_id": &dataset.dataset.unwrap() };
 
-    let decomp_train = decompress_data(&comp_train)?;
-    let decomp_predict = decompress_data(&comp_predict)?;
+    // Find the file in the database
+    let document = files
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
 
-    let train = crypto::clean(std::str::from_utf8(&decomp_train)?);
-    let predict = crypto::clean(std::str::from_utf8(&decomp_predict)?);
+    // Parse the dataset itself
+    let file: gridfs::File = from_document(document)?;
 
-    log::debug!("Fetched {} bytes of training data", train.len());
-    log::debug!("Fetched {} bytes of prediction data", predict.len());
+    let mut cursor = file.download_chunks(&state.database).await?;
+    let byte_stream = poll_fn(
+        move |_| -> Poll<Option<Result<actix_web::web::Bytes, actix_web::error::Error>>> {
+            // While Cursor not empty
+            match futures::executor::block_on(cursor.next()) {
+                Some(next) => {
+                    let chunk: gridfs::Chunk = from_document(next.unwrap()).unwrap();
+                    Poll::Ready(Some(Ok(actix_web::web::Bytes::from(chunk.data.bytes))))
+                }
+                None => Poll::Ready(None),
+            }
+        },
+    );
 
-    response_from_json(doc! {"dataset": train, "predict": predict})
+    Ok(HttpResponseBuilder::new(StatusCode::OK).streaming(byte_stream))
 }
 
 /// Removes the data associated with a given project identifier.
@@ -404,38 +447,7 @@ pub async fn get_predictions(
     // Get the project identifier and check it exists
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
-    // Find the predictions for the given project
-    let filter = doc! { "project_id": &object_id };
-    let cursor = predictions.find(filter.clone(), None).await?;
-
-    let result = datasets
-        .find_one(filter.clone(), None)
-        .await?
-        .ok_or(ServerError::NotFound)?;
-
-    // Parse the dataset detail itself
-    let dataset: Dataset = from_document(result)?;
-
-    // Given a document, extract the predictions and decompress them
-    let extract = |document: Document| -> ServerResult<String> {
-        let prediction: Prediction = from_document(document)?;
-        let decompressed = decompress_data(&prediction.predictions.bytes)?;
-
-        Ok(String::from_utf8(decompressed)?)
-    };
-
-    // Decompress the predictions for each instance found
-    let decompressed: Vec<_> = cursor
-        .filter_map(Result::ok)
-        .map(extract)
-        .collect::<Result<_, _>>()
-        .await?;
-
-    let comp_predict = dataset.predict.expect("missing prediction dataset").bytes;
-    let decomp_predict = decompress_data(&comp_predict)?;
-    let predict = crypto::clean(std::str::from_utf8(&decomp_predict)?);
-
-    response_from_json(doc! {"predictions": decompressed, "predict_data": predict})
+    response_from_json(doc! {"predictions": "None", "predict_data": "None"})
 }
 
 async fn produce_message(job: &Job) -> KafkaResult<()> {

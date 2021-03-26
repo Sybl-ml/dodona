@@ -127,8 +127,6 @@
           v-model="file"
         />
         <b-button variant="secondary" @click="addData">Upload</b-button>
-
-        <upload-files></upload-files>
       </b-col>
       <b-col lg="4" sm="12">
         <b-card
@@ -217,12 +215,10 @@
 
 <script>
 import DataAnalyticsBar from "@/components/charts/DataAnalyticsBar";
-import UploadFiles from "@/components/UploadFiles";
 export default {
   name: "ProjectOverview",
   components: {
     DataAnalyticsBar,
-    UploadFiles
   },
   data() {
     return {
@@ -342,19 +338,22 @@ export default {
     },
     addData() {
       if (this.file) {
-        this.file_reader = new FileReader();
-        this.file_reader.onload = this.sendFile;
-        this.file_reader.readAsText(this.file);
+        this.sendFile(this.file);
       }
     },
-    async sendFile(e) {
+    async sendFile(file) {
+
+      let formData = new FormData();
+
+      formData.append("dataset", file);
+
+      let config = { headers: { 'Content-Type': 'multipart/form-data' } };
+
       let project_response = await this.$http.put(
-        `api/projects/${this.projectId}/data`,
-        {
-          name: this.file.name,
-          content: e.target.result,
-        }
+        `api/projects/${this.projectId}/data`, formData, config
       );
+
+      console.log(project_response)
 
       // On Success should update dashboard using emitters
     },

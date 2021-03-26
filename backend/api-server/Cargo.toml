@@ -32,3 +32,4 @@ utils = { path = "../utils" }
 mongodb = "2.0.0-alpha"
 futures-util = "0.3.13"
 jsonwebtoken = "7.2.0"
+futures = "0.3.13"
