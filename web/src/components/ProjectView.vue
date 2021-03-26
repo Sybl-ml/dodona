@@ -139,26 +139,15 @@ export default {
       }
     },
     async fetchData() {
-      console.log("Fetching Data");
       this.loading = true;
 
       let project_response = await this.$http.get(
         `api/projects/${this.projectId}/data`
       );
 
-      console.log("Got the project Response");
+      let stream = project_response.data;
 
-      const stream = project_response.data;
-      stream.on('data', (chunk /* chunk is an ArrayBuffer */) => {
-          console.log(chunk);
-      });
-      stream.on('end', () => {
-        console.log("End");
-      });
-
-      let project_data = project_response.data.dataset;
-
-      this.training_data = Papa.parse(project_data, { header: true });
+      this.training_data = Papa.parse(stream, { header: true });
       this.loading = false;
     },
     async fetchResults() {
