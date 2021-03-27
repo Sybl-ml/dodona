@@ -423,11 +423,11 @@ pub async fn run(nodepool: Arc<NodePool>, database: Arc<Database>, port: u16) ->
 
         log::info!("Node Connection: {}", inbound.peer_addr()?);
 
-        tokio::spawn(async move {
-            process_connection(inbound, db_clone, sp_clone)
-                .await
-                .unwrap();
-        });
+        let fut = process_connection(inbound, db_clone, sp_clone);
+
+        if let Err(e) = tokio::spawn(async move { fut.await }).await? {
+            log::error!("Error processing connection: {:?}", e);
+        }
     }
 
     Ok(())
