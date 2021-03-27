@@ -54,6 +54,8 @@ pub struct NumericalAnalysis {
     pub min: f64,
     pub sum: f64,
     pub avg: f64,
+    /// All the values in the column
+    pub values: HashMap<String, i64>,
 }
 
 impl Default for NumericalAnalysis {
@@ -63,6 +65,7 @@ impl Default for NumericalAnalysis {
             min: f64::MAX,
             sum: 0.0,
             avg: 0.0,
+            values: HashMap::new(),
         }
     }
 }

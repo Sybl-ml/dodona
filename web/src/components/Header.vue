@@ -10,6 +10,7 @@
       <b-nav-item>Product</b-nav-item>
       <b-nav-item>Meet the Team</b-nav-item>
       <b-nav-item>Pricing</b-nav-item>
+      <b-nav-item>Guides</b-nav-item>
     </b-navbar-nav>
 
     <b-navbar-nav class="ml-auto" v-if="loggedIn">
