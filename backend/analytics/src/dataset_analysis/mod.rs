@@ -13,7 +13,7 @@ use models::dataset_analysis::DatasetAnalysis;
 use models::dataset_analysis::{CategoricalAnalysis, ColumnAnalysis, NumericalAnalysis};
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
-use utils::compress::decompress_data;
+use models::gridfs;
 
 /// Prepare Data for analysis
 ///
@@ -24,6 +24,7 @@ pub async fn prepare_dataset(database: &Arc<Database>, project_id: &ObjectId) ->
     let datasets = database.collection("datasets");
     let dataset_details = database.collection("dataset_details");
     let dataset_analysis = database.collection("dataset_analysis");
+    let files = database.collection("files");
 
     // Obtain the dataset
     let document = datasets
@@ -32,9 +33,16 @@ pub async fn prepare_dataset(database: &Arc<Database>, project_id: &ObjectId) ->
         .ok_or_else(|| anyhow!("Dataset doesn't exist"))?;
 
     let dataset: Dataset = from_document(document)?;
-    let comp_train = dataset.dataset.expect("missing training dataset").bytes;
-    let decomp_train = decompress_data(&comp_train)?;
-    let train = crypto::clean(std::str::from_utf8(&decomp_train)?);
+
+    let train_filter = doc! { "_id": dataset.dataset.unwrap() };
+    let doc = files
+        .find_one(train_filter, None)
+        .await?
+        .expect("Failed to find a document with the previous filter");
+    let train_file: gridfs::File = mongodb::bson::de::from_document(doc)?;
+    let comp_train: Vec<u8> = train_file.download_dataset(&database).await?;
+
+    let train = crypto::clean(std::str::from_utf8(&comp_train)?);
 
     // Obtain the column details
     let document = dataset_details
