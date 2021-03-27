@@ -205,7 +205,7 @@
     </b-container>
     <waves />
 
-    <div class="highlight pt-3">
+    <div class="highlight_no_gradient pt-3">
       <b-row class="justify-content-center">
         <h1 class="mt-3 subTitle">Get Started Today!</h1>
       </b-row>
@@ -256,6 +256,13 @@ body {
   padding-bottom: 2rem;
   text-align: center;
   background-image: linear-gradient(to bottom, #fb8c38, #fbb000,  #fb8c38);
+  color: white;
+}
+
+.highlight_no_gradient {
+  padding-bottom: 2rem;
+  text-align: center;
+  background-image: linear-gradient(to bottom, #fb8c38, #fb8c38);
   color: white;
 }
 
