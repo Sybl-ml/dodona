@@ -304,7 +304,6 @@ dependencies = [
  "models",
  "mongodb",
  "pbkdf2 0.7.4",
- "rand_core 0.6.2",
  "rdkafka",
  "serde",
  "serde_json",
@@ -675,7 +674,9 @@ dependencies = [
  "ammonia",
  "html-escape",
  "openssl",
+ "pbkdf2 0.7.4",
  "rand 0.8.3",
+ "rand_core 0.6.2",
  "serde_json",
 ]
 

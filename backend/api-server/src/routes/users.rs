@@ -68,7 +68,7 @@ pub async fn new(
     }
 
     let peppered = format!("{}{}", &payload.password, &state.pepper);
-    let hash = auth::hash_password(&peppered, state.pbkdf2_iterations)
+    let hash = crypto::hash_password(&peppered, state.pbkdf2_iterations)
         .expect("Failed to hash the user's password");
 
     let user = User::new(email, hash.to_string(), first_name, last_name);
@@ -176,7 +176,7 @@ pub async fn login(
 
     // Check the user's password
     let peppered = format!("{}{}", &payload.password, &state.pepper);
-    auth::verify_password(&peppered, &user.hash)?;
+    crypto::verify_password(&peppered, &user.hash)?;
 
     log::debug!("User logged in with id={}, email={}", user.id, user.email);
 

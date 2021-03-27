@@ -16,8 +16,8 @@ tokio-stream = "0.1.5"
 rdkafka = { version = "0.26.0", features = ["cmake-build"] }
 serde = { version = "1.0.125", features = ["derive"] }
 serde_json = "1.0.64"
-pbkdf2 = "0.7.4"
 log = "0.4.14"
+pbkdf2 = "0.7.4"
 toml = "0.5.8"
 bzip2 = "0.4.2"
 csv = "1.1.6"
@@ -31,4 +31,3 @@ utils = { path = "../utils" }
 mongodb = "2.0.0-alpha"
 futures-util = "0.3.13"
 jsonwebtoken = "7.2.0"
-rand_core = { version = "0.6.2", features = ["getrandom"] }

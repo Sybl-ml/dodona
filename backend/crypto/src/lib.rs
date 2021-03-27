@@ -2,20 +2,45 @@
 
 use ammonia::clean_text;
 use html_escape::decode_html_entities;
-
 use openssl::hash::MessageDigest as MD;
 use openssl::pkey::{PKey, Private};
 use openssl::rsa::Rsa;
 use openssl::sign::Verifier;
-
+use pbkdf2::{
+    password_hash::{
+        HasherError, PasswordHash, PasswordHasher, PasswordVerifier, SaltString, VerifyError,
+    },
+    Params, Pbkdf2,
+};
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
+use rand_core::OsRng;
 use serde_json::Value;
 
 const KEY_SIZE: u32 = 1024;
 const CHALLENGE_SIZE: usize = 32;
 const API_KEY_SIZE: usize = 32;
 const ACCESS_TOKEN_SIZE: usize = 32;
+
+/// Hashes a user's password.
+pub fn hash_password(peppered: &str, rounds: u32) -> Result<String, HasherError> {
+    let params = Params {
+        rounds,
+        ..Default::default()
+    };
+
+    let salt = SaltString::generate(&mut OsRng);
+
+    Ok(Pbkdf2
+        .hash_password(peppered.as_bytes(), None, None, params, salt.as_salt())?
+        .to_string())
+}
+
+/// Checks a user's password is correct.
+pub fn verify_password(peppered: &str, expected_hash: &str) -> Result<(), VerifyError> {
+    let hash = PasswordHash::new(&expected_hash).unwrap();
+    Pbkdf2.verify_password(&peppered.as_bytes(), &hash)
+}
 
 /// Returns a new, random RSA key pair
 ///
