@@ -28,6 +28,7 @@ messages = { path = "../messages" }
 crypto = { path = "../crypto" }
 chrono = "0.4.19"
 mongodb = "2.0.0-alpha"
+bytes = "1.0.1"
 
 [dev-dependencies]
 chrono = "0.4.19"

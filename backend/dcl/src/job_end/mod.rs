@@ -22,13 +22,14 @@ use tokio::time::timeout;
 use crate::node_end::NodePool;
 use crate::JobControl;
 use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
+use models::gridfs;
 use models::jobs::JobConfiguration;
 use models::jobs::PredictionType;
 use models::predictions::Prediction;
 use models::projects::Status;
 
 use utils::anon::{anonymise_dataset, deanonymise_dataset, infer_dataset_columns};
-use utils::compress::compress_bytes;
+use utils::compress::compress_data;
 use utils::generate_ids;
 use utils::{Column, Columns};
 
@@ -467,9 +468,7 @@ async fn run_cluster(
     )
     .await?;
 
-    let csv: String = predictions.join("\n");
-
-    write_predictions(database.clone(), info.project_id, csv.as_bytes())
+    write_predictions(database.clone(), info.project_id, predictions)
         .await
         .unwrap_or_else(|error| log::error!("Error writing predictions to DB: {}", error));
 
@@ -548,18 +547,48 @@ pub async fn dcl_protocol(
 }
 
 /// Writes predictions back to the Mongo database for long term storage.
+///
+/// Write predictions back to the database using the GridFS interface. This allows
+/// bigger files to be stored for long term storage of results.
 pub async fn write_predictions(
     database: Arc<Database>,
     id: ObjectId,
-    dataset: &[u8],
+    dataset: Vec<String>,
 ) -> Result<()> {
     let predictions = database.collection("predictions");
+    let files = database.collection("files");
 
-    // Compress the data and make a new struct instance
-    let compressed = compress_bytes(dataset)?;
-    let prediction = Prediction::new(id, compressed);
+    let mut pred_dataset = gridfs::File::new(String::from("predictions"));
+
+    let mut pred_iter = dataset.iter();
+
+    let mut chunk: Vec<String> = Vec::new();
+
+    // Go through predictions and split into chunks of 50 lines
+    while let Some(row) = pred_iter.next() {
+        chunk.push(row.to_owned());
+        if chunk.len() == 50 {
+            let join_chunk = chunk.join("\n");
+            let compressed = compress_data(&join_chunk)?;
+            pred_dataset
+                .upload_chunk(&database, &bytes::Bytes::from(compressed))
+                .await?;
+            chunk.clear();
+        }
+    }
+
+    // Final part of predictions
+    let join_chunk = chunk.join("\n");
+    let compressed = compress_data(&join_chunk)?;
+    pred_dataset
+        .upload_chunk(&database, &bytes::Bytes::from(compressed))
+        .await?;
+
+    pred_dataset.finalise(&database).await?;
 
     // Convert to a document and insert it
+
+    let prediction = Prediction::new(id, pred_dataset.id);
     let document = mongodb::bson::ser::to_document(&prediction)?;
     predictions.insert_one(document, None).await?;
 
