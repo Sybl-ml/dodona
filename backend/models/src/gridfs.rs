@@ -1,6 +1,8 @@
 use bytes::Bytes;
 use chrono::Utc;
-use mongodb::bson::{self, doc, document::Document, oid::ObjectId};
+use mongodb::bson::{self, de::from_document, doc, document::Document, oid::ObjectId};
+use tokio_stream::StreamExt;
+use utils::compress::decompress_data;
 
 /// Represents the metadata of a file in the database.
 #[derive(Debug, Serialize, Deserialize)]
@@ -82,6 +84,31 @@ impl File {
             .build();
 
         chunks.find(filter, options).await
+    }
+
+    pub async fn download_dataset(
+        &self,
+        database: &mongodb::Database,
+    ) -> mongodb::error::Result<Vec<u8>> {
+        let chunks = database.collection("chunks");
+
+        let filter = doc! {"files_id": &self.id};
+        let options = mongodb::options::FindOptions::builder()
+            .sort(doc! {"n": 1})
+            .build();
+
+        let mut data: Vec<u8> = Vec::new();
+
+        let mut cursor = chunks.find(filter, options).await?;
+
+        while let Some(next) = cursor.next().await {
+            let chunk: Chunk = from_document(next?)?;
+            let chunk_bytes = chunk.data.bytes;
+            let decomp_data = decompress_data(&chunk_bytes).unwrap();
+            data.extend_from_slice(&decomp_data);
+        }
+
+        Ok(data)
     }
 }
 
