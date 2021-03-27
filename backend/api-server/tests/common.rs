@@ -175,7 +175,7 @@ fn create_project_with_id(id: &str, name: &str, desc: &str, uid: &str) -> bson::
 async fn insert_test_users(database: &mongodb::Database) {
     let peppered = format!("password{}", std::env::var("PEPPER").unwrap());
     let pbkdf2_iterations = u32::from_str(&std::env::var("PBKDF2_ITERATIONS").unwrap()).unwrap();
-    let hash = pbkdf2::pbkdf2_simple(&peppered, pbkdf2_iterations).unwrap();
+    let hash = crypto::hash_password(&peppered, pbkdf2_iterations).unwrap();
 
     let matthew = create_user_with_id(
         MAIN_USER_ID,
@@ -210,7 +210,7 @@ async fn insert_test_users(database: &mongodb::Database) {
 async fn insert_test_clients(database: &mongodb::Database) {
     let peppered = format!("password{}", std::env::var("PEPPER").unwrap());
     let pbkdf2_iterations = u32::from_str(&std::env::var("PBKDF2_ITERATIONS").unwrap()).unwrap();
-    let hash = pbkdf2::pbkdf2_simple(&peppered, pbkdf2_iterations).unwrap();
+    let hash = crypto::hash_password(&peppered, pbkdf2_iterations).unwrap();
 
     let (user, client) =
         create_client_with_id(MAIN_CLIENT_ID, "client@sybl.com", &hash, "client", "user");
