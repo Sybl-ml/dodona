@@ -32,7 +32,6 @@ use utils::compress::compress_bytes;
 use utils::generate_ids;
 use utils::{Column, Columns};
 
-pub mod finance;
 pub mod ml;
 
 /// Struct to pass information for a cluster to function

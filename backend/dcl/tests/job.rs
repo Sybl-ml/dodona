@@ -7,11 +7,11 @@ use float_cmp::approx_eq;
 use futures::stream::StreamExt;
 use mongodb::bson::{doc, oid::ObjectId};
 
-use dcl::job_end::finance::Pricing;
 use dcl::job_end::ml::{evaluate_model, model_performance, penalise, weight_predictions};
 use dcl::job_end::{ClusterInfo, ModelID, WriteBackMemory};
 use models::jobs::{JobConfiguration, PredictionType};
 use models::users::User;
+use utils::finance::{reimburse, COMMISSION_RATE};
 
 mod common;
 
@@ -244,16 +244,16 @@ fn test_weight_predictions() {
 async fn test_reimbuse_client() {
     let (database, _) = common::initialise_with_db().await;
     let database = Arc::new(database);
-    let pricing = Pricing::new(10.0, 0.1);
-    let weight = 10.0;
-    pricing
-        .reimburse(
-            database.clone(),
-            ObjectId::with_string(common::USER_ID).unwrap(),
-            weight,
-        )
-        .await
-        .unwrap();
+    let revenue = 10.0;
+    let weight = 0.5;
+    reimburse(
+        database.clone(),
+        ObjectId::with_string(common::USER_ID).unwrap(),
+        revenue,
+        weight,
+    )
+    .await
+    .unwrap();
 
     let users = database.collection("users");
 
@@ -262,8 +262,7 @@ async fn test_reimbuse_client() {
 
     let user: User = mongodb::bson::de::from_document(user_doc).unwrap();
 
-    let amount: i32 = (((&pricing.revenue - (&pricing.revenue * &pricing.commision_rate)) * weight)
-        * 100.0) as i32;
+    let amount: i32 = (((revenue - (revenue * COMMISSION_RATE)) * weight) * 100.0) as i32;
 
     assert_eq!(user.credits, amount);
 }

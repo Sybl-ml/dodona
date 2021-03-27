@@ -3048,6 +3048,7 @@ dependencies = [
  "csv",
  "fern",
  "log",
+ "mongodb",
  "rand 0.8.3",
  "serde",
  "thiserror",
