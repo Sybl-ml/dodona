@@ -7,6 +7,13 @@ use actix_web::{dev::Payload, web::HttpRequest, FromRequest};
 use futures_util::future;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, TokenData, Validation};
 use mongodb::bson::oid::ObjectId;
+use pbkdf2::{
+    password_hash::{
+        HasherError, PasswordHash, PasswordHasher, PasswordVerifier, SaltString, VerifyError,
+    },
+    Params, Pbkdf2,
+};
+use rand_core::OsRng;
 
 use crate::error::ServerError;
 
@@ -19,6 +26,26 @@ pub fn get_encoding_key() -> EncodingKey {
 fn get_decoding_key() -> DecodingKey<'static> {
     let key = include_str!("../../jwt_key");
     DecodingKey::from_secret(&key.as_bytes())
+}
+
+/// Hashes a user's password.
+pub fn hash_password(peppered: &str, rounds: u32) -> Result<String, HasherError> {
+    let params = Params {
+        rounds,
+        ..Default::default()
+    };
+
+    let salt = SaltString::generate(&mut OsRng);
+
+    Ok(Pbkdf2
+        .hash_password(peppered.as_bytes(), None, None, params, salt.as_salt())?
+        .to_string())
+}
+
+/// Checks a user's password is correct.
+pub fn verify_password(peppered: &str, expected_hash: &str) -> Result<(), VerifyError> {
+    let hash = PasswordHash::new(&expected_hash).unwrap();
+    Pbkdf2.verify_password(&peppered.as_bytes(), &hash)
 }
 
 /// The claims made by a user for authentication.
