@@ -95,6 +95,7 @@ pub fn analyse_project(
         .collect();
 
     let mut dataset_length = 0;
+
     for result in reader.records() {
         let row = result.expect("Failed to read row");
         dataset_length += 1;
@@ -105,10 +106,7 @@ pub fn analyse_project(
                 .expect("Failed to access header data")
             {
                 ColumnAnalysis::Categorical(content) => {
-                    *content
-                        .values
-                        .entry(elem.to_string().trim().to_string())
-                        .or_insert(0) += 1;
+                    *content.values.entry(elem.trim().to_string()).or_default() += 1;
                 }
                 ColumnAnalysis::Numerical(content) => {
                     content.min = content
@@ -124,49 +122,41 @@ pub fn analyse_project(
     }
 
     column_data.iter().for_each(|(header, _)| {
-        match tracker
-            .get_mut(header)
-            .expect("Failed to access header data")
-        {
-            ColumnAnalysis::Numerical(content) => {
-                content.avg = content.sum / dataset_length as f64;
-                let bin_size = (content.max - content.min) / BIN_COUNT as f64;
-                for x in 1..BIN_COUNT {
-                    let lower = x as f64 * bin_size + content.min;
+        let analysis = tracker.get_mut(header).expect("Failed to get header");
 
-                    content.values.insert(lower.to_string(), 0);
-                }
+        if let ColumnAnalysis::Numerical(content) = analysis {
+            let bin_size = (content.max - content.min) / BIN_COUNT as f64;
+            content.avg = content.sum / dataset_length as f64;
+
+            for x in 1..BIN_COUNT {
+                let lower = x as f64 * bin_size + content.min;
+
+                content.values.insert(lower.to_string(), 0);
             }
-            _ => {}
-        };
+        }
     });
 
     reader = Reader::from_reader(std::io::Cursor::new(dataset));
 
     for result in reader.records() {
         let row = result.expect("Failed to read row");
-        log::debug!("TEST");
 
         for (elem, header) in row.iter().zip(headers.iter()) {
-            match tracker
-                .get_mut(header)
-                .expect("Failed to access header data")
-            {
-                ColumnAnalysis::Categorical(_) => {}
-                ColumnAnalysis::Numerical(content) => {
-                    let bin_size = (content.max - content.min) / BIN_COUNT as f64;
-                    log::debug!("{:?}", elem);
-                    let attr_val = f64::from_str(elem).expect("Failed to convert to float");
+            let analysis = tracker.get_mut(header).expect("Failed to get header");
 
-                    let normalized_value = (attr_val - content.min) / bin_size;
+            if let ColumnAnalysis::Numerical(content) = analysis {
+                let bin_size = (content.max - content.min) / BIN_COUNT as f64;
+                let attr_val = f64::from_str(elem).expect("Failed to convert to float");
 
-                    let lower = normalized_value.floor() * bin_size + content.min;
+                let normalized_value = (attr_val - content.min) / bin_size;
 
-                    *content.values.entry(lower.to_string()).or_insert(0) += 1;
-                }
-            };
+                let lower = normalized_value.floor() * bin_size + content.min;
+
+                *content.values.entry(lower.to_string()).or_default() += 1;
+            }
         }
     }
+
     log::debug!("Generated Analysis {:?}", &tracker);
 
     tracker
