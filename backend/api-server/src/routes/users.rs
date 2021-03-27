@@ -4,6 +4,7 @@ use actix_web::web;
 use mongodb::bson::{
     de::from_document, doc, document::Document, ser::to_document, spec::BinarySubtype, Binary,
 };
+use mongodb::options::UpdateOptions;
 use tokio_stream::StreamExt;
 
 use models::users::User;
@@ -60,28 +61,31 @@ pub async fn new(
     let first_name = crypto::clean(&payload.first_name);
     let last_name = crypto::clean(&payload.last_name);
 
-    let filter = doc! { "email": &email };
-
-    if users.find_one(filter, None).await?.is_some() {
-        log::error!("Found a user with email={} already", &email);
-        return response_from_json(doc! {"token": "null"});
-    }
-
     let peppered = format!("{}{}", &payload.password, &state.pepper);
     let hash = crypto::hash_password(&peppered, state.pbkdf2_iterations)
         .expect("Failed to hash the user's password");
 
+    let filter = doc! { "email": &email };
     let user = User::new(email, hash.to_string(), first_name, last_name);
 
-    log::debug!("Registering a new user: {:#?}", user);
+    log::debug!("Registering a new user: {:?}", user);
 
     let document = to_document(&user)?;
-    let inserted_id = users.insert_one(document, None).await?.inserted_id;
-    let identifier = inserted_id.as_object_id().ok_or(ServerError::Unknown)?;
 
-    log::debug!("Created the user with id={}", identifier);
+    // Use an `upsert` here, insert if not exists otherwise do nothing
+    let options = UpdateOptions::builder().upsert(true).build();
 
-    let jwt = auth::Claims::create_token(identifier.clone())?;
+    let update_result = users
+        .update_one(filter, doc! { "$setOnInsert": document }, options)
+        .await?;
+
+    // If there is no id, a user already existed
+    let upserted = update_result.upserted_id.ok_or(ServerError::Conflict)?;
+    let user_id = upserted.as_object_id().ok_or(ServerError::Unknown)?;
+
+    log::debug!("Created the user with id={}", user_id);
+
+    let jwt = auth::Claims::create_token(user_id.clone())?;
 
     response_from_json(doc! {"token": jwt})
 }

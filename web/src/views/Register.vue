@@ -16,7 +16,7 @@
               { key: '2', title: '2. Details' },
               { key: '3', title: '3. Photo' },
               { key: '4', title: '4. Payment' },
-              { key: '5', title: '5. Create'},
+              { key: '5', title: '5. Create' },
             ]"
           >
             <template v-slot:1>
@@ -38,23 +38,19 @@
               />
             </template>
             <template v-slot:2>
-              <b-card-text>
-                Select Your Prefered Currency
-              </b-card-text>
+              <b-card-text> Select Your Prefered Currency </b-card-text>
 
               <b-form-select
                 class="mb-3"
                 v-model="preferedCurrency"
                 :options="currencyOptions"
               ></b-form-select>
-              <b-card-text>
-                Select Your Date of Birth
-              </b-card-text>
+              <b-card-text> Select Your Date of Birth </b-card-text>
               <b-form-datepicker v-model="dob" class="mb-3"></b-form-datepicker>
             </template>
 
             <template v-slot:3>
-              <avatar-upload @upload="onUpload"/>
+              <avatar-upload @upload="onUpload" />
             </template>
 
             <template v-slot:4>
@@ -85,7 +81,7 @@
                 <template #append>
                   <b-input-group-text>
                     <b-icon
-                      style="cursor: pointer;"
+                      style="cursor: pointer"
                       :icon="passwordIcon"
                       @click="hidePassword = !hidePassword"
                     />
@@ -114,7 +110,7 @@
                   size="sm"
                   variant="ready"
                   type="submit"
-                  style="width:10rem"
+                  style="width: 10rem"
                   v-b-tooltip.hover
                   @click="onSubmit"
                   :disabled="!validCredentials"
@@ -209,9 +205,7 @@ export default {
       if (this.dob) {
         let diff = new Date(Date.now() - Date.parse(this.dob));
         let age = diff.getUTCFullYear() - 1970;
-        if (age < 18) {
-          return true;
-        }
+        return false;
       }
       return false;
     },
@@ -224,35 +218,34 @@ export default {
     },
     async onSubmit() {
       this.submitted = true;
-      let response = await this.$http.post("api/users/new", {
-        email: this.email,
-        password: this.password,
-        firstName: this.firstName,
-        lastName: this.lastName,
-        currency: this.preferedCurrency,
-        dob: this.dob,
-      });
 
-      if (response) {
-        response = response.data;
-        if (response.token === "null") {
-          this.failed = false;
-        } else {
-          $cookies.set("token", response.token, { path: "/", sameSite: true });
-          this.uploadAvatar();
-          this.$router.push("dashboard");
-        }
+      try {
+        let response = await this.$http.post("api/users/new", {
+          email: this.email,
+          password: this.password,
+          firstName: this.firstName,
+          lastName: this.lastName,
+          currency: this.preferedCurrency,
+          dob: this.dob,
+        });
+
+        $cookies.set("token", response.data.token, {
+          path: "/",
+          sameSite: true,
+        });
+        this.uploadAvatar();
+        this.$router.push("dashboard");
+      } catch (err) {
+        this.failed = true;
       }
 
       await this.sleep(1000);
-
-      this.failed = true;
       this.submitted = false;
     },
-    onUpload(avatarSrc){
+    onUpload(avatarSrc) {
       this.avatarSrc = avatarSrc;
     },
-    uploadAvatar(){
+    uploadAvatar() {
       if (this.avatarSrc) {
         this.$http.post("api/users/avatar", {
           avatar: this.avatarSrc.split(",")[1],

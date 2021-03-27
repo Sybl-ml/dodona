@@ -60,10 +60,7 @@ async fn users_cannot_register_twice() -> Result<()> {
         .to_request();
 
     let res = test::call_service(&mut app, req).await;
-    assert_eq!(actix_web::http::StatusCode::OK, res.status());
-
-    let body: AuthResponse = test::read_body_json(res).await;
-    assert_eq!(body.token, "null");
+    assert_eq!(actix_web::http::StatusCode::CONFLICT, res.status());
 
     Ok(())
 }
