@@ -1,6 +1,6 @@
 //! Defines the structure of predictions in the `MongoDB` instance.
 
-use mongodb::bson::{self, doc, oid::ObjectId, Binary};
+use mongodb::bson::{doc, oid::ObjectId};
 
 /// Defines the information that should be stored with a dataset in the database.
 #[derive(Debug, Serialize, Deserialize)]
@@ -11,19 +11,16 @@ pub struct Prediction {
     /// Unique identifier for the associated project
     pub project_id: ObjectId,
     /// Dataset predicted by the model
-    pub predictions: Binary,
+    pub predictions: ObjectId,
 }
 
 impl Prediction {
     /// Creates a new [`Dataset`] for a project with some data.
-    pub fn new(project_id: ObjectId, predictions: Vec<u8>) -> Self {
+    pub fn new(project_id: ObjectId, predictions: ObjectId) -> Self {
         Self {
             id: ObjectId::new(),
             project_id,
-            predictions: Binary {
-                subtype: bson::spec::BinarySubtype::Generic,
-                bytes: predictions,
-            },
+            predictions,
         }
     }
 

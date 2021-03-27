@@ -1,6 +1,6 @@
 //! Defines the structure of datasets in the `MongoDB` instance.
 
-use mongodb::bson::{self, doc, oid::ObjectId, Binary};
+use mongodb::bson::{doc, oid::ObjectId};
 
 use crate::dataset_analysis::DatasetAnalysis;
 use crate::dataset_details::DatasetDetails;

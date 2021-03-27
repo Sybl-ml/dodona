@@ -583,12 +583,52 @@ pub async fn get_predictions(
     // Get the projects and the predictions collections
     let projects = state.database.collection("projects");
     let predictions = state.database.collection("predictions");
-    let datasets = state.database.collection("datasets");
+    let files = state.database.collection("files");
 
     // Get the project identifier and check it exists
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
-    response_from_json(doc! {"predictions": "None", "predict_data": "None"})
+    let filter = doc! { "project_id": &object_id };
+
+    // Find the dataset in the database
+    let document = predictions
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
+
+    // Parse the prediction itself
+    let prediction: Prediction = from_document(document)?;
+
+    let filter = doc! { "_id": &prediction.predictions };
+
+    // Find the file in the database
+    let document = files
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
+
+    // Parse the dataset itself
+    let file: gridfs::File = from_document(document)?;
+
+    let mut cursor = file.download_chunks(&state.database).await?;
+    let byte_stream = poll_fn(
+        move |_| -> Poll<Option<Result<actix_web::web::Bytes, actix_web::error::Error>>> {
+            // While Cursor not empty
+            match futures::executor::block_on(cursor.next()) {
+                Some(next) => {
+                    let chunk: gridfs::Chunk = from_document(next.unwrap()).unwrap();
+                    let chunk_bytes = chunk.data.bytes;
+                    let decomp_train = decompress_data(&chunk_bytes).unwrap();
+                    Poll::Ready(Some(Ok(actix_web::web::Bytes::from(decomp_train))))
+                }
+                None => Poll::Ready(None),
+            }
+        },
+    );
+
+    produce_analytics_message(&object_id).await;
+
+    Ok(HttpResponseBuilder::new(StatusCode::OK).streaming(byte_stream))
 }
 
 async fn produce_message(job: &Job) -> KafkaResult<()> {
