@@ -6,11 +6,9 @@
     <b-card no-body>
       <navigatable-tab
         :tabs="[
-          { key: '1', title: '1. Details', disabled: false },
-          { key: '2', title: '2. Data', disabled: false },
-          { key: '3', title: '3. Processing', disabled: true },
-          { key: '4', title: '4. Configure', disabled: true },
-          { key: '5', title: '5. Finish', disabled: false },
+          { key: '1', title: '1. Details' },
+          { key: '2', title: '2. Data' },
+          { key: '3', title: '3. Finish' },
         ]"
       >
         <template v-slot:1>
@@ -25,27 +23,42 @@
             v-model="description"
             class="mb-3"
           />
-          <b-form-tags class="mb-3" v-model="descriptions"></b-form-tags>
+          <b-form-tags
+            class="mb-3"
+            tag-variant="success"
+            tag-pills
+            remove-on-delete
+            v-model="tags"
+          ></b-form-tags>
         </template>
 
         <template v-slot:2>
           <b-card-text>
             Please upload a dataset...
           </b-card-text>
-          <b-form-file
-            class="mb-3"
-            placeholder="Choose a file or drop it here..."
-            drop-placeholder="Drop file here..."
-            v-model="file"
-          />
-          <b-alert show variant="danger" dismissible>
+          <file-upload v-model="file" />
+          <b-alert show variant="primary" dismissible>
             <strong>TIP:</strong> You can upload a dataset later
-          </b-alert></template>
+          </b-alert></template
+        >
 
-          <template v-slot:5>
-            <b-card-text>Confirm the Details Below Before Creation</b-card-text>
+        <template v-slot:3>
+          <b-card-text>Confirm the Details Below Before Creation</b-card-text>
           <b-table striped hover :items="reviewItems"></b-table>
+          <h5>
+            Selected Tags:
+            <b-badge
+              pill
+              variant="success"
+              class="mx-1"
+              v-for="tag in tags"
+              v-bind:key="tag.id"
+              >{{ tag }}</b-badge
+            >
+          </h5>
+          <h5 v-if="file && file.file">File Uploaded: {{ file.file.name }}</h5>
           <b-button
+            :disabled="!name"
             size="sm"
             @click="onSubmit"
             variant="ready"
@@ -57,7 +70,7 @@
               v-show="!submitted && complete"
             ></b-icon-check-all>
           </b-button>
-          </template>
+        </template>
       </navigatable-tab>
     </b-card>
   </b-container>
@@ -77,6 +90,23 @@
 
 <script>
 import NavigatableTab from "./NavigatableTab.vue";
+import FileUpload from "@/components/FileUpload";
+
+const readUploadedFileAsText = (inputFile) => {
+  const temporaryFileReader = new FileReader();
+
+  return new Promise((resolve, reject) => {
+    temporaryFileReader.onerror = () => {
+      temporaryFileReader.abort();
+      reject(new DOMException("Problem parsing input file."));
+    };
+
+    temporaryFileReader.onload = () => {
+      resolve(temporaryFileReader.result);
+    };
+    temporaryFileReader.readAsText(inputFile);
+  });
+};
 
 export default {
   name: "AddProject",
@@ -86,21 +116,21 @@ export default {
       description: "",
       file: null,
       upload_in_progress: false,
-      file_reader: null,
       project_id: "",
       complete: true,
       submitted: false,
-      descriptions: [],
-      reviewItems: [
-        { age: 40, first_name: "Dickerson", last_name: "Macdonald" },
-        { age: 21, first_name: "Larsen", last_name: "Shaw" },
-        { age: 89, first_name: "Geneva", last_name: "Wilson" },
-        { age: 38, first_name: "Jami", last_name: "Carney" },
-      ],
+      tags: [],
+      train: null,
     };
   },
   components: {
     NavigatableTab,
+    FileUpload,
+  },
+  computed: {
+    reviewItems() {
+      return [{ project_name: this.name, description: this.description }];
+    },
   },
   methods: {
     sleep(ms) {
@@ -111,44 +141,63 @@ export default {
     async onSubmit() {
       this.submitted = true;
       this.upload_in_progress = true;
-      let user_id = $cookies.get("token");
       try {
-        let project_response = await this.$http.post(
-          `api/projects/new`,
-          {
-            name: this.name,
-            description: this.description,
-          }
-        );
+        let project_response = await this.$http.post(`api/projects/new`, {
+          name: this.name,
+          description: this.description,
+          tags: this.tags,
+        });
 
         this.project_id = project_response.data.project_id.$oid;
       } catch (err) {
         console.log(err);
       }
-
       if (this.file) {
-        this.readFile();
+        this.processFile()
       }
       
-      await this.sleep(1000);
-
+      await this.sleep(100);
+      
       this.$router.replace("/dashboard/" + this.project_id);
       this.$emit("insert:project", this.project_id);
     },
-    readFile() {
-      this.file_reader = new FileReader();
-      this.file_reader.onload = this.sendFile;
-      this.file_reader.readAsText(this.file);
-    },
-    async sendFile(e) {
+    async sendFile(file, name) {
       let project_response = await this.$http.put(
         `api/projects/${this.project_id}/data`,
         {
-          name: this.file.name,
-          content: e.target.result,
+          name: name,
+          content: file,
         }
       );
     },
+    async processFile() {
+      if (this.file.file) {
+        try {
+          const file = await readUploadedFileAsText(this.file.file);
+          this.sendFile(file, this.file.file.name);
+        } catch (e) {
+          console.warn(e.message);
+        }
+      }
+      else if (this.file.train){
+        try {
+          let train = await readUploadedFileAsText(this.file.train);
+          let predict = await readUploadedFileAsText(this.file.predict);
+          let trainLine = train.split('\n')[0]
+          let predictLine = predict.split('\n')[0]
+
+          if (trainLine == predictLine) {
+            let lines = predict.split('\n');
+            lines.splice(0,1);
+            let file = train + lines.join('\n');
+            
+            this.sendFile(file, this.file.train.name);
+          }
+        } catch (e) {
+          console.warn(e.message);
+        }
+      }
+    }
   },
 };
 </script>

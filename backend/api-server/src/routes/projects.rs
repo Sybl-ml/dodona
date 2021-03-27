@@ -147,7 +147,7 @@ pub async fn new(
     let name = crypto::clean(&payload.name);
     let description = crypto::clean(&payload.description);
 
-    let project = Project::new(&name, &description, claims.id.clone());
+    let project = Project::new(&name, &description, payload.tags.clone(), claims.id.clone());
 
     let document = to_document(&project)?;
     let id = projects.insert_one(document, None).await?.inserted_id;
@@ -185,7 +185,7 @@ pub async fn add_data(
         data.delete(&state.database).await?;
     }
 
-    let data = crypto::clean(&payload.content.trim());
+    let data = payload.content.trim();
     let analysis = utils::analysis::analyse(&data);
     let (train, predict) = utils::infer_train_and_predict(&data);
     let column_types = analysis.types;

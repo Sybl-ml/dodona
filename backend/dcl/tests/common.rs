@@ -76,7 +76,7 @@ pub async fn initialise_with_db() -> (Database, Params) {
         let peppered = format!("password{}", std::env::var("PEPPER").unwrap());
         let pbkdf2_iterations =
             u32::from_str(&std::env::var("PBKDF2_ITERATIONS").unwrap()).unwrap();
-        let hash = pbkdf2::pbkdf2_simple(&peppered, pbkdf2_iterations).unwrap();
+        let hash = crypto::hash_password(&peppered, pbkdf2_iterations).unwrap();
 
         let matthew = bson::doc! {
             "_id": ObjectId::with_string(USER_ID).unwrap(),

@@ -18,7 +18,7 @@ export default {
               display: true,
               scaleLabel: {
                 display: true,
-                labelString: "Attribute Values",
+                labelString: "Range Groups",
               },
             },
           ],
@@ -43,12 +43,39 @@ export default {
   },
   methods: {
     renderNewData(data) {
+      // let labels = Object.keys(data);
+      // for (let i = 0; i < labels.length - 1; i++) {
+      //   labels[i] = parseFloat(labels[i]).toPrecision(4);
+      // }
+
+      // for (const key of labels) {
+      //   console.log(parseFloat(key).toPrecision(4))
+      //   data[Math.round(parseFloat(key),5)] = data[key];
+      //   delete data[key];
+      // }
+
+      // let arrayOfObj = labels.map(function(d, _) {
+      //   return {
+      //     label: parseFloat(d),
+      //     data: data[d]
+      //   };
+      // });
+
+      // arrayOfObj = arrayOfObj.sort(function(a, b) {
+      //   return a.label < b.label;
+      // });
+
+
+      // for (let i = 0; i < labels.length - 1; i++) {
+      //   labels[i] = "-" + labels[i+1]
+      // }
+      // labels[labels.length - 1] += " - " + (2 * (parseInt(labels[labels.length - 1])) - (parseInt(labels[labels.length - 2])))
       let render_data = {
         labels: Object.keys(data),
         datasets: [
           {
             label: this.name,
-            backgroundColor: "rgb(255, 99, 132)",
+            backgroundColor: "rgb(99, 255, 222)",
             data: Object.values(data),
           },
         ],

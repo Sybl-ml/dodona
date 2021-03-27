@@ -98,6 +98,7 @@ export default {
 .table-scroll table {
   display: block;
   overflow-x: auto;
+  overflow-y: scroll;
 }
 
 </style>

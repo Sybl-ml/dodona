@@ -35,6 +35,11 @@ Boston,UK,1
     popcount.max = 3.0;
     popcount.sum = 6.0;
     popcount.avg = 2.0;
+    popcount.values.insert("1".to_string(), 1);
+    popcount.values.insert("1.5".to_string(), 0);
+    popcount.values.insert("2".to_string(), 1);
+    popcount.values.insert("2.5".to_string(), 0);
+    popcount.values.insert("3".to_string(), 1);
 
     let mut expected_data: HashMap<String, ColumnAnalysis> = HashMap::new();
     expected_data.insert("city".to_string(), ColumnAnalysis::Categorical(city));

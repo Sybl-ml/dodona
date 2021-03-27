@@ -15,6 +15,8 @@ use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
 use utils::compress::decompress_data;
 
+const BIN_COUNT: u64 = 4;
+
 /// Prepare Data for analysis
 ///
 /// Takes the project id and locates the linked dataset
@@ -93,6 +95,7 @@ pub fn analyse_project(
         .collect();
 
     let mut dataset_length = 0;
+
     for result in reader.records() {
         let row = result.expect("Failed to read row");
         dataset_length += 1;
@@ -103,7 +106,7 @@ pub fn analyse_project(
                 .expect("Failed to access header data")
             {
                 ColumnAnalysis::Categorical(content) => {
-                    *content.values.entry(elem.to_string()).or_insert(0) += 1;
+                    *content.values.entry(elem.trim().to_string()).or_default() += 1;
                 }
                 ColumnAnalysis::Numerical(content) => {
                     content.min = content
@@ -119,10 +122,40 @@ pub fn analyse_project(
     }
 
     column_data.iter().for_each(|(header, _)| {
-        if let Some(ColumnAnalysis::Numerical(content)) = tracker.get_mut(header) {
-            content.avg = content.sum / f64::from(dataset_length);
+        let analysis = tracker.get_mut(header).expect("Failed to get header");
+
+        if let ColumnAnalysis::Numerical(content) = analysis {
+            let bin_size = (content.max - content.min) / BIN_COUNT as f64;
+            content.avg = content.sum / dataset_length as f64;
+
+            for x in 1..BIN_COUNT {
+                let lower = x as f64 * bin_size + content.min;
+
+                content.values.insert(lower.to_string(), 0);
+            }
         }
     });
+
+    reader = Reader::from_reader(std::io::Cursor::new(dataset));
+
+    for result in reader.records() {
+        let row = result.expect("Failed to read row");
+
+        for (elem, header) in row.iter().zip(headers.iter()) {
+            let analysis = tracker.get_mut(header).expect("Failed to get header");
+
+            if let ColumnAnalysis::Numerical(content) = analysis {
+                let bin_size = (content.max - content.min) / BIN_COUNT as f64;
+                let attr_val = f64::from_str(elem).expect("Failed to convert to float");
+
+                let normalized_value = (attr_val - content.min) / bin_size;
+
+                let lower = normalized_value.floor() * bin_size + content.min;
+
+                *content.values.entry(lower.to_string()).or_default() += 1;
+            }
+        }
+    }
 
     log::debug!("Generated Analysis {:?}", &tracker);
 
