@@ -8,18 +8,19 @@ use mongodb::{
 };
 
 pub const COMMISSION_RATE: f64 = 0.25;
+pub const COST_PER_MODEL: u32 = 10;
 
 /// Function to pay a client for the use of their model
 /// to compute predictions. This is based on their
 /// impact in the final result.
 pub async fn reimburse(
     database: Arc<Database>,
-    user_id: ObjectId,
+    user_id: &ObjectId,
     revenue: f64,
     weight: f64,
 ) -> Result<()> {
     let users = database.collection("users");
-    let query = doc! { "_id": &user_id };
+    let query = doc! { "_id": user_id };
     let update = doc! {"$inc": {"credits": (((revenue - (revenue * COMMISSION_RATE)) * weight) * 100.0) as i32}};
     users.update_one(query, update, None).await?;
     Ok(())
@@ -28,14 +29,14 @@ pub async fn reimburse(
 // Pays a `user_id` a given `amount` of credits
 // The `amount` can be positive to represent payment
 // or negative to represent a charge
-pub async fn pay(
-    database: Arc<Database>,
-    user_id: ObjectId,
-    amount: i32,
-) -> Result<()> {
+pub async fn pay(database: Arc<Database>, user_id: &ObjectId, amount: i32) -> Result<()> {
     let users = database.collection("users");
-    let query = doc! { "_id": &user_id };
+    let query = doc! { "_id": user_id };
     let update = doc! {"$inc": {"credits": amount}};
     users.update_one(query, update, None).await?;
     Ok(())
+}
+
+pub fn job_cost(models: u32) -> i32 {
+    (models * COST_PER_MODEL) as i32
 }

@@ -248,7 +248,7 @@ async fn test_reimbuse_client() {
     let weight = 0.5;
     reimburse(
         database.clone(),
-        ObjectId::with_string(common::USER_ID).unwrap(),
+        &ObjectId::with_string(common::USER_ID).unwrap(),
         revenue,
         weight,
     )

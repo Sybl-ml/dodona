@@ -42,16 +42,19 @@ pub struct Job {
     pub processed: bool,
     /// The timestamp at which the [`Job`] was created
     pub date_created: bson::DateTime,
+    /// The total amount paid to run this job
+    pub revenue: i32,
 }
 
 impl Job {
-    /// Creates a new [`Job`] with a given [`JobConfiguration`].
-    pub fn new(config: JobConfiguration) -> Self {
+    /// Creates a new [`Job`] with a given [`JobConfiguration`] and `revenue`.
+    pub fn new(config: JobConfiguration, revenue: i32) -> Self {
         Self {
             id: ObjectId::new(),
             config,
             processed: false,
             date_created: bson::DateTime(Utc::now()),
+            revenue,
         }
     }
 }

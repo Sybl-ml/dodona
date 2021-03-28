@@ -6,6 +6,8 @@ use tokio_stream::StreamExt;
 use crate::models::ClientModel;
 use crate::projects::Project;
 
+pub const STARTING_CREDITS: i32 = 100;
+
 /// Defines the information that should be stored with a user in the database.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User {
@@ -41,7 +43,7 @@ impl User {
             last_name: last_name.into(),
             api_key: crypto::generate_user_api_key(),
             client: false,
-            credits: 10,
+            credits: STARTING_CREDITS,
             avatar: None,
         }
     }
