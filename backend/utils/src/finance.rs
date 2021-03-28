@@ -16,9 +16,10 @@ pub const COST_PER_MODEL: u32 = 10;
 pub async fn reimburse(
     database: Arc<Database>,
     user_id: &ObjectId,
-    revenue: f64,
+    revenue: i32,
     weight: f64,
 ) -> Result<()> {
+    let revenue = revenue as f64;
     let users = database.collection("users");
     let query = doc! { "_id": user_id };
     let update = doc! {"$inc": {"credits": (((revenue - (revenue * COMMISSION_RATE)) * weight) * 100.0) as i32}};

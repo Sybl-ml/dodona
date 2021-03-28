@@ -46,7 +46,7 @@ impl ServerError {
             Self::UnprocessableEntity => "UnprocessableEntity",
             Self::Conflict => "Conflict",
             Self::Unauthorized => "Unauthorized",
-            Self::PaymentRequired => "PaymentRequired"
+            Self::PaymentRequired => "PaymentRequired",
         }
     }
 }

@@ -28,6 +28,8 @@ pub struct JobConfiguration {
     pub prediction_column: String,
     /// The type of problem we are being asked to solve
     pub prediction_type: PredictionType,
+    /// The total amount paid to run this job
+    pub cost: i32,
 }
 
 /// Defines the information that should be stored with a job in the database.
@@ -42,19 +44,16 @@ pub struct Job {
     pub processed: bool,
     /// The timestamp at which the [`Job`] was created
     pub date_created: bson::DateTime,
-    /// The total amount paid to run this job
-    pub revenue: i32,
 }
 
 impl Job {
-    /// Creates a new [`Job`] with a given [`JobConfiguration`] and `revenue`.
-    pub fn new(config: JobConfiguration, revenue: i32) -> Self {
+    /// Creates a new [`Job`] with a given [`JobConfiguration`].
+    pub fn new(config: JobConfiguration) -> Self {
         Self {
             id: ObjectId::new(),
             config,
             processed: false,
             date_created: bson::DateTime(Utc::now()),
-            revenue,
         }
     }
 }

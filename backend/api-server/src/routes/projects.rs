@@ -371,20 +371,7 @@ pub async fn begin_processing(
         })
         .collect();
 
-    // Send a request to the interface layer
-    let config = JobConfiguration {
-        dataset_id: dataset.id.clone(),
-        timeout: payload.timeout as i32,
-        cluster_size: payload.cluster_size as i32,
-        column_types,
-        prediction_column: payload.prediction_column.clone(),
-        prediction_type: payload.prediction_type,
-    };
     let cost = job_cost(payload.cluster_size);
-    let job = Job::new(config, cost);
-
-    log::debug!("Created a new job: {:?}", job);
-
     let query = doc! { "_id": &claims.id };
     let document = users
         .find_one(query, None)
@@ -401,6 +388,20 @@ pub async fn begin_processing(
         );
         return Err(ServerError::PaymentRequired);
     }
+
+    // Send a request to the interface layer
+    let config = JobConfiguration {
+        dataset_id: dataset.id.clone(),
+        timeout: payload.timeout as i32,
+        cluster_size: payload.cluster_size as i32,
+        column_types,
+        prediction_column: payload.prediction_column.clone(),
+        prediction_type: payload.prediction_type,
+        cost,
+    };
+    let job = Job::new(config);
+
+    log::debug!("Created a new job: {:?}", job);
 
     pay(state.database.clone(), &claims.id, -cost).await?;
     log::debug!("Charged user {:?} {:?} credits", &claims.id, cost);

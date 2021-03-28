@@ -100,6 +100,7 @@ fn test_evaluate_model() {
             column_types: vec![],
             prediction_column: "".to_string(),
             prediction_type: PredictionType::Classification,
+            cost: 0,
         },
         validation_ans: validation_ans,
         prediction_rids: prediction_rids,
@@ -180,6 +181,7 @@ fn test_weight_predictions() {
             column_types: vec![],
             prediction_column: "".to_string(),
             prediction_type: PredictionType::Classification,
+            cost: 0,
         },
         validation_ans: validation_ans.clone(),
         prediction_rids: prediction_rids.clone(),
@@ -215,6 +217,7 @@ fn test_weight_predictions() {
             column_types: vec![],
             prediction_column: "".to_string(),
             prediction_type: PredictionType::Regression,
+            cost: 0,
         },
         validation_ans: validation_ans,
         prediction_rids: prediction_rids,
@@ -244,7 +247,7 @@ fn test_weight_predictions() {
 async fn test_reimbuse_client() {
     let (database, _) = common::initialise_with_db().await;
     let database = Arc::new(database);
-    let revenue = 10.0;
+    let revenue = 10;
     let weight = 0.5;
     reimburse(
         database.clone(),
@@ -262,6 +265,7 @@ async fn test_reimbuse_client() {
 
     let user: User = mongodb::bson::de::from_document(user_doc).unwrap();
 
+    let revenue = revenue as f64;
     let amount: i32 = (((revenue - (revenue * COMMISSION_RATE)) * weight) * 100.0) as i32;
 
     assert_eq!(user.credits, amount);
