@@ -144,7 +144,7 @@ fn create_pred_with_id(id: &str, pid: &str) -> bson::Document {
     let pid = ObjectId::with_string(pid).unwrap();
     let id = ObjectId::with_string(id).unwrap();
 
-    let mut prediction = Prediction::new(pid, "pred".as_bytes().to_vec());
+    let mut prediction = Prediction::new(pid, ObjectId::new());
 
     prediction.id = id;
 
