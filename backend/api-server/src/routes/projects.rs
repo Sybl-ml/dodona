@@ -380,8 +380,8 @@ pub async fn begin_processing(
     let user: User = from_document(document)?;
 
     if user.credits < cost {
-        log::debug!(
-            "User {:?} has insufficient credits ({:?}) to run this job (requires {:?} credits)",
+        log::warn!(
+            "User {} has insufficient credits ({}) to run this job (requires {} credits)",
             &claims.id,
             &user.credits,
             &cost
@@ -404,7 +404,7 @@ pub async fn begin_processing(
     log::debug!("Created a new job: {:?}", job);
 
     pay(state.database.clone(), &claims.id, -cost).await?;
-    log::debug!("Charged user {:?} {:?} credits", &claims.id, cost);
+    log::debug!("Charged user {} {} credits", &claims.id, cost);
 
     // Insert to MongoDB first, so the interface can immediately mark as processed if needed
     insert_to_queue(&job, state.database.collection("jobs")).await?;
