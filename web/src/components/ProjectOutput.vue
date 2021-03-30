@@ -14,33 +14,21 @@
         ></b-icon>
       </b-col>
       <b-col v-else class="input-table">
-        <b-tabs pills>
-          <b-tab title="Select Model:" disabled></b-tab>
-          <b-tab
-            v-for="(data, index) in results"
-            :key="index"
-            variant="warning"
-            :title="'Model ' + (index + 1)"
-            active
-            lazy
-          >
-            <br />
-            <b-button
-              @click="downloadCSVData(data)"
-              variant="ready"
-              class="px-5"
-            >
-              Download Predictions
-            </b-button>
-            <br />
-            <br />
-            {{ parsePredictions(data) }}
-            <pagination-table
-              :fields="fields"
-              :data="pred_data"
-            />
-          </b-tab>
-        </b-tabs>
+        <br />
+        <b-button
+          @click="downloadCSVData()"
+          variant="ready"
+          class="px-5"
+        >
+          Download Predictions
+        </b-button>
+        <br />
+        <br />
+        {{ parsePredictions() }}
+        <pagination-table
+          :fields="fields"
+          :data="pred_data"
+        />
       </b-col>
     </b-row>
   </b-container>
@@ -67,26 +55,27 @@ export default {
     return {
       fields: null,
       pred_data: null,
+      full_preds: "",
     };
   },
   props: {
     projectId: String,
-    results: Array,
+    results: String,
     predict_data: String,
     datasetName: String,
     loading: Boolean,
   },
   methods: {
-    parsePredictions(data) {
-      console.log(data);
-      var parsed = Papa.parse(this.getFullPredictions(data), { header: true });
+    parsePredictions() {
+      this.full_preds = this.getFullPredictions(this.results)
+      var parsed = Papa.parse(this.full_preds, { header: true });
       let new_fields = this.buildFields(parsed.meta.fields);
       this.fields = new_fields;
       this.pred_data = parsed.data;
     },
     getFullPredictions(data) {
       var new_data = [];
-      var split_predict = this.predict_data.split("\n");
+      var split_predict = this.predict_data.trim().split("\n");
       var split_predicted = data.split("\n");
 
       new_data.push(split_predict[0]);
@@ -94,15 +83,16 @@ export default {
         var residual = split_predict[i].concat(split_predicted[i - 1]);
         new_data.push(residual);
       }
-      return new_data.join("\n");
-    },
-    downloadCSVData(data) {
-      let csv = this.getFullPredictions(data);
 
+      let ret_data = new_data.join("\n").trim();
+
+      return ret_data;
+    },
+    downloadCSVData() {
       const anchor = document.createElement("a");
-      anchor.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+      anchor.href = "data:text/csv;charset=utf-8," + encodeURIComponent(this.full_preds);
       anchor.target = "_blank";
-      anchor.download = "predictions_" + this.datasetName;
+      anchor.download = "predictions.csv";
       anchor.click();
     },
     buildFields(fields) {
