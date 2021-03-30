@@ -24,7 +24,7 @@ use models::gridfs;
 use models::jobs::{Job, JobConfiguration};
 use models::predictions::Prediction;
 use models::projects::{Project, Status};
-use utils::compress::{compress_bytes, decompress_data};
+use utils::compress::{compress_data, decompress_data};
 use utils::ColumnType;
 
 use crate::{
@@ -175,8 +175,6 @@ pub async fn add_data(
     let dataset_details = state.database.collection("dataset_details");
     let projects = state.database.collection("projects");
 
-    // let data = clean(doc.get_str("content")?);
-    let data = "";
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     // Read the dataset from the upload
@@ -201,8 +199,8 @@ pub async fn add_data(
     let mut initial: bool = true;
 
     let mut col_num = 1;
-    let mut dataset_buffer: Vec<u8> = Vec::new();
-    let mut predict_buffer: Vec<u8> = Vec::new();
+    let mut dataset_buffer: Vec<String> = Vec::new();
+    let mut predict_buffer: Vec<String> = Vec::new();
     let mut general_buffer: Vec<u8> = Vec::new();
 
     // Stream the data into it
@@ -212,9 +210,8 @@ pub async fn add_data(
             let data_head = data_head.split("\n").take(6).collect::<Vec<_>>().join("\n");
             log::info!("First 5 lines: {:?}", &data_head);
             let header = data_head.split("\n").take(1).collect::<Vec<_>>()[0];
-            let header = format!("{}\n", &header);
-            dataset_buffer.extend_from_slice(&header.as_bytes());
-            predict_buffer.extend_from_slice(&header.as_bytes());
+            dataset_buffer.push(String::from(header));
+            predict_buffer.push(String::from(header));
 
             initial = false;
 
@@ -250,11 +247,9 @@ pub async fn add_data(
             let cols = row.split(",").collect::<Vec<_>>();
             if cols.len() == col_num {
                 if row.split(',').last().unwrap().is_empty() {
-                    let complete_row = format!("{}\n", row);
-                    predict_buffer.extend_from_slice(complete_row.as_bytes());
+                    predict_buffer.push(String::from(row));
                 } else {
-                    let complete_row = format!("{}\n", row);
-                    dataset_buffer.extend_from_slice(complete_row.as_bytes());
+                    dataset_buffer.push(String::from(row));
                 }
             } else {
                 // If any incomplete row, set as general buffer
@@ -263,14 +258,15 @@ pub async fn add_data(
 
             // Check the size of the buffers
             // If a buffer is too big, flush it into mongo as a chunk
-            if predict_buffer.len() >= 100_000 {
+            if predict_buffer.len() == 100 {
                 log::debug!(
                     "Uploading a predict chunk of size: {}",
                     predict_buffer.len()
                 );
                 // Flush buffer into mongodb
                 // Compress data before upload
-                let compressed_predict = compress_bytes(&predict_buffer)?;
+                let predict_chunk = &predict_buffer.join("\n");
+                let compressed_predict = compress_data(predict_chunk)?;
                 let bytes_predict = actix_web::web::Bytes::from(compressed_predict);
                 predict
                     .upload_chunk(&state.database, &bytes_predict)
@@ -278,14 +274,15 @@ pub async fn add_data(
                 predict_buffer.clear();
                 log::info!("Flushed Predict Buffer");
             }
-            if dataset_buffer.len() >= 100_000 {
+            if dataset_buffer.len() == 100 {
                 // Flush buffer into mongodb
                 log::debug!(
                     "Uploading a dataset chunk of size: {}",
                     dataset_buffer.len()
                 );
                 // Compress data before upload
-                let compressed = compress_bytes(&dataset_buffer)?;
+                let dataset_chunk = &dataset_buffer.join("\n");
+                let compressed = compress_data(dataset_chunk)?;
                 let bytes_data = actix_web::web::Bytes::from(compressed);
                 dataset.upload_chunk(&state.database, &bytes_data).await?;
                 dataset_buffer.clear();
@@ -295,11 +292,13 @@ pub async fn add_data(
     }
 
     // If anything let in buffers, upload as final chunks
-    let compressed = compress_bytes(&dataset_buffer)?;
+    let dataset_chunk = &dataset_buffer.join("\n");
+    let compressed = compress_data(dataset_chunk)?;
     let bytes_data = actix_web::web::Bytes::from(compressed);
     dataset.upload_chunk(&state.database, &bytes_data).await?;
 
-    let compressed_predict = compress_bytes(&predict_buffer)?;
+    let predict_chunk = &predict_buffer.join("\n");
+    let compressed_predict = compress_data(predict_chunk)?;
     let bytes_predict = actix_web::web::Bytes::from(compressed_predict);
     predict
         .upload_chunk(&state.database, &bytes_predict)
