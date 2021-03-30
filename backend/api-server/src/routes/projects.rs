@@ -36,6 +36,7 @@ use crate::{
 
 static JOB_TOPIC: &str = "jobs";
 static ANALYTICS_TOPIC: &str = "analytics";
+static CHUNK_SIZE: usize = 1000;
 
 /// Finds a project in the database given an identifier.
 ///
@@ -248,7 +249,7 @@ pub async fn upload_train_and_predict(
                     buffer.push(String::from(row));
                 }
 
-                if buffer.len() == 100 {
+                if buffer.len() == CHUNK_SIZE {
                     log::debug!("Uploading a {} chunk of size: {}", &name, buffer.len());
                     // Flush buffer into mongodb
                     // Compress data before upload
@@ -360,7 +361,7 @@ pub async fn upload_and_split(
             let data_head = std::str::from_utf8(&chunk).unwrap();
             let data_head = data_head.split("\n").take(6).collect::<Vec<_>>().join("\n");
             log::info!("First 5 lines: {:?}", &data_head);
-            let header = data_head.split("\n").take(1).collect::<Vec<_>>()[0];
+            let header = data_head.split("\n").next().unwrap();
             predict_buffer.push(String::from(header));
 
             initial = false;
@@ -405,7 +406,7 @@ pub async fn upload_and_split(
 
             // Check the size of the buffers
             // If a buffer is too big, flush it into mongo as a chunk
-            if predict_buffer.len() == 100 {
+            if predict_buffer.len() == CHUNK_SIZE {
                 log::debug!(
                     "Uploading a predict chunk of size: {}",
                     predict_buffer.len()
@@ -421,7 +422,7 @@ pub async fn upload_and_split(
                 predict_buffer.clear();
                 log::info!("Flushed Predict Buffer");
             }
-            if dataset_buffer.len() == 100 {
+            if dataset_buffer.len() == CHUNK_SIZE {
                 // Flush buffer into mongodb
                 log::debug!(
                     "Uploading a dataset chunk of size: {}",
@@ -518,9 +519,7 @@ pub async fn get_dataset(
     let projects = state.database.collection("projects");
     let files = state.database.collection("files");
 
-    let object_id = check_user_owns_project(&claims.id, &project_id, &projects)
-        .await
-        .unwrap();
+    let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
     let filter = doc! { "project_id": &object_id };
 
     // Find the dataset in the database

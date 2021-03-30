@@ -17,7 +17,6 @@ use tokio_stream::StreamExt;
 use models::datasets::Dataset;
 use models::gridfs;
 use models::jobs::JobConfiguration;
-use utils::compress::decompress_data;
 
 use crate::{DatasetPair, JobControl};
 
@@ -126,8 +125,8 @@ async fn process_job(
     let comp_predict: Vec<u8> = predict_file.download_dataset(&db_conn).await?;
 
     // Convert it to a string
-    let train = std::str::from_utf8(&comp_train)?.to_string();
-    let predict = std::str::from_utf8(&comp_predict)?.to_string();
+    let train = String::from_utf8(comp_train)?;
+    let predict = String::from_utf8(comp_predict)?;
 
     log::debug!("Decompressed {} bytes of training data", train.len());
     log::debug!("Decompressed {} bytes of prediction data", predict.len());

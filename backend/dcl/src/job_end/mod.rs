@@ -556,7 +556,6 @@ pub async fn write_predictions(
     dataset: Vec<String>,
 ) -> Result<()> {
     let predictions = database.collection("predictions");
-    let files = database.collection("files");
 
     let mut pred_dataset = gridfs::File::new(String::from("predictions"));
 

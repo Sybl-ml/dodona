@@ -107,9 +107,6 @@ fn create_project_with_id(
 }
 
 fn create_data_with_id(id: &str, det_id: &str, pid: &str) -> (bson::Document, bson::Document) {
-    let data = "data".as_bytes();
-    let pred = "pred".as_bytes();
-
     let mut details = DatasetDetails::new(
         "name".to_string(),
         ObjectId::with_string(pid).unwrap(),

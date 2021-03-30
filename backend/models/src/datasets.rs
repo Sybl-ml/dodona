@@ -34,7 +34,6 @@ impl Dataset {
         let datasets = database.collection("datasets");
         let dataset_details = database.collection("dataset_details");
         let dataset_analysis = database.collection("dataset_analysis");
-        let files = database.collection("files");
 
         let filter = doc! { "_id": &self.id };
         // Remove project from database
