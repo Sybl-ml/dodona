@@ -105,8 +105,12 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
             )
             .route("/api/projects/new", web::post().to(routes::projects::new))
             .route(
-                "/api/projects/{project_id}/data",
-                web::put().to(routes::projects::add_data),
+                "/api/projects/{project_id}/upload_and_split",
+                web::put().to(routes::projects::upload_and_split),
+            )
+            .route(
+                "/api/projects/{project_id}/upload_train_and_predict",
+                web::put().to(routes::projects::upload_train_and_predict),
             )
             .route(
                 "/api/projects/{project_id}/overview",

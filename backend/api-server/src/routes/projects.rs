@@ -162,10 +162,10 @@ pub async fn new(
 /// Adds data to a given project.
 ///
 /// This will first check whether the project already has data associated with it, deleting it if
-/// this is the case. It will then clean the incoming data and analyse it, splitting it into
-/// training and prediction. After this, the data will be compressed and inserted into the
+/// this is the case. It will then clean the incoming data and analyse it, hoever the data is already
+/// split into train and predict. After this, the data will be compressed and inserted into the
 /// database, with the status being updated to [`Status::Ready`].
-pub async fn add_data(
+pub async fn upload_train_and_predict(
     claims: auth::Claims,
     state: web::Data<State>,
     project_id: web::Path<String>,
@@ -175,8 +175,157 @@ pub async fn add_data(
     let dataset_details = state.database.collection("dataset_details");
     let projects = state.database.collection("projects");
 
-    // let data = clean(doc.get_str("content")?);
-    let data = "";
+    let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
+
+    // Create dataset object
+    let mut dataset_doc = Dataset::new(object_id.clone(), None, None);
+
+    let mut initial: bool = true;
+
+    let mut col_num = 1;
+    let mut buffer: Vec<String> = Vec::new();
+    let mut general_buffer: Vec<u8> = Vec::new();
+
+    // Read the train from the upload
+    while let Some(Ok(mut field)) = dataset.next().await {
+        let content_disposition = field
+            .content_disposition()
+            .ok_or(ServerError::UnprocessableEntity)?;
+
+        log::info!("Getting filename");
+        let filename = content_disposition
+            .get_filename()
+            .ok_or(ServerError::UnprocessableEntity)?;
+
+        log::info!("Filename: {}", filename);
+
+        let name = content_disposition
+            .get_name()
+            .ok_or(ServerError::UnprocessableEntity)?;
+
+        let mut dataset = gridfs::File::new(String::from(filename));
+
+        while let Some(Ok(chunk)) = field.next().await {
+            if name == "train" {
+                log::info!("Training data");
+                if initial {
+                    let data_head = std::str::from_utf8(&chunk).unwrap();
+                    let data_head = data_head.split("\n").take(6).collect::<Vec<_>>().join("\n");
+                    log::info!("First 5 lines: {:?}", &data_head);
+
+                    initial = false;
+
+                    let analysis = utils::analysis::analyse(&data_head);
+
+                    let column_types = analysis.types;
+                    col_num = column_types.len();
+
+                    let details = DatasetDetails::new(
+                        String::from(filename),
+                        object_id.clone(),
+                        data_head,
+                        column_types,
+                    );
+
+                    let document = to_document(&details)?;
+                    dataset_details.insert_one(document, None).await?;
+                }
+            }
+            // Fill file
+            general_buffer.extend_from_slice(&chunk);
+
+            let gen_buf_chunk = general_buffer.clone();
+
+            let data_string = std::str::from_utf8(&gen_buf_chunk).unwrap().split("\n");
+            // Split data into rows
+            for row in data_string {
+                let cols = row.split(",").collect::<Vec<_>>();
+                // Check for half row to put in general buffer
+                if cols.len() != col_num {
+                    // If any incomplete row, set as general buffer
+                    general_buffer = row.as_bytes().iter().cloned().collect();
+                } else {
+                    buffer.push(String::from(row));
+                }
+
+                if buffer.len() == 100 {
+                    log::debug!("Uploading a {} chunk of size: {}", &name, buffer.len());
+                    // Flush buffer into mongodb
+                    // Compress data before upload
+                    let chunk = &buffer.join("\n");
+                    let compressed = compress_data(chunk)?;
+                    let bytes = actix_web::web::Bytes::from(compressed);
+                    dataset.upload_chunk(&state.database, &bytes).await?;
+                    buffer.clear();
+                    log::info!("Flushed {} Buffer", &name);
+                }
+            }
+        }
+
+        // Add file to db and set OIDs in Dataset
+        if name == "train" {
+            let train_chunk = &buffer.join("\n");
+            let compressed = compress_data(train_chunk)?;
+            let bytes = actix_web::web::Bytes::from(compressed);
+            dataset.upload_chunk(&state.database, &bytes).await?;
+
+            dataset.finalise(&state.database).await?;
+            dataset_doc.dataset = Some(dataset.id);
+            log::info!("Finshed Train Set");
+        } else {
+            let chunk = &buffer.join("\n");
+            let compressed = compress_data(chunk)?;
+            let bytes = actix_web::web::Bytes::from(compressed);
+            dataset.upload_chunk(&state.database, &bytes).await?;
+
+            dataset.finalise(&state.database).await?;
+            dataset_doc.predict = Some(dataset.id);
+            log::info!("Finshed Predict Set");
+        }
+    }
+
+    let existing_data = datasets
+        .find_one(doc! { "project_id": &object_id }, None)
+        .await?;
+
+    // If the project has data, delete the existing information
+    if let Some(existing_data) = existing_data {
+        let data: Dataset = from_document(existing_data)?;
+        log::debug!("Deleting existing project data with id={}", data.id);
+        data.delete(&state.database).await?;
+    }
+
+    // Update the project status
+    projects
+        .update_one(
+            doc! { "_id": &object_id},
+            doc! {"$set": {"status": Status::Ready}},
+            None,
+        )
+        .await?;
+
+    let document = to_document(&dataset_doc)?;
+    let id = datasets.insert_one(document, None).await?.inserted_id;
+
+    response_from_json(doc! {"dataset_id": id})
+}
+
+/// Adds data to a given project.
+///
+/// This will first check whether the project already has data associated with it, deleting it if
+/// this is the case. It will then clean the incoming data and analyse it, splitting it into
+/// training and prediction. After this, the data will be compressed and inserted into the
+/// database, with the status being updated to [`Status::Ready`].
+pub async fn upload_and_split(
+    claims: auth::Claims,
+    state: web::Data<State>,
+    project_id: web::Path<String>,
+    mut dataset: Multipart,
+) -> ServerResponse {
+    let datasets = state.database.collection("datasets");
+    let dataset_details = state.database.collection("dataset_details");
+    let projects = state.database.collection("projects");
+
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     // Read the dataset from the upload
@@ -212,7 +361,6 @@ pub async fn add_data(
             let data_head = data_head.split("\n").take(6).collect::<Vec<_>>().join("\n");
             log::info!("First 5 lines: {:?}", &data_head);
             let header = data_head.split("\n").take(1).collect::<Vec<_>>()[0];
-            dataset_buffer.push(String::from(header));
             predict_buffer.push(String::from(header));
 
             initial = false;
@@ -238,10 +386,7 @@ pub async fn add_data(
 
         let gen_buf_chunk = general_buffer.clone();
 
-        let data_string = std::str::from_utf8(&gen_buf_chunk)
-            .unwrap()
-            .split("\n")
-            .skip(1);
+        let data_string = std::str::from_utf8(&gen_buf_chunk).unwrap().split("\n");
         // Split data into rows
         for row in data_string {
             // Determine if it is a dataset row or predict row

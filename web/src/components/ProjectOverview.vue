@@ -116,7 +116,7 @@
         </div>
         <h5>To continue you must provide a dataset</h5>
         <file-upload v-model="file" />
-        <b-button block size="sm" variant="secondary" @click="addData"
+        <b-button block size="sm" variant="secondary" @click="processFile"
           >Upload</b-button
         >
       </b-col>
@@ -343,11 +343,6 @@ export default {
 
       window.location.reload();
     },
-    async addData() {
-      if (this.file) {
-        this.sendFile(this.file);
-      }
-    },
     async sendFile(file) {
 
       let formData = new FormData();
@@ -357,7 +352,7 @@ export default {
       let config = { headers: { 'Content-Type': 'multipart/form-data' } };
 
       let project_response = await this.$http.put(
-        `api/projects/${this.projectId}/data`, formData, config
+        `api/projects/${this.projectId}/upload_and_split`, formData, config
       );
 
       console.log(project_response)
@@ -365,28 +360,40 @@ export default {
       // On Success should update dashboard using emitters
       window.location.reload();
     },
+
+    async sendMultiFile(train, predict) {
+
+      let formData = new FormData();
+
+      formData.append("train", train);
+      formData.append("predict", predict);
+
+      let config = { headers: { 'Content-Type': 'multipart/form-data' } };
+
+      let project_response = await this.$http.put(
+        `api/projects/${this.projectId}/upload_train_and_predict`, formData, config
+      );
+
+      console.log(project_response)
+      
+      // On Success should update dashboard using emitters
+      window.location.reload();
+    },
+    
     async processFile() {
+      console.log("Processing uploaded data");
       if (this.file.file) {
         try {
-          const file = await readUploadedFileAsText(this.file.file);
-          this.sendFile(file, this.file.file.name);
+          console.log("Processing single file");
+          this.sendFile(this.file.file);
         } catch (e) {
           console.warn(e.message);
         }
       } else if (this.file.train) {
+        // Use train endpoint and predict endpoint
+        console.log("Processing 2 files");
         try {
-          let train = await readUploadedFileAsText(this.file.train);
-          let predict = await readUploadedFileAsText(this.file.predict);
-          let trainLine = train.split("\n")[0];
-          let predictLine = predict.split("\n")[0];
-
-          if (trainLine == predictLine) {
-            let lines = predict.split("\n");
-            lines.splice(0, 1);
-            let file = train + lines.join("\n");
-
-            this.sendFile(file, this.file.train.name);
-          }
+          this.sendMultiFile(this.file.train, this.file.predict);
         } catch (e) {
           console.warn(e.message);
         }

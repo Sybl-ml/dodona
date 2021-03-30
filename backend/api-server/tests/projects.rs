@@ -176,7 +176,7 @@ async fn projects_can_be_created() -> Result<()> {
 
 #[actix_rt::test]
 async fn datasets_can_be_added_to_projects() -> Result<()> {
-    let mut app = api_with! { put: "/api/projects/{project_id}/data" => projects::add_data };
+    let mut app = api_with! { put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split };
 
     let url = format!("/api/projects/{}/data", common::MAIN_PROJECT_ID);
 
@@ -198,7 +198,7 @@ async fn datasets_can_be_added_to_projects() -> Result<()> {
 #[actix_rt::test]
 async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
     let mut app = api_with! {
-        put: "/api/projects/{project_id}/data" => projects::add_data,
+        put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split,
         get: "/api/projects/{project_id}/data" => projects::get_dataset,
     };
 
@@ -262,7 +262,7 @@ async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
 
 #[actix_rt::test]
 async fn datasets_cannot_be_added_if_projects_do_not_exist() -> Result<()> {
-    let mut app = api_with! { put: "/api/projects/{project_id}/data" => projects::add_data };
+    let mut app = api_with! { put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split };
 
     let url = format!("/api/projects/{}/data", common::NON_EXISTENT_PROJECT_ID);
 
@@ -287,7 +287,7 @@ async fn datasets_cannot_be_added_if_projects_do_not_exist() -> Result<()> {
 async fn dataset_can_be_taken_from_database() -> Result<()> {
     let mut app = api_with! {
         get: "/api/projects/{project_id}/data" => projects::get_dataset,
-        put: "/api/projects/{project_id}/data" => projects::add_data,
+        put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split,
     };
 
     let url = format!("/api/projects/{}/data", common::MAIN_PROJECT_ID);
@@ -319,7 +319,7 @@ async fn dataset_can_be_taken_from_database() -> Result<()> {
 #[actix_rt::test]
 async fn overview_of_dataset_can_be_returned() -> Result<()> {
     let mut app = api_with! {
-        put: "/api/projects/{project_id}/data" => projects::add_data,
+        put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split,
         post: "/api/projects/{project_id}/overview" => projects::overview,
     };
 
@@ -425,7 +425,7 @@ async fn projects_can_be_edited() -> Result<()> {
 #[actix_rt::test]
 async fn job_configs_can_have_integer_timeouts_in_json() -> Result<()> {
     let mut app = api_with! {
-        put: "/api/projects/{project_id}/data" => projects::add_data,
+        put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split,
         post: "/api/projects/{project_id}/process" => projects::begin_processing,
     };
 

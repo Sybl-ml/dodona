@@ -157,21 +157,21 @@ export default {
     async fetchData() {
       this.loading = true;
 
-      let project_response = await this.$http.get(
+      let train_response = await this.$http.get(
         `api/projects/${this.projectId}/data`
       );
 
-      let stream = project_response.data;
+      let train = train_response.data;
 
-      this.training_data = Papa.parse(stream, { header: true });
+      this.training_data = Papa.parse(train, { header: true });
 
-      let project_response = await this.$http.get(
+      let predict_response = await this.$http.get(
         `api/projects/${this.projectId}/predict`
       );
 
-      let stream = project_response.data;
+      let predict = predict_response.data;
 
-      this.prediction_data = Papa.parse(stream, { header: true });
+      this.prediction_data = Papa.parse(predict, { header: true });
 
       this.loading = false;
     },
