@@ -39,7 +39,7 @@
             :dataHead="dataHead"
             @get-data="fetchData"
             :training_data="training_data"
-            :predict_data="prediction_data"
+            :predict_data="predict_data"
             :datasetName="datasetName"
             :loading="loading"
           />
@@ -97,7 +97,7 @@ export default {
       dataTypes: {},
 
       training_data: null,
-      prediction_data: null,
+      predict_data: null,
       loading: false,
 
       analysis: {},
@@ -171,7 +171,7 @@ export default {
 
       let predict = predict_response.data;
 
-      this.prediction_data = Papa.parse(predict, { header: true });
+      this.predict_data = Papa.parse(predict, { header: true });
 
       this.loading = false;
     },
