@@ -161,10 +161,17 @@ export default {
         `api/projects/${this.projectId}/data`
       );
 
-
       let stream = project_response.data;
 
       this.training_data = Papa.parse(stream, { header: true });
+
+      let project_response = await this.$http.get(
+        `api/projects/${this.projectId}/predict`
+      );
+
+      let stream = project_response.data;
+
+      this.prediction_data = Papa.parse(stream, { header: true });
 
       this.loading = false;
     },
