@@ -272,7 +272,7 @@ pub fn column_values(name: String, records: &[StringRecord], col: usize) -> Colu
 /// more easily later on. It does not allocate new strings either, meaning it should function well
 /// even with large datasets.
 pub fn infer_train_and_predict(data: &str) -> (Vec<&str>, Vec<&str>) {
-    let mut lines = data.split('\n');
+    let mut lines = data.lines();
     let header = lines.next().unwrap();
 
     // Include the header in both

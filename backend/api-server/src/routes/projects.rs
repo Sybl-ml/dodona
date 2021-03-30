@@ -151,7 +151,7 @@ pub async fn new(
     let name = crypto::clean(&payload.name);
     let description = crypto::clean(&payload.description);
 
-    let project = Project::new(&name, &description, claims.id.clone());
+    let project = Project::new(&name, &description, payload.tags.clone(), claims.id.clone());
 
     let document = to_document(&project)?;
     let id = projects.insert_one(document, None).await?.inserted_id;
@@ -175,6 +175,8 @@ pub async fn add_data(
     let dataset_details = state.database.collection("dataset_details");
     let projects = state.database.collection("projects");
 
+    // let data = clean(doc.get_str("content")?);
+    let data = "";
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     // Read the dataset from the upload

@@ -154,7 +154,7 @@ async fn projects_cannot_be_found_with_invalid_identifiers() -> Result<()> {
 async fn projects_can_be_created() -> Result<()> {
     let mut app = api_with! { post: "/api/projects/new" => projects::new };
 
-    let doc = doc! {"name": "test", "description": "test"};
+    let doc = doc! {"name": "test", "description": "test", "tags": ["test"]};
     let url = "/api/projects/new";
 
     let req = test::TestRequest::default()
