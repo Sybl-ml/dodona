@@ -15,6 +15,7 @@ anyhow = "1.0.39"
 chrono = "0.4.19"
 thiserror = "1.0.24"
 rand = "0.8.3"
+mongodb = "2.0.0-alpha"
 
 [dependencies.fern]
 version = "0.6.0"

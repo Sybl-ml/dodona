@@ -28,6 +28,8 @@ pub struct JobConfiguration {
     pub prediction_column: String,
     /// The type of problem we are being asked to solve
     pub prediction_type: PredictionType,
+    /// The total amount paid to run this job
+    pub cost: i32,
 }
 
 /// Defines the information that should be stored with a job in the database.

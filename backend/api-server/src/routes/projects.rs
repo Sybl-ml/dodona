@@ -20,7 +20,9 @@ use models::datasets::Dataset;
 use models::jobs::{Job, JobConfiguration};
 use models::predictions::Prediction;
 use models::projects::{Project, Status};
+use models::users::User;
 use utils::compress::{compress_vec, decompress_data};
+use utils::finance::{job_cost, pay};
 use utils::ColumnType;
 
 use crate::{
@@ -336,6 +338,7 @@ pub async fn begin_processing(
 ) -> ServerResponse {
     let projects = state.database.collection("projects");
     let datasets = state.database.collection("datasets");
+    let users = state.database.collection("users");
     let dataset_details = state.database.collection("dataset_details");
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
@@ -368,6 +371,24 @@ pub async fn begin_processing(
         })
         .collect();
 
+    let cost = job_cost(payload.cluster_size);
+    let query = doc! { "_id": &claims.id };
+    let document = users
+        .find_one(query, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
+    let user: User = from_document(document)?;
+
+    if user.credits < cost {
+        log::warn!(
+            "User {} has insufficient credits ({}) to run this job (requires {} credits)",
+            &claims.id,
+            &user.credits,
+            &cost
+        );
+        return Err(ServerError::PaymentRequired);
+    }
+
     // Send a request to the interface layer
     let config = JobConfiguration {
         dataset_id: dataset.id.clone(),
@@ -376,10 +397,14 @@ pub async fn begin_processing(
         column_types,
         prediction_column: payload.prediction_column.clone(),
         prediction_type: payload.prediction_type,
+        cost,
     };
     let job = Job::new(config);
 
     log::debug!("Created a new job: {:?}", job);
+
+    pay(state.database.clone(), &claims.id, -cost).await?;
+    log::debug!("Charged user {} {} credits", &claims.id, cost);
 
     // Insert to MongoDB first, so the interface can immediately mark as processed if needed
     insert_to_queue(&job, state.database.collection("jobs")).await?;
