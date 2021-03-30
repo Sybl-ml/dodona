@@ -521,6 +521,7 @@ pub async fn begin_processing(
     let projects = state.database.collection("projects");
     let datasets = state.database.collection("datasets");
     let dataset_details = state.database.collection("dataset_details");
+    let predictions = state.database.collection("predictions");
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
@@ -570,6 +571,16 @@ pub async fn begin_processing(
 
     if produce_message(&job).await.is_err() {
         log::warn!("Failed to forward job_id={} to Kafka", job.id);
+    }
+
+    // Delete previous predictions for project
+    let filter = doc! {"project_id": &object_id};
+
+    let prediction_removed = predictions.find_one(filter, None).await?;
+
+    if let Some(prediction_removed) = prediction_removed {
+        let prediction: Prediction = from_document(prediction_removed)?;
+        prediction.delete(&state.database).await?;
     }
 
     // Mark the project as processing

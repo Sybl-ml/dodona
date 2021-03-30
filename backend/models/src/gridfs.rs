@@ -110,6 +110,19 @@ impl File {
 
         Ok(data)
     }
+
+    pub async fn delete(&self, database: &mongodb::Database) -> mongodb::error::Result<()> {
+        let files = database.collection("files");
+        let chunks = database.collection("chunks");
+
+        let filter = doc! {"files_id": &self.id};
+        chunks.delete_many(filter, None).await?;
+
+        let filter = doc! {"_id": &self.id};
+        files.delete_one(filter, None).await?;
+
+        Ok(())
+    }
 }
 
 /// Represents a chunk of a file in the database.
