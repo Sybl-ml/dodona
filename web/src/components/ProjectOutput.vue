@@ -78,9 +78,9 @@ export default {
   },
   methods: {
     parsePredictions(data) {
+      console.log(data);
       var parsed = Papa.parse(this.getFullPredictions(data), { header: true });
       let new_fields = this.buildFields(parsed.meta.fields);
-      console.log(new_fields);
       this.fields = new_fields;
       this.pred_data = parsed.data;
     },

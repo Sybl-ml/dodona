@@ -326,6 +326,15 @@ pub async fn add_data(
     let document = to_document(&dataset_doc)?;
     let id = datasets.insert_one(document, None).await?.inserted_id;
 
+    // Update the project status
+    projects
+        .update_one(
+            doc! { "_id": &object_id},
+            doc! {"$set": {"status": Status::Ready}},
+            None,
+        )
+        .await?;
+
     response_from_json(doc! {"dataset_id": id})
 }
 

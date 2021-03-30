@@ -153,11 +153,21 @@ export default {
     async fetchResults() {
       this.results_loading = true;
 
+      let project_predict = await this.$http.get(
+        `api/projects/${this.projectId}/predict`
+      );
+
+
       let project_predictions = await this.$http.get(
         `api/projects/${this.projectId}/predictions`
       );
-      this.results = project_predictions.data["predictions"];
-      this.predict_data = project_predictions.data["predict_data"];
+
+      this.results = project_predictions.data;
+      console.log("This is the predictions data:");
+      console.log(this.results);
+      console.log("This is the predict data:");
+      this.predict_data = project_predict.data;
+      console.log(this.predict_data);
       this.results_loading = false;
     },
     resetProject() {
