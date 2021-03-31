@@ -184,7 +184,7 @@ async fn users_can_retrieve_an_avatar_image() -> Result<()> {
 async fn filter_finds_given_user_and_no_others() -> Result<()> {
     let mut app = api_with! { post: "/api/users/filter" => users::filter };
 
-    let doc = doc! {"filter": { "email": "matthewsmith@email.com" } };
+    let doc = doc! {"filter": { "email": "lone@email.com" } };
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
         .uri("/api/users/filter")
@@ -194,14 +194,16 @@ async fn filter_finds_given_user_and_no_others() -> Result<()> {
     let res = test::call_service(&mut app, req).await;
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
+    println!("Read Body Json: {:?}", &res);
+
     let users: Vec<User> = test::read_body_json(res).await;
 
     assert_eq!(users.len(), 1);
 
     let found = &users[0];
 
-    assert_eq!("Matthew", found.first_name);
-    assert_eq!("Smith", found.last_name);
+    assert_eq!("Lone", found.first_name);
+    assert_eq!("User", found.last_name);
 
     Ok(())
 }

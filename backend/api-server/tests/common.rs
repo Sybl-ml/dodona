@@ -34,6 +34,7 @@ macro_rules! api_with {
 
 // Hardcoded random identifiers for various tests
 pub static MAIN_USER_ID: &str = "5f8ca1a80065f27b0089e8b5";
+pub static ALONE_USER_ID: &str = "5f8ca1a80065f27b0089e8c6";
 pub static DELETE_UID: &str = "5fbe3239ea6cfda08a459622";
 pub static CREATES_PROJECT_UID: &str = "5f8d7b4f0017036400d60cab";
 pub static NON_EXISTENT_USER_ID: &str = "5f8de85300eb281e00306b0b";
@@ -205,8 +206,11 @@ async fn insert_test_users(database: &mongodb::Database) {
         "Project",
     );
 
+    let lone = create_user_with_id(ALONE_USER_ID, "lone@email.com", &hash, "Lone", "User");
+
     let users = database.collection("users");
     users.insert_one(matthew, None).await.unwrap();
+    users.insert_one(lone, None).await.unwrap();
     users.insert_one(delete, None).await.unwrap();
     users.insert_one(creates_project, None).await.unwrap();
     users.insert_one(deletes_project, None).await.unwrap();
