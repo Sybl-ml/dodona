@@ -1,0 +1,7 @@
+--boundary
+Content-Disposition: form-data; filename="asl.csv"
+
+age,sex,location
+23,M,Leamington Spa
+22,F,
+--boundary--

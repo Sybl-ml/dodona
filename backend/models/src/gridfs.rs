@@ -1,6 +1,8 @@
 use bytes::Bytes;
 use chrono::Utc;
-use mongodb::bson::{self, document::Document, oid::ObjectId};
+use mongodb::bson::{self, de::from_document, doc, document::Document, oid::ObjectId};
+use tokio_stream::StreamExt;
+use utils::compress::decompress_data;
 
 /// Represents the metadata of a file in the database.
 #[derive(Debug, Serialize, Deserialize)]
@@ -66,6 +68,58 @@ impl File {
 
         // Upload it to the relevant
         files.insert_one(document, None).await?;
+
+        Ok(())
+    }
+
+    pub async fn download_chunks(
+        &self,
+        database: &mongodb::Database,
+    ) -> mongodb::error::Result<mongodb::Cursor<Document>> {
+        let chunks = database.collection("chunks");
+
+        let filter = doc! {"files_id": &self.id};
+        let options = mongodb::options::FindOptions::builder()
+            .sort(doc! {"n": 1})
+            .build();
+
+        chunks.find(filter, options).await
+    }
+
+    pub async fn download_dataset(
+        &self,
+        database: &mongodb::Database,
+    ) -> mongodb::error::Result<Vec<u8>> {
+        let chunks = database.collection("chunks");
+
+        let filter = doc! {"files_id": &self.id};
+        let options = mongodb::options::FindOptions::builder()
+            .sort(doc! {"n": 1})
+            .build();
+
+        let mut data: Vec<u8> = Vec::new();
+
+        let mut cursor = chunks.find(filter, options).await?;
+
+        while let Some(next) = cursor.next().await {
+            let chunk: Chunk = from_document(next?)?;
+            let chunk_bytes = chunk.data.bytes;
+            let decomp_data = decompress_data(&chunk_bytes).unwrap();
+            data.extend_from_slice(&decomp_data);
+        }
+
+        Ok(data)
+    }
+
+    pub async fn delete(&self, database: &mongodb::Database) -> mongodb::error::Result<()> {
+        let files = database.collection("files");
+        let chunks = database.collection("chunks");
+
+        let filter = doc! {"files_id": &self.id};
+        chunks.delete_many(filter, None).await?;
+
+        let filter = doc! {"_id": &self.id};
+        files.delete_one(filter, None).await?;
 
         Ok(())
     }

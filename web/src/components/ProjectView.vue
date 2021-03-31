@@ -39,7 +39,7 @@
             :dataHead="dataHead"
             @get-data="fetchData"
             :training_data="training_data"
-            :predict_data="prediction_data"
+            :predict_data="predict_data"
             :datasetName="datasetName"
             :loading="loading"
           />
@@ -97,7 +97,7 @@ export default {
       dataTypes: {},
 
       training_data: null,
-      prediction_data: null,
+      predict_data: null,
       loading: false,
 
       analysis: {},
@@ -157,24 +157,38 @@ export default {
     async fetchData() {
       this.loading = true;
 
-      let project_response = await this.$http.get(
-        `api/projects/${this.projectId}/data`
+      let train_response = await this.$http.get(
+        `api/projects/${this.projectId}/data/train`
       );
 
-      let project_data = project_response.data;
-      
-      this.training_data = Papa.parse(project_data.dataset, { header: true });
-      this.prediction_data = Papa.parse(project_data.predict, { header: true });
+      let train = train_response.data;
+
+      this.training_data = Papa.parse(train, { header: true });
+
+      let predict_response = await this.$http.get(
+        `api/projects/${this.projectId}/data/predict`
+      );
+
+      let predict = predict_response.data;
+
+      this.predict_data = Papa.parse(predict, { header: true });
+
       this.loading = false;
     },
     async fetchResults() {
       this.results_loading = true;
 
+      let project_predict = await this.$http.get(
+        `api/projects/${this.projectId}/data/predict`
+      );
+
+
       let project_predictions = await this.$http.get(
         `api/projects/${this.projectId}/predictions`
       );
-      this.results = project_predictions.data["predictions"];
-      this.predict_data = project_predictions.data["predict_data"];
+
+      this.results = project_predictions.data;
+      this.predict_data = project_predict.data;
       this.results_loading = false;
     },
     resetProject() {

@@ -18,7 +18,7 @@ mongodb = "2.0.0-alpha"
 bytes = "1.0.1"
 
 [dev-dependencies]
-tokio = { version = "1.4.0", features = ["sync"] }
+tokio = { version = "1.4.0", features = ["sync", "parking_lot" ] }
 
 [dependencies.chrono]
 version = "0.4.19"

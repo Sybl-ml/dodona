@@ -33,9 +33,9 @@
           <b-tab title="Prediction" active lazy>
             <br>
             <pagination-table
-              v-if="this.prediction_data"
-              :fields="buildFields(this.prediction_data.meta.fields)"
-              :data="this.prediction_data.data"
+              v-if="this.predict_data"
+              :fields="buildFields(this.predict_data.meta.fields)"
+              :data="this.predict_data.data"
             />
           </b-tab>
         </b-tabs>
@@ -58,7 +58,7 @@ export default {
     projectId: String,
     datasetName: String,
     training_data: Object,
-    prediction_data: Object,
+    predict_data: Object,
     dataHead: Object,
     loading: Boolean,
   },
@@ -69,8 +69,6 @@ export default {
           name: VuetableFieldHandle,
         },
       ];
-      console.log(this.training_data)
-      console.log(this.prediction_data)
       fields.forEach(function(item, index) {
         built_fields.push({
           name: item,
