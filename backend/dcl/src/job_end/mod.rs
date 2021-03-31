@@ -1,5 +1,6 @@
 //! Part of DCL that takes a DCN and a dataset and comunicates with node
 
+use bytes::Bytes;
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 use std::cmp::max;
@@ -35,6 +36,8 @@ use utils::{Column, Columns};
 
 pub mod finance;
 pub mod ml;
+
+const PREDICTION_CHUNK_SIZE: usize = 1000;
 
 /// Struct to pass information for a cluster to function
 #[derive(Debug, Clone)]
@@ -559,34 +562,15 @@ pub async fn write_predictions(
 
     let mut pred_dataset = gridfs::File::new(String::from("predictions"));
 
-    let mut pred_iter = dataset.iter();
-
-    let mut chunk: Vec<String> = Vec::new();
-
-    // Go through predictions and split into chunks of 50 lines
-    while let Some(row) = pred_iter.next() {
-        chunk.push(row.to_owned());
-        if chunk.len() == 50 {
-            let join_chunk = chunk.join("\n");
-            let compressed = compress_data(&join_chunk)?;
-            pred_dataset
-                .upload_chunk(&database, &bytes::Bytes::from(compressed))
-                .await?;
-            chunk.clear();
-        }
+    for chunk in dataset.chunks(PREDICTION_CHUNK_SIZE) {
+        let joined = chunk.join("\n");
+        let compressed = Bytes::from(compress_data(&joined)?);
+        pred_dataset.upload_chunk(&database, &compressed).await?;
     }
-
-    // Final part of predictions
-    let join_chunk = chunk.join("\n");
-    let compressed = compress_data(&join_chunk)?;
-    pred_dataset
-        .upload_chunk(&database, &bytes::Bytes::from(compressed))
-        .await?;
 
     pred_dataset.finalise(&database).await?;
 
     // Convert to a document and insert it
-
     let prediction = Prediction::new(id, pred_dataset.id);
     let document = mongodb::bson::ser::to_document(&prediction)?;
     predictions.insert_one(document, None).await?;
