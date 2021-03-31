@@ -2,6 +2,7 @@ use actix_web::web::{delete, get, patch, post, put};
 use actix_web::{middleware, test, App, Result};
 use mongodb::bson::{doc, document::Document};
 use serde::{Deserialize, Serialize};
+use tokio::time::{sleep, Duration};
 
 use api_server::routes::projects;
 use models::dataset_details::DatasetDetails;
@@ -316,6 +317,8 @@ async fn dataset_can_be_taken_from_database() -> Result<()> {
     let res = test::call_service(&mut app, req).await;
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
+    sleep(Duration::from_millis(600)).await;
+
     let url = format!("/api/projects/{}/data/train", common::MAIN_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
@@ -348,6 +351,8 @@ async fn overview_of_dataset_can_be_returned() -> Result<()> {
 
     let res = test::call_service(&mut app, req).await;
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
+
+    sleep(Duration::from_millis(600)).await;
 
     let url = format!("/api/projects/{}/overview", common::MAIN_PROJECT_ID);
     let req = test::TestRequest::default()
@@ -498,25 +503,25 @@ async fn train_and_predict_can_be_added_to_projects() -> Result<()> {
 #[actix_rt::test]
 async fn users_cannot_submit_jobs_with_insufficient_funds() -> Result<()> {
     let mut app = api_with! {
-        put: "/api/projects/{project_id}/upload_train_and_predict" => projects::upload_train_and_predict,
+        put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split,
         post: "/api/projects/{project_id}/process" => projects::begin_processing,
     };
-    let url = format!(
-        "/api/projects/{}/upload_train_and_predict",
-        common::MAIN_PROJECT_ID
-    );
+
+    let url = format!("/api/projects/{}/upload_and_split", common::MAIN_PROJECT_ID);
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
         .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
         .insert_header(("Content-Type", "multipart/form-data; boundary=boundary"))
         .uri(&url)
-        .set_payload(DASL_CSV)
+        .set_payload(ASL_CSV)
         .to_request();
 
     let res = test::call_service(&mut app, req).await;
 
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
+
+    sleep(Duration::from_millis(600)).await;
 
     let formatted = format!("/api/projects/{}/process", common::MAIN_PROJECT_ID);
     let doc = doc! { "timeout": 10, "clusterSize": 2000, "predictionType": "classification", "predictionColumn": "name"};
@@ -530,5 +535,6 @@ async fn users_cannot_submit_jobs_with_insufficient_funds() -> Result<()> {
     let res = test::call_service(&mut app, req).await;
 
     assert_eq!(actix_web::http::StatusCode::PAYMENT_REQUIRED, res.status());
+
     Ok(())
 }

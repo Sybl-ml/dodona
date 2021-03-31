@@ -194,8 +194,6 @@ async fn filter_finds_given_user_and_no_others() -> Result<()> {
     let res = test::call_service(&mut app, req).await;
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
-    println!("Read Body Json: {:?}", &res);
-
     let users: Vec<User> = test::read_body_json(res).await;
 
     assert_eq!(users.len(), 1);
