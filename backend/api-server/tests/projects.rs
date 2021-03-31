@@ -480,7 +480,7 @@ async fn train_and_predict_can_be_added_to_projects() -> Result<()> {
         "/api/projects/{}/upload_train_and_predict",
         common::MAIN_PROJECT_ID
     );
-  
+
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
         .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
@@ -494,8 +494,7 @@ async fn train_and_predict_can_be_added_to_projects() -> Result<()> {
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
     OK(())
 }
-  
-  
+
 #[actix_rt::test]
 async fn users_cannot_submit_jobs_with_insufficient_funds() -> Result<()> {
     let mut app = api_with! {
@@ -505,7 +504,6 @@ async fn users_cannot_submit_jobs_with_insufficient_funds() -> Result<()> {
 
     let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa", "name": "Freddie"};
     let url = format!("/api/projects/{}/data", common::MAIN_PROJECT_ID);
-
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
