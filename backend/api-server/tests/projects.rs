@@ -492,18 +492,19 @@ async fn train_and_predict_can_be_added_to_projects() -> Result<()> {
     let res = test::call_service(&mut app, req).await;
 
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
-    OK(())
+    Ok(())
 }
 
 #[actix_rt::test]
 async fn users_cannot_submit_jobs_with_insufficient_funds() -> Result<()> {
     let mut app = api_with! {
-        put: "/api/projects/{project_id}/data" => projects::add_data,
+        put: "/api/projects/{project_id}/upload_train_and_predict" => projects::upload_train_and_predict,
         post: "/api/projects/{project_id}/process" => projects::begin_processing,
     };
-
-    let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa", "name": "Freddie"};
-    let url = format!("/api/projects/{}/data", common::MAIN_PROJECT_ID);
+    let url = format!(
+        "/api/projects/{}/upload_train_and_predict",
+        common::MAIN_PROJECT_ID
+    );
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
