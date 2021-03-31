@@ -117,16 +117,12 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
                 web::post().to(routes::projects::overview),
             )
             .route(
-                "/api/projects/{project_id}/data",
+                "/api/projects/{project_id}/data/{dataset_type}",
                 web::get().to(routes::projects::get_dataset),
             )
             .route(
                 "/api/projects/{project_id}/data",
                 web::delete().to(routes::projects::remove_data),
-            )
-            .route(
-                "/api/projects/{project_id}/predict",
-                web::get().to(routes::projects::get_predict),
             )
             .route(
                 "/api/projects/{project_id}/process",

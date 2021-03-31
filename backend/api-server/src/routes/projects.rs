@@ -24,6 +24,7 @@ use models::gridfs;
 use models::jobs::{Job, JobConfiguration};
 use models::predictions::Prediction;
 use models::projects::{Project, Status};
+use serde::Deserialize;
 use utils::compress::{compress_data, decompress_data};
 use utils::ColumnType;
 
@@ -37,6 +38,16 @@ use crate::{
 static JOB_TOPIC: &str = "jobs";
 static ANALYTICS_TOPIC: &str = "analytics";
 static CHUNK_SIZE: usize = 1000;
+
+/// Enum to decide type of dataset to return
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum DatasetType {
+    /// Training dataset type
+    Train,
+    /// Predict dataset type
+    Predict,
+}
 
 /// Finds a project in the database given an identifier.
 ///
@@ -505,20 +516,24 @@ pub async fn overview(
     response_from_json(document)
 }
 
-/// Gets the dataset associated with a given project.
+/// Gets the train/predict dataset associated with a given project.
 ///
-/// Queries the database for the dataset related with a given identifier and decompresses the
-/// training data. The data is then converted back to a [`str`] and cleaned before
+/// Queries the database for the train/predict dataset related with a given identifier and
+/// decompresses the requested data. The data is then converted back to a [`str`] and cleaned before
 /// being sent to the frontend for display.
 pub async fn get_dataset(
     claims: auth::Claims,
     state: web::Data<State>,
-    project_id: web::Path<String>,
+    extractor: web::Path<(String, DatasetType)>,
 ) -> ServerResponse {
     let datasets = state.database.collection("datasets");
     let projects = state.database.collection("projects");
     let files = state.database.collection("files");
 
+    let project_id = &extractor.0;
+    let dataset_type = &extractor.1;
+
+    log::info!("Dataset Type: {:?}", dataset_type);
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
     let filter = doc! { "project_id": &object_id };
 
@@ -531,7 +546,11 @@ pub async fn get_dataset(
     // Parse the dataset itself
     let dataset: Dataset = from_document(document)?;
 
-    let filter = doc! { "_id": &dataset.dataset.unwrap() };
+    // Decide filter based off enum
+    let filter = match dataset_type {
+        DatasetType::Train => doc! { "_id": &dataset.dataset.unwrap() },
+        DatasetType::Predict => doc! { "_id": &dataset.predict.unwrap() },
+    };
 
     // Find the file in the database
     let document = files
@@ -557,66 +576,6 @@ pub async fn get_dataset(
             }
         },
     );
-
-    Ok(HttpResponseBuilder::new(StatusCode::OK).streaming(byte_stream))
-}
-
-/// Gets the predict data associated with a given project.
-///
-/// Queries the database for the dataset related with a given identifier and decompresses the
-/// prediction data. The data is then converted back to a [`str`] and cleaned before
-/// being sent to the frontend for display.
-pub async fn get_predict(
-    claims: auth::Claims,
-    state: web::Data<State>,
-    project_id: web::Path<String>,
-) -> ServerResponse {
-    let datasets = state.database.collection("datasets");
-    let projects = state.database.collection("projects");
-    let files = state.database.collection("files");
-
-    let object_id = check_user_owns_project(&claims.id, &project_id, &projects)
-        .await
-        .unwrap();
-    let filter = doc! { "project_id": &object_id };
-
-    // Find the dataset in the database
-    let document = datasets
-        .find_one(filter, None)
-        .await?
-        .ok_or(ServerError::NotFound)?;
-
-    // Parse the dataset itself
-    let dataset: Dataset = from_document(document)?;
-
-    let filter = doc! { "_id": &dataset.predict.unwrap() };
-
-    // Find the file in the database
-    let document = files
-        .find_one(filter, None)
-        .await?
-        .ok_or(ServerError::NotFound)?;
-
-    // Parse the dataset itself
-    let file: gridfs::File = from_document(document)?;
-
-    let mut cursor = file.download_chunks(&state.database).await?;
-    let byte_stream = poll_fn(
-        move |_| -> Poll<Option<Result<actix_web::web::Bytes, actix_web::error::Error>>> {
-            // While Cursor not empty
-            match futures::executor::block_on(cursor.next()) {
-                Some(next) => {
-                    let chunk: gridfs::Chunk = from_document(next.unwrap()).unwrap();
-                    let chunk_bytes = chunk.data.bytes;
-                    let decomp_train = decompress_data(&chunk_bytes).unwrap();
-                    Poll::Ready(Some(Ok(actix_web::web::Bytes::from(decomp_train))))
-                }
-                None => Poll::Ready(None),
-            }
-        },
-    );
-
-    produce_analytics_message(&object_id).await;
 
     Ok(HttpResponseBuilder::new(StatusCode::OK).streaming(byte_stream))
 }

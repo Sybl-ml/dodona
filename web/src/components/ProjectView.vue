@@ -158,7 +158,7 @@ export default {
       this.loading = true;
 
       let train_response = await this.$http.get(
-        `api/projects/${this.projectId}/data`
+        `api/projects/${this.projectId}/data/train`
       );
 
       let train = train_response.data;
@@ -166,7 +166,7 @@ export default {
       this.training_data = Papa.parse(train, { header: true });
 
       let predict_response = await this.$http.get(
-        `api/projects/${this.projectId}/predict`
+        `api/projects/${this.projectId}/data/predict`
       );
 
       let predict = predict_response.data;
@@ -179,7 +179,7 @@ export default {
       this.results_loading = true;
 
       let project_predict = await this.$http.get(
-        `api/projects/${this.projectId}/predict`
+        `api/projects/${this.projectId}/data/predict`
       );
 
 
