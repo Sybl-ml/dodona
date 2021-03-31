@@ -6,7 +6,12 @@ use std::str::FromStr;
 use std::task::Poll;
 
 use actix_multipart::Multipart;
-use actix_web::{dev::HttpResponseBuilder, http::StatusCode, web, HttpResponse};
+use actix_web::{
+    dev::HttpResponseBuilder,
+    http::StatusCode,
+    web::{self, Bytes},
+    HttpResponse,
+};
 use futures::stream::poll_fn;
 use mongodb::{
     bson::{de::from_document, doc, document::Document, oid::ObjectId, ser::to_document},
@@ -24,8 +29,9 @@ use models::gridfs;
 use models::jobs::{Job, JobConfiguration};
 use models::predictions::Prediction;
 use models::projects::{Project, Status};
-use serde::Deserialize;
+use models::users::User;
 use utils::compress::{compress_data, decompress_data};
+use utils::finance::{job_cost, pay};
 use utils::ColumnType;
 
 use crate::{
@@ -204,7 +210,6 @@ pub async fn upload_train_and_predict(
             .content_disposition()
             .ok_or(ServerError::UnprocessableEntity)?;
 
-        log::info!("Getting filename");
         let filename = content_disposition
             .get_filename()
             .ok_or(ServerError::UnprocessableEntity)?;
@@ -219,7 +224,6 @@ pub async fn upload_train_and_predict(
 
         while let Some(Ok(chunk)) = field.next().await {
             if name == "train" {
-                log::info!("Training data");
                 if initial {
                     let data_head = std::str::from_utf8(&chunk).unwrap();
                     let data_head = data_head.split("\n").take(6).collect::<Vec<_>>().join("\n");
@@ -264,36 +268,30 @@ pub async fn upload_train_and_predict(
                     log::debug!("Uploading a {} chunk of size: {}", &name, buffer.len());
                     // Flush buffer into mongodb
                     // Compress data before upload
-                    let chunk = &buffer.join("\n");
-                    let compressed = compress_data(chunk)?;
-                    let bytes = actix_web::web::Bytes::from(compressed);
+                    let chunk = buffer.join("\n");
+                    let compressed = compress_data(&chunk)?;
+                    let bytes = Bytes::from(compressed);
                     dataset.upload_chunk(&state.database, &bytes).await?;
                     buffer.clear();
-                    log::info!("Flushed {} Buffer", &name);
                 }
             }
         }
 
         // Add file to db and set OIDs in Dataset
+        let chunk = buffer.join("\n");
+        let compressed = compress_data(&chunk)?;
+        let bytes = Bytes::from(compressed);
+
+        dataset.upload_chunk(&state.database, &bytes).await?;
+        dataset.finalise(&state.database).await?;
+
         if name == "train" {
-            let train_chunk = &buffer.join("\n");
-            let compressed = compress_data(train_chunk)?;
-            let bytes = actix_web::web::Bytes::from(compressed);
-            dataset.upload_chunk(&state.database, &bytes).await?;
-
-            dataset.finalise(&state.database).await?;
             dataset_doc.dataset = Some(dataset.id);
-            log::info!("Finshed Train Set");
         } else {
-            let chunk = &buffer.join("\n");
-            let compressed = compress_data(chunk)?;
-            let bytes = actix_web::web::Bytes::from(compressed);
-            dataset.upload_chunk(&state.database, &bytes).await?;
-
-            dataset.finalise(&state.database).await?;
             dataset_doc.predict = Some(dataset.id);
-            log::info!("Finshed Predict Set");
         }
+
+        log::info!("Finalised the {} set of data", name);
     }
 
     let existing_data = datasets
@@ -426,7 +424,7 @@ pub async fn upload_and_split(
                 // Compress data before upload
                 let predict_chunk = &predict_buffer.join("\n");
                 let compressed_predict = compress_data(predict_chunk)?;
-                let bytes_predict = actix_web::web::Bytes::from(compressed_predict);
+                let bytes_predict = Bytes::from(compressed_predict);
                 predict
                     .upload_chunk(&state.database, &bytes_predict)
                     .await?;
@@ -442,7 +440,7 @@ pub async fn upload_and_split(
                 // Compress data before upload
                 let dataset_chunk = &dataset_buffer.join("\n");
                 let compressed = compress_data(dataset_chunk)?;
-                let bytes_data = actix_web::web::Bytes::from(compressed);
+                let bytes_data = Bytes::from(compressed);
                 dataset.upload_chunk(&state.database, &bytes_data).await?;
                 dataset_buffer.clear();
                 log::info!("Flushed Dataset Buffer");
@@ -453,12 +451,12 @@ pub async fn upload_and_split(
     // If anything let in buffers, upload as final chunks
     let dataset_chunk = &dataset_buffer.join("\n");
     let compressed = compress_data(dataset_chunk)?;
-    let bytes_data = actix_web::web::Bytes::from(compressed);
+    let bytes_data = Bytes::from(compressed);
     dataset.upload_chunk(&state.database, &bytes_data).await?;
 
     let predict_chunk = &predict_buffer.join("\n");
     let compressed_predict = compress_data(predict_chunk)?;
-    let bytes_predict = actix_web::web::Bytes::from(compressed_predict);
+    let bytes_predict = Bytes::from(compressed_predict);
     predict
         .upload_chunk(&state.database, &bytes_predict)
         .await?;
@@ -563,14 +561,14 @@ pub async fn get_dataset(
 
     let mut cursor = file.download_chunks(&state.database).await?;
     let byte_stream = poll_fn(
-        move |_| -> Poll<Option<Result<actix_web::web::Bytes, actix_web::error::Error>>> {
+        move |_| -> Poll<Option<Result<Bytes, actix_web::error::Error>>> {
             // While Cursor not empty
             match futures::executor::block_on(cursor.next()) {
                 Some(next) => {
                     let chunk: gridfs::Chunk = from_document(next.unwrap()).unwrap();
                     let chunk_bytes = chunk.data.bytes;
                     let decomp_train = decompress_data(&chunk_bytes).unwrap();
-                    Poll::Ready(Some(Ok(actix_web::web::Bytes::from(decomp_train))))
+                    Poll::Ready(Some(Ok(Bytes::from(decomp_train))))
                 }
                 None => Poll::Ready(None),
             }
@@ -759,14 +757,14 @@ pub async fn get_predictions(
 
     let mut cursor = file.download_chunks(&state.database).await?;
     let byte_stream = poll_fn(
-        move |_| -> Poll<Option<Result<actix_web::web::Bytes, actix_web::error::Error>>> {
+        move |_| -> Poll<Option<Result<Bytes, actix_web::error::Error>>> {
             // While Cursor not empty
             match futures::executor::block_on(cursor.next()) {
                 Some(next) => {
                     let chunk: gridfs::Chunk = from_document(next.unwrap()).unwrap();
                     let chunk_bytes = chunk.data.bytes;
                     let decomp_train = decompress_data(&chunk_bytes).unwrap();
-                    Poll::Ready(Some(Ok(actix_web::web::Bytes::from(decomp_train))))
+                    Poll::Ready(Some(Ok(Bytes::from(decomp_train))))
                 }
                 None => Poll::Ready(None),
             }
