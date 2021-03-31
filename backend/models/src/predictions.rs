@@ -31,9 +31,10 @@ impl Prediction {
         let files = database.collection("files");
 
         let filter = doc! {"_id": &self.predictions};
-        let file = files.find_one(filter, None).await?.unwrap();
-        let file: gridfs::File = from_document(file)?;
-        file.delete(database).await?;
+        if let Some(file) = files.find_one(filter, None).await? {
+            let file: gridfs::File = from_document(file)?;
+            file.delete(database).await?;
+        }
 
         let filter = doc! {"_id": &self.id};
         predictions.delete_one(filter, None).await?;
