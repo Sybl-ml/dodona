@@ -200,7 +200,7 @@ async fn datasets_can_be_added_to_projects() -> Result<()> {
 async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
     let mut app = api_with! {
         put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split,
-        get: "/api/projects/{project_id}/data" => projects::get_dataset,
+        get: "/api/projects/{project_id}/data/{dataset_type}" => projects::get_dataset,
     };
 
     let url = format!(
@@ -244,7 +244,10 @@ async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
 
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
-    let url = format!("/api/projects/{}/data", common::OVERWRITTEN_DATA_PROJECT_ID);
+    let url = format!(
+        "/api/projects/{}/data/train",
+        common::OVERWRITTEN_DATA_PROJECT_ID
+    );
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
         .insert_header((
@@ -296,7 +299,7 @@ async fn datasets_cannot_be_added_if_projects_do_not_exist() -> Result<()> {
 #[actix_rt::test]
 async fn dataset_can_be_taken_from_database() -> Result<()> {
     let mut app = api_with! {
-        get: "/api/projects/{project_id}/data" => projects::get_dataset,
+        get: "/api/projects/{project_id}/data/{dataset_type}" => projects::get_dataset,
         put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split,
     };
 
@@ -313,7 +316,7 @@ async fn dataset_can_be_taken_from_database() -> Result<()> {
     let res = test::call_service(&mut app, req).await;
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
-    let url = format!("/api/projects/{}/data", common::MAIN_PROJECT_ID);
+    let url = format!("/api/projects/{}/data/train", common::MAIN_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
         .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
