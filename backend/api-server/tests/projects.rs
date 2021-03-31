@@ -480,6 +480,32 @@ async fn train_and_predict_can_be_added_to_projects() -> Result<()> {
         "/api/projects/{}/upload_train_and_predict",
         common::MAIN_PROJECT_ID
     );
+  
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::PUT)
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
+        .insert_header(("Content-Type", "multipart/form-data; boundary=boundary"))
+        .uri(&url)
+        .set_payload(DASL_CSV)
+        .to_request();
+
+    let res = test::call_service(&mut app, req).await;
+
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
+    OK(())
+}
+  
+  
+#[actix_rt::test]
+async fn users_cannot_submit_jobs_with_insufficient_funds() -> Result<()> {
+    let mut app = api_with! {
+        put: "/api/projects/{project_id}/data" => projects::add_data,
+        post: "/api/projects/{project_id}/process" => projects::begin_processing,
+    };
+
+    let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa", "name": "Freddie"};
+    let url = format!("/api/projects/{}/data", common::MAIN_PROJECT_ID);
+
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
@@ -493,5 +519,17 @@ async fn train_and_predict_can_be_added_to_projects() -> Result<()> {
 
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
+    let formatted = format!("/api/projects/{}/process", common::MAIN_PROJECT_ID);
+    let doc = doc! { "timeout": 10, "clusterSize": 2000, "predictionType": "classification", "predictionColumn": "name"};
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::POST)
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
+        .uri(&formatted)
+        .set_json(&doc)
+        .to_request();
+
+    let res = test::call_service(&mut app, req).await;
+
+    assert_eq!(actix_web::http::StatusCode::PAYMENT_REQUIRED, res.status());
     Ok(())
 }

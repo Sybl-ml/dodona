@@ -16,6 +16,7 @@ use fern::colors::{Color, ColoredLevelConfig};
 pub mod analysis;
 pub mod anon;
 pub mod compress;
+pub mod finance;
 
 /// Represents the types that a CSV column could have.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

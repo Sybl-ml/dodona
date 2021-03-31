@@ -31,6 +31,9 @@ pub enum ServerError {
     /// Unauthorized access HTTP Error
     #[error("Unauthorized")]
     Unauthorized,
+    /// Payment Required HTTP Error
+    #[error("Payment Required")]
+    PaymentRequired,
 }
 
 impl ServerError {
@@ -43,6 +46,7 @@ impl ServerError {
             Self::UnprocessableEntity => "UnprocessableEntity",
             Self::Conflict => "Conflict",
             Self::Unauthorized => "Unauthorized",
+            Self::PaymentRequired => "PaymentRequired",
         }
     }
 }
@@ -87,6 +91,7 @@ impl ResponseError for ServerError {
             Self::UnprocessableEntity => StatusCode::UNPROCESSABLE_ENTITY,
             Self::Conflict => StatusCode::CONFLICT,
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
+            Self::PaymentRequired => StatusCode::PAYMENT_REQUIRED,
         }
     }
 

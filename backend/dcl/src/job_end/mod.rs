@@ -31,10 +31,10 @@ use models::projects::Status;
 
 use utils::anon::{anonymise_dataset, deanonymise_dataset, infer_dataset_columns};
 use utils::compress::compress_data;
+use utils::finance::reimburse;
 use utils::generate_ids;
 use utils::{Column, Columns};
 
-pub mod finance;
 pub mod ml;
 
 const PREDICTION_CHUNK_SIZE: usize = 1000;
@@ -447,6 +447,17 @@ async fn run_cluster(
 
     // TODO: reimburse clients based on weights
     log::info!("Model weights: {:?}", weights);
+
+    for (model_id, weight) in &weights {
+        let database_clone = Arc::clone(&database);
+        reimburse(
+            database_clone,
+            &ObjectId::with_string(model_id).unwrap(),
+            info.config.cost,
+            *weight,
+        )
+        .await?;
+    }
 
     let database_clone = Arc::clone(&database);
     ml::model_performance(
