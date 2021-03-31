@@ -37,7 +37,7 @@ use utils::{Column, Columns};
 
 pub mod ml;
 
-const PREDICTION_CHUNK_SIZE: usize = 1000;
+const PREDICTION_CHUNK_SIZE: usize = 10_000;
 
 /// Struct to pass information for a cluster to function
 #[derive(Debug, Clone)]

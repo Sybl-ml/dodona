@@ -43,7 +43,7 @@ use crate::{
 
 static JOB_TOPIC: &str = "jobs";
 static ANALYTICS_TOPIC: &str = "analytics";
-static CHUNK_SIZE: usize = 1000;
+static CHUNK_SIZE: usize = 10_000;
 
 /// Enum to decide type of dataset to return
 #[derive(Deserialize, Debug)]
