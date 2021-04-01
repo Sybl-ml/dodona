@@ -6,3 +6,5 @@ backend/**/config.toml
 
 *.sh
 **/*.sh
+
+*.csv

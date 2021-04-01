@@ -78,6 +78,7 @@ error_map! {
     base64::DecodeError => UnprocessableEntity,
     utils::compress::CompressionError => UnprocessableEntity,
     anyhow::Error => Unknown,
+    actix_multipart::MultipartError => UnprocessableEntity,
 }
 
 impl ResponseError for ServerError {

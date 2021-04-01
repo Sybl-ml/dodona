@@ -10,6 +10,7 @@ edition = "2018"
 actix-web = "4.0.0-beta.4"
 actix-rt = "2.1.0"
 actix-cors = { git = "https://github.com/actix/actix-extras", branch = "master" }
+actix-multipart = "0.4.0-beta.3"
 anyhow = "1.0.39"
 tokio = { version = "1.4.0", features = ["full"] }
 tokio-stream = "0.1.5"
@@ -31,3 +32,4 @@ utils = { path = "../utils" }
 mongodb = "2.0.0-alpha"
 futures-util = "0.3.13"
 jsonwebtoken = "7.2.0"
+futures = "0.3.13"

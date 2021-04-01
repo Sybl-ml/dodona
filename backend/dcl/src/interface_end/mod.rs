@@ -15,8 +15,8 @@ use rdkafka::Message;
 use tokio_stream::StreamExt;
 
 use models::datasets::Dataset;
+use models::gridfs;
 use models::jobs::JobConfiguration;
-use utils::compress::decompress_data;
 
 use crate::{DatasetPair, JobControl};
 
@@ -94,6 +94,7 @@ async fn process_job(
     log::debug!("\tColumn types: {:?}", column_types);
 
     let datasets = db_conn.collection("datasets");
+    let files = db_conn.collection("files");
 
     let filter = doc! { "_id": dataset_id };
     log::debug!("Finding datasets with filter: {:?}", &filter);
@@ -106,17 +107,26 @@ async fn process_job(
 
     log::debug!("Fetched dataset with id: {}", dataset.id);
 
-    // Get the data from the struct
-    let comp_train = dataset.dataset.unwrap().bytes;
-    let comp_predict = dataset.predict.unwrap().bytes;
+    // Get the decompressed data from GridFS
+    let train_filter = doc! { "_id": dataset.dataset.unwrap() };
+    let doc = files
+        .find_one(train_filter, None)
+        .await?
+        .expect("Failed to find a document with the previous filter");
+    let train_file: gridfs::File = mongodb::bson::de::from_document(doc)?;
+    let comp_train: Vec<u8> = train_file.download_dataset(&db_conn).await?;
 
-    // Decompress it
-    let train_bytes = decompress_data(&comp_train)?;
-    let predict_bytes = decompress_data(&comp_predict)?;
+    let predict_filter = doc! { "_id": dataset.predict.unwrap() };
+    let doc = files
+        .find_one(predict_filter, None)
+        .await?
+        .expect("Failed to find a document with the previous filter");
+    let predict_file: gridfs::File = mongodb::bson::de::from_document(doc)?;
+    let comp_predict: Vec<u8> = predict_file.download_dataset(&db_conn).await?;
 
     // Convert it to a string
-    let train = std::str::from_utf8(&train_bytes)?.to_string();
-    let predict = std::str::from_utf8(&predict_bytes)?.to_string();
+    let train = String::from_utf8(comp_train)?;
+    let predict = String::from_utf8(comp_predict)?;
 
     log::debug!("Decompressed {} bytes of training data", train.len());
     log::debug!("Decompressed {} bytes of prediction data", predict.len());

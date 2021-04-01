@@ -2,6 +2,7 @@ use actix_web::web::{delete, get, patch, post, put};
 use actix_web::{middleware, test, App, Result};
 use mongodb::bson::{doc, document::Document};
 use serde::{Deserialize, Serialize};
+use tokio::time::{sleep, Duration};
 
 use api_server::routes::projects;
 use models::dataset_details::DatasetDetails;
@@ -22,6 +23,9 @@ pub struct ProjectResponse {
 pub struct DatasetResponse {
     dataset: String,
 }
+
+static ASL_CSV: &str = include_str!("assets/asl.csv");
+static DASL_CSV: &str = include_str!("assets/dasl.csv");
 
 #[actix_rt::test]
 async fn projects_can_be_fetched_for_a_user() -> Result<()> {
@@ -174,16 +178,16 @@ async fn projects_can_be_created() -> Result<()> {
 
 #[actix_rt::test]
 async fn datasets_can_be_added_to_projects() -> Result<()> {
-    let mut app = api_with! { put: "/api/projects/{project_id}/data" => projects::add_data };
+    let mut app = api_with! { put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split };
 
-    let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa", "name": "Freddie"};
-    let url = format!("/api/projects/{}/data", common::MAIN_PROJECT_ID);
+    let url = format!("/api/projects/{}/upload_and_split", common::MAIN_PROJECT_ID);
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
         .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
+        .insert_header(("Content-Type", "multipart/form-data; boundary=boundary"))
         .uri(&url)
-        .set_json(&doc)
+        .set_payload(ASL_CSV)
         .to_request();
 
     let res = test::call_service(&mut app, req).await;
@@ -196,12 +200,14 @@ async fn datasets_can_be_added_to_projects() -> Result<()> {
 #[actix_rt::test]
 async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
     let mut app = api_with! {
-        put: "/api/projects/{project_id}/data" => projects::add_data,
-        get: "/api/projects/{project_id}/data" => projects::get_data,
+        put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split,
+        get: "/api/projects/{project_id}/data/{dataset_type}" => projects::get_dataset,
     };
 
-    let doc = doc! {"content": "age,sex,location\n23,M,Leamington Spa", "name": "Freddie"};
-    let url = format!("/api/projects/{}/data", common::OVERWRITTEN_DATA_PROJECT_ID);
+    let url = format!(
+        "/api/projects/{}/upload_and_split",
+        common::OVERWRITTEN_DATA_PROJECT_ID
+    );
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
@@ -209,16 +215,20 @@ async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
             "Authorization",
             get_bearer_token(common::NON_EXISTENT_USER_ID),
         ))
+        .insert_header(("Content-Type", "multipart/form-data; boundary=boundary"))
         .uri(&url)
-        .set_json(&doc)
+        .set_payload(ASL_CSV)
         .to_request();
 
     let res = test::call_service(&mut app, req).await;
 
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
-    let doc = doc! {"content": "age,sex,location\n23,M,Coventry", "name": "Freddie"};
-    let url = format!("/api/projects/{}/data", common::OVERWRITTEN_DATA_PROJECT_ID);
+    let url = format!(
+        "/api/projects/{}/upload_and_split",
+        common::OVERWRITTEN_DATA_PROJECT_ID
+    );
+    let modified = ASL_CSV.replace("23", "24");
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
@@ -226,15 +236,19 @@ async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
             "Authorization",
             get_bearer_token(common::NON_EXISTENT_USER_ID),
         ))
+        .insert_header(("Content-Type", "multipart/form-data; boundary=boundary"))
         .uri(&url)
-        .set_json(&doc)
+        .set_payload(modified)
         .to_request();
 
     let res = test::call_service(&mut app, req).await;
 
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
-    let url = format!("/api/projects/{}/data", common::OVERWRITTEN_DATA_PROJECT_ID);
+    let url = format!(
+        "/api/projects/{}/data/train",
+        common::OVERWRITTEN_DATA_PROJECT_ID
+    );
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
         .insert_header((
@@ -245,29 +259,36 @@ async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
         .to_request();
 
     let res = test::call_service(&mut app, req).await;
+    let status = res.status();
+    let body = test::read_body(res).await;
 
-    assert_eq!(actix_web::http::StatusCode::OK, res.status());
-
-    let dataset_response: DatasetResponse = test::read_body_json(res).await;
-    assert_eq!(dataset_response.dataset, "age,sex,location\n23,M,Coventry");
+    assert_eq!(actix_web::http::StatusCode::OK, status);
+    assert_eq!(
+        std::str::from_utf8(&body).unwrap(),
+        "age,sex,location\r\n24,M,Leamington Spa\r"
+    );
 
     Ok(())
 }
 
 #[actix_rt::test]
 async fn datasets_cannot_be_added_if_projects_do_not_exist() -> Result<()> {
-    let mut app = api_with! { put: "/api/projects/{project_id}/data" => projects::add_data };
+    let mut app = api_with! { put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split };
 
-    let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa", "name": "Freddie"};
-    let url = format!("/api/projects/{}/data", common::NON_EXISTENT_PROJECT_ID);
+    let url = format!(
+        "/api/projects/{}/upload_and_split",
+        common::NON_EXISTENT_PROJECT_ID
+    );
+
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
         .insert_header((
             "Authorization",
             get_bearer_token(common::NON_EXISTENT_USER_ID),
         ))
+        .insert_header(("Content-Type", "multipart/form-data; boundary=boundary"))
         .uri(&url)
-        .set_json(&doc)
+        .set_payload(ASL_CSV)
         .to_request();
 
     let res = test::call_service(&mut app, req).await;
@@ -279,23 +300,26 @@ async fn datasets_cannot_be_added_if_projects_do_not_exist() -> Result<()> {
 #[actix_rt::test]
 async fn dataset_can_be_taken_from_database() -> Result<()> {
     let mut app = api_with! {
-        get: "/api/projects/{project_id}/data" => projects::get_data,
-        put: "/api/projects/{project_id}/data" => projects::add_data,
+        get: "/api/projects/{project_id}/data/{dataset_type}" => projects::get_dataset,
+        put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split,
     };
 
-    let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa", "name": "Freddie"};
-    let url = format!("/api/projects/{}/data", common::MAIN_PROJECT_ID);
+    let url = format!("/api/projects/{}/upload_and_split", common::MAIN_PROJECT_ID);
+
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
         .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
+        .insert_header(("Content-Type", "multipart/form-data; boundary=boundary"))
         .uri(&url)
-        .set_json(&doc)
+        .set_payload(ASL_CSV)
         .to_request();
 
     let res = test::call_service(&mut app, req).await;
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
-    let url = format!("/api/projects/{}/data", common::MAIN_PROJECT_ID);
+    sleep(Duration::from_millis(600)).await;
+
+    let url = format!("/api/projects/{}/data/train", common::MAIN_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
         .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
@@ -311,21 +335,24 @@ async fn dataset_can_be_taken_from_database() -> Result<()> {
 #[actix_rt::test]
 async fn overview_of_dataset_can_be_returned() -> Result<()> {
     let mut app = api_with! {
-        put: "/api/projects/{project_id}/data" => projects::add_data,
+        put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split,
         post: "/api/projects/{project_id}/overview" => projects::overview,
     };
 
-    let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa", "name": "Freddie"};
-    let url = format!("/api/projects/{}/data", common::MAIN_PROJECT_ID);
+    let url = format!("/api/projects/{}/upload_and_split", common::MAIN_PROJECT_ID);
+
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
         .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
+        .insert_header(("Content-Type", "multipart/form-data; boundary=boundary"))
         .uri(&url)
-        .set_json(&doc)
+        .set_payload(ASL_CSV)
         .to_request();
 
     let res = test::call_service(&mut app, req).await;
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
+
+    sleep(Duration::from_millis(600)).await;
 
     let url = format!("/api/projects/{}/overview", common::MAIN_PROJECT_ID);
     let req = test::TestRequest::default()
@@ -416,18 +443,18 @@ async fn projects_can_be_edited() -> Result<()> {
 #[actix_rt::test]
 async fn job_configs_can_have_integer_timeouts_in_json() -> Result<()> {
     let mut app = api_with! {
-        put: "/api/projects/{project_id}/data" => projects::add_data,
+        put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split,
         post: "/api/projects/{project_id}/process" => projects::begin_processing,
     };
 
-    let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa", "name": "Freddie"};
-    let url = format!("/api/projects/{}/data", common::MAIN_PROJECT_ID);
+    let url = format!("/api/projects/{}/upload_and_split", common::MAIN_PROJECT_ID);
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
         .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
+        .insert_header(("Content-Type", "multipart/form-data; boundary=boundary"))
         .uri(&url)
-        .set_json(&doc)
+        .set_payload(ASL_CSV)
         .to_request();
 
     let res = test::call_service(&mut app, req).await;
@@ -451,25 +478,50 @@ async fn job_configs_can_have_integer_timeouts_in_json() -> Result<()> {
 }
 
 #[actix_rt::test]
-async fn users_cannot_submit_jobs_with_insufficient_funds() -> Result<()> {
-    let mut app = api_with! {
-        put: "/api/projects/{project_id}/data" => projects::add_data,
-        post: "/api/projects/{project_id}/process" => projects::begin_processing,
-    };
+async fn train_and_predict_can_be_added_to_projects() -> Result<()> {
+    let mut app = api_with! { put: "/api/projects/{project_id}/upload_train_and_predict" => projects::upload_train_and_predict };
 
-    let doc = doc! {"content": "age,sex,location\n22,M,Leamington Spa", "name": "Freddie"};
-    let url = format!("/api/projects/{}/data", common::MAIN_PROJECT_ID);
+    let url = format!(
+        "/api/projects/{}/upload_train_and_predict",
+        common::MAIN_PROJECT_ID
+    );
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
         .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
+        .insert_header(("Content-Type", "multipart/form-data; boundary=boundary"))
         .uri(&url)
-        .set_json(&doc)
+        .set_payload(DASL_CSV)
         .to_request();
 
     let res = test::call_service(&mut app, req).await;
 
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
+    Ok(())
+}
+
+#[actix_rt::test]
+async fn users_cannot_submit_jobs_with_insufficient_funds() -> Result<()> {
+    let mut app = api_with! {
+        put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split,
+        post: "/api/projects/{project_id}/process" => projects::begin_processing,
+    };
+
+    let url = format!("/api/projects/{}/upload_and_split", common::MAIN_PROJECT_ID);
+
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::PUT)
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
+        .insert_header(("Content-Type", "multipart/form-data; boundary=boundary"))
+        .uri(&url)
+        .set_payload(ASL_CSV)
+        .to_request();
+
+    let res = test::call_service(&mut app, req).await;
+
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
+
+    sleep(Duration::from_millis(600)).await;
 
     let formatted = format!("/api/projects/{}/process", common::MAIN_PROJECT_ID);
     let doc = doc! { "timeout": 10, "clusterSize": 2000, "predictionType": "classification", "predictionColumn": "name"};
