@@ -24,6 +24,12 @@ pub struct JobConfiguration {
     pub cluster_size: i32,
     /// The types of each column in the dataset
     pub column_types: Vec<String>,
+    /// The number of features in the dataset
+    pub feature_dim: i8,
+    /// The number of rows in train set (nearest 100)
+    pub train_size: i32,
+    /// The number of rows in predict set (nearest 100)
+    pub predict_size: i32,
     /// The column to predict during evaluation
     pub prediction_column: String,
     /// The type of problem we are being asked to solve

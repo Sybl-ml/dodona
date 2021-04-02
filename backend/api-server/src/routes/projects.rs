@@ -203,6 +203,7 @@ pub async fn upload_train_and_predict(
     let mut col_num = 1;
     let mut buffer: Vec<String> = Vec::new();
     let mut general_buffer: Vec<u8> = Vec::new();
+    let mut data_size: i32 = 0;
 
     // Read the train from the upload
     while let Some(Ok(mut field)) = dataset.next().await {
@@ -262,6 +263,7 @@ pub async fn upload_train_and_predict(
                     general_buffer = row.as_bytes().iter().cloned().collect();
                 } else {
                     buffer.push(String::from(row));
+                    data_size += 1;
                 }
 
                 if buffer.len() == CHUNK_SIZE {
@@ -287,10 +289,26 @@ pub async fn upload_train_and_predict(
 
         if name == "train" {
             dataset_doc.dataset = Some(dataset.id);
+            // Update dataset details with train size
+            dataset_details
+                .update_one(
+                    doc! { "project_id": &object_id},
+                    doc! {"$set": {"predict_size": ((data_size + 99) / 100) * 100}},
+                    None,
+                )
+                .await?;
         } else {
             dataset_doc.predict = Some(dataset.id);
+            // Update dataset details with predict size
+            dataset_details
+                .update_one(
+                    doc! { "project_id": &object_id},
+                    doc! {"$set": {"predict_size": ((data_size + 99) / 100) * 100}},
+                    None,
+                )
+                .await?;
         }
-
+        data_size = 0;
         log::info!("Finalised the {} set of data", name);
     }
 
@@ -364,6 +382,9 @@ pub async fn upload_and_split(
     let mut predict_buffer: Vec<String> = Vec::new();
     let mut general_buffer: Vec<u8> = Vec::new();
 
+    let mut train_size: i32 = 0;
+    let mut predict_size: i32 = 0;
+
     // Stream the data into it
     while let Some(Ok(chunk)) = field.next().await {
         if initial {
@@ -405,8 +426,10 @@ pub async fn upload_and_split(
             if cols.len() == col_num {
                 if row.split(',').last().unwrap().is_empty() {
                     predict_buffer.push(String::from(row));
+                    predict_size += 1;
                 } else {
                     dataset_buffer.push(String::from(row));
+                    train_size += 1;
                 }
             } else {
                 // If any incomplete row, set as general buffer
@@ -465,6 +488,15 @@ pub async fn upload_and_split(
     log::debug!("Uploading the dataset and file itself");
     dataset.finalise(&state.database).await?;
     predict.finalise(&state.database).await?;
+
+    // Update dataset details with train and predict sizes
+    dataset_details
+    .update_one(
+        doc! { "project_id": &object_id},
+        doc! {"$set": {"train_size": ((train_size + 99) / 100) * 100, "predict_size": ((predict_size + 99) / 100) * 100}},
+        None,
+    )
+    .await?;
 
     // Check whether the project has data already
     let existing_data = datasets
@@ -647,7 +679,7 @@ pub async fn begin_processing(
     // Parse the dataset detail itself
     let dataset_detail: DatasetDetails = from_document(document)?;
 
-    let column_types = dataset_detail
+    let column_types: Vec<String> = dataset_detail
         .column_types
         .values()
         .map(|x| match x.column_type {
@@ -674,12 +706,17 @@ pub async fn begin_processing(
         return Err(ServerError::PaymentRequired);
     }
 
+    let feature_dim = column_types.len() as i8;
+
     // Send a request to the interface layer
     let config = JobConfiguration {
         dataset_id: dataset.id.clone(),
         timeout: payload.timeout as i32,
         cluster_size: payload.cluster_size as i32,
         column_types,
+        feature_dim,
+        train_size: dataset_detail.train_size,
+        predict_size: dataset_detail.predict_size,
         prediction_column: payload.prediction_column.clone(),
         prediction_type: payload.prediction_type,
         cost,

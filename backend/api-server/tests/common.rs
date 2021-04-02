@@ -44,6 +44,7 @@ pub static MAIN_CLIENT_ID: &str = "602bfa774f986d0e58618187";
 
 pub static MAIN_PROJECT_ID: &str = "5f8ca1a80065f27c0089e8b5";
 pub static USERLESS_PROJECT_ID: &str = "5f8ca1a80065f27b0089e8b6";
+pub static DD_PROJECT_ID: &str = "5f8ca1a80065f27c0089e8b7";
 #[allow(dead_code)]
 pub static NON_EXISTENT_PROJECT_ID: &str = "5f8ca1a80065f27b0089e8a5";
 pub static OVERWRITTEN_DATA_PROJECT_ID: &str = "5fb784e4ead1758e1ce67bcd";
@@ -256,6 +257,14 @@ async fn insert_test_projects(database: &mongodb::Database) {
         "Test Description",
         DELETES_PROJECT_UID,
     );
+
+    let dd_info = create_project_with_id(
+        DD_PROJECT_ID,
+        "Query Dimensions Project",
+        "Test Description",
+        MAIN_USER_ID,
+    );
+
     let editable =
         create_project_with_id(EDITABLE_PROJECT_ID, "Edit Project", "edit me", MAIN_USER_ID);
 
@@ -265,6 +274,7 @@ async fn insert_test_projects(database: &mongodb::Database) {
     projects.insert_one(overwritten_data, None).await.unwrap();
     projects.insert_one(deletable, None).await.unwrap();
     projects.insert_one(editable, None).await.unwrap();
+    projects.insert_one(dd_info, None).await.unwrap();
 }
 
 async fn insert_test_job_performances(database: &mongodb::Database) {
