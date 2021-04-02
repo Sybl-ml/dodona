@@ -198,6 +198,46 @@ async fn datasets_can_be_added_to_projects() -> Result<()> {
 }
 
 #[actix_rt::test]
+async fn datasets_sizes_are_calculated() -> Result<()> {
+    let mut app = api_with! {
+        put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split,
+        get: "/api/projects/{project_id}" => projects::get_project,
+    };
+
+    let url = format!("/api/projects/{}/upload_and_split", common::MAIN_PROJECT_ID);
+
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::PUT)
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
+        .insert_header(("Content-Type", "multipart/form-data; boundary=boundary"))
+        .uri(&url)
+        .set_payload(ASL_CSV)
+        .to_request();
+
+    let res = test::call_service(&mut app, req).await;
+
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
+
+    let formatted = format!("/api/projects/{}", common::MAIN_PROJECT_ID);
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::GET)
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
+        .uri(&formatted)
+        .to_request();
+
+    let res = test::call_service(&mut app, req).await;
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
+
+    let project_response: ProjectResponse = test::read_body_json(res).await;
+    let dataset_details: DatasetDetails = project_response.details.unwrap();
+
+    assert_eq!(100, dataset_details.train_size);
+    assert_eq!(100, dataset_details.predict_size);
+
+    Ok(())
+}
+
+#[actix_rt::test]
 async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
     let mut app = api_with! {
         put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split,
