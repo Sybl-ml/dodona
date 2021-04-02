@@ -20,6 +20,10 @@ pub struct DatasetDetails {
     pub head: Option<String>,
     /// The types of each column
     pub column_types: Columns,
+    /// The number of rows in train set (nearest 100)
+    pub train_size: i32,
+    /// The number of rows in predict set (nearest 100)
+    pub predict_size: i32,
 }
 
 impl DatasetDetails {
@@ -37,6 +41,8 @@ impl DatasetDetails {
             date_created: bson::DateTime(Utc::now()),
             head: Some(head),
             column_types,
+            train_size: 0,
+            predict_size: 0,
         }
     }
 
