@@ -13,7 +13,6 @@ use actix_web::{
     HttpResponse,
 };
 use futures::stream::poll_fn;
-use math::round;
 use mongodb::{
     bson::{de::from_document, doc, document::Document, oid::ObjectId, ser::to_document},
     Collection,
@@ -294,7 +293,7 @@ pub async fn upload_train_and_predict(
             dataset_details
                 .update_one(
                     doc! { "project_id": &object_id},
-                    doc! {"$set": {"predict_size": round::ceil(data_size as f64, -2) as i32}},
+                    doc! {"$set": {"predict_size": ((data_size + 99) / 100) * 100}},
                     None,
                 )
                 .await?;
@@ -304,7 +303,7 @@ pub async fn upload_train_and_predict(
             dataset_details
                 .update_one(
                     doc! { "project_id": &object_id},
-                    doc! {"$set": {"predict_size": round::ceil(data_size as f64, -2) as i32}},
+                    doc! {"$set": {"predict_size": ((data_size + 99) / 100) * 100}},
                     None,
                 )
                 .await?;
@@ -494,7 +493,7 @@ pub async fn upload_and_split(
     dataset_details
     .update_one(
         doc! { "project_id": &object_id},
-        doc! {"$set": {"train_size": round::ceil(train_size as f64, -2) as i32, "predict_size": round::ceil(predict_size as f64, -2) as i32}},
+        doc! {"$set": {"train_size": ((train_size + 99) / 100) * 100, "predict_size": ((predict_size + 99) / 100) * 100}},
         None,
     )
     .await?;
