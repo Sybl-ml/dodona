@@ -44,7 +44,7 @@ async fn projects_can_be_fetched_for_a_user() -> Result<()> {
 
     let projects: Vec<Project> = test::read_body_json(res).await;
 
-    assert_eq!(projects.len(), 2);
+    assert_eq!(projects.len(), 3);
 
     let found = &projects[0];
 
@@ -204,7 +204,7 @@ async fn datasets_sizes_are_calculated() -> Result<()> {
         get: "/api/projects/{project_id}" => projects::get_project,
     };
 
-    let url = format!("/api/projects/{}/upload_and_split", common::MAIN_PROJECT_ID);
+    let url = format!("/api/projects/{}/upload_and_split", common::DD_PROJECT_ID);
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::PUT)
@@ -218,7 +218,9 @@ async fn datasets_sizes_are_calculated() -> Result<()> {
 
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
-    let formatted = format!("/api/projects/{}", common::MAIN_PROJECT_ID);
+    sleep(Duration::from_millis(500)).await;
+
+    let formatted = format!("/api/projects/{}", common::DD_PROJECT_ID);
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::GET)
         .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
