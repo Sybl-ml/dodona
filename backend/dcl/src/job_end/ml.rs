@@ -44,6 +44,7 @@ pub fn weight_predictions(
     let job_type = info.config.prediction_type;
 
     let mut predictions: Vec<String> = Vec::new();
+    predictions.push(String::from("predicted"));
 
     match job_type {
         PredictionType::Classification => {

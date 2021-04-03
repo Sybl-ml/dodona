@@ -86,6 +86,21 @@ impl File {
         chunks.find(filter, options).await
     }
 
+    pub async fn download_specific_chunks(
+        &self,
+        database: &mongodb::Database,
+        chunk_vec: &Vec<i32>,
+    ) -> mongodb::error::Result<mongodb::Cursor<Document>> {
+        let chunks = database.collection("chunks");
+
+        let filter = doc! {"files_id": &self.id, "n": {"$in": chunk_vec}};
+        let options = mongodb::options::FindOptions::builder()
+            .sort(doc! {"n": 1})
+            .build();
+
+        chunks.find(filter, options).await
+    }
+
     pub async fn download_dataset(
         &self,
         database: &mongodb::Database,

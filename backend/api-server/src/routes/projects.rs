@@ -293,7 +293,7 @@ pub async fn upload_train_and_predict(
             dataset_details
                 .update_one(
                     doc! { "project_id": &object_id},
-                    doc! {"$set": {"predict_size": ((data_size + 99) / 100) * 100}},
+                    doc! {"$set": {"train_size": ((data_size + 99) / 100) * 100}},
                     None,
                 )
                 .await?;
@@ -608,6 +608,222 @@ pub async fn get_dataset(
     );
 
     Ok(HttpResponseBuilder::new(StatusCode::OK).streaming(byte_stream))
+}
+
+/// Route for returning pagination data
+///
+/// Passing a full dataset to the frontend can be heavy duty and take up a
+/// lot of data. Using pagination, sections of a dataset can be given to the
+/// frontend when they are needed so that data usage can be reduced.
+pub async fn pagination(
+    claims: auth::Claims,
+    state: web::Data<State>,
+    extractor: web::Path<(String, DatasetType, usize, usize)>,
+) -> ServerResponse {
+    let datasets = state.database.collection("datasets");
+    let projects = state.database.collection("projects");
+    let files = state.database.collection("files");
+    let predictions = state.database.collection("predictions");
+
+    let project_id = &extractor.0;
+    let dataset_type = &extractor.1;
+    let amount = &extractor.2;
+    let page = &extractor.3;
+
+    log::info!("Dataset Type: {:?}", dataset_type);
+    let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
+    let filter = doc! { "project_id": &object_id };
+
+    // Find the dataset in the database
+    let document = datasets
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
+
+    // Parse the dataset itself
+    let dataset: Dataset = from_document(document)?;
+
+    // Calculate the chunk that is needed
+    let chunk_vec: Vec<i32>;
+    let min_row = (page - 1) * amount;
+    let max_row = page * amount;
+
+    let chunk1 = (min_row / CHUNK_SIZE) as i32;
+    let chunk2 = (max_row / CHUNK_SIZE) as i32;
+
+    // Equal size
+    if chunk1 == chunk2 {
+        // If one chunk is the first chunk
+        // Need to bring in extra chunk because first chunk has 9999 elements instead
+        if chunk1 == 0 {
+            chunk_vec = vec![chunk2, (chunk2 + 1)];
+        } else {
+            chunk_vec = vec![0, chunk2, (chunk2 + 1)];
+        }
+    }
+    // Different sizes
+    else {
+        // If one chunk is the first chunk
+        if chunk1 == 0 {
+            chunk_vec = vec![chunk1, chunk2];
+        } else {
+            chunk_vec = vec![0, chunk1, chunk2];
+        }
+    }
+
+    let mut initial = true;
+    let mut page: Vec<String> = vec![];
+    let mut row_count = 0;
+
+    // Decide filter based off enum
+    match dataset_type {
+        DatasetType::Train => {
+            // If Train
+            //      Get correct chunks
+            //      Extract data page that is needed
+            //      Return it to frontend
+            let filter = doc! { "_id": &dataset.dataset.unwrap() };
+            // Find the file in the database
+            let document = files
+                .find_one(filter, None)
+                .await?
+                .ok_or(ServerError::NotFound)?;
+
+            // Parse the dataset itself
+            let file: gridfs::File = from_document(document)?;
+
+            let mut cursor = file
+                .download_specific_chunks(&state.database, &chunk_vec)
+                .await?;
+            // Iterate over chunks and build page
+            while let Some(chunk) = cursor.next().await {
+                let chunk: gridfs::Chunk = from_document(chunk?)?;
+                let chunk_bytes = chunk.data.bytes;
+                let decomp_data = decompress_data(&chunk_bytes).unwrap();
+                let chunk_string = String::from_utf8(decomp_data)?;
+                let mut chunk_iter = chunk_string.split("\n");
+                // Go through iterator
+                while let Some(row) = chunk_iter.next() {
+                    // If header, add to page
+                    if initial {
+                        page.push(String::from(row));
+                        initial = false;
+                    }
+                    // If within bounds, add to page
+                    if row_count > min_row && row_count <= max_row {
+                        page.push(String::from(row));
+                    } else if row_count > max_row {
+                        // End of page search
+                        break;
+                    }
+
+                    row_count += 1;
+                }
+                // End of page search
+                if row_count > max_row {
+                    break;
+                }
+            }
+        }
+        DatasetType::Predict => {
+            // If Predict
+            //      Get correct predict chunk
+            //      Get correct predictions chunk
+            //      Extract data page from both that is needed
+            //      Combine the two pages into 1
+            //      Return to frontend
+
+            // Get predict data
+            let filter = doc! { "_id": &dataset.predict.unwrap() };
+
+            let document = files
+                .find_one(filter, None)
+                .await?
+                .ok_or(ServerError::NotFound)?;
+
+            // Parse the dataset itself
+            let predict_file: gridfs::File = from_document(document)?;
+
+            let mut predict_cursor = predict_file
+                .download_specific_chunks(&state.database, &chunk_vec)
+                .await?;
+
+            // Get the predictions
+            let filter = doc! { "project_id": &object_id };
+
+            // Find the dataset in the database
+            let document = predictions
+                .find_one(filter, None)
+                .await?
+                .ok_or(ServerError::NotFound)?;
+
+            // Parse the prediction itself
+            let prediction: Prediction = from_document(document)?;
+
+            let filter = doc! { "_id": &prediction.predictions };
+
+            // Find the file in the database
+            let document = files
+                .find_one(filter, None)
+                .await?
+                .ok_or(ServerError::NotFound)?;
+
+            // Parse the dataset itself
+            let predictions_file: gridfs::File = from_document(document)?;
+
+            let mut predictions_cursor = predictions_file
+                .download_specific_chunks(&state.database, &chunk_vec)
+                .await?;
+
+            while let Some(chunk) = predict_cursor.next().await {
+                // Predict Chunk
+                let chunk: gridfs::Chunk = from_document(chunk?)?;
+                let chunk_bytes = chunk.data.bytes;
+                let decomp_data = decompress_data(&chunk_bytes).unwrap();
+                let chunk_string = String::from_utf8(decomp_data)?;
+                let chunk_iter = chunk_string.split("\n");
+
+                // Predictions Chunk
+                let pred_chunk_string = match predictions_cursor.next().await {
+                    Some(chunk) => {
+                        let chunk: gridfs::Chunk = from_document(chunk?)?;
+                        let chunk_bytes = chunk.data.bytes;
+                        let decomp_data = decompress_data(&chunk_bytes).unwrap();
+                        Some(String::from_utf8(decomp_data)?)
+                    }
+                    None => None,
+                }
+                .ok_or(ServerError::NotFound)?;
+
+                let pred_chunk_iter = pred_chunk_string.split("\n");
+
+                let mut row_iter = chunk_iter.zip(pred_chunk_iter);
+
+                while let Some((predict_row, predicted_row)) = row_iter.next() {
+                    // If header, add to page
+                    if initial {
+                        page.push(String::from(predict_row));
+                        initial = false;
+                    }
+                    // If within bounds, create predictions row and add to page
+                    if row_count > min_row && row_count <= max_row {
+                        page.push(format!("{},{}", predict_row, predicted_row));
+                    } else if row_count > max_row {
+                        // End of page search
+                        break;
+                    }
+
+                    row_count += 1;
+                }
+                // End of page search
+                if row_count > max_row {
+                    break;
+                }
+            }
+        }
+    };
+
+    response_from_json(doc! {"data": page.join("\n")})
 }
 
 /// Removes the data associated with a given project identifier.
