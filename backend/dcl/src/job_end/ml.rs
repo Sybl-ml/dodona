@@ -192,6 +192,15 @@ pub async fn model_performance(
 
         job_perf_vec.push(mongodb::bson::ser::to_document(&job_performance).unwrap());
     }
+
+    if job_perf_vec.is_empty() {
+        log::warn!(
+            "No models returned correct predictions for project {}",
+            project_id
+        );
+        return Ok(());
+    }
+
     job_performances.insert_many(job_perf_vec, None).await?;
 
     Ok(())
@@ -229,9 +238,12 @@ pub async fn penalise(
         job_perf_vec.push(mongodb::bson::ser::to_document(&job_performance).unwrap());
     }
 
-    if !job_perf_vec.is_empty() {
-        job_performances.insert_many(job_perf_vec, None).await?;
+    if job_perf_vec.is_empty() {
+        log::info!("No models were penalised for project {}", project_id);
+        return Ok(());
     }
+
+    job_performances.insert_many(job_perf_vec, None).await?;
 
     Ok(())
 }
