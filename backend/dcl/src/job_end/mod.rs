@@ -538,16 +538,19 @@ pub async fn dcl_protocol(
 
     log::info!("Predictions: {:?}", &anonymised_predictions);
 
-    let predictions = deanonymise_dataset(&anonymised_predictions, &info.columns).unwrap();
-
     if let Some((model_predictions, model_error)) =
-        ml::evaluate_model(&model_id, &predictions, &info)
+        deanonymise_dataset(&anonymised_predictions, &info.columns)
+            .and_then(|predictions| ml::evaluate_model(&model_id, &predictions, &info))
     {
+        log::info!(
+            "(Node: {}) Computed Data: {:?}",
+            &model_id,
+            &model_predictions
+        );
         write_back.write_error(model_id.clone(), Some(model_error));
         write_back.write_predictions(model_id.clone(), model_predictions);
-        log::info!("(Node: {}) Computed Data: {}", &model_id, predictions);
     } else {
-        log::info!("(Node: {}) Failed to respond to all examples", &model_id);
+        log::info!("(Node: {}) Failed to respond correctly", &model_id);
         write_back.write_error(model_id.clone(), None);
     }
 

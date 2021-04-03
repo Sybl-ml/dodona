@@ -124,6 +124,8 @@ pub fn evaluate_model(
                 // record the L2 error of the prediction
                 if let (Ok(p), Ok(a)) = (prediction.parse::<f64>(), answer.parse::<f64>()) {
                     model_error += (p - a).powf(2.0);
+                } else {
+                    return None;
                 }
             }
             (None, _) => {
