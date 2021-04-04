@@ -1,20 +1,23 @@
 //! Part of DCL that takes a DCN and a dataset and comunicates with node
 
-use bytes::Bytes;
-use rand::seq::SliceRandom;
-use rand::{thread_rng, Rng};
 use std::cmp::max;
 use std::collections::HashMap;
 use std::convert::From;
+use std::env;
 use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::Result;
+use bytes::Bytes;
+use lettre::transport::smtp::authentication::Credentials;
+use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 use mongodb::{
-    bson::{doc, oid::ObjectId},
+    bson::{doc, from_document, oid::ObjectId},
     Database,
 };
+use rand::seq::SliceRandom;
+use rand::{thread_rng, Rng};
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio::sync::{Notify, RwLock};
@@ -27,7 +30,8 @@ use models::gridfs;
 use models::jobs::JobConfiguration;
 use models::jobs::PredictionType;
 use models::predictions::Prediction;
-use models::projects::Status;
+use models::projects::{Project, Status};
+use models::users::User;
 
 use utils::anon::{anonymise_dataset, deanonymise_dataset, infer_dataset_columns};
 use utils::compress::compress_data;
@@ -134,6 +138,28 @@ impl ClusterControl {
         if *write_cc == 0 {
             self.notify.notify_one();
         }
+    }
+}
+
+/// The configuration for sending emails.
+#[derive(Debug)]
+pub struct Config {
+    /// The address to send from.
+    pub from_address: String,
+    /// The name to send from.
+    pub from_name: String,
+    /// The application specific password for Gmail.
+    pub app_password: String,
+}
+
+impl Config {
+    /// Builds a configuration from the environment variables.
+    pub fn from_env() -> Result<Self, std::env::VarError> {
+        Ok(Self {
+            from_address: env::var("FROM_ADDRESS")?,
+            from_name: env::var("FROM_NAME")?,
+            app_password: env::var("APP_PASSWORD")?,
+        })
     }
 }
 
@@ -486,7 +512,17 @@ async fn run_cluster(
         .await
         .unwrap_or_else(|error| log::error!("Error writing predictions to DB: {}", error));
 
-    change_status(database, project_id, Status::Complete).await?;
+    change_status(&database, &project_id, Status::Complete).await?;
+
+    // Status has been updated to complete, so email the user
+    if let Err(e) = email_user_on_project_finish(&database, &project_id).await {
+        log::warn!(
+            "Failed to email the user upon finishing processing of project_id={}: {}",
+            project_id,
+            e
+        );
+    }
+
     Ok(())
 }
 
@@ -606,19 +642,83 @@ pub async fn increment_run_count(database: Arc<Database>, model_id: &str) -> Res
 
 /// Change the status of a project after it has been completed
 pub async fn change_status(
-    database: Arc<Database>,
-    project_id: ObjectId,
+    database: &Arc<Database>,
+    project_id: &ObjectId,
     status: Status,
 ) -> Result<()> {
     let projects = database.collection("projects");
 
     projects
         .update_one(
-            doc! { "_id": &project_id},
+            doc! { "_id": project_id},
             doc! {"$set": {"status": status}},
             None,
         )
         .await?;
+
+    Ok(())
+}
+
+/// Emails the user to inform them the project has finished.
+///
+/// If any of the appropriate environment variables are not set (being the `FROM_ADDRESS`,
+/// `FROM_NAME` and `APP_PASSWORD`), no emails will sent. Otherwise, this will retrieve the project
+/// information from the database and the user who created it, before formatting an email and
+/// sending it to them. This is currently hardcoded to use Google's mail servers and is largely
+/// based on similar code that runs the email system for `blackboards.pl`.
+pub async fn email_user_on_project_finish(
+    database: &Arc<Database>,
+    project_id: &ObjectId,
+) -> Result<()> {
+    let users = database.collection("users");
+    let projects = database.collection("projects");
+
+    // Find the project itself and convert it
+    let document = projects
+        .find_one(doc! { "_id": &project_id }, None)
+        .await?
+        .expect("Project did not exist in the database");
+
+    let project = from_document::<Project>(document)?;
+
+    // Find the user associated with the project and deserialize it
+    let user_document = users
+        .find_one(doc! { "_id": &project.user_id }, None)
+        .await?
+        .expect("Failed to find user associated with project");
+
+    let user: User = from_document(user_document)?;
+
+    // Get the configuration from the environment if it exists
+    let email_config = Config::from_env()?;
+
+    // Form the sender and receiver addresses, as well as the body
+    let from = format!("{} <{}>", email_config.from_name, email_config.from_address);
+    let to = format!("{} {} <{}>", user.first_name, user.last_name, user.email);
+    let body = format!(
+        r#"Hi {},
+
+Your project '{}' has finished processing, and results are now available. You can view them at https://sybl.tech/dashboard/{}"#,
+        user.first_name, project.name, project_id
+    );
+
+    // Build the message to send
+    let email = Message::builder()
+        .from(from.parse()?)
+        .to(to.parse()?)
+        .subject("Sybl Project Completion")
+        .body(body)?;
+
+    // Use the credentials from the configuration parsed earlier
+    let creds = Credentials::new(email_config.from_address, email_config.app_password);
+
+    // Open a remote connection to gmail
+    let mailer = AsyncSmtpTransport::<Tokio1Executor>::relay("smtp.gmail.com")?
+        .credentials(creds)
+        .build();
+
+    // Send the email itself
+    mailer.send(email).await?;
 
     Ok(())
 }

@@ -38,3 +38,7 @@ mockito = "0.30.0"
 [dependencies.reqwest]
 version = "0.11.2"
 features = ["json"]
+
+[dependencies.lettre]
+version = "0.10.0-beta.3"
+features = ["smtp-transport", "tokio1", "tokio1-native-tls"]
