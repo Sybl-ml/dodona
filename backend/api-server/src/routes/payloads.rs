@@ -86,8 +86,8 @@ pub struct PatchProjectOptions {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProcessingOptions {
-    /// The timeout for the job
-    pub timeout: u32,
+    /// The amount of time each node is allowed to compute for
+    pub node_computation_time: u32,
     /// The cluster_size for the job
     pub cluster_size: u32,
     /// The type of prediction category this is

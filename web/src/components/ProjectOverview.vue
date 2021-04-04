@@ -59,14 +59,14 @@
         >
         <b-collapse id="job-config">
           <b-form-group
-            label="Timeout (mins)"
+            label="Node Computation Time (mins)"
             label-for="dropdown-form-timeout"
           >
             <b-form-input
               id="dropdown-form-timeout"
               size="sm"
               type="number"
-              v-model="timeout"
+              v-model="nodeComputationTime"
             ></b-form-input>
           </b-form-group>
           <b-form-group
@@ -229,7 +229,7 @@ export default {
   },
   data() {
     return {
-      timeout: 10,
+      nodeComputationTime: 10,
       cluster_size: 2,
       value: 64,
       file: null,
@@ -309,17 +309,17 @@ export default {
   },
   methods: {
     async start() {
-      this.timeout = parseInt(this.timeout);
+      this.nodeComputationTime = parseInt(this.nodeComputationTime);
       this.cluster_size = parseInt(this.cluster_size);
-      if (this.timeout <= 0) {
-        this.timeout = 1;
+      if (this.nodeComputationTime <= 0) {
+        this.nodeComputationTime = 1;
       }
       if (this.cluster_size <= 0) {
         this.cluster_size = 1;
       }
       try {
         await this.$http.post(`api/projects/${this.projectId}/process`, {
-          timeout: this.timeout,
+          nodeComputationTime: this.nodeComputationTime,
           clusterSize: this.cluster_size,
           predictionType: this.problemType,
           predictionColumn: this.predColumn,

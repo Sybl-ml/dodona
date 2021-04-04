@@ -83,15 +83,17 @@ async fn process_job(
 ) -> Result<()> {
     let JobConfiguration {
         dataset_id,
-        timeout,
+        node_computation_time,
         column_types,
         ..
     } = job_config.clone();
 
-    log::info!("Received a message from the interface:");
-    log::debug!("\tDataset Identifier: {}", dataset_id);
-    log::debug!("\tTimeout: {}", timeout);
-    log::debug!("\tColumn types: {:?}", column_types);
+    log::debug!(
+        "Received a job to process: dataset_id={}, node_computation_time={}, column_types={:?}",
+        dataset_id,
+        node_computation_time,
+        column_types
+    );
 
     let datasets = db_conn.collection("datasets");
     let files = db_conn.collection("files");

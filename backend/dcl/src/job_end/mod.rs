@@ -56,8 +56,8 @@ pub struct ClusterInfo {
     pub validation_ans: HashMap<(ModelID, String), String>,
     /// Test record IDs
     pub prediction_rids: HashMap<(ModelID, String), usize>,
-    /// Timeout for the job
-    pub timeout: Duration,
+    /// The amount of time each node is allowed to compute for
+    pub node_computation_time: Duration,
 }
 
 /// The `String` predictions of model `ModelID` on test example `usize`
@@ -208,18 +208,17 @@ pub async fn run(
 
             let mut columns = infer_dataset_columns(&data).unwrap();
 
-            log::info!("Columns: {:?}", &columns);
+            // Anonymise the prediction column for the job
+            let anonymised_config = config.anonymise(&columns);
 
-            let config_clone = config.clone();
-            let anon_config = ClientMessage::from(config_clone);
-
-            let cluster = match nodepool
-                .build_cluster(anon_config.anonymise(&columns))
-                .await
-            {
+            let cluster = match nodepool.build_cluster(anonymised_config).await {
                 Some(c) => c,
                 _ => {
-                    log::info!("No cluster could be built");
+                    log::warn!(
+                        "Failed to build a cluster for project_id={}, requiring a configuration of: {:?}",
+                        project_id,
+                        config
+                    );
 
                     job_control
                         .job_queue
@@ -242,17 +241,10 @@ pub async fn run(
             let mut validation = Vec::new();
             let test = msg.predict.trim().split('\n').skip(1).collect::<Vec<_>>();
 
-            let JobConfiguration {
-                prediction_column,
-                prediction_type,
-                timeout,
-                ..
-            } = config.clone();
-
-            if prediction_type == PredictionType::Classification {
+            if config.prediction_type == PredictionType::Classification {
                 columns.insert(
-                    prediction_column.clone(),
-                    Column::categorical(&prediction_column, &data),
+                    config.prediction_column.clone(),
+                    Column::categorical(&config.prediction_column, &data),
                 );
             }
 
@@ -268,19 +260,23 @@ pub async fn run(
                 &test,
                 &validation,
                 &columns,
-                &prediction_column,
+                &config.prediction_column,
             );
+
             let info = ClusterInfo {
                 project_id: project_id.clone(),
                 columns: columns.clone(),
                 config: config.clone(),
                 validation_ans: validation_ans.clone(),
                 prediction_rids: prediction_rids.clone(),
-                timeout: Duration::from_secs((timeout * 60) as u64),
+                node_computation_time: Duration::from_secs(
+                    (config.node_computation_time * 60) as u64,
+                ),
             };
 
             let np_clone = Arc::clone(&nodepool);
             let database_clone = Arc::clone(&database);
+
             run_cluster(
                 np_clone,
                 database_clone,
@@ -289,6 +285,7 @@ pub async fn run(
                 bags.clone(),
             )
             .await?;
+
             break;
         }
 
@@ -446,7 +443,7 @@ async fn run_cluster(
         let train_predict = prediction_bag.get(&model_id).unwrap().clone();
 
         tokio::spawn(async move {
-            let wait = info_clone.timeout;
+            let wait = info_clone.node_computation_time;
 
             let future = dcl_protocol(
                 np_clone,
