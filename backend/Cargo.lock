@@ -322,12 +322,8 @@ dependencies = [
  "log",
  "models",
  "mongodb",
-<<<<<<< HEAD
  "pbkdf2 0.7.5",
  "rdkafka",
-=======
- "pbkdf2 0.6.0",
->>>>>>> Move produce_message to messages module
  "serde",
  "serde_json",
  "thiserror",

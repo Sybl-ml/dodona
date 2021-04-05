@@ -6,7 +6,6 @@ use mongodb::bson::oid::ObjectId
 // TODO: Add a userId to this struct for a bit of state
 // using this userid it will be possible to subscribe to the correct topic
 // again possibly using the new datastructure that is storing the topic names
-<<<<<<< HEAD
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -23,10 +22,6 @@ ProjectUpdateWs {
         }
     }
 }
-=======
-
-struct ProjectUpdateWs;
->>>>>>> Start websocket impl
 
 impl Actor for ProjectUpdateWs {
     type Context = ws::WebsocketContext<Self>;
@@ -80,7 +75,6 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ProjectUpdateWs {
     }
 }
 
-<<<<<<< HEAD
 async fn index(
     claims: auth::Claims,
     req: HttpRequest,
@@ -92,10 +86,6 @@ async fn index(
 
     // Add to hashmap
 
-=======
-async fn index(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
-    let resp = ws::start(ProjectUpdateWs {}, &req, stream);
->>>>>>> Start websocket impl
     println!("{:?}", resp);
     resp
 }
