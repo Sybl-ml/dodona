@@ -19,11 +19,14 @@ use std::sync::{Arc, Mutex};
 use actix::prelude::Addr;
 use actix_cors::Cors;
 use actix_web::{middleware, web, App, HttpServer, Result};
+use actix::prelude::Message;
 use mongodb::{options::ClientOptions, Client, Database};
 
 pub mod auth;
 pub mod error;
 pub mod routes;
+
+Socket = Recipient<ClientCompleteMessage>
 
 /// Defines the state for each request to access.
 #[derive(Clone, Debug)]
@@ -34,6 +37,8 @@ pub struct State {
     pub pepper: Arc<String>,
     /// The number of iterations to use for hashing
     pub pbkdf2_iterations: u32,
+    /// Map of userids to open sockets
+    pub websocket_map: Arc<Mutex<HashMap<ObjectId, Socket>>>
 }
 
 #[derive(Clone, Debug, Default)]
@@ -104,6 +109,7 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
                 pepper: Arc::new(pepper.clone()),
                 pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)
                     .expect("PBKDF2_ITERATIONS must be parseable as an integer"),
+                websocket_map: Arc::clone(&websocket_map),
             })
             .app_data(websocket_state_data.clone())
             .route(
