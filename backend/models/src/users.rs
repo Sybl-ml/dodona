@@ -6,7 +6,7 @@ use tokio_stream::StreamExt;
 use crate::models::ClientModel;
 use crate::projects::Project;
 
-pub const STARTING_CREDITS: i32 = 1000;
+pub const STARTING_CREDITS: i32 = 10000;
 
 /// Defines the information that should be stored with a user in the database.
 #[derive(Debug, Serialize, Deserialize)]
