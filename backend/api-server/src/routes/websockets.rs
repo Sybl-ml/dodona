@@ -76,6 +76,8 @@ impl ProjectUpdateWs {
     }
 }
 
+// TODO: In Handle continously loop on the topic waiting for a update
+// If update send a message using the context across the websocket.
 impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ProjectUpdateWs {
     fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         match msg {
