@@ -1,4 +1,5 @@
 //! Part of DCL that deals with financial aspects of running models
+use std::cmp::max;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -39,5 +40,5 @@ pub async fn pay(database: Arc<Database>, user_id: &ObjectId, amount: i32) -> Re
 }
 
 pub fn job_cost(models: i32, dimensionality: i32, size: i32) -> i32 {
-    (models * dimensionality * (size / SIZE_DENOMINATOR)) as i32
+    (models * dimensionality * max(size / SIZE_DENOMINATOR, 1)) as i32
 }
