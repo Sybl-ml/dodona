@@ -17,11 +17,14 @@ use std::sync::Arc;
 
 use actix_cors::Cors;
 use actix_web::{middleware, web, App, HttpServer, Result};
+use actix::prelude::Message;
 use mongodb::{options::ClientOptions, Client, Database};
 
 pub mod auth;
 pub mod error;
 pub mod routes;
+
+Socket = Recipient<ClientCompleteMessage>
 
 /// Defines the state for each request to access.
 #[derive(Clone, Debug)]
@@ -32,6 +35,8 @@ pub struct State {
     pub pepper: Arc<String>,
     /// The number of iterations to use for hashing
     pub pbkdf2_iterations: u32,
+    /// Map of userids to open sockets
+    pub websocket_map: Arc<Mutex<HashMap<ObjectId, Socket>>>
 }
 
 /// Builds the default logging middleware for request logging.
@@ -68,6 +73,8 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
     let client = Client::with_options(client_options).unwrap();
     let database = Arc::new(client.database(&database_name));
 
+    let websocket_map = Arc::new(Mutex::new(HashMap::new()));
+
     let server = HttpServer::new(move || {
         // cors
         let cors_middleware = Cors::default()
@@ -86,6 +93,7 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
                 pepper: Arc::new(pepper.clone()),
                 pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)
                     .expect("PBKDF2_ITERATIONS must be parseable as an integer"),
+                websocket_map: Arc::clone(&websocket_map),
             })
             .route(
                 "/api/projects/{project_id}",
