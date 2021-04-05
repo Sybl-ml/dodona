@@ -38,6 +38,6 @@ pub async fn pay(database: Arc<Database>, user_id: &ObjectId, amount: i32) -> Re
     Ok(())
 }
 
-pub fn job_cost(models: u32) -> i32 {
-    (models * COST_PER_MODEL) as i32
+pub fn job_cost(models: i32, dimensionality: i32, size: i32) -> i32 {
+    (models * dimensionality * (size / 100)) as i32
 }
