@@ -166,7 +166,6 @@ impl Config {
 }
 
 /// Message produced for kafka
-
 // The proportion of training examples to use as validation examples
 const VALIDATION_SPLIT: f64 = 0.2;
 
@@ -605,6 +604,14 @@ pub async fn dcl_protocol(
     }
 
     increment_run_count(&database, &model_id).await?;
+
+    // Produce message
+    let message = ClientCompleteMessage {
+        model_id: &model_id,
+        model_count: 0,
+    };
+    let message_key = info.project_id.to_string();
+    let topic = "project_updates";
 
     nodepool.end(&model_id).await?;
     cluster_control.decrement().await;
