@@ -8,6 +8,7 @@ use mongodb::{
 };
 
 pub const COMMISSION_RATE: f64 = 0.25;
+pub const SIZE_DENOMINATOR: i32 = 1000;
 
 /// Function to pay a client for the use of their model
 /// to compute predictions. This is based on their
@@ -38,5 +39,5 @@ pub async fn pay(database: Arc<Database>, user_id: &ObjectId, amount: i32) -> Re
 }
 
 pub fn job_cost(models: i32, dimensionality: i32, size: i32) -> i32 {
-    (models * dimensionality * (size / 100)) as i32
+    (models * dimensionality * (size / SIZE_DENOMINATOR)) as i32
 }
