@@ -8,7 +8,6 @@ use mongodb::{
 };
 
 pub const COMMISSION_RATE: f64 = 0.25;
-pub const COST_PER_MODEL: u32 = 10;
 
 /// Function to pay a client for the use of their model
 /// to compute predictions. This is based on their
