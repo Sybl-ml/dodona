@@ -18,12 +18,9 @@ use mongodb::{
     bson::{de::from_document, doc, document::Document, oid::ObjectId, ser::to_document},
     options, Collection,
 };
-use rdkafka::config::ClientConfig;
-use rdkafka::error::KafkaResult;
-use rdkafka::producer::{FutureProducer, FutureRecord};
-use rdkafka::util::Timeout;
 use tokio_stream::StreamExt;
 
+use messages::kafka_message::produce_message;
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
 use models::gridfs;
@@ -613,11 +610,20 @@ pub async fn upload_and_split(
     if let Some(details_doc) = details_doc {
         // Insert the details as well
         response.insert("details", details_doc);
-    }
-
-    if let Some(analysis_doc) = analysis_doc {
-        // Insert the details as well
-        response.insert("analysis", analysis_doc);
+        .await?;
+        
+        if let Some(analysis_doc) = analysis_doc {
+            // Insert the details as well
+            response.insert("analysis", analysis_doc);
+        }
+    // Communicate with Analytics Server
+    let analytics_job = serde_json::to_string(&object_id).unwrap();
+    let topic = "analytics";
+    if produce_message(&analytics_job, &analytics_job, &topic)
+        .await
+        .is_err()
+    {
+        log::warn!("Failed to forward object_id={} to Kafka", object_id);
     }
 
     response_from_json(response)
@@ -1229,7 +1235,14 @@ pub async fn begin_processing(
     // Insert to MongoDB first, so the interface can immediately mark as processed if needed
     insert_to_queue(&job, state.database.collection("jobs")).await?;
 
-    if produce_message(&job).await.is_err() {
+    let job_message = serde_json::to_string(&job.config).unwrap();
+    let job_key = &job.id.to_string();
+    let topic = "jobs";
+
+    if produce_message(&job_message, job_key, &topic)
+        .await
+        .is_err()
+    {
         log::warn!("Failed to forward job_id={} to Kafka", job.id);
     }
 
@@ -1250,63 +1263,6 @@ pub async fn begin_processing(
 
     response_from_json(doc! {"success": true})
 }
-
-async fn produce_message(job: &Job) -> KafkaResult<()> {
-    // Get the environment variable for the kafka broker
-    // if not set use 9092
-    let var = env::var("BROKER_PORT").unwrap_or_else(|_| "9092".to_string());
-    let port = u16::from_str(&var).expect("BROKER_PORT must be a u16");
-
-    // Build the address to send to
-    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port).to_string();
-    let producer: FutureProducer = ClientConfig::new()
-        .set("bootstrap.servers", &addr)
-        .set("message.timeout.ms", "5000")
-        .create()
-        .expect("Producer creation error");
-
-    let job_message = serde_json::to_string(&job.config).unwrap();
-
-    let delivery_status = producer
-        .send(
-            FutureRecord::to(JOB_TOPIC)
-                .payload(&job_message)
-                .key(&job.id.to_string()),
-            Timeout::Never,
-        )
-        .await;
-
-    log::debug!("Message sent result: {:?}", delivery_status);
-
-    Ok(())
-}
-
-async fn produce_analytics_message(project_id: &ObjectId) {
-    let var = env::var("BROKER_PORT").unwrap_or_else(|_| "9092".to_string());
-    let port = u16::from_str(&var).expect("BROKER_PORT must be a u16");
-
-    // Build the address to send to
-    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port).to_string();
-    let producer: FutureProducer = ClientConfig::new()
-        .set("bootstrap.servers", &addr)
-        .set("message.timeout.ms", "5000")
-        .create()
-        .expect("Producer creation error");
-
-    let analytics_job = serde_json::to_string(&project_id).unwrap();
-
-    let delivery_status = producer
-        .send(
-            FutureRecord::to(ANALYTICS_TOPIC)
-                .payload(&analytics_job)
-                .key(&analytics_job),
-            Timeout::Never,
-        )
-        .await;
-
-    log::debug!("Message sent result: {:?}", delivery_status);
-}
-
 /// Inserts a [`JobConfiguration`] into MongoDB.
 async fn insert_to_queue(job: &Job, collection: Collection) -> ServerResult<()> {
     let document = to_document(&job)?;

@@ -1598,6 +1598,7 @@ dependencies = [
  "log",
  "models",
  "mongodb",
+ "rdkafka",
  "serde",
  "serde_json",
  "tokio",

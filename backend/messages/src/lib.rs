@@ -9,6 +9,7 @@
 extern crate serde;
 
 pub mod client;
+pub mod kafka_message;
 pub mod length_prefix;
 pub mod raw_message;
 
