@@ -163,6 +163,14 @@ impl Config {
     }
 }
 
+/// Message produced for kafka
+#[derive(Debug)]
+pub struct ClientCompleteMessage<'a> {
+    /// Model id which node completed
+    pub model_id: &'a str,
+    /// the number of time the model as been run
+    pub model_count: i32,
+}
 // The proportion of training examples to use as validation examples
 const VALIDATION_SPLIT: f64 = 0.2;
 
@@ -600,6 +608,14 @@ pub async fn dcl_protocol(
     }
 
     increment_run_count(database, &model_id).await?;
+
+    // Produce message
+    let message = ClientCompleteMessage {
+        model_id: &model_id,
+        model_count: 0,
+    };
+    let message_key = info.project_id.to_string();
+    let topic = "project_updates";
 
     nodepool.end(&model_id).await?;
 
