@@ -585,7 +585,14 @@ pub async fn upload_and_split(
     }
 
     // Communicate with Analytics Server
-    produce_analytics_message(&object_id).await;
+    let analytics_job = serde_json::to_string(&object_id).unwrap();
+    let topic = "analytics";
+    if produce_message(&analytics_job, &analytics_job, &topic)
+        .await
+        .is_err()
+    {
+        log::warn!("Failed to forward object_id={} to Kafka", object_id);
+    }
 
     let dataset_doc = Dataset::new(object_id.clone(), dataset.id, predict.id);
     let document = to_document(&dataset_doc)?;
