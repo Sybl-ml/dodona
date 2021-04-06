@@ -13,18 +13,21 @@ extern crate serde_json;
 
 use std::env;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use actix_cors::Cors;
 use actix_web::{middleware, web, App, HttpServer, Result};
-use actix::prelude::Message;
-use mongodb::{options::ClientOptions, Client, Database};
+use actix::prelude::Recipient;
+use mongodb::{options::ClientOptions, Client, Database, bson::oid::ObjectId};
 
 pub mod auth;
 pub mod error;
 pub mod routes;
 
-Socket = Recipient<ClientCompleteMessage>
+use messages::websocket_message::ClientCompleteMessage;
+
+type Socket = Recipient<ClientCompleteMessage>;
 
 /// Defines the state for each request to access.
 #[derive(Clone, Debug)]
@@ -36,7 +39,7 @@ pub struct State {
     /// The number of iterations to use for hashing
     pub pbkdf2_iterations: u32,
     /// Map of userids to open sockets
-    pub websocket_map: Arc<Mutex<HashMap<ObjectId, Socket>>>
+    pub websocket_map: Arc<Mutex<HashMap<ObjectId, Socket>>>,
 }
 
 /// Builds the default logging middleware for request logging.
@@ -73,7 +76,7 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
     let client = Client::with_options(client_options).unwrap();
     let database = Arc::new(client.database(&database_name));
 
-    let websocket_map = Arc::new(Mutex::new(HashMap::new()));
+    let websocket_map: Arc<Mutex<HashMap<ObjectId, Socket>>> = Arc::new(Mutex::new(HashMap::new()));
 
     let server = HttpServer::new(move || {
         // cors
@@ -184,6 +187,7 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
             .route("/api/users/edit", web::post().to(routes::users::edit))
             .route("/api/users/login", web::post().to(routes::users::login))
             .route("/api/users/delete", web::post().to(routes::users::delete))
+            .service(web::resource("/ws/").route(web::get().to(routes::websockets::index)))
     })
     .bind("0.0.0.0:3001")?
     .run();

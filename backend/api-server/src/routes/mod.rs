@@ -14,6 +14,7 @@ pub mod clients;
 pub mod payloads;
 pub mod projects;
 pub mod users;
+pub mod websockets;
 
 /// Builds a [`Response`] with a 200 OK and JSON payload.
 ///

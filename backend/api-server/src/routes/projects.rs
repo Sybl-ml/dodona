@@ -76,7 +76,6 @@ pub struct DataCollection {
     /// Lower chunk id
     pub lower_chunk: usize,
 }
-
 /// Finds a project in the database given an identifier.
 ///
 /// Given a project identifier, finds the project in the database and returns it as a JSON object.

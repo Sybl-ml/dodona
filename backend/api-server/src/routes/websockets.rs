@@ -1,8 +1,10 @@
-use actix::{Actor, StreamHandler}
+use actix::{Actor, StreamHandler, ActorContext, AsyncContext};
 use actix_web::{web, HttpResponse};
 use actix_web_actors::ws;
-use mongodb::bson::oid::ObjectId
+use mongodb::bson::oid::ObjectId;
+use std::time::{Duration, Instant};
 
+use crate::{auth, State, error::ServerResponse};
 // TODO: Add a userId to this struct for a bit of state
 // using this userid it will be possible to subscribe to the correct topic
 // again possibly using the new datastructure that is storing the topic names
@@ -12,15 +14,6 @@ const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 struct ProjectUpdateWs {
     hb: Instant,
     id: ObjectId
-};
-
-ProjectUpdateWs {
-    pub fn new(user_id: ObjectId) -> ProjectUpdateWs {
-        ProjectUpdateWs {
-            id: ObjectId,
-            hb: Instant::now()
-        }
-    }
 }
 
 impl Actor for ProjectUpdateWs {
@@ -32,10 +25,17 @@ impl Actor for ProjectUpdateWs {
 }
 
 impl ProjectUpdateWs {
+    pub fn new(user_id: ObjectId) -> ProjectUpdateWs {
+        ProjectUpdateWs {
+            id: user_id,
+            hb: Instant::now()
+        }
+    }
+
     fn hb(&self, ctx: &mut ws::WebsocketContext<Self>) {
         ctx.run_interval(HEARTBEAT_INTERVAL, |act, ctx| {
             if Instant::now().duration_since(act.hb) > CLIENT_TIMEOUT {
-                log::info("Disconnecting failed heartbeat");
+                log::info!("Disconnecting failed heartbeat");
                 // Disconnect this websocket
                 ctx.stop();
                 return;
@@ -53,8 +53,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ProjectUpdateWs {
         ctx: &mut Self::Context
     ) {
         match msg {
-            Ok(ws::Message::Ping(msg)) => self.hb = Instant::now
+            Ok(ws::Message::Ping(msg)) => {self.hb = Instant::now();}
             Ok(ws::Message::Pong(_)) => {
+                log::info!("PONG!");
                 self.hb = Instant::now();  
             }
             Ok(ws::Message::Close(reason)) => {
@@ -62,25 +63,26 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ProjectUpdateWs {
                 ctx.stop();
             }
             Ok(ws::Message::Text(msg)) => {
-                log::info("Got a message from ws {:?}", msg);
-                ctx.send(msg.0);
+                log::info!("Got a message from ws {:?}", msg);
+                ctx.text(msg);
             }
             Err(e) => {
-                log::error("Error in message");
-                panic!(e)
-            }
+                log::error!("Error in message");
+                panic!("{}", e)
+            },
+            _ => ()
         }
     }
 }
 
-async fn index(
-    claims: auth::Claims,
-    req: HttpRequest,
+pub async fn index(
+    // claims: auth::Claims,
+    req: web::HttpRequest,
     state: web::Data<State>,
     stream: web::Payload,
-) -> Result<HttpResponse, Error> {
-
-    let resp = ws::start(ProjectUpdateWs::new(claims.id)}, &req, stream);
+) -> Result<HttpResponse, actix_web::error::Error> {
+    let id = ObjectId::new();
+    let resp = ws::start(ProjectUpdateWs::new(id), &req, stream);
 
     // Add to hashmap
 
