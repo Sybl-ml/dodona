@@ -1,8 +1,8 @@
 //! Contains the builder functions used to generate message for DCL-DCN protcol
 
+use chrono::{Duration, Utc};
+
 use models::jobs::{JobConfiguration, PredictionType};
-use std::convert::From;
-use utils::Columns;
 
 /// Different messages to be passed between DCL and DCN
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -14,8 +14,10 @@ pub enum ClientMessage {
     },
     /// Message to send Job Config
     JobConfig {
-        /// Job timeout
-        timeout: i32,
+        /// The current time according to the server
+        message_creation_timestamp: i64,
+        /// The timestamp by which models must return predictions
+        prediction_cutoff_timestamp: i64,
         /// Cluster Size
         cluster_size: i32,
         /// Types of each column in dataset for job
@@ -66,36 +68,10 @@ pub enum ClientMessage {
     Predictions(String),
 }
 
-impl ClientMessage {
-    /// Anonymises a ClientMessage
-    ///
-    /// Returns an anonymised clone of a ClientMessage such that it can be
-    /// sent to a model without the risk of information disclosure
-    /// Currently, this is only necessary for JobConfig messages
-    pub fn anonymise(&self, columns: &Columns) -> ClientMessage {
-        match self {
-            ClientMessage::JobConfig {
-                timeout,
-                cluster_size,
-                column_types,
-                prediction_column,
-                prediction_type,
-            } => ClientMessage::JobConfig {
-                timeout: *timeout,
-                cluster_size: *cluster_size,
-                column_types: column_types.clone(),
-                prediction_column: columns.get(prediction_column).unwrap().pseudonym.clone(),
-                prediction_type: *prediction_type,
-            },
-            _ => self.clone(),
-        }
-    }
-}
-
-impl From<JobConfiguration> for ClientMessage {
-    fn from(value: JobConfiguration) -> Self {
+impl From<&JobConfiguration> for ClientMessage {
+    fn from(value: &JobConfiguration) -> Self {
         let JobConfiguration {
-            timeout,
+            node_computation_time,
             cluster_size,
             column_types,
             prediction_column,
@@ -103,12 +79,21 @@ impl From<JobConfiguration> for ClientMessage {
             ..
         } = value;
 
+        // Get the current time and cutoff time according to the config
+        let current_time = Utc::now();
+        let cutoff_time = current_time + Duration::seconds(i64::from(*node_computation_time) * 60);
+
+        // Convert both to standard Unix timestamps in UTC
+        let message_creation_timestamp = current_time.timestamp();
+        let prediction_cutoff_timestamp = cutoff_time.timestamp();
+
         ClientMessage::JobConfig {
-            timeout,
-            cluster_size,
-            column_types,
-            prediction_column,
-            prediction_type,
+            message_creation_timestamp,
+            prediction_cutoff_timestamp,
+            cluster_size: *cluster_size,
+            column_types: column_types.clone(),
+            prediction_column: prediction_column.clone(),
+            prediction_type: *prediction_type,
         }
     }
 }

@@ -23,8 +23,8 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Notify, RwLock};
 
 use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
-use models::job_performance::JobPerformance;
 use models::models::Status;
+use models::{job_performance::JobPerformance, jobs::JobConfiguration};
 
 use crate::protocol;
 
@@ -201,19 +201,17 @@ impl NodePool {
     /// it is still returned. This also uses the performance metric to build well performing clusters.
     pub async fn build_cluster(
         &self,
-        config: ClientMessage,
+        config: JobConfiguration,
     ) -> Option<HashMap<String, Arc<RwLock<TcpStream>>>> {
-        let size = match config {
-            ClientMessage::JobConfig { cluster_size, .. } => cluster_size as usize,
-            _ => 1,
-        };
+        // Convert to usize as MongoDB stores as i32
+        let cluster_size = config.cluster_size as usize;
 
         let nodes_read = self.nodes.read().await;
         let mut accepted_job: Vec<(String, f64)> = Vec::new();
         let mut better_nodes: Vec<(String, f64)> = Vec::new();
         let mut info_write = self.info.write().await;
 
-        if self.active.load(Ordering::SeqCst) < size {
+        if self.active.load(Ordering::SeqCst) < cluster_size {
             return None;
         }
 
@@ -223,22 +221,37 @@ impl NodePool {
             if info.alive && !info.using {
                 info.using = true;
                 let stream = nodes_read.get(id).unwrap().get_tcp();
+                let config_response = NodePool::job_accepted(&stream, &config, &id).await;
 
-                if NodePool::job_accepted(stream.clone(), config.clone(), id.clone()).await {
-                    accepted_job.push((id.clone(), info.performance));
+                // Check all 3 possible states:
+                //      - Explicit acceptance
+                //      - Explicit rejection
+                //      - An error in the stream itself
+                match config_response {
+                    Ok(true) => {
+                        accepted_job.push((id.clone(), info.performance));
 
-                    if info.performance > 0.5 {
-                        better_nodes.push((id.clone(), info.performance));
+                        if info.performance > 0.5 {
+                            better_nodes.push((id.clone(), info.performance));
+                        }
+
+                        continue;
                     }
-                } else {
-                    info.using = false;
+                    Ok(false) => {
+                        log::debug!("model_id={} explicitly rejected the job", id);
+                    }
+                    Err(e) => {
+                        log::warn!("Error occurred asking model_id={} about the job: {}", id, e);
+                    }
                 }
+
+                info.using = false;
             }
         }
 
         // Checks if number of nodes that accepted the job is less than
         // the size of the cluster required.
-        if size > accepted_job.len() {
+        if cluster_size > accepted_job.len() {
             return None;
         }
 
@@ -247,7 +260,7 @@ impl NodePool {
         let mut cluster_performance: f64 = 0.0;
 
         // Build cluster of size
-        while cluster.len() < size {
+        while cluster.len() < cluster_size {
             // Choose a node which has accepted job
             let (chosen_node, performance) = NodePool::choose_random_node(
                 &mut accepted_job,
@@ -319,25 +332,26 @@ impl NodePool {
 
     /// Checks with a node if it will accept a job or not
     pub async fn job_accepted(
-        stream: Arc<RwLock<TcpStream>>,
-        config: ClientMessage,
-        key: String,
-    ) -> bool {
+        stream: &Arc<RwLock<TcpStream>>,
+        config: &JobConfiguration,
+        key: &str,
+    ) -> Result<bool> {
         let mut dcn_stream = stream.write().await;
 
         let mut buffer = [0_u8; 1024];
-        dcn_stream.write(&config.as_bytes()).await.unwrap();
+        let message = ClientMessage::from(config);
+        dcn_stream.write(&message.as_bytes()).await?;
 
-        let config_response = ClientMessage::from_stream(&mut *dcn_stream, &mut buffer).await;
+        let config_response = ClientMessage::from_stream(&mut *dcn_stream, &mut buffer).await?;
 
-        let accept = match config_response.unwrap() {
+        let accept = match config_response {
             ClientMessage::ConfigResponse { accept } => accept,
             _ => unreachable!(),
         };
 
         log::info!("(Node {}) Config response: {:?}", &key, accept);
 
-        accept
+        Ok(accept)
     }
 
     /// Changes the `using` flag on a [`NodeInfo`] object
