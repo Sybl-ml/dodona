@@ -688,7 +688,13 @@ pub async fn begin_processing(
         })
         .collect();
 
-    let cost = job_cost(payload.cluster_size);
+    let feature_dim = column_types.len() as i8;
+
+    let cost = job_cost(
+        payload.cluster_size as i32,
+        feature_dim as i32,
+        dataset_detail.train_size + dataset_detail.predict_size,
+    );
     let query = doc! { "_id": &claims.id };
     let document = users
         .find_one(query, None)
@@ -705,8 +711,6 @@ pub async fn begin_processing(
         );
         return Err(ServerError::PaymentRequired);
     }
-
-    let feature_dim = column_types.len() as i8;
 
     // Send a request to the interface layer
     let config = JobConfiguration {
