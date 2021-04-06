@@ -12,21 +12,24 @@ extern crate serde;
 extern crate serde_json;
 
 use std::collections::HashMap;
+use std::collections::HashMap;
 use std::env;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 use actix::prelude::Addr;
+use actix::prelude::Recipient;
 use actix_cors::Cors;
 use actix_web::{middleware, web, App, HttpServer, Result};
-use actix::prelude::Message;
-use mongodb::{options::ClientOptions, Client, Database};
+use mongodb::{bson::oid::ObjectId, options::ClientOptions, Client, Database};
 
 pub mod auth;
 pub mod error;
 pub mod routes;
 
-Socket = Recipient<ClientCompleteMessage>
+use messages::websocket_message::ClientCompleteMessage;
+
+type Socket = Recipient<ClientCompleteMessage>;
 
 /// Defines the state for each request to access.
 #[derive(Clone, Debug)]
@@ -38,7 +41,7 @@ pub struct State {
     /// The number of iterations to use for hashing
     pub pbkdf2_iterations: u32,
     /// Map of userids to open sockets
-    pub websocket_map: Arc<Mutex<HashMap<ObjectId, Socket>>>
+    pub websocket_map: Arc<Mutex<HashMap<ObjectId, Socket>>>,
 }
 
 #[derive(Clone, Debug, Default)]
