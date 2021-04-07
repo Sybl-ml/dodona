@@ -1,31 +1,29 @@
-# backend
+# `api-server`
 
-The Rust powered backend for the Sybl website.
+The Rust powered `api-server` for the Sybl website. This handles requests from
+the frontend, queries the database and returns the results for further
+processing. It also authorises users through JSON web tokens to ensure they are
+who they claim they are.
 
 ## Requirements
 
-The backend is written in [`Rust`](https://www.rust-lang.org) and thus requires
-a Rust compiler to build. You can download the toolchain from
+The `api-server` is written in [`Rust`](https://www.rust-lang.org) and thus
+requires a Rust compiler to build. You can download the toolchain from
 [here](https://www.rust-lang.org/tools/install).
 
-Additionally, the backend uses [`MongoDB`](https://www.mongodb.com/) as a
+Additionally, the `api-server` uses [`MongoDB`](https://www.mongodb.com/) as a
 persistent datastore and [`Apache Kafka`](https://kafka.apache.org/) for
 messaging, so these must be installed locally as well.
 
 ## Getting Started
 
-There are 3 binaries found in the backend, being the `analytics`, `api-server`
-and `dcl` components. These can be built in development mode using either of
-the following commands
+The `api-server` can be built in development mode with the following command:
 ```bash
-cargo run --bin <binary_name>
-```
-or
-```bash
-cd <binary_name>
 cargo run
 ```
-All other members of the workspace are used as libraries to support each other.
+This will download and build all the required dependencies, as well as building
+the other workspace members if needed, serving the `api-server` on port `3001`
+by default.
 
 ## Configuration
 
@@ -41,8 +39,11 @@ following settings are available:
 |      `pepper`       | string  |    The additional value to use for password hashing     |
 | `pbkdf2_iterations` | integer |      The number of iterations to use when hashing       |
 |    `broker_port`    | integer |             The port to connect to Kafka on             |
-|    `node_socket`    | integer |      The port for clients to connect to the DCL on      |
-|      `health`       | integer | The number of seconds to wait between each health check |
-|   `from_address`    | string  |             The email address to send from              |
-|     `from_name`     | string  |              The name of the email sender               |
-|   `app_password`    | string  |       The application specific password for Gmail       |
+
+## Testing
+
+The `api-server` tests itself both through unit tests in `src` and through
+integration tests in `tests`. The integration tests require a local instance of
+`MongoDB`, which can be configured in `config.toml`. These will set up the
+database with some predefined data and check that specific requests succeed or
+fail.
