@@ -11,9 +11,6 @@ as a persistant store.
 You can install the Rust compiler and toolchain
 [here](https://www.rust-lang.org/learn/get-started).
 
-After installing the toolchain, you'll need to swap to the nightly compiler by
-using `rustup default nightly`.
-
 ### JavaScript and Docker
 
 You'll also need the following installed:
