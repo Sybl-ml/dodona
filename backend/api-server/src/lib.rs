@@ -11,15 +11,15 @@ extern crate serde;
 #[macro_use]
 extern crate serde_json;
 
+use std::collections::HashMap;
 use std::env;
 use std::str::FromStr;
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use actix::prelude::Addr;
 use actix_cors::Cors;
 use actix_web::{middleware, web, App, HttpServer, Result};
-use actix::prelude::Addr;
-use mongodb::{options::ClientOptions, Client, Database, bson::oid::ObjectId};
+use mongodb::{bson::oid::ObjectId, options::ClientOptions, Client, Database};
 
 pub mod auth;
 pub mod error;
@@ -80,7 +80,7 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
     let client = Client::with_options(client_options).unwrap();
     let database = Arc::new(client.database(&database_name));
 
-    let websocket_state = WebsocketState::default();
+    let websocket_state = web::Data::new(WebsocketState::default());
 
     let server = HttpServer::new(move || {
         // cors

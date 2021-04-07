@@ -1,4 +1,5 @@
 //! Contains the expected payloads for each endpoint.
+use actix::prelude::Message;
 
 use mongodb::bson::{Array, Document};
 
@@ -146,17 +147,17 @@ pub struct AuthenticateModelOptions {
     pub token: String,
 }
 
-
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Message)]
 #[serde(rename_all = "camelCase")]
+#[rtype(result = "()")]
 pub enum WebsocketMessage {
     /// The type of message recieved
     Authentication {
-        token: String
+        token: String,
     },
     // Payload of the message containg the token
     Update {
         model_id: String,
-        status: String
-    } 
+        status: String,
+    },
 }
