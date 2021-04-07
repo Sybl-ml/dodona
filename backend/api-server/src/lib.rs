@@ -12,12 +12,10 @@ extern crate serde;
 extern crate serde_json;
 
 use std::collections::HashMap;
-use std::collections::HashMap;
 use std::env;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
-use actix::prelude::Addr;
 use actix::prelude::Addr;
 use actix::prelude::Recipient;
 use actix_cors::Cors;
