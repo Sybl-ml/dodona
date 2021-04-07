@@ -164,7 +164,6 @@ pub enum WebsocketMessage {
         /// If the model was successfull
         success: bool,
     },
-
     Hello {
         id: ObjectId,
     },
