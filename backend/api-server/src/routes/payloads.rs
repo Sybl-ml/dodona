@@ -1,7 +1,7 @@
 //! Contains the expected payloads for each endpoint.
 use actix::prelude::Message;
 
-use mongodb::bson::{Array, Document};
+use mongodb::bson::{oid::ObjectId, Array, Document};
 
 use models::jobs::PredictionType;
 
@@ -159,5 +159,9 @@ pub enum WebsocketMessage {
     Update {
         model_id: String,
         status: String,
+    },
+
+    Hello {
+        id: ObjectId,
     },
 }

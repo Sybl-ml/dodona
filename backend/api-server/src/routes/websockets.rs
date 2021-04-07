@@ -60,6 +60,16 @@ impl ProjectUpdateWs {
                 self.id = Some(claims.id.clone());
                 self.map.lock().unwrap().insert(claims.id, ctx.address());
                 log::info!("{:?}", self.map);
+
+                self.map
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .filter(|(k, _)| Some(*k) != self.id.as_ref())
+                    .for_each(|(k, ws)| {
+                        ws.try_send(WebsocketMessage::Hello { id: k.clone() })
+                            .unwrap()
+                    });
             }
             _ => (),
         }
