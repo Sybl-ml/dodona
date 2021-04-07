@@ -145,3 +145,18 @@ pub struct AuthenticateModelOptions {
     /// The user's access token
     pub token: String,
 }
+
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum WebsocketMessage {
+    /// The type of message recieved
+    Authentication {
+        token: String
+    },
+    // Payload of the message containg the token
+    Update {
+        model_id: String,
+        status: String
+    } 
+}

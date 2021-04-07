@@ -67,6 +67,15 @@ impl Claims {
 
         jsonwebtoken::encode(&header, &claims, &key)
     }
+
+    pub fn from_token(token: &str) -> Result<Self, ServerError> {
+        // Get the secret key from the filesystem
+        let key = get_decoding_key();
+        let validation = Validation::default();
+        let token_data: TokenData<Self> = jsonwebtoken::decode(token, &key, &validation)?;
+
+        Ok(token_data.claims)
+    }
 }
 
 impl TryFrom<&HttpRequest> for Claims {
@@ -85,12 +94,7 @@ impl TryFrom<&HttpRequest> for Claims {
             .strip_prefix("Bearer ")
             .ok_or(ServerError::Unauthorized)?;
 
-        // Get the secret key from the filesystem
-        let key = get_decoding_key();
-        let validation = Validation::default();
-        let token_data: TokenData<Self> = jsonwebtoken::decode(token, &key, &validation)?;
-
-        Ok(token_data.claims)
+        Claims::from_token(token)
     }
 }
 
