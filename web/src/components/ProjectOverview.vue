@@ -120,8 +120,8 @@
           >Upload</b-button
         >
       </b-col>
-      <b-col lg="4" sm="12">
-        <b-card class="h-100 shadow" v-if="!checkStatus('Unfinished')">
+      <b-col lg="4" sm="12" >
+        <b-card class="h-100 shadow" v-if="!checkStatus('Unfinished') & analysis_loaded">
           <template #header>
             <h4 class="mb-0">Analysis</h4>
           </template>
