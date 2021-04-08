@@ -118,8 +118,8 @@ fn create_data_with_id(id: &str, det_id: &str, pid: &str) -> (bson::Document, bs
 
     let mut dataset = Dataset::new(
         ObjectId::with_string(pid).unwrap(),
-        Some(ObjectId::new()),
-        Some(ObjectId::new()),
+        ObjectId::new(),
+        ObjectId::new(),
     );
 
     dataset.id = ObjectId::with_string(id).unwrap();

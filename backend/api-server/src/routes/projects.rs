@@ -196,7 +196,9 @@ pub async fn upload_train_and_predict(
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     // Create dataset object
-    let mut dataset_doc = Dataset::new(object_id.clone(), None, None);
+    // Track the train and predict identifiers
+    let mut train_id = None;
+    let mut predict_id = None;
 
     let mut initial: bool = true;
 
@@ -288,7 +290,7 @@ pub async fn upload_train_and_predict(
         dataset.finalise(&state.database).await?;
 
         if name == "train" {
-            dataset_doc.dataset = Some(dataset.id);
+            train_id = Some(dataset.id);
             // Update dataset details with train size
             dataset_details
                 .update_one(
@@ -298,7 +300,7 @@ pub async fn upload_train_and_predict(
                 )
                 .await?;
         } else {
-            dataset_doc.predict = Some(dataset.id);
+            predict_id = Some(dataset.id);
             // Update dataset details with predict size
             dataset_details
                 .update_one(
@@ -331,6 +333,12 @@ pub async fn upload_train_and_predict(
             None,
         )
         .await?;
+
+    let dataset_doc = Dataset::new(
+        object_id,
+        train_id.expect("Failed to get a training set"),
+        predict_id.expect("Failed to get a prediction set"),
+    );
 
     let document = to_document(&dataset_doc)?;
     let id = datasets.insert_one(document, None).await?.inserted_id;
@@ -510,7 +518,7 @@ pub async fn upload_and_split(
         data.delete(&state.database).await?;
     }
 
-    let dataset_doc = Dataset::new(object_id.clone(), Some(dataset.id), Some(predict.id));
+    let dataset_doc = Dataset::new(object_id.clone(), dataset.id, predict.id);
     let document = to_document(&dataset_doc)?;
     let id = datasets.insert_one(document, None).await?.inserted_id;
 
@@ -576,11 +584,12 @@ pub async fn get_dataset(
     // Parse the dataset itself
     let dataset: Dataset = from_document(document)?;
 
-    // Decide filter based off enum
-    let filter = match dataset_type {
-        DatasetType::Train => doc! { "_id": &dataset.dataset.unwrap() },
-        DatasetType::Predict => doc! { "_id": &dataset.predict.unwrap() },
+    let id = match dataset_type {
+        DatasetType::Train => &dataset.dataset,
+        DatasetType::Predict => &dataset.predict,
     };
+
+    let filter = doc! { "_id": id };
 
     // Find the file in the database
     let document = files

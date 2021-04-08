@@ -110,7 +110,7 @@ async fn process_job(
     log::debug!("Fetched dataset with id: {}", dataset.id);
 
     // Get the decompressed data from GridFS
-    let train_filter = doc! { "_id": dataset.dataset.unwrap() };
+    let train_filter = doc! { "_id": dataset.dataset };
     let doc = files
         .find_one(train_filter, None)
         .await?
@@ -118,7 +118,7 @@ async fn process_job(
     let train_file: gridfs::File = mongodb::bson::de::from_document(doc)?;
     let comp_train: Vec<u8> = train_file.download_dataset(&db_conn).await?;
 
-    let predict_filter = doc! { "_id": dataset.predict.unwrap() };
+    let predict_filter = doc! { "_id": dataset.predict };
     let doc = files
         .find_one(predict_filter, None)
         .await?
