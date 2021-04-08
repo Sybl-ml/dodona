@@ -304,6 +304,9 @@ pub async fn upload_train_and_predict(
         log::debug!("Deleting existing project data with id={}", data.id);
         data.delete(&state.database).await?;
     }
+    
+    // Communicate with Analytics Server
+    produce_analytics_message(&object_id).await;
 
     // Update the project status
     projects
@@ -316,8 +319,6 @@ pub async fn upload_train_and_predict(
 
     let document = to_document(&dataset_doc)?;
     let id = datasets.insert_one(document, None).await?.inserted_id;
-    // Communicate with Analytics Server
-    produce_analytics_message(&object_id).await;
 
     response_from_json(doc! {"dataset_id": id})
 }
