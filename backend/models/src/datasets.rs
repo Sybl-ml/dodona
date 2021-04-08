@@ -22,6 +22,13 @@ pub struct Dataset {
 impl Dataset {
     /// Creates a new [`Dataset`] for a project with some data.
     pub fn new(project_id: ObjectId, dataset: ObjectId, predict: ObjectId) -> Self {
+        log::debug!(
+            "Creating a new dataset for project_id={} with dataset_id={} and predict_id={}",
+            project_id,
+            dataset,
+            predict
+        );
+
         Self {
             id: ObjectId::new(),
             project_id,

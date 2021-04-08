@@ -54,10 +54,20 @@ pub struct Project {
 impl Project {
     /// Creates a new instance of [`Project`].
     pub fn new<T: Into<String>>(name: T, description: T, tags: Array, user_id: ObjectId) -> Self {
+        let name = name.into();
+        let description = description.into();
+
+        log::debug!(
+            "Creating a new project for user_id={} with name='{}' and description='{}'",
+            user_id,
+            name,
+            description
+        );
+
         Self {
             id: ObjectId::new(),
-            name: name.into(),
-            description: description.into(),
+            name,
+            description,
             tags,
             date_created: bson::DateTime(Utc::now()),
             user_id,
@@ -69,6 +79,8 @@ impl Project {
         let projects = database.collection("projects");
         let datasets = database.collection("datasets");
         let predictions = database.collection("predictions");
+
+        log::debug!("Deleting project with id={}", self.id);
 
         let filter = doc! { "_id": &self.id };
         // Remove project from database

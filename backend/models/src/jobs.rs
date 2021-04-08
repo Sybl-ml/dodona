@@ -77,6 +77,8 @@ pub struct Job {
 impl Job {
     /// Creates a new [`Job`] with a given [`JobConfiguration`].
     pub fn new(config: JobConfiguration) -> Self {
+        log::debug!("Creating a new job from config={:?}", config);
+
         Self {
             id: ObjectId::new(),
             config,

@@ -428,14 +428,15 @@ pub async fn run(nodepool: Arc<NodePool>, database: Arc<Database>, port: u16) ->
     let ip = Ipv4Addr::LOCALHOST;
 
     let socket = SocketAddr::V4(SocketAddrV4::new(ip, port));
-    log::info!("Node Socket: {:?}", socket);
     let listener = TcpListener::bind(&socket).await?;
+
+    log::info!("Listening for client connections on: {}", socket);
 
     while let Ok((inbound, _)) = listener.accept().await {
         let sp_clone = Arc::clone(&nodepool);
         let db_clone = Arc::clone(&database);
 
-        log::info!("Node Connection: {}", inbound.peer_addr()?);
+        log::info!("Received a node connection from: {}", inbound.peer_addr()?);
 
         tokio::spawn(async move {
             process_connection(inbound, db_clone, sp_clone)
@@ -453,16 +454,12 @@ async fn process_connection(
     nodepool: Arc<NodePool>,
 ) -> Result<()> {
     let mut handler = protocol::Handler::new(&mut stream);
-    let (model_id, token) = match handler.get_access_token().await? {
-        Some(t) => t,
+    let model_id = match handler.get_access_token().await? {
+        Some(t) => t.0,
         None => return Ok(()),
     };
 
-    log::info!("New registered connection with:");
-    log::info!("\tModel ID: {}", model_id);
-    log::info!("\tToken: {}", token);
-
-    update_model_status(Arc::clone(&database), &model_id).await?;
+    update_model_status(Arc::clone(&database), &model_id, Status::Running).await?;
 
     let node = Node::new(stream, model_id);
     nodepool.add(node, Arc::clone(&database)).await;
@@ -474,12 +471,18 @@ async fn process_connection(
 ///
 /// When a model authenticates with the DCL correctly and is heartbeating, this will set the status
 /// in the database to `Running`. This can then be displayed on the frontend.
-pub async fn update_model_status(database: Arc<Database>, model_id: &str) -> Result<()> {
+pub async fn update_model_status(
+    database: Arc<Database>,
+    model_id: &str,
+    status: Status,
+) -> Result<()> {
     let models = database.collection("models");
+
+    log::debug!("Setting model_id={} to status={:?}", model_id, status);
 
     let object_id = ObjectId::with_string(model_id)?;
     let query = doc! {"_id": &object_id};
-    let update = doc! { "$set": { "status": Status::Running } };
+    let update = doc! { "$set": { "status": status } };
     models.update_one(query, update, None).await?;
 
     Ok(())

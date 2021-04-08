@@ -172,7 +172,5 @@ pub async fn run() -> Result<()> {
     })
     .await?;
 
-    log::info!("(DCL) shutting down...");
-
     Ok(())
 }

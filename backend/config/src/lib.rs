@@ -150,6 +150,11 @@ impl ConfigFile {
     /// let config_file = ConfigFile::from_file("config.toml");
     /// ```
     pub fn from_file<P: AsRef<Path>>(filename: P) -> Self {
+        log::debug!(
+            "Using configuration file found at path={:?}",
+            filename.as_ref()
+        );
+
         let contents = std::fs::read_to_string(filename).unwrap();
         Self::from_str(&contents).unwrap()
     }
@@ -216,7 +221,7 @@ impl ConfigFile {
             config.or(subconfig);
         }
 
-        log::info!("Config values: {:#?}", config);
+        log::info!("Config values: {:?}", config);
 
         config
     }
