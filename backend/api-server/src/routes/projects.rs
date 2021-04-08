@@ -316,7 +316,6 @@ pub async fn upload_train_and_predict(
 
     let document = to_document(&dataset_doc)?;
     let id = datasets.insert_one(document, None).await?.inserted_id;
-    
     // Communicate with Analytics Server
     produce_analytics_message(&object_id).await;
 
