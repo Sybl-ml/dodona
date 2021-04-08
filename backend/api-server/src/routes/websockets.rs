@@ -81,7 +81,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ProjectUpdateWs {
                 self.hb = Instant::now();
             }
             Ok(ws::Message::Pong(_)) => {
-                log::info!("PONG!");
+                // log::info!("PONG!");
                 self.hb = Instant::now();
             }
             Ok(ws::Message::Close(reason)) => {
