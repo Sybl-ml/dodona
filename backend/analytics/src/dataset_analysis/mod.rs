@@ -36,7 +36,7 @@ pub async fn prepare_dataset(database: &Arc<Database>, project_id: &ObjectId) ->
 
     let dataset: Dataset = from_document(document)?;
 
-    let train_filter = doc! { "_id": dataset.dataset.unwrap() };
+    let train_filter = doc! { "_id": dataset.dataset };
     let doc = files
         .find_one(train_filter, None)
         .await?
