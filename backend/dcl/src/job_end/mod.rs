@@ -184,6 +184,20 @@ pub async fn run(
 
             log::info!("Columns: {:?}", &columns);
 
+            let JobConfiguration {
+                prediction_column,
+                prediction_type,
+                timeout,
+                ..
+            } = config.clone();
+
+            if prediction_type == PredictionType::Classification {
+                columns.insert(
+                    prediction_column.clone(),
+                    Column::categorical(&prediction_column, &data),
+                );
+            }
+
             let config_clone = config.clone();
             let anon_config = ClientMessage::from(config_clone);
 
@@ -215,20 +229,6 @@ pub async fn run(
             let headers = train.remove(0);
             let mut validation = Vec::new();
             let test = msg.predict.trim().split('\n').skip(1).collect::<Vec<_>>();
-
-            let JobConfiguration {
-                prediction_column,
-                prediction_type,
-                timeout,
-                ..
-            } = config.clone();
-
-            if prediction_type == PredictionType::Classification {
-                columns.insert(
-                    prediction_column.clone(),
-                    Column::categorical(&prediction_column, &data),
-                );
-            }
 
             for _ in 0..max(1, (train.len() as f64 * VALIDATION_SPLIT) as usize) {
                 validation.push(train.swap_remove(thread_rng().gen_range(0..train.len())));

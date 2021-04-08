@@ -208,6 +208,8 @@ impl NodePool {
             _ => 1,
         };
 
+        log::info!("Client Message: {:?}", &config);
+
         let nodes_read = self.nodes.read().await;
         let mut accepted_job: Vec<(String, f64)> = Vec::new();
         let mut better_nodes: Vec<(String, f64)> = Vec::new();
