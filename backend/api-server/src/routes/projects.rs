@@ -55,6 +55,17 @@ pub enum DatasetType {
     Predict,
 }
 
+/// Struct to capture query string information
+#[derive(Deserialize, Debug)]
+pub struct QueryInfo {
+    /// Sort order for data
+    pub sort: String,
+    /// What page is being viewed
+    pub page: usize,
+    /// How many items per page
+    pub per_page: usize,
+}
+
 /// Finds a project in the database given an identifier.
 ///
 /// Given a project identifier, finds the project in the database and returns it as a JSON object.
@@ -618,7 +629,8 @@ pub async fn get_dataset(
 pub async fn pagination(
     claims: auth::Claims,
     state: web::Data<State>,
-    extractor: web::Path<(String, DatasetType, usize, usize)>,
+    extractor: web::Path<(String, DatasetType)>,
+    query: web::Query<QueryInfo>,
 ) -> ServerResponse {
     let datasets = state.database.collection("datasets");
     let projects = state.database.collection("projects");
@@ -627,8 +639,8 @@ pub async fn pagination(
 
     let project_id = &extractor.0;
     let dataset_type = &extractor.1;
-    let amount = &extractor.2;
-    let page = &extractor.3;
+    let amount = &query.per_page;
+    let page_num = &query.page;
 
     log::info!("Dataset Type: {:?}", dataset_type);
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
@@ -645,8 +657,8 @@ pub async fn pagination(
 
     // Calculate the chunk that is needed
     let chunk_vec: Vec<i32>;
-    let min_row = (page - 1) * amount;
-    let max_row = page * amount;
+    let min_row = (page_num - 1) * amount;
+    let max_row = page_num * amount;
 
     let chunk1 = (min_row / CHUNK_SIZE) as i32;
     let chunk2 = (max_row / CHUNK_SIZE) as i32;
@@ -672,8 +684,9 @@ pub async fn pagination(
     }
 
     let mut initial = true;
-    let mut page: Vec<String> = vec![];
+    let mut page: Vec<Document> = vec![];
     let mut row_count = 0;
+    let mut header: String = String::new();
 
     // Decide filter based off enum
     match dataset_type {
@@ -706,12 +719,23 @@ pub async fn pagination(
                 while let Some(row) = chunk_iter.next() {
                     // If header, add to page
                     if initial {
-                        page.push(String::from(row));
+                        header = String::from(row);
                         initial = false;
                     }
                     // If within bounds, add to page
                     if row_count > min_row && row_count <= max_row {
-                        page.push(String::from(row));
+                        // Create empty document (mutable)\
+                        let mut row_doc = Document::new();
+                        // Break row and header into vectors
+                        let row_iter = row.split(",");
+                        let header_iter = header.split(",");
+                        // Go through each and add to document each column for row
+                        for (head, col_val) in header_iter.zip(row_iter) {
+                            // Header: col_value
+                            row_doc.insert(head, col_val);
+                        }
+                        // Add to page
+                        page.push(row_doc);
                     } else if row_count > max_row {
                         // End of page search
                         break;
@@ -802,12 +826,27 @@ pub async fn pagination(
                 while let Some((predict_row, predicted_row)) = row_iter.next() {
                     // If header, add to page
                     if initial {
-                        page.push(String::from(predict_row));
+                        header = String::from(predict_row);
                         initial = false;
                     }
                     // If within bounds, create predictions row and add to page
                     if row_count > min_row && row_count <= max_row {
-                        page.push(format!("{},{}", predict_row, predicted_row));
+                        // Create empty document (mutable)\
+                        let mut row_doc = Document::new();
+                        // Break row and header into vectors
+                        let row_iter = predict_row.split(",");
+                        let header_iter = header.split(",");
+                        // Go through each and add to document each column for row
+                        for (head, col_val) in header_iter.zip(row_iter) {
+                            // Header: col_value
+                            if col_val.trim() == "" {
+                                row_doc.insert(head, predicted_row);
+                            } else {
+                                row_doc.insert(head, col_val);
+                            }
+                        }
+                        // Add to page
+                        page.push(row_doc);
                     } else if row_count > max_row {
                         // End of page search
                         break;
@@ -822,8 +861,19 @@ pub async fn pagination(
             }
         }
     };
-
-    response_from_json(doc! {"data": page.join("\n")})
+    // Structure for VueTables2
+    response_from_json(doc! { "current_page":*page_num as i32,
+       "data": page,
+       "from": ((page_num-1*amount)+1) as i32,
+       // Need to calculate ourselves
+       "last_page": 40,
+       "next_page_url": "",
+       "per_page": (*amount) as i32,
+       "prev_page_url": "",
+       "to": (page_num*amount) as i32,
+       // Need to calculate ourselves
+       "total": 200
+    })
 }
 
 /// Removes the data associated with a given project identifier.

@@ -189,7 +189,16 @@ export default {
 
       this.results = project_predictions.data;
       this.predict_data = project_predict.data;
+
       this.results_loading = false;
+
+      let test_predict = await this.$http.get(
+        `api/projects/${this.projectId}/data/predict/10/1`
+      );
+
+      console.log(test_predict.data);
+
+      
     },
     resetProject() {
       // this.name = "";

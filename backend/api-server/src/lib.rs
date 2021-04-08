@@ -121,7 +121,7 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
                 web::get().to(routes::projects::get_dataset),
             )
             .route(
-                "/api/projects/{project_id}/data/{dataset_type}/{amount}/{page}",
+                "/api/projects/{project_id}/data/pagination/{dataset_type}",
                 web::get().to(routes::projects::pagination),
             )
             .route(
