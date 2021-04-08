@@ -323,6 +323,8 @@ pub async fn upload_train_and_predict(
         log::debug!("Deleting existing project data with id={}", data.id);
         data.delete(&state.database).await?;
     }
+    // Communicate with Analytics Server
+    produce_analytics_message(&object_id).await;
 
     // Update the project status
     projects
@@ -520,6 +522,9 @@ pub async fn upload_and_split(
     let dataset_doc = Dataset::new(object_id.clone(), dataset.id, predict.id);
     let document = to_document(&dataset_doc)?;
     let id = datasets.insert_one(document, None).await?.inserted_id;
+
+    // Communicate with Analytics Server
+    produce_analytics_message(&object_id).await;
 
     // Update the project status
     projects
@@ -819,8 +824,6 @@ pub async fn get_predictions(
             }
         },
     );
-
-    produce_analytics_message(&object_id).await;
 
     Ok(HttpResponseBuilder::new(StatusCode::OK).streaming(byte_stream))
 }
