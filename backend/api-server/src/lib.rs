@@ -43,7 +43,7 @@ pub struct State {
 #[derive(Clone, Debug, Default)]
 pub struct WebsocketState {
     /// Map of userids to open sockets
-    pub map: Arc<Mutex<HashMap<ObjectId, Addr<routes::websockets::ProjectUpdateWs>>>>,
+    pub map: Arc<Mutex<HashMap<String, Addr<routes::websockets::ProjectUpdateWs>>>>,
 }
 
 /// Builds the default logging middleware for request logging.

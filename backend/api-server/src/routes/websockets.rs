@@ -1,5 +1,11 @@
 use std::collections::HashMap;
+use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::{Arc, Mutex};
+
+use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
+use rdkafka::consumer::{stream_consumer::StreamConsumer, Consumer, DefaultConsumerContext};
+use rdkafka::Message;
+use tokio_stream::StreamExt;
 
 use actix::prelude::Addr;
 use actix::{Actor, ActorContext, AsyncContext, Handler, StreamHandler};
@@ -19,7 +25,7 @@ const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 pub struct ProjectUpdateWs {
     hb: Instant,
     id: Option<ObjectId>,
-    map: Arc<Mutex<HashMap<ObjectId, Addr<ProjectUpdateWs>>>>,
+    map: Arc<Mutex<HashMap<String, Addr<ProjectUpdateWs>>>>,
 }
 
 impl Actor for ProjectUpdateWs {
@@ -31,7 +37,7 @@ impl Actor for ProjectUpdateWs {
 }
 
 impl ProjectUpdateWs {
-    pub fn new(map: Arc<Mutex<HashMap<ObjectId, Addr<ProjectUpdateWs>>>>) -> ProjectUpdateWs {
+    pub fn new(map: Arc<Mutex<HashMap<String, Addr<ProjectUpdateWs>>>>) -> ProjectUpdateWs {
         ProjectUpdateWs {
             id: None,
             hb: Instant::now(),
@@ -58,18 +64,10 @@ impl ProjectUpdateWs {
                 let claims = auth::Claims::from_token(&token).unwrap();
                 log::info!("claims id {:?}", claims.id);
                 self.id = Some(claims.id.clone());
-                self.map.lock().unwrap().insert(claims.id, ctx.address());
-                log::info!("{:?}", self.map);
-
                 self.map
                     .lock()
                     .unwrap()
-                    .iter()
-                    .filter(|(k, _)| Some(*k) != self.id.as_ref())
-                    .for_each(|(k, ws)| {
-                        ws.try_send(WebsocketMessage::Hello { id: k.clone() })
-                            .unwrap()
-                    });
+                    .insert(claims.id.to_string(), ctx.address());
             }
             _ => (),
         }
@@ -111,6 +109,7 @@ impl Handler<WebsocketMessage> for ProjectUpdateWs {
     }
 }
 
+/// Index page for websocket connection
 pub async fn index(
     req: web::HttpRequest,
     state: web::Data<WebsocketState>,
@@ -121,4 +120,62 @@ pub async fn index(
 
     println!("{:?}", resp);
     resp
+}
+
+/// Consumes from kafka
+pub async fn consume_updates(port: u16, map: Arc<Mutex<HashMap<String, Addr<ProjectUpdateWs>>>>) {
+    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port).to_string();
+    log::info!("Broker Socket: {:?}", addr);
+
+    let consumer: StreamConsumer<DefaultConsumerContext> = ClientConfig::new()
+        .set("group.id", "project_update")
+        .set("bootstrap.servers", addr)
+        .set("enable.partition.eof", "false")
+        .set("session.timeout.ms", "6000")
+        .set("enable.auto.commit", "true")
+        .set_log_level(RDKafkaLogLevel::Debug)
+        .create()
+        .expect("Consumer creation failed");
+
+    consumer
+        .subscribe(&["project_updates"])
+        .expect("Can't subscribe to project_updates");
+
+    // Ignore any errors in the stream
+    let mut message_stream = consumer.stream().filter_map(Result::ok);
+
+    while let Some(message) = message_stream.next().await {
+        // Interpret the content as a string
+        let payload = match message.payload_view::<[u8]>() {
+            // This cannot fail, `rdkafka` always returns `Ok(bytes)`
+            Some(view) => view.unwrap(),
+            None => {
+                log::warn!("Received an empty message from Kafka");
+                continue;
+            }
+        };
+
+        log::debug!(
+            "Message key: {:?}, timestamp: {:?}",
+            message.key(),
+            message.timestamp()
+        );
+
+        let project_update: WebsocketMessage = serde_json::from_slice(&payload).unwrap();
+
+        match &project_update {
+            WebsocketMessage::ModelComplete {
+                project_id: _,
+                cluster_size: _,
+                success: _,
+            } => {
+                let user_id = std::str::from_utf8(&message.key().unwrap()).unwrap();
+                let socket_map = map.lock().unwrap();
+                if let Some(socket) = socket_map.get(user_id) {
+                    socket.try_send(project_update).unwrap();
+                }
+            }
+            _ => (),
+        }
+    }
 }

@@ -25,7 +25,7 @@ use tokio::time::timeout;
 
 use crate::node_end::NodePool;
 use crate::JobControl;
-use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
+use messages::{kafka_message, ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
 use models::gridfs;
 use models::jobs::JobConfiguration;
 use models::jobs::PredictionType;
@@ -164,12 +164,14 @@ impl Config {
 }
 
 /// Message produced for kafka
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct ClientCompleteMessage<'a> {
     /// Model id which node completed
-    pub model_id: &'a str,
+    pub project_id: &'a str,
     /// the number of time the model as been run
-    pub model_count: i32,
+    pub cluster_size: i32,
+    /// If the model was successfull
+    pub success: bool,
 }
 // The proportion of training examples to use as validation examples
 const VALIDATION_SPLIT: f64 = 0.2;
@@ -605,21 +607,39 @@ pub async fn dcl_protocol(
     } else {
         log::warn!("Node with id={} failed to respond correctly", model_id);
         write_back.write_error(model_id.clone(), None);
+        model_sucess = false;
     }
 
-    increment_run_count(database, &model_id).await?;
+    increment_run_count(&database, &model_id).await?;
+
+    nodepool.end(&model_id).await?;
+    cluster_control.decrement().await;
 
     // Produce message
     let message = ClientCompleteMessage {
-        model_id: &model_id,
-        model_count: 0,
+        project_id: &info.project_id.to_string(),
+        cluster_size: info.config.cluster_size,
+        success: model_sucess,
     };
-    let message_key = info.project_id.to_string();
+    let message = serde_json::to_string(&message).unwrap();
+
+    let projects = database.collection("projects");
+    let filter = doc! {"_id": info.project_id};
+    let doc = projects
+        .find_one(filter, None)
+        .await?
+        .expect("Failed to find project in db");
+
+    let project: Project = from_document(doc)?;
+    let message_key = project.user_id.to_string();
     let topic = "project_updates";
 
-    nodepool.end(&model_id).await?;
-
-    cluster_control.decrement().await;
+    if kafka_message::produce_message(&message, &message_key, &topic)
+        .await
+        .is_err()
+    {
+        log::warn!("Failed to forward model_id={} to Kafka", &model_id);
+    }
 
     Ok(())
 }
@@ -654,7 +674,7 @@ pub async fn write_predictions(
 }
 
 /// Increments the run count for the given model in the database.
-pub async fn increment_run_count(database: Arc<Database>, model_id: &str) -> Result<()> {
+pub async fn increment_run_count(database: &Arc<Database>, model_id: &str) -> Result<()> {
     let models = database.collection("models");
     let object_id = ObjectId::with_string(model_id)?;
 

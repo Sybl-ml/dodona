@@ -147,7 +147,7 @@ pub struct AuthenticateModelOptions {
     pub token: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Message)]
+#[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(rename_all = "camelCase")]
 #[rtype(result = "()")]
 pub enum WebsocketMessage {
@@ -156,9 +156,13 @@ pub enum WebsocketMessage {
         token: String,
     },
     // Payload of the message containg the token
-    Update {
-        model_id: String,
-        status: String,
+    ModelComplete {
+        /// Model id which node completed
+        project_id: String,
+        /// the number of time the model as been run
+        cluster_size: i32,
+        /// If the model was successfull
+        success: bool,
     },
 
     Hello {
