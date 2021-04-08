@@ -195,7 +195,6 @@ pub async fn upload_train_and_predict(
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
-    // Create dataset object
     // Track the train and predict identifiers
     let mut train_id = None;
     let mut predict_id = None;
@@ -336,8 +335,8 @@ pub async fn upload_train_and_predict(
 
     let dataset_doc = Dataset::new(
         object_id,
-        train_id.expect("Failed to get a training set"),
-        predict_id.expect("Failed to get a prediction set"),
+        train_id.ok_or(ServerError::UnprocessableEntity)?,
+        predict_id.ok_or(ServerError::UnprocessableEntity)?,
     );
 
     let document = to_document(&dataset_doc)?;
