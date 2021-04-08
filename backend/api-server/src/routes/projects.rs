@@ -304,7 +304,6 @@ pub async fn upload_train_and_predict(
         log::debug!("Deleting existing project data with id={}", data.id);
         data.delete(&state.database).await?;
     }
-    
     // Communicate with Analytics Server
     produce_analytics_message(&object_id).await;
 
