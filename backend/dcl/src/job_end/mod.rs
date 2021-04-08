@@ -165,7 +165,6 @@ impl Config {
     }
 }
 
-/// Message produced for kafka
 // The proportion of training examples to use as validation examples
 const VALIDATION_SPLIT: f64 = 0.2;
 
@@ -582,6 +581,7 @@ pub async fn dcl_protocol(
     };
 
     // Evaluate the model
+    let mut model_sucess = true;
     let model_evaluation = anonymised_predictions.map(|preds| {
         deanonymise_dataset(preds.trim(), &info.columns)
             .and_then(|predictions| ml::evaluate_model(&model_id, &predictions, &info))
@@ -607,11 +607,11 @@ pub async fn dcl_protocol(
 
     // Produce message
     let message = ClientCompleteMessage {
-        model_id: &model_id,
-        model_count: 0,
+        project_id: &info.project_id.to_string(),
+        cluster_size: info.config.cluster_size,
+        success: model_sucess,
     };
-    let message_key = info.project_id.to_string();
-    let topic = "project_updates";
+    let message = serde_json::to_string(&message).unwrap();
 
     nodepool.end(&model_id).await?;
     cluster_control.decrement().await;
