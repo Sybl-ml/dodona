@@ -48,12 +48,13 @@
 <script>
 import VuetableFieldHandle from "vuetable-2/src/components/VuetableFieldHandle.vue";
 import PaginationTable from "./PaginationTable.vue";
-import APIPaginationTable from "./APIPaginationTable.vue";
+import ApiPaginationTable from "./APIPaginationTable.vue";
 
 export default {
   name: "ProjectInput",
   components: {
     PaginationTable,
+    ApiPaginationTable
   },
   props: {
     projectId: String,

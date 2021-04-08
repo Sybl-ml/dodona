@@ -3,10 +3,10 @@
     <vuetable
       ref="vuetable"
       class="table-scroll"
-      :api-url="`api/projects/${this.projectId}/data/pagination/${this.type}/`"
+      :api-url="`localhost:3001/api/projects/${this.projectId}/pagination/${this.type}`"
       :css="css"
-      :fields="fields"
-      :data="data"
+      :fields="['Time', 'Year']"
+      data-path="data"
       :query-params="{sort: 'sort',page: 'page',perPage: 'per_page'}"
       :per-page="perPage"
       pagination-path="pagination"
@@ -36,7 +36,7 @@ import PaginationTableStyle from "@/assets/css/PaginationTableStyle.js";
 import _ from "lodash";
 
 export default {
-  name: "APIPaginationTable",
+  name: "ApiPaginationTable",
   components: {
     Vuetable,
     VuetablePagination,

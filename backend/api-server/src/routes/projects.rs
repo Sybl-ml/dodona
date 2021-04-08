@@ -59,7 +59,7 @@ pub enum DatasetType {
 #[derive(Deserialize, Debug)]
 pub struct QueryInfo {
     /// Sort order for data
-    pub sort: String,
+    pub sort: Option<String>,
     /// What page is being viewed
     pub page: usize,
     /// How many items per page
@@ -632,6 +632,7 @@ pub async fn pagination(
     extractor: web::Path<(String, DatasetType)>,
     query: web::Query<QueryInfo>,
 ) -> ServerResponse {
+    log::info!("Pagination");
     let datasets = state.database.collection("datasets");
     let projects = state.database.collection("projects");
     let files = state.database.collection("files");
@@ -639,8 +640,8 @@ pub async fn pagination(
 
     let project_id = &extractor.0;
     let dataset_type = &extractor.1;
-    let amount = &query.per_page;
-    let page_num = &query.page;
+    let amount = query.per_page;
+    let page_num = query.page;
 
     log::info!("Dataset Type: {:?}", dataset_type);
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
@@ -861,14 +862,15 @@ pub async fn pagination(
             }
         }
     };
+
     // Structure for VueTables2
-    response_from_json(doc! { "current_page":*page_num as i32,
+    response_from_json(doc! { "current_page": page_num as i32,
        "data": page,
-       "from": ((page_num-1*amount)+1) as i32,
+       "from": (((page_num-1)*amount)+1) as i32,
        // Need to calculate ourselves
        "last_page": 40,
        "next_page_url": "",
-       "per_page": (*amount) as i32,
+       "per_page": amount as i32,
        "prev_page_url": "",
        "to": (page_num*amount) as i32,
        // Need to calculate ourselves
