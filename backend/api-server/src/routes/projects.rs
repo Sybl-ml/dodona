@@ -68,6 +68,17 @@ pub struct QueryInfo {
     pub per_page: usize,
 }
 
+/// Struct to capture query string information
+#[derive(Deserialize, Debug)]
+pub struct DataCollection {
+    /// Min row being collected
+    pub min_row: usize,
+    /// Max row being collected
+    pub max_row: usize,
+    /// Lower chunk id
+    pub lower_chunk: usize,
+}
+
 /// Finds a project in the database given an identifier.
 ///
 /// Given a project identifier, finds the project in the database and returns it as a JSON object.
@@ -743,6 +754,81 @@ async fn zip(
     (left_side, right_side)
 }
 
+async fn data_collection(
+    filter: Document,
+    chunk_vec: Vec<i32>,
+    database: &mongodb::Database,
+    info: DataCollection,
+    dataset_detail: DatasetDetails,
+    dataset_type: &DatasetType,
+) -> ServerResponse {
+    let files = database.collection("files");
+
+    let mut initial = true;
+    let mut page: Vec<String> = vec![];
+    let mut header: String = String::new();
+    let mut row_count: usize = 0;
+
+    if info.lower_chunk != 0 {
+        // calculate the base row of Chunk1
+        row_count = (((info.lower_chunk + 1) * CHUNK_SIZE) - 1) as usize;
+    }
+
+    let document = files
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
+
+    // Parse the dataset itself
+    let file: gridfs::File = from_document(document)?;
+
+    let mut cursor = file.download_specific_chunks(&database, &chunk_vec).await?;
+    // Iterate over chunks and build page
+    while let Some(chunk) = cursor.next().await {
+        let chunk: gridfs::Chunk = from_document(chunk?)?;
+        let chunk_bytes = chunk.data.bytes;
+        let decomp_data = decompress_data(&chunk_bytes).unwrap();
+        let chunk_string = String::from_utf8(decomp_data)?;
+        let mut chunk_iter = chunk_string.split("\n");
+        // Go through iterator
+        while let Some(row) = chunk_iter.next() {
+            // If header, add to page
+            if initial {
+                header = String::from(row);
+                initial = false;
+                if info.lower_chunk != 0 {
+                    continue;
+                }
+            }
+            // If within bounds, add to page
+            if row_count > info.min_row && row_count <= info.max_row {
+                // Add to page
+                page.push(String::from(row));
+            } else if row_count > info.max_row {
+                // End of page search
+                break;
+            }
+
+            row_count += 1;
+        }
+        // End of page search
+        if row_count > info.max_row {
+            break;
+        }
+    }
+    let total = match dataset_type {
+        DatasetType::Train => dataset_detail.train_size,
+        _ => dataset_detail.predict_size,
+    };
+    // Structure for VueTables2
+    response_from_json(doc! {
+        "data": page.join("\n"),
+        "fields": header,
+        // Work this out
+        "total": total
+    })
+}
+
 /// Route for returning pagination data
 ///
 /// Passing a full dataset to the frontend can be heavy duty and take up a
@@ -798,15 +884,6 @@ pub async fn pagination(
     let chunk1 = (min_row / CHUNK_SIZE) as i32;
     let chunk2 = (max_row / CHUNK_SIZE) as i32;
 
-    let mut initial = true;
-    let mut page: Vec<String> = vec![];
-    let mut header: String = String::new();
-    let mut row_count: usize = 0;
-    if chunk1 != 0 {
-        // calculate the base row of Chunk1
-        row_count = (((chunk1 + 1) * CHUNK_SIZE as i32) - 1) as usize;
-    }
-
     // Equal size
     if chunk1 == chunk2 {
         // If one chunk is the first chunk
@@ -835,58 +912,22 @@ pub async fn pagination(
             //      Extract data page that is needed
             //      Return it to frontend
             let filter = doc! { "_id": &dataset.dataset };
+            let info = DataCollection {
+                min_row,
+                max_row,
+                lower_chunk: chunk1 as usize,
+            };
+
             // Find the file in the database
-            let document = files
-                .find_one(filter, None)
-                .await?
-                .ok_or(ServerError::NotFound)?;
-
-            // Parse the dataset itself
-            let file: gridfs::File = from_document(document)?;
-
-            let mut cursor = file
-                .download_specific_chunks(&state.database, &chunk_vec)
-                .await?;
-            // Iterate over chunks and build page
-            while let Some(chunk) = cursor.next().await {
-                let chunk: gridfs::Chunk = from_document(chunk?)?;
-                let chunk_bytes = chunk.data.bytes;
-                let decomp_data = decompress_data(&chunk_bytes).unwrap();
-                let chunk_string = String::from_utf8(decomp_data)?;
-                let mut chunk_iter = chunk_string.split("\n");
-                // Go through iterator
-                while let Some(row) = chunk_iter.next() {
-                    // If header, add to page
-                    if initial {
-                        header = String::from(row);
-                        initial = false;
-                        if chunk1 != 0 {
-                            continue;
-                        }
-                    }
-                    // If within bounds, add to page
-                    if row_count > min_row && row_count <= max_row {
-                        // Add to page
-                        page.push(String::from(row));
-                    } else if row_count > max_row {
-                        // End of page search
-                        break;
-                    }
-
-                    row_count += 1;
-                }
-                // End of page search
-                if row_count > max_row {
-                    break;
-                }
-            }
-            // Structure for VueTables2
-            response_from_json(doc! {
-                "data": page.join("\n"),
-                "fields": header,
-                // Work this out
-                "total": dataset_detail.train_size
-            })
+            data_collection(
+                filter,
+                chunk_vec,
+                &state.database,
+                info,
+                dataset_detail,
+                dataset_type,
+            )
+            .await
         }
         DatasetType::Predict => {
             // If Train
@@ -895,57 +936,22 @@ pub async fn pagination(
             //      Return it to frontend
             let filter = doc! { "_id": &dataset.predict };
             // Find the file in the database
-            let document = files
-                .find_one(filter, None)
-                .await?
-                .ok_or(ServerError::NotFound)?;
+            let info = DataCollection {
+                min_row,
+                max_row,
+                lower_chunk: chunk1 as usize,
+            };
 
-            // Parse the dataset itself
-            let file: gridfs::File = from_document(document)?;
-
-            let mut cursor = file
-                .download_specific_chunks(&state.database, &chunk_vec)
-                .await?;
-            // Iterate over chunks and build page
-            while let Some(chunk) = cursor.next().await {
-                let chunk: gridfs::Chunk = from_document(chunk?)?;
-                let chunk_bytes = chunk.data.bytes;
-                let decomp_data = decompress_data(&chunk_bytes).unwrap();
-                let chunk_string = String::from_utf8(decomp_data)?;
-                let mut chunk_iter = chunk_string.split("\n");
-                // Go through iterator
-                while let Some(row) = chunk_iter.next() {
-                    // If header, add to page
-                    if initial {
-                        header = String::from(row);
-                        initial = false;
-                        if chunk1 != 0 {
-                            continue;
-                        }
-                    }
-                    // If within bounds, add to page
-                    if row_count > min_row && row_count <= max_row {
-                        // Add to page
-                        page.push(String::from(row));
-                    } else if row_count > max_row {
-                        // End of page search
-                        break;
-                    }
-
-                    row_count += 1;
-                }
-                // End of page search
-                if row_count > max_row {
-                    break;
-                }
-            }
-            // Structure for VueTables2
-            response_from_json(doc! {
-                "data": page.join("\n"),
-                "fields": header,
-                // Work this out
-                "total": dataset_detail.predict_size
-            })
+            // Find the file in the database
+            data_collection(
+                filter,
+                chunk_vec,
+                &state.database,
+                info,
+                dataset_detail,
+                dataset_type,
+            )
+            .await
         }
         DatasetType::Prediction => {
             // If Prediction
@@ -954,6 +960,16 @@ pub async fn pagination(
             //      Extract data page from both that is needed
             //      Combine the two pages into 1
             //      Return to frontend
+
+            let mut initial = true;
+            let mut page: Vec<String> = vec![];
+            let mut header: String = String::new();
+            let mut row_count: usize = 0;
+
+            if chunk1 != 0 {
+                // calculate the base row of Chunk1
+                row_count = (((chunk1 + 1) * CHUNK_SIZE as i32) - 1) as usize;
+            }
 
             // Get predict data
             let filter = doc! { "_id": &dataset.predict };
