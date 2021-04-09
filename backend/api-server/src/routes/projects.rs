@@ -306,7 +306,7 @@ pub async fn upload_train_and_predict(
             dataset_details
                 .update_one(
                     doc! { "project_id": &object_id},
-                    doc! {"$set": {"train_size": ((data_size + 99) / 100) * 100}},
+                    doc! {"$set": {"train_size": data_size}},
                     None,
                 )
                 .await?;
@@ -316,7 +316,7 @@ pub async fn upload_train_and_predict(
             dataset_details
                 .update_one(
                     doc! { "project_id": &object_id},
-                    doc! {"$set": {"predict_size": ((data_size + 99) / 100) * 100}},
+                    doc! {"$set": {"predict_size": data_size }},
                     None,
                 )
                 .await?;
@@ -504,12 +504,12 @@ pub async fn upload_and_split(
 
     // Update dataset details with train and predict sizes
     dataset_details
-    .update_one(
-        doc! { "project_id": &object_id},
-        doc! {"$set": {"train_size": ((train_size + 99) / 100) * 100, "predict_size": ((predict_size + 99) / 100) * 100}},
-        None,
-    )
-    .await?;
+        .update_one(
+            doc! { "project_id": &object_id},
+            doc! {"$set": {"train_size": train_size, "predict_size": predict_size }},
+            None,
+        )
+        .await?;
 
     // Check whether the project has data already
     let existing_data = datasets
@@ -1046,8 +1046,8 @@ pub async fn begin_processing(
         cluster_size: payload.cluster_size as i32,
         column_types,
         feature_dim,
-        train_size: dataset_detail.train_size,
-        predict_size: dataset_detail.predict_size,
+        train_size: ((dataset_detail.train_size + 99) / 100) * 100,
+        predict_size: ((dataset_detail.predict_size + 99) / 100) * 100,
         prediction_column: payload.prediction_column.clone(),
         prediction_type: payload.prediction_type,
         cost,
