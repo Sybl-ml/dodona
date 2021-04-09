@@ -25,7 +25,9 @@ use tokio::time::timeout;
 
 use crate::node_end::NodePool;
 use crate::JobControl;
-use messages::{kafka_message, ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
+use messages::{
+    kafka_message, ClientCompleteMessage, ClientMessage, ReadLengthPrefix, WriteLengthPrefix,
+};
 use models::gridfs;
 use models::jobs::JobConfiguration;
 use models::jobs::PredictionType;
@@ -164,15 +166,7 @@ impl Config {
 }
 
 /// Message produced for kafka
-#[derive(Debug, Serialize)]
-pub struct ClientCompleteMessage<'a> {
-    /// Model id which node completed
-    pub project_id: &'a str,
-    /// the number of time the model as been run
-    pub cluster_size: i32,
-    /// If the model was successfull
-    pub success: bool,
-}
+
 // The proportion of training examples to use as validation examples
 const VALIDATION_SPLIT: f64 = 0.2;
 

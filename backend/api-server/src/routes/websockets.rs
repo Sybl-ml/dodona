@@ -15,6 +15,8 @@ use mongodb::bson::oid::ObjectId;
 use std::time::{Duration, Instant};
 
 use crate::{auth, error::ServerResponse, routes::payloads::WebsocketMessage, WebsocketState};
+use messages::ClientCompleteMessage;
+
 // TODO: Add a userId to this struct for a bit of state
 // using this userid it will be possible to subscribe to the correct topic
 // again possibly using the new datastructure that is storing the topic names
@@ -105,6 +107,7 @@ impl Handler<WebsocketMessage> for ProjectUpdateWs {
     type Result = ();
 
     fn handle(&mut self, msg: WebsocketMessage, ctx: &mut Self::Context) -> Self::Result {
+        log::debug!("{:?}", msg);
         ctx.text(serde_json::to_string(&msg).unwrap());
     }
 }
@@ -161,21 +164,17 @@ pub async fn consume_updates(port: u16, map: Arc<Mutex<HashMap<String, Addr<Proj
             message.timestamp()
         );
 
-        let project_update: WebsocketMessage = serde_json::from_slice(&payload).unwrap();
+        let project_update: ClientCompleteMessage = serde_json::from_slice(&payload).unwrap();
 
-        match &project_update {
-            WebsocketMessage::ModelComplete {
-                project_id: _,
-                cluster_size: _,
-                success: _,
-            } => {
-                let user_id = std::str::from_utf8(&message.key().unwrap()).unwrap();
-                let socket_map = map.lock().unwrap();
-                if let Some(socket) = socket_map.get(user_id) {
-                    socket.try_send(project_update).unwrap();
-                }
-            }
-            _ => (),
+        let ws_msg = WebsocketMessage::ModelComplete {
+            project_id: project_update.project_id.to_string(),
+            cluster_size: project_update.cluster_size,
+            success: project_update.success,
+        };
+        let user_id = std::str::from_utf8(&message.key().unwrap()).unwrap();
+        let socket_map = map.lock().unwrap();
+        if let Some(socket) = socket_map.get(user_id) {
+            socket.try_send(ws_msg).unwrap();
         }
     }
 }

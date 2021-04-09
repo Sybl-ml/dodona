@@ -19,15 +19,11 @@ use std::sync::{Arc, Mutex};
 use actix::prelude::Addr;
 use actix_cors::Cors;
 use actix_web::{middleware, web, App, HttpServer, Result};
-use mongodb::{bson::oid::ObjectId, options::ClientOptions, Client, Database};
+use mongodb::{options::ClientOptions, Client, Database};
 
 pub mod auth;
 pub mod error;
 pub mod routes;
-
-use messages::websocket_message::ClientCompleteMessage;
-
-// type Socket = Recipient<ClientCompleteMessage>;
 
 /// Defines the state for each request to access.
 #[derive(Clone, Debug)]
@@ -80,7 +76,15 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
     let client = Client::with_options(client_options).unwrap();
     let database = Arc::new(client.database(&database_name));
 
-    let websocket_state = web::Data::new(WebsocketState::default());
+    let map = HashMap::new();
+    let shared_state = Arc::new(Mutex::new(map));
+    let consumer_state = Arc::clone(&shared_state);
+
+    let websocket_state_data = web::Data::new(WebsocketState { map: shared_state });
+
+    tokio::spawn(async move {
+        routes::websockets::consume_updates(9092, consumer_state).await;
+    });
 
     let server = HttpServer::new(move || {
         // cors
@@ -101,7 +105,7 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
                 pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)
                     .expect("PBKDF2_ITERATIONS must be parseable as an integer"),
             })
-            .app_data(websocket_state.clone())
+            .app_data(websocket_state_data.clone())
             .route(
                 "/api/projects/{project_id}",
                 web::get().to(routes::projects::get_project),

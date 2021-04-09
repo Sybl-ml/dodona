@@ -32,3 +32,13 @@ pub async fn produce_message(msg: &str, key: &str, topic: &str) -> KafkaResult<(
 
     Ok(())
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClientCompleteMessage<'a> {
+    /// Model id which node completed
+    pub project_id: &'a str,
+    /// the number of time the model as been run
+    pub cluster_size: i32,
+    /// If the model was successfull
+    pub success: bool,
+}
