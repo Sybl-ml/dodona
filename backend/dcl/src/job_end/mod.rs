@@ -220,7 +220,7 @@ pub async fn run(
 
             let config_clone = config.clone();
             let anon_config = ClientMessage::from(config_clone);
-          
+
             // Anonymise the prediction column for the job
             let anonymised_config = anon_config.anonymise(&columns);
 

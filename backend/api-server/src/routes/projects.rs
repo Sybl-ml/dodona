@@ -601,13 +601,11 @@ pub async fn get_dataset(
 
     // Decide filter based off enum
     let filter = match dataset_type {
-        DatasetType::Train => doc! { "_id": &dataset.dataset.unwrap() },
-        DatasetType::Predict => doc! { "_id": &dataset.predict.unwrap() },
+        DatasetType::Train => doc! { "_id": &dataset.dataset },
+        DatasetType::Predict => doc! { "_id": &dataset.predict },
         // Need to find a way to stream combined version
-        DatasetType::Prediction => doc! { "_id": &dataset.predict.unwrap() },
+        DatasetType::Prediction => doc! { "_id": &dataset.predict },
     };
-
-    let filter = doc! { "_id": id };
 
     // Find the file in the database
     let document = files
@@ -836,7 +834,7 @@ pub async fn pagination(
             //      Get correct chunks
             //      Extract data page that is needed
             //      Return it to frontend
-            let filter = doc! { "_id": &dataset.dataset.unwrap() };
+            let filter = doc! { "_id": &dataset.dataset };
             // Find the file in the database
             let document = files
                 .find_one(filter, None)
@@ -895,7 +893,7 @@ pub async fn pagination(
             //      Get correct chunks
             //      Extract data page that is needed
             //      Return it to frontend
-            let filter = doc! { "_id": &dataset.predict.unwrap() };
+            let filter = doc! { "_id": &dataset.predict };
             // Find the file in the database
             let document = files
                 .find_one(filter, None)
@@ -958,7 +956,7 @@ pub async fn pagination(
             //      Return to frontend
 
             // Get predict data
-            let filter = doc! { "_id": &dataset.predict.unwrap() };
+            let filter = doc! { "_id": &dataset.predict };
 
             let document = files
                 .find_one(filter, None)
