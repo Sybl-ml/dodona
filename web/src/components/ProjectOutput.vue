@@ -1,20 +1,7 @@
 <template>
   <b-container fluid class="mt-3">
     <b-row>
-      <b-col v-if="!results && !loading" class="text-center">
-        <b-button @click="$emit('get-results')" variant="warning" class="px-5"
-          >Load Results</b-button
-        >
-      </b-col>
-      <b-col v-else-if="loading" class="text-center">
-        <b-icon
-          icon="arrow-counterclockwise"
-          animation="spin-reverse"
-          font-scale="4"
-        ></b-icon>
-      </b-col>
-      <b-col v-else class="input-table">
-        <br />
+      <b-col>
         <b-button
           @click="downloadCSVData()"
           variant="ready"
@@ -24,7 +11,6 @@
         </b-button>
         <br />
         <br />
-        {{ parsePredictions() }}
         <pagination-table
           :projectId="projectId"
           :dataset_type="'prediction'"
@@ -60,10 +46,7 @@ export default {
   },
   props: {
     projectId: String,
-    results: String,
-    predict_data: String,
     datasetName: String,
-    loading: Boolean,
   },
   methods: {
     parsePredictions() {
