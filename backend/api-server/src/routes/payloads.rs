@@ -3,8 +3,8 @@ use actix::prelude::Message;
 
 use mongodb::bson::{oid::ObjectId, Array, Document};
 
-use models::jobs::PredictionType;
 use messages::kafka_message::ClientCompleteMessage;
+use models::jobs::PredictionType;
 
 /// Stores the options for filtering all users.
 #[derive(Debug, Deserialize)]
@@ -174,11 +174,11 @@ pub enum WebsocketMessage {
 
 impl From<&ClientCompleteMessage<'_>> for WebsocketMessage {
     fn from(msg: &ClientCompleteMessage<'_>) -> Self {
-      WebsocketMessage::ModelComplete {
-        project_id: msg.project_id.to_string(),
-        cluster_size: msg.cluster_size,
-        model_complete_count: msg.model_complete_count,
-        success: msg.success,
-      }
+        WebsocketMessage::ModelComplete {
+            project_id: msg.project_id.to_string(),
+            cluster_size: msg.cluster_size,
+            model_complete_count: msg.model_complete_count,
+            success: msg.success,
+        }
     }
-  }
+}
