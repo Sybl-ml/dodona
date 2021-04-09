@@ -115,7 +115,7 @@ pub async fn change_model_status(
     model_id: &str,
     status: Status,
 ) -> Result<()> {
-    let models = database.collection("model");
+    let models = database.collection("models");
 
     log::debug!(
         "Updating the status of model with id={} to status={:?}",
