@@ -95,7 +95,7 @@ fn test_evaluate_model() {
         columns: HashMap::new(),
         config: JobConfiguration {
             dataset_id: ObjectId::new(),
-            timeout: 0,
+            node_computation_time: 0,
             cluster_size: 3,
             column_types: vec![],
             feature_dim: 0,
@@ -105,9 +105,9 @@ fn test_evaluate_model() {
             prediction_type: PredictionType::Classification,
             cost: 0,
         },
-        validation_ans: validation_ans,
-        prediction_rids: prediction_rids,
-        timeout: Duration::from_secs(6000),
+        validation_ans,
+        prediction_rids,
+        node_computation_time: Duration::from_secs(6000),
     };
 
     let predictions = "2,3\n3,2\n4,1\n5,0\n6,0\n7,0\n8,0".to_owned();
@@ -179,7 +179,7 @@ fn test_weight_predictions() {
         columns: HashMap::new(),
         config: JobConfiguration {
             dataset_id: ObjectId::new(),
-            timeout: 0,
+            node_computation_time: 0,
             cluster_size: 3,
             column_types: vec![],
             feature_dim: 0,
@@ -191,7 +191,7 @@ fn test_weight_predictions() {
         },
         validation_ans: validation_ans.clone(),
         prediction_rids: prediction_rids.clone(),
-        timeout: Duration::from_secs(6000),
+        node_computation_time: Duration::from_secs(6000),
     };
 
     let mut model_predictions: HashMap<(ModelID, usize), String> = HashMap::new();
@@ -218,7 +218,7 @@ fn test_weight_predictions() {
         columns: HashMap::new(),
         config: JobConfiguration {
             dataset_id: ObjectId::new(),
-            timeout: 0,
+            node_computation_time: 0,
             cluster_size: 3,
             column_types: vec![],
             feature_dim: 0,
@@ -228,9 +228,9 @@ fn test_weight_predictions() {
             prediction_type: PredictionType::Regression,
             cost: 0,
         },
-        validation_ans: validation_ans,
-        prediction_rids: prediction_rids,
-        timeout: Duration::from_secs(6000),
+        validation_ans,
+        prediction_rids,
+        node_computation_time: Duration::from_secs(6000),
     };
 
     let mut model_predictions: HashMap<(ModelID, usize), String> = HashMap::new();

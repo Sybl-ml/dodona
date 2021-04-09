@@ -2,6 +2,7 @@ use bytes::Bytes;
 use chrono::Utc;
 use mongodb::bson::{self, de::from_document, doc, document::Document, oid::ObjectId};
 use tokio_stream::StreamExt;
+
 use utils::compress::decompress_data;
 
 /// Represents the metadata of a file in the database.
@@ -29,6 +30,8 @@ impl File {
     /// Note, this only creates the instance locally, it does not store any data in the database
     /// yet.
     pub fn new(filename: String) -> Self {
+        log::debug!("Creating a new file with filename={}", filename);
+
         Self {
             id: ObjectId::new(),
             length: 0,
@@ -62,6 +65,13 @@ impl File {
     pub async fn finalise(&self, database: &mongodb::Database) -> mongodb::error::Result<()> {
         // Get the files collection
         let files = database.collection("files");
+
+        log::debug!(
+            "Finalising a file with id={}, {} bytes of data across {} chunk(s)",
+            self.id,
+            self.length,
+            self.chunk_count
+        );
 
         // Convert the file to a document
         let document = bson::ser::to_document(&self).unwrap();
@@ -123,12 +133,24 @@ impl File {
             data.extend_from_slice(&decomp_data);
         }
 
+        log::debug!(
+            "Downloaded file with id={}, containing {} bytes of uncompressed data",
+            self.id,
+            data.len()
+        );
+
         Ok(data)
     }
 
     pub async fn delete(&self, database: &mongodb::Database) -> mongodb::error::Result<()> {
         let files = database.collection("files");
         let chunks = database.collection("chunks");
+
+        log::debug!(
+            "Deleting file with id={}, filename={}",
+            self.id,
+            self.filename
+        );
 
         let filter = doc! {"files_id": &self.id};
         chunks.delete_many(filter, None).await?;
@@ -157,6 +179,13 @@ pub struct Chunk {
 impl Chunk {
     /// Creates a new [`Chunk`] referring to a [`File`].
     pub fn new(files_id: ObjectId, n: i32, data: Vec<u8>) -> Self {
+        log::debug!(
+            "Creating chunk index={} for file_id={} with {} bytes of data",
+            n,
+            files_id,
+            data.len()
+        );
+
         Self {
             id: ObjectId::new(),
             files_id,

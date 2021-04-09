@@ -1,31 +1,28 @@
-# backend
+# `dcl`
 
-The Rust powered backend for the Sybl website.
+The Rust powered `dcl` (Distributed Compute Layer) for the Sybl website. This
+handles incoming job requests from the `api-server` and distributes them to
+clients to work on.
 
 ## Requirements
 
-The backend is written in [`Rust`](https://www.rust-lang.org) and thus requires
-a Rust compiler to build. You can download the toolchain from
+The `dcl` is written in [`Rust`](https://www.rust-lang.org) and thus requires a
+Rust compiler to build. You can download the toolchain from
 [here](https://www.rust-lang.org/tools/install).
 
-Additionally, the backend uses [`MongoDB`](https://www.mongodb.com/) as a
+Additionally, the `dcl` uses [`MongoDB`](https://www.mongodb.com/) as a
 persistent datastore and [`Apache Kafka`](https://kafka.apache.org/) for
 messaging, so these must be installed locally as well.
 
 ## Getting Started
 
-There are 3 binaries found in the backend, being the `analytics`, `api-server`
-and `dcl` components. These can be built in development mode using either of
-the following commands
+The `dcl` can be built in development mode with the following command:
 ```bash
-cargo run --bin <binary_name>
-```
-or
-```bash
-cd <binary_name>
 cargo run
 ```
-All other members of the workspace are used as libraries to support each other.
+This will download and build all the required dependencies, as well as building
+the other workspace members if needed, serving the `dcl` on ports based on the
+configuration options.
 
 ## Configuration
 
@@ -46,3 +43,10 @@ following settings are available:
 |   `from_address`    | string  |             The email address to send from              |
 |     `from_name`     | string  |              The name of the email sender               |
 |   `app_password`    | string  |       The application specific password for Gmail       |
+
+## Testing
+
+The `dcl` tests itself both through unit tests in `src` and through integration
+tests in `tests`. The integration tests require a local instance of `MongoDB`,
+which can be configured in `config.toml`. These will set up the database with
+some predefined data and check that specific requests succeed or fail.

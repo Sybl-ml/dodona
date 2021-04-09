@@ -14,19 +14,26 @@ pub struct Dataset {
     /// Unique identifier for the associated project
     pub project_id: ObjectId,
     /// Dataset File ObjectId stored in the database
-    pub dataset: Option<ObjectId>,
+    pub dataset: ObjectId,
     /// Dataset File ObjectId for prediction stored in the database
-    pub predict: Option<ObjectId>,
+    pub predict: ObjectId,
 }
 
 impl Dataset {
     /// Creates a new [`Dataset`] for a project with some data.
-    pub fn new(project_id: ObjectId, dataset: Option<ObjectId>, predict: Option<ObjectId>) -> Self {
+    pub fn new(project_id: ObjectId, dataset: ObjectId, predict: ObjectId) -> Self {
+        log::debug!(
+            "Creating a new dataset for project_id={} with dataset_id={} and predict_id={}",
+            project_id,
+            dataset,
+            predict
+        );
+
         Self {
             id: ObjectId::new(),
             project_id,
-            dataset: dataset,
-            predict: predict,
+            dataset,
+            predict,
         }
     }
 

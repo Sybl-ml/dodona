@@ -125,6 +125,8 @@ pub fn evaluate_model(
                 // record the L2 error of the prediction
                 if let (Ok(p), Ok(a)) = (prediction.parse::<f64>(), answer.parse::<f64>()) {
                     model_error += (p - a).powf(2.0);
+                } else {
+                    return None;
                 }
             }
             (None, _) => {
@@ -140,6 +142,7 @@ pub fn evaluate_model(
         .iter()
         .map(|s| s.split(',').next().unwrap())
         .collect();
+
     if predicted
         == info
             .validation_ans
@@ -173,12 +176,14 @@ pub async fn model_performance(
     for (model, weight) in &weights {
         let val = (weight * model_num as f64) - 1.0;
         let perf: f64 = 0.5 * ((2.0 * val).tanh()) + 0.5;
+
         log::info!(
-            "Model: {:?}, Weight: {:?}, Performance: {:?}",
-            &model,
-            &weight,
-            &perf
+            "Model with id={} has weight={} and performance={}",
+            model,
+            weight,
+            perf
         );
+
         let job_performance = JobPerformance::new(
             project_id.clone(),
             ObjectId::with_string(&model).unwrap(),
@@ -191,7 +196,15 @@ pub async fn model_performance(
 
         job_perf_vec.push(mongodb::bson::ser::to_document(&job_performance).unwrap());
     }
-    job_performances.insert_many(job_perf_vec, None).await?;
+
+    if job_perf_vec.is_empty() {
+        log::warn!(
+            "No models returned correct predictions for project_id={}",
+            project_id
+        );
+    } else {
+        job_performances.insert_many(job_perf_vec, None).await?;
+    }
 
     Ok(())
 }
@@ -208,19 +221,22 @@ pub async fn penalise(
 ) -> Result<()> {
     let job_performances = database.collection("job_performances");
     let mut job_perf_vec: Vec<Document> = Vec::new();
+
     for model in models {
         let perf: f64 = 0.0;
 
-        log::info!(
-            "Model: {:?} is being penalised for malicious behaviour, Performance: {:?}",
-            &model,
-            &perf
+        log::warn!(
+            "Model with id={} is being penalised for malicious behaviour, performance={}",
+            model,
+            perf
         );
+
         let job_performance = JobPerformance::new(
             project_id.clone(),
             ObjectId::with_string(&model).unwrap(),
             perf,
         );
+
         if let Some(np) = &nodepool {
             np.update_node_performance(&model, perf).await;
         }
@@ -228,7 +244,9 @@ pub async fn penalise(
         job_perf_vec.push(mongodb::bson::ser::to_document(&job_performance).unwrap());
     }
 
-    if !job_perf_vec.is_empty() {
+    if job_perf_vec.is_empty() {
+        log::info!("No models were penalised for project_id={}", project_id);
+    } else {
         job_performances.insert_many(job_perf_vec, None).await?;
     }
 

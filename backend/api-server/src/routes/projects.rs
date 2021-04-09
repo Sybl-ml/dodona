@@ -208,8 +208,9 @@ pub async fn upload_train_and_predict(
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
-    // Create dataset object
-    let mut dataset_doc = Dataset::new(object_id.clone(), None, None);
+    // Track the train and predict identifiers
+    let mut train_id = None;
+    let mut predict_id = None;
 
     let mut initial: bool = true;
 
@@ -228,8 +229,6 @@ pub async fn upload_train_and_predict(
             .get_filename()
             .ok_or(ServerError::UnprocessableEntity)?;
 
-        log::info!("Filename: {}", filename);
-
         let name = content_disposition
             .get_name()
             .ok_or(ServerError::UnprocessableEntity)?;
@@ -241,7 +240,6 @@ pub async fn upload_train_and_predict(
                 if initial {
                     let data_head = std::str::from_utf8(&chunk).unwrap();
                     let data_head = data_head.split("\n").take(6).collect::<Vec<_>>().join("\n");
-                    log::info!("First 5 lines: {:?}", &data_head);
 
                     initial = false;
 
@@ -301,7 +299,7 @@ pub async fn upload_train_and_predict(
         dataset.finalise(&state.database).await?;
 
         if name == "train" {
-            dataset_doc.dataset = Some(dataset.id);
+            train_id = Some(dataset.id);
             // Update dataset details with train size
             dataset_details
                 .update_one(
@@ -311,7 +309,7 @@ pub async fn upload_train_and_predict(
                 )
                 .await?;
         } else {
-            dataset_doc.predict = Some(dataset.id);
+            predict_id = Some(dataset.id);
             // Update dataset details with predict size
             dataset_details
                 .update_one(
@@ -335,6 +333,8 @@ pub async fn upload_train_and_predict(
         log::debug!("Deleting existing project data with id={}", data.id);
         data.delete(&state.database).await?;
     }
+    // Communicate with Analytics Server
+    produce_analytics_message(&object_id).await;
 
     // Update the project status
     projects
@@ -344,6 +344,12 @@ pub async fn upload_train_and_predict(
             None,
         )
         .await?;
+
+    let dataset_doc = Dataset::new(
+        object_id,
+        train_id.ok_or(ServerError::UnprocessableEntity)?,
+        predict_id.ok_or(ServerError::UnprocessableEntity)?,
+    );
 
     let document = to_document(&dataset_doc)?;
     let id = datasets.insert_one(document, None).await?.inserted_id;
@@ -523,9 +529,12 @@ pub async fn upload_and_split(
         data.delete(&state.database).await?;
     }
 
-    let dataset_doc = Dataset::new(object_id.clone(), Some(dataset.id), Some(predict.id));
+    let dataset_doc = Dataset::new(object_id.clone(), dataset.id, predict.id);
     let document = to_document(&dataset_doc)?;
     let id = datasets.insert_one(document, None).await?.inserted_id;
+
+    // Communicate with Analytics Server
+    produce_analytics_message(&object_id).await;
 
     // Update the project status
     projects
@@ -597,6 +606,8 @@ pub async fn get_dataset(
         // Need to find a way to stream combined version
         DatasetType::Prediction => doc! { "_id": &dataset.predict.unwrap() },
     };
+
+    let filter = doc! { "_id": id };
 
     // Find the file in the database
     let document = files
@@ -1140,7 +1151,13 @@ pub async fn begin_processing(
         })
         .collect();
 
-    let cost = job_cost(payload.cluster_size);
+    let feature_dim = column_types.len() as i8;
+
+    let cost = job_cost(
+        payload.cluster_size as i32,
+        feature_dim as i32,
+        dataset_detail.train_size + dataset_detail.predict_size,
+    );
     let query = doc! { "_id": &claims.id };
     let document = users
         .find_one(query, None)
@@ -1158,12 +1175,10 @@ pub async fn begin_processing(
         return Err(ServerError::PaymentRequired);
     }
 
-    let feature_dim = column_types.len() as i8;
-
     // Send a request to the interface layer
     let config = JobConfiguration {
         dataset_id: dataset.id.clone(),
-        timeout: payload.timeout as i32,
+        node_computation_time: payload.node_computation_time as i32,
         cluster_size: payload.cluster_size as i32,
         column_types,
         feature_dim,
@@ -1259,8 +1274,6 @@ pub async fn get_predictions(
             }
         },
     );
-
-    produce_analytics_message(&object_id).await;
 
     Ok(HttpResponseBuilder::new(StatusCode::OK).streaming(byte_stream))
 }

@@ -1,9 +1,13 @@
 use config::Environment;
-use dcl::run;
-use utils::setup_logger;
 
 fn main() {
-    setup_logger("dcl");
+    let filters = vec![
+        ("dcl", log::LevelFilter::Debug),
+        ("config", log::LevelFilter::Debug),
+        ("models", log::LevelFilter::Debug),
+    ];
+
+    utils::setup_logger_with_filters(filters);
 
     let environment = if cfg!(debug_assertions) {
         Environment::Development
@@ -13,14 +17,7 @@ fn main() {
 
     config::load(environment);
 
-    // Do config stuff here
-    let code = {
-        if let Err(e) = run() {
-            log::error!("ERROR: {}", e);
-            1
-        } else {
-            0
-        }
-    };
-    ::std::process::exit(code);
+    if let Err(e) = dcl::run() {
+        log::error!("Error occurred: {}", e);
+    }
 }

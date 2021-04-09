@@ -26,6 +26,8 @@ pub struct DatasetResponse {
 
 static ASL_CSV: &str = include_str!("assets/asl.csv");
 static DASL_CSV: &str = include_str!("assets/dasl.csv");
+static ONLY_TRAIN_DATASET: &str = include_str!("assets/only_train_dataset.csv");
+static ONLY_PREDICT_DATASET: &str = include_str!("assets/only_predict_dataset.csv");
 
 #[actix_rt::test]
 async fn projects_can_be_fetched_for_a_user() -> Result<()> {
@@ -504,7 +506,7 @@ async fn job_configs_can_have_integer_timeouts_in_json() -> Result<()> {
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
     let formatted = format!("/api/projects/{}/process", common::MAIN_PROJECT_ID);
-    let doc = doc! { "timeout": 10, "clusterSize": 2, "predictionType": "classification", "predictionColumn": "name"};
+    let doc = doc! { "nodeComputationTime": 10, "clusterSize": 2, "predictionType": "classification", "predictionColumn": "name"};
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
         .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
@@ -543,6 +545,60 @@ async fn train_and_predict_can_be_added_to_projects() -> Result<()> {
 }
 
 #[actix_rt::test]
+async fn only_uploading_training_data_fails() -> Result<()> {
+    let mut app = api_with! { put: "/api/projects/{project_id}/upload_train_and_predict" => projects::upload_train_and_predict };
+
+    let url = format!(
+        "/api/projects/{}/upload_train_and_predict",
+        common::MAIN_PROJECT_ID
+    );
+
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::PUT)
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
+        .insert_header(("Content-Type", "multipart/form-data; boundary=boundary"))
+        .uri(&url)
+        .set_payload(ONLY_TRAIN_DATASET)
+        .to_request();
+
+    let res = test::call_service(&mut app, req).await;
+
+    assert_eq!(
+        actix_web::http::StatusCode::UNPROCESSABLE_ENTITY,
+        res.status()
+    );
+
+    Ok(())
+}
+
+#[actix_rt::test]
+async fn only_uploading_prediction_data_fails() -> Result<()> {
+    let mut app = api_with! { put: "/api/projects/{project_id}/upload_train_and_predict" => projects::upload_train_and_predict };
+
+    let url = format!(
+        "/api/projects/{}/upload_train_and_predict",
+        common::MAIN_PROJECT_ID
+    );
+
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::PUT)
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
+        .insert_header(("Content-Type", "multipart/form-data; boundary=boundary"))
+        .uri(&url)
+        .set_payload(ONLY_PREDICT_DATASET)
+        .to_request();
+
+    let res = test::call_service(&mut app, req).await;
+
+    assert_eq!(
+        actix_web::http::StatusCode::UNPROCESSABLE_ENTITY,
+        res.status()
+    );
+
+    Ok(())
+}
+
+#[actix_rt::test]
 async fn users_cannot_submit_jobs_with_insufficient_funds() -> Result<()> {
     let mut app = api_with! {
         put: "/api/projects/{project_id}/upload_and_split" => projects::upload_and_split,
@@ -566,7 +622,8 @@ async fn users_cannot_submit_jobs_with_insufficient_funds() -> Result<()> {
     sleep(Duration::from_millis(600)).await;
 
     let formatted = format!("/api/projects/{}/process", common::MAIN_PROJECT_ID);
-    let doc = doc! { "timeout": 10, "clusterSize": 2000, "predictionType": "classification", "predictionColumn": "name"};
+    let doc = doc! { "nodeComputationTime": 10, "clusterSize": 200000, "predictionType": "classification", "predictionColumn": "name" };
+
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
         .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))

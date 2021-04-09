@@ -4,10 +4,4 @@ Content-Disposition: form-data; filename="train.csv"; name="train"
 age,sex,location
 23,M,Leamington Spa
 22,F,Coventry
---boundary
-Content-Disposition: form-data; filename="predict.csv"; name="predict"
-
-age,sex,location
-24,M,
-20,F,
 --boundary--

@@ -45,15 +45,23 @@ impl JobQueue {
     /// its current `active` nodes.
     pub fn filter(&self, active: &AtomicUsize) -> Vec<usize> {
         let jq_mutex = self.0.lock().unwrap();
+        let nodes = active.load(Ordering::SeqCst);
 
-        jq_mutex
+        let indices: Vec<_> = jq_mutex
             .iter()
             .enumerate()
-            .filter(|(_, (_, _, config))| {
-                (config.cluster_size as usize) <= active.load(Ordering::SeqCst)
-            })
+            .filter(|(_, (_, _, config))| (config.cluster_size as usize) <= nodes)
             .map(|(idx, _)| idx)
-            .collect()
+            .collect();
+
+        log::debug!(
+            "Job queue contains {} elements, of which {} are completable with {} nodes",
+            jq_mutex.len(),
+            indices.len(),
+            nodes
+        );
+
+        indices
     }
 
     /// Using an index, this function will remove the required job from the [`JobQueue`]. This is so that
@@ -171,8 +179,6 @@ pub async fn run() -> Result<()> {
         health::health_runner(health_client, nodepool_clone, health).await;
     })
     .await?;
-
-    log::info!("(DCL) shutting down...");
 
     Ok(())
 }

@@ -342,12 +342,12 @@ pub fn generate_ids(dataset: &str) -> (String, Vec<String>) {
     let records: Vec<StringRecord> = reader.records().filter_map(Result::ok).collect();
 
     let mut new_header = vec!["record_id"];
+
     for field in headers.iter() {
         new_header.push(field);
     }
-    headers = StringRecord::from(new_header);
 
-    println!("{:?}", headers);
+    headers = StringRecord::from(new_header);
 
     let with_ids = records
         .iter()
@@ -361,8 +361,6 @@ pub fn generate_ids(dataset: &str) -> (String, Vec<String>) {
             StringRecord::from(new_line)
         })
         .collect::<Vec<_>>();
-
-    println!("{:?}", with_ids);
 
     // Write headers
     writer.write_record(headers.iter()).unwrap();

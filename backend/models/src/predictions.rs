@@ -19,6 +19,12 @@ pub struct Prediction {
 impl Prediction {
     /// Creates a new [`Dataset`] for a project with some data.
     pub fn new(project_id: ObjectId, predictions: ObjectId) -> Self {
+        log::debug!(
+            "Creating a new prediction mapping between project_id={} and predictions={}",
+            project_id,
+            predictions
+        );
+
         Self {
             id: ObjectId::new(),
             project_id,
@@ -29,6 +35,8 @@ impl Prediction {
     pub async fn delete(&self, database: &mongodb::Database) -> mongodb::error::Result<()> {
         let predictions = database.collection("predictions");
         let files = database.collection("files");
+
+        log::debug!("Deleting predictions for project_id={}", self.project_id);
 
         let filter = doc! {"_id": &self.predictions};
         if let Some(file) = files.find_one(filter, None).await? {
