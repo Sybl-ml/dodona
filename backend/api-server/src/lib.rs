@@ -20,15 +20,11 @@ use actix::prelude::Addr;
 use actix::prelude::Recipient;
 use actix_cors::Cors;
 use actix_web::{middleware, web, App, HttpServer, Result};
-use mongodb::{bson::oid::ObjectId, options::ClientOptions, Client, Database};
+use mongodb::{options::ClientOptions, Client, Database};
 
 pub mod auth;
 pub mod error;
 pub mod routes;
-
-use messages::websocket_message::ClientCompleteMessage;
-
-// type Socket = Recipient<ClientCompleteMessage>;
 
 /// Defines the state for each request to access.
 #[derive(Clone, Debug)]
