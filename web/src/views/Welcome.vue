@@ -1,21 +1,15 @@
 <template>
   <div>
-    <b-row class="pb-3">
+    <b-row class="pb-3 justify-content-center">
       <b-col class="main" md="12" lg="6">
         <b-row class="justify-content-center">
           <b-col md="12" lg="8">
-            <h1 class="title">
-              Data Science. Simplified.
-            </h1>
+            <h1 class="title">Data Science. Simplified.</h1>
+            <br />
             <h3 class="subtitle">
-              Get access to Machine Learning with a <b>ZERO</b> code solution.
+              Get access to Machine Learning with a no-code solution.
             </h3>
-            <h4 class="mb-5">
-              Works with
-              <a href="https://www.tensorflow.org/"><tensor-flow-icon /> </a>
-              &
-              <a href="https://keras.io/"><keras-icon /></a>
-            </h4>
+            <br />
             <b-button class="mr-3" variant="primary" size="lg" to="/register">
               I Have Data 💾
             </b-button>
@@ -25,30 +19,18 @@
           </b-col>
         </b-row>
       </b-col>
-      <b-col
-        lg="6"
-        sm="0"
-        class="d-none d-lg-block main justify-content-center"
-      >
-        <landing class="svg_styling" />
-      </b-col>
+
     </b-row>
 
     <waves />
     <div class="highlight">
       <b-row class="justify-content-center">
-        <h1 class="mt-4 subTitle">
-          WHAT IS SYBL?
-        </h1>
+        <h1 class="mt-4 subTitle">What Is Sybl?</h1>
       </b-row>
       <b-row class="justify-content-center">
-        <h4 style="width:55%" class="mb-3">
+        <h4 style="width: 55%" class="mb-3">
           Sybl is a Machine Leaning as a service (MLAAS) platform designed to
-          make Data Science as accessible as possible, regardless of
-          <b-icon icon="cpu" /> Technical Resources,
-          <b-icon icon="code-slash" /> Educational Background,
-          <b-icon icon="cash-stack" /> Financial Status or
-          <b-icon icon="diagram3" /> Use Case.
+          make Data Science as accessible as possible, regardless of ...
         </h4>
       </b-row>
       <b-row class="justify-content-center mr-0 ml-0">
@@ -60,9 +42,7 @@
           >
             <b-icon font-scale="4" icon="cpu" />
             <br />
-            <h3>
-              Technical Resources
-            </h3>
+            <h3>Technical Resources</h3>
             <b-card-text>
               Sybl runs in the cloud using secure, private and anonymised data
               pipelines to safley get insights from your data.
@@ -77,9 +57,7 @@
           >
             <b-icon font-scale="4" icon="code-slash" />
             <br />
-            <h3>
-              Educational Background
-            </h3>
+            <h3>Educational Background</h3>
             <b-card-text>
               Sybl requires ZERO code or Data Science experience. Get the
               insights you need without any of the faff.
@@ -96,9 +74,7 @@
           >
             <b-icon font-scale="4" icon="cash-stack" />
             <br />
-            <h3>
-              Financial Status
-            </h3>
+            <h3>Financial Status</h3>
             <b-card-text>
               Sybl uses a pay-as-you-go business model, so you only pay for what
               you use. No subscriptions, no nonsense.
@@ -113,9 +89,7 @@
           >
             <b-icon font-scale="4" icon="diagram3" />
             <br />
-            <h3>
-              Use Case
-            </h3>
+            <h3>Use Case</h3>
             <b-card-text>
               Whatever data you collect, Sybl uses cutting edge Machine Learning
               to ensure that you always get the best psosible predictions.
@@ -136,15 +110,12 @@
       ></path>
     </svg>
     <b-container>
-      <b-row class="justify-content-center shadow-none">
-          <sybl width="24em" height="8em" />
-      </b-row>
       <b-row class="m-4 justify-content-center shadow-none">
         <h1 class="subTitle">How Does It Work?</h1>
       </b-row>
-      <b-row class="m-3 justify-content-center">
+      <b-row class="m-5 justify-content-center">
         <b-col>
-          <b-row>
+          <b-row class="mb-5">
             <b-col sm="12" lg="6">
               <b-card class="text-center border-0 shadow-none">
                 <h2>Upload Your Data</h2>
@@ -160,15 +131,17 @@
 
             <b-col sm="12" lg="6">
               <b-row class="justify-content-center">
-                <cloud />
+                <!-- <cloud /> -->
+                <b-icon icon="cloud-upload-fill" font-scale="10" />
               </b-row>
             </b-col>
           </b-row>
 
-          <b-row>
+          <b-row class="mb-5">
             <b-col sm="12" lg="6">
               <b-row class="justify-content-center">
-                <terminal />
+                <!-- <terminal /> -->
+                <b-icon icon="file-earmark-binary-fill" font-scale="10" />
               </b-row>
             </b-col>
             <b-col sm="12" lg="6">
@@ -186,7 +159,7 @@
           <b-row>
             <b-col sm="12" lg="6">
               <b-card class="text-center border-0 shadow-none">
-                <h2>Get Your Jobs</h2>
+                <h2>Get Your Predictions</h2>
                 <b-card-text
                   >Your anonymised data is sent to the world's top data
                   scientists, who use their top machine learning models to
@@ -196,7 +169,8 @@
             </b-col>
             <b-col sm="12" lg="6">
               <b-row class="justify-content-center">
-                <drop />
+                <!-- <drop /> -->
+                <b-icon icon="folder-symlink-fill" font-scale="10" />
               </b-row>
             </b-col>
           </b-row>
@@ -205,7 +179,7 @@
     </b-container>
     <waves />
 
-    <div class="highlight_no_gradient pt-3">
+    <div class="highlight pt-3">
       <b-row class="justify-content-center">
         <h1 class="mt-3 subTitle">Get Started Today!</h1>
       </b-row>
@@ -218,6 +192,7 @@
         </b-button>
       </b-row>
     </div>
+    <particles-bg  color="#fbb000" num=200 type="cobweb" :bg="true"/>
   </div>
 </template>
 
@@ -226,10 +201,6 @@ body {
   overflow-x: hidden !important;
 }
 
-.background {
-  background-color: #ffffff;
-  background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23fb8c38' fill-opacity='0.31' fill-rule='evenodd'/%3E%3C/svg%3E");
-}
 .main {
   text-align: center;
 }
@@ -255,14 +226,7 @@ body {
 .highlight {
   padding-bottom: 2rem;
   text-align: center;
-  background-image: linear-gradient(to bottom, #fb8c38, #fbb000,  #fb8c38);
-  color: white;
-}
-
-.highlight_no_gradient {
-  padding-bottom: 2rem;
-  text-align: center;
-  background-image: linear-gradient(to bottom, #fb8c38, #fb8c38);
+  background-color: #fb8c38;
   color: white;
 }
 
@@ -285,25 +249,14 @@ body {
 <script>
 import LandingImage from "@/components/icons/LandingImage";
 import Waves from "@/components/icons/waves";
-import { KerasIcon, TensorFlowIcon } from "vue-simple-icons";
-import Cloud from "@/components/icons/cloud-1";
-import Drop from "@/components/icons/drop";
-import Box from "@/components/icons/box-1";
-import Terminal from "@/components/icons/terminal";
-import Sybl from "@/components/icons/IconLogo";
+import { ParticlesBg } from "particles-bg-vue";
 
 export default {
   name: "Welcome",
   components: {
-    KerasIcon,
-    TensorFlowIcon,
     landing: LandingImage,
     Waves,
-    Cloud,
-    Box,
-    Drop,
-    Terminal,
-    Sybl,
+    ParticlesBg,
   },
 };
 </script>
