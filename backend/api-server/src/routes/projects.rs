@@ -638,6 +638,7 @@ pub async fn pagination(
 ) -> ServerResponse {
     log::info!("Pagination");
     let datasets = state.database.collection("datasets");
+    let dataset_details = state.database.collection("dataset_details");
     let projects = state.database.collection("projects");
     let files = state.database.collection("files");
     let predictions = state.database.collection("predictions");
@@ -660,6 +661,17 @@ pub async fn pagination(
     // Parse the dataset itself
     let dataset: Dataset = from_document(document)?;
 
+    let filter = doc! { "project_id": &object_id };
+
+    // Find the dataset details in the database
+    let document = dataset_details
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
+
+    // Parse the dataset itself
+    let dataset_detail: DatasetDetails = from_document(document)?;
+
     // Calculate the chunk that is needed
     let chunk_vec: Vec<i32>;
     let min_row = (page_num - 1) * amount;
@@ -670,8 +682,12 @@ pub async fn pagination(
 
     let mut initial = true;
     let mut page: Vec<String> = vec![];
-    let mut row_count = min_row;
     let mut header: String = String::new();
+    let mut row_count: usize = 0;
+    if chunk1 != 0 {
+        // calculate the base row of Chunk1
+        row_count = (((chunk1 + 1) * CHUNK_SIZE as i32) - 1) as usize;
+    }
 
     // Equal size
     if chunk1 == chunk2 {
@@ -726,23 +742,14 @@ pub async fn pagination(
                     if initial {
                         header = String::from(row);
                         initial = false;
-                        if min_row != 0 {
+                        if chunk1 != 0 {
                             continue;
                         }
                     }
                     // If within bounds, add to page
                     if row_count > min_row && row_count <= max_row {
-                        // Create empty document (mutable)
-                        let mut row_doc = Vec::new();
-                        // Break row into vector
-                        let row_iter = row.split(",");
-                        // Go through each and add to document each column for row
-                        for col_val in row_iter {
-                            // Header: col_value
-                            row_doc.push(col_val);
-                        }
                         // Add to page
-                        page.push(row_doc.join(","));
+                        page.push(String::from(row));
                     } else if row_count > max_row {
                         // End of page search
                         break;
@@ -755,6 +762,14 @@ pub async fn pagination(
                     break;
                 }
             }
+            log::info!("Page: {:?}", &page);
+            // Structure for VueTables2
+            response_from_json(doc! {
+                "data": page.join("\n"),
+                "fields": header,
+                // Work this out
+                "total": dataset_detail.train_size
+            })
         }
         DatasetType::Predict => {
             // If Train
@@ -787,23 +802,14 @@ pub async fn pagination(
                     if initial {
                         header = String::from(row);
                         initial = false;
-                        if min_row != 0 {
+                        if chunk1 != 0 {
                             continue;
                         }
                     }
                     // If within bounds, add to page
                     if row_count > min_row && row_count <= max_row {
-                        // Create empty document (mutable)
-                        let mut row_doc = Vec::new();
-                        // Break row into vector
-                        let row_iter = row.split(",");
-                        // Go through each and add to document each column for row
-                        for col_val in row_iter {
-                            // Header: col_value
-                            row_doc.push(col_val);
-                        }
                         // Add to page
-                        page.push(row_doc.join(","));
+                        page.push(String::from(row));
                     } else if row_count > max_row {
                         // End of page search
                         break;
@@ -816,6 +822,13 @@ pub async fn pagination(
                     break;
                 }
             }
+            // Structure for VueTables2
+            response_from_json(doc! {
+                "data": page.join("\n"),
+                "fields": header,
+                // Work this out
+                "total": dataset_detail.predict_size
+            })
         }
         DatasetType::Prediction => {
             // If Predict
@@ -896,7 +909,7 @@ pub async fn pagination(
                     if initial {
                         header = String::from(predict_row);
                         initial = false;
-                        if min_row != 0 {
+                        if chunk1 != 0 {
                             continue;
                         }
                     }
@@ -929,16 +942,16 @@ pub async fn pagination(
                     break;
                 }
             }
-        }
-    };
 
-    // Structure for VueTables2
-    response_from_json(doc! {
-       "data": page.join("\n"),
-       "fields": header,
-       // Work this out
-       "total": 200
-    })
+            // Structure for VueTables2
+            response_from_json(doc! {
+                "data": page.join("\n"),
+                "fields": header,
+                // Work this out
+                "total": dataset_detail.predict_size
+            })
+        }
+    }
 }
 
 /// Removes the data associated with a given project identifier.

@@ -71,6 +71,8 @@ export default {
       let page_data = await this.$http.get(
         `api/projects/${this.projectId}/pagination/${this.dataset_type}?page=${pagination.current_page}&per_page=${this.perPage}`
       );
+
+      console.log(page_data);
       // Set fields
       let total = page_data.data.total;
       let local = page_data.data.data;
