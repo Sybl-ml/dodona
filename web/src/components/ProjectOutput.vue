@@ -28,6 +28,8 @@
         <pagination-table
           :fields="fields"
           :data="pred_data"
+          :projectId="projectId"
+          :dataset_type="'predict'"
         />
       </b-col>
     </b-row>

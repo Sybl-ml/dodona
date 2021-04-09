@@ -46,45 +46,55 @@ export default {
       css: PaginationTableStyle,
       perPage: 10,
       options: [10, 25, 50, 100],
+      fields: []
     };
   },
   props: {
-    data: Array,
-    fields: Array,
+    projectId: String,
+    dataset_type: String,
   },
 
   methods: {
+    vuetable() {
+      return this.$refs.vuetable
+    },
     onPaginationData(paginationData) {
       this.$refs.pagination.setPaginationData(paginationData);
     },
     onChangePage(page) {
       this.$refs.vuetable.changePage(page);
     },
-    dataManager(sortOrder, pagination) {
-      if (this.data.length < 1) return;
-
-      let local = this.data;
+    async dataManager(sortOrder, pagination) {
+      // Query endpoint for the page that is needed
+      let page_data = await this.$http.get(
+        `api/projects/${this.projectId}/pagination/${this.dataset_type}?page=${pagination.current_page}&per_page=${this.perPage}`
+      );
+      // Wait for return
+      console.log(page_data);
+      // Set fields
+      let total = page_data.data.total;
+      let local = page_data.data.data;
+      this.fields = page_data.data.fields;
 
       // sortOrder can be empty, so we have to check for that as well
-      if (sortOrder.length > 0) {
-        local = _.orderBy(
-          local,
-          sortOrder[0].sortField,
-          sortOrder[0].direction
-        );
-      }
+      // if (sortOrder.length > 0) {
+      //   local = _.orderBy(
+      //     local,
+      //     sortOrder[0].sortField,
+      //     sortOrder[0].direction
+      //   );
+      // }
 
+      // do pagination calculations
       pagination = this.$refs.vuetable.makePagination(
-        local.length,
+        total,
         this.perPage
       );
-      
-      let from = pagination.from - 1;
-      let to = from + this.perPage;
 
+      // return data from endpoint
       return {
         pagination: pagination,
-        data: _.slice(local, from, to),
+        data: local,
       };
     },
   },
