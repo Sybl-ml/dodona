@@ -570,6 +570,7 @@ pub async fn get_dataset(
     extractor: web::Path<(String, DatasetType)>,
 ) -> ServerResponse {
     let datasets = state.database.collection("datasets");
+    let predictions = state.database.collection("predictions");
     let projects = state.database.collection("projects");
     let files = state.database.collection("files");
 
@@ -607,22 +608,130 @@ pub async fn get_dataset(
     let file: gridfs::File = from_document(document)?;
 
     let mut cursor = file.download_chunks(&state.database).await?;
-    let byte_stream = poll_fn(
-        move |_| -> Poll<Option<Result<Bytes, actix_web::error::Error>>> {
-            // While Cursor not empty
-            match futures::executor::block_on(cursor.next()) {
-                Some(next) => {
-                    let chunk: gridfs::Chunk = from_document(next.unwrap()).unwrap();
-                    let chunk_bytes = chunk.data.bytes;
-                    let decomp_train = decompress_data(&chunk_bytes).unwrap();
-                    Poll::Ready(Some(Ok(Bytes::from(decomp_train))))
-                }
-                None => Poll::Ready(None),
-            }
-        },
-    );
 
-    Ok(HttpResponseBuilder::new(StatusCode::OK).streaming(byte_stream))
+    match dataset_type {
+        DatasetType::Prediction => {
+            let filter = doc! { "project_id": &object_id };
+
+            // Find the dataset in the database
+            let document = predictions
+                .find_one(filter, None)
+                .await?
+                .ok_or(ServerError::NotFound)?;
+
+            // Parse the prediction itself
+            let prediction: Prediction = from_document(document)?;
+
+            let filter = doc! { "_id": &prediction.predictions };
+
+            // Find the file in the database
+            let document = files
+                .find_one(filter, None)
+                .await?
+                .ok_or(ServerError::NotFound)?;
+
+            // Parse the dataset itself
+            let predictions_file: gridfs::File = from_document(document)?;
+
+            let mut predictions_cursor = predictions_file.download_chunks(&state.database).await?;
+
+            let mut initial: bool = true;
+
+            let byte_stream = poll_fn(
+                move |_| -> Poll<Option<Result<Bytes, actix_web::error::Error>>> {
+                    // While Cursor not empty
+                    match futures::executor::block_on(zip(&mut predictions_cursor, &mut cursor)) {
+                        (Some(prediction_chunk), Some(predict_chunk)) => {
+                            let chunk: gridfs::Chunk =
+                                from_document(predict_chunk.unwrap()).unwrap();
+                            let chunk_bytes = chunk.data.bytes;
+                            let decomp_predict = decompress_data(&chunk_bytes).unwrap();
+                            // Convert both to utf 8
+                            let utf_predict = String::from_utf8(decomp_predict).unwrap();
+                            let predict_rows = utf_predict.split("\n");
+
+                            let chunk: gridfs::Chunk =
+                                from_document(prediction_chunk.unwrap()).unwrap();
+                            let chunk_bytes = chunk.data.bytes;
+                            let decomp_prediction = decompress_data(&chunk_bytes).unwrap();
+                            // Convert both to utf 8
+                            let utf_prediction = String::from_utf8(decomp_prediction).unwrap();
+                            let prediction_rows = utf_prediction.split("\n");
+
+                            let mut chunk_vec: Vec<String> = Vec::new();
+
+                            // Split based on rows
+                            for (prediction_row, predict_row) in prediction_rows.zip(predict_rows) {
+                                // Work out if header
+                                if initial {
+                                    // Header
+                                    initial = false;
+                                    chunk_vec.push(String::from(predict_row));
+                                    continue;
+                                }
+                                //      Split predict based on commas
+                                let predict_cols = predict_row.split(",");
+                                //      Go through row
+                                let mut row_vec: Vec<String> = Vec::new();
+                                for column in predict_cols {
+                                    if column.trim() == "" {
+                                        //      If empty col, fill with predicted data
+                                        row_vec.push(String::from(prediction_row));
+                                    } else {
+                                        //      else, push col
+                                        row_vec.push(String::from(column));
+                                    }
+                                }
+                                // join with commas
+                                let joined_row = row_vec.join(",");
+                                // push to whole chunk vector
+                                chunk_vec.push(joined_row);
+                            }
+                            let joined_chunk: String = chunk_vec.join("\n");
+                            // Join together whole chunk
+                            // convert to bytes
+                            // return chunk
+                            Poll::Ready(Some(Ok(Bytes::from(joined_chunk.into_bytes()))))
+                        }
+                        _ => Poll::Ready(None),
+                    }
+                },
+            );
+
+            Ok(HttpResponseBuilder::new(StatusCode::OK).streaming(byte_stream))
+        }
+        _ => {
+            let byte_stream = poll_fn(
+                move |_| -> Poll<Option<Result<Bytes, actix_web::error::Error>>> {
+                    // While Cursor not empty
+                    match futures::executor::block_on(cursor.next()) {
+                        Some(next) => {
+                            let chunk: gridfs::Chunk = from_document(next.unwrap()).unwrap();
+                            let chunk_bytes = chunk.data.bytes;
+                            let decomp_train = decompress_data(&chunk_bytes).unwrap();
+                            Poll::Ready(Some(Ok(Bytes::from(decomp_train))))
+                        }
+                        None => Poll::Ready(None),
+                    }
+                },
+            );
+
+            Ok(HttpResponseBuilder::new(StatusCode::OK).streaming(byte_stream))
+        }
+    }
+}
+
+async fn zip(
+    left: &mut mongodb::Cursor,
+    right: &mut mongodb::Cursor,
+) -> (
+    Option<mongodb::error::Result<Document>>,
+    Option<mongodb::error::Result<Document>>,
+) {
+    let left_side = left.next().await;
+    let right_side = right.next().await;
+
+    (left_side, right_side)
 }
 
 /// Route for returning pagination data
@@ -762,7 +871,6 @@ pub async fn pagination(
                     break;
                 }
             }
-            log::info!("Page: {:?}", &page);
             // Structure for VueTables2
             response_from_json(doc! {
                 "data": page.join("\n"),
@@ -831,7 +939,7 @@ pub async fn pagination(
             })
         }
         DatasetType::Prediction => {
-            // If Predict
+            // If Prediction
             //      Get correct predict chunk
             //      Get correct predictions chunk
             //      Extract data page from both that is needed
