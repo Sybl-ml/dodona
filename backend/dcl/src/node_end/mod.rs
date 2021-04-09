@@ -159,7 +159,7 @@ impl NodePool {
         let mut node_vec = self.nodes.write().await;
         let mut info_vec = self.info.write().await;
 
-        log::info!("Adding node to the pool with id: {}", id);
+        log::info!("Adding node to the pool with id={}", id);
 
         node_vec.insert(id.clone(), node);
         info_vec.insert(
@@ -206,12 +206,22 @@ impl NodePool {
         // Convert to usize as MongoDB stores as i32
         let cluster_size = config.cluster_size as usize;
 
+        log::debug!("Attempting to build a cluster with size={}", cluster_size);
+
         let nodes_read = self.nodes.read().await;
         let mut accepted_job: Vec<(String, f64)> = Vec::new();
         let mut better_nodes: Vec<(String, f64)> = Vec::new();
         let mut info_write = self.info.write().await;
 
-        if self.active.load(Ordering::SeqCst) < cluster_size {
+        let active = self.active.load(Ordering::SeqCst);
+
+        if active < cluster_size {
+            log::warn!(
+                "Only {} nodes are active, so a cluster of size={} could not be built",
+                active,
+                cluster_size
+            );
+
             return None;
         }
 
@@ -229,6 +239,7 @@ impl NodePool {
                 //      - An error in the stream itself
                 match config_response {
                     Ok(true) => {
+                        log::info!("Node with id={} accepted the job", id);
                         accepted_job.push((id.clone(), info.performance));
 
                         if info.performance > 0.5 {
@@ -252,6 +263,12 @@ impl NodePool {
         // Checks if number of nodes that accepted the job is less than
         // the size of the cluster required.
         if cluster_size > accepted_job.len() {
+            log::warn!(
+                "Only {} nodes accepted the job, required at least {}",
+                accepted_job.len(),
+                cluster_size
+            );
+
             return None;
         }
 
@@ -282,9 +299,9 @@ impl NodePool {
         }
 
         log::info!(
-            "\nBuilt Cluster: {:?}\nAverage Performance: {}\n",
-            &cluster,
-            &cluster_performance
+            "Successfully built a cluster with size={}, cluster_performance={}",
+            cluster_size,
+            cluster_performance
         );
 
         self.active.fetch_sub(cluster.len(), Ordering::SeqCst);
@@ -349,7 +366,11 @@ impl NodePool {
             _ => unreachable!(),
         };
 
-        log::info!("(Node {}) Config response: {:?}", &key, accept);
+        log::debug!(
+            "Node with id={} responsed with '{}' to the job config",
+            key,
+            accept
+        );
 
         Ok(accept)
     }
@@ -359,8 +380,11 @@ impl NodePool {
     /// When passed an [`ObjectId`], this function will find the [`NodeInfo`] instance for that ID
     /// and will set its `using` flag to be false, signifying the end of its use.
     pub async fn end(&self, key: &str) -> Result<()> {
+        log::trace!("Finished using model_id={}, updating its status", key);
+
         let mut info_write = self.info.write().await;
         info_write.get_mut(key).unwrap().using = false;
+
         self.active.fetch_add(1, Ordering::SeqCst);
         self.job_notify.notify_waiters();
 
@@ -374,6 +398,12 @@ impl NodePool {
     pub async fn update_node_alive(&self, id: &str, status: bool) {
         let mut info_write = self.info.write().await;
         let node_info = info_write.get_mut(id).unwrap();
+
+        log::trace!(
+            "Updating liveness status of model_id={}, setting to alive={}",
+            id,
+            status
+        );
 
         if !node_info.alive && status {
             self.active.fetch_add(1, Ordering::SeqCst);
@@ -405,6 +435,8 @@ impl NodePool {
     pub async fn update_node_performance(&self, id: &str, performance: f64) {
         let mut info_write = self.info.write().await;
         let node_info = info_write.get_mut(id).unwrap();
+
+        log::trace!("Updating model_id={} with performance={}", id, performance);
 
         if node_info.performance == 0.0 {
             node_info.performance = performance

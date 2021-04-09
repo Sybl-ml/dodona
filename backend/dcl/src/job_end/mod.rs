@@ -183,15 +183,11 @@ pub async fn run(
     database: Arc<Database>,
     job_control: JobControl,
 ) -> Result<()> {
-    log::info!("Job End Running");
-
     loop {
         let jq_filter = job_control.job_queue.filter(&nodepool.active);
-        log::info!("Filtered Jobs: {:?}", &jq_filter);
+
         if jq_filter.is_empty() {
-            log::info!("Nothing in the Job Queue to inspect");
             job_control.notify.notified().await;
-            log::info!("Something has changed!");
             continue;
         }
 
@@ -251,7 +247,6 @@ pub async fn run(
             for _ in 0..max(1, (train.len() as f64 * VALIDATION_SPLIT) as usize) {
                 validation.push(train.swap_remove(thread_rng().gen_range(0..train.len())));
             }
-            log::info!("Built validation data");
 
             let (bags, validation_ans, prediction_rids) = prepare_cluster(
                 &cluster,
@@ -289,9 +284,8 @@ pub async fn run(
             break;
         }
 
-        log::info!("Nothing in the JobQueue can be run");
+        log::info!("No jobs could be completed at the moment, waiting for changes");
         job_control.notify.notified().await;
-        log::info!("Something has changed!");
     }
 }
 
@@ -322,7 +316,7 @@ pub fn prepare_cluster(
     let mut prediction_rids: HashMap<(ModelID, String), usize> = HashMap::new();
 
     for key in cluster.keys() {
-        log::info!("BOOTSTRAPPING");
+        log::info!("Bootstrapping dataset with key={}", key);
 
         // current method resamples the same number of training examples
         let model_train: Vec<_> = train
@@ -351,11 +345,13 @@ pub fn prepare_cluster(
 
         // Add record ids to train
         let (anon_train, train_rids) = generate_ids(&anon_train);
-        log::info!(
+
+        log::trace!(
             "IDs: {:?}\nAnonymised Train: {:?}",
             &train_rids,
             &anon_train
         );
+
         // Add record ids to test
         let (anon_test, test_rids) = generate_ids(&anon_test);
 
@@ -364,13 +360,15 @@ pub fn prepare_cluster(
             prediction_rids.insert((key.clone(), rid.clone()), i);
         }
 
-        log::info!("IDs: {:?}\nAnonymised Test: {:?}", &test_rids, &anon_test);
+        log::trace!("IDs: {:?}\nAnonymised Test: {:?}", &test_rids, &anon_test);
+
         // Add record ids to validation
         let (anon_valid_ans, valid_rids) = generate_ids(&anon_valid);
-        log::info!(
+
+        log::trace!(
             "IDs: {:?}\nAnonymised Valid: {:?}",
-            &valid_rids,
-            &anon_valid_ans
+            valid_rids,
+            anon_valid_ans
         );
 
         let mut anon_valid_ans: Vec<_> = anon_valid_ans.trim().lines().collect();
@@ -415,7 +413,7 @@ pub fn prepare_cluster(
         let mut final_anon_test = vec![new_headers];
         final_anon_test.extend_from_slice(&anon_test);
 
-        log::info!("Anonymised Test with Validation: {:?}", &final_anon_test);
+        log::trace!("Anonymised Test with Validation: {:?}", &final_anon_test);
 
         // Add to bag
         bags.insert(key.clone(), (anon_train, final_anon_test.join("\n")));
@@ -463,7 +461,6 @@ async fn run_cluster(
     let project_id = info.project_id.clone();
 
     cc.notify.notified().await;
-    log::info!("All Jobs Complete!");
 
     let (weights, predictions) =
         ml::weight_predictions(&wbm.get_predictions(), &wbm.get_errors(), &info);
@@ -507,7 +504,9 @@ async fn run_cluster(
 
     write_predictions(database.clone(), info.project_id, predictions)
         .await
-        .unwrap_or_else(|error| log::error!("Error writing predictions to DB: {}", error));
+        .unwrap_or_else(|error| {
+            log::error!("Failed to write predirections to the database: {}", error)
+        });
 
     change_status(&database, &project_id, Status::Complete).await?;
 
@@ -534,7 +533,7 @@ pub async fn dcl_protocol(
     train_predict: (String, String),
     write_back: WriteBackMemory,
 ) -> Result<()> {
-    log::info!("Sending a job to node with key: {}", &model_id);
+    log::debug!("Sending a job to node with id={}", model_id);
 
     let mut dcn_stream = stream.write().await;
 
@@ -554,8 +553,8 @@ pub async fn dcl_protocol(
                 cluster_control.decrement().await;
 
                 log::error!(
-                    "(Node {}) Error dealing with node predictions: {}",
-                    &model_id,
+                    "Node with id={} failed to deal with predictions: {}",
+                    model_id,
                     error
                 );
 
@@ -569,21 +568,19 @@ pub async fn dcl_protocol(
     };
     let anonymised_predictions = raw_anonymised_predictions.trim();
 
-    log::info!("Predictions: {:?}", &anonymised_predictions);
-
     if let Some((model_predictions, model_error)) =
         deanonymise_dataset(&anonymised_predictions, &info.columns)
             .and_then(|predictions| ml::evaluate_model(&model_id, &predictions, &info))
     {
         log::info!(
-            "(Node: {}) Computed Data: {:?}",
-            &model_id,
-            &model_predictions
+            "Node with id={} produced {} bytes of predictions",
+            model_id,
+            anonymised_predictions.len()
         );
         write_back.write_error(model_id.clone(), Some(model_error));
         write_back.write_predictions(model_id.clone(), model_predictions);
     } else {
-        log::info!("(Node: {}) Failed to respond correctly", &model_id);
+        log::warn!("Node with id={} failed to respond correctly", model_id);
         write_back.write_error(model_id.clone(), None);
     }
 
@@ -630,6 +627,8 @@ pub async fn increment_run_count(database: Arc<Database>, model_id: &str) -> Res
     let models = database.collection("models");
     let object_id = ObjectId::with_string(model_id)?;
 
+    log::debug!("Incrementing the run count for model with id={}", model_id);
+
     let query = doc! {"_id": &object_id};
     let update = doc! { "$inc": { "times_run": 1 } };
     models.update_one(query, update, None).await?;
@@ -644,6 +643,8 @@ pub async fn change_status(
     status: Status,
 ) -> Result<()> {
     let projects = database.collection("projects");
+
+    log::info!("Setting status={:?} for project_id={}", status, project_id);
 
     projects
         .update_one(

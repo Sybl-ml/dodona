@@ -118,6 +118,12 @@ impl File {
             data.extend_from_slice(&decomp_data);
         }
 
+        log::debug!(
+            "Downloaded file with id={}, containing {} bytes of uncompressed data",
+            self.id,
+            data.len()
+        );
+
         Ok(data)
     }
 

@@ -75,7 +75,11 @@ impl JobPerformance {
             .collect::<Result<_, _>>()
             .await?;
 
-        log::debug!("Last {} performances were: {:?}", k, performances);
+        if performances.is_empty() {
+            log::debug!("Model with id={} has not run on any jobs yet", model_id);
+        } else {
+            log::debug!("Last {} performances were: {:?}", k, performances);
+        }
 
         Ok(performances)
     }
