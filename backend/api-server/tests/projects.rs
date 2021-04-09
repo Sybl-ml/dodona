@@ -235,8 +235,8 @@ async fn datasets_sizes_are_calculated() -> Result<()> {
     let project_response: ProjectResponse = test::read_body_json(res).await;
     let dataset_details: DatasetDetails = project_response.details.unwrap();
 
-    assert_eq!(100, dataset_details.train_size);
-    assert_eq!(100, dataset_details.predict_size);
+    assert_eq!(2, dataset_details.train_size);
+    assert_eq!(1, dataset_details.predict_size);
 
     Ok(())
 }

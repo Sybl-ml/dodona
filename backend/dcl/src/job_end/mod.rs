@@ -204,25 +204,15 @@ pub async fn run(
 
             let mut columns = infer_dataset_columns(&data).unwrap();
 
-            let JobConfiguration {
-                prediction_column,
-                prediction_type,
-                timeout,
-                ..
-            } = config.clone();
-
-            if prediction_type == PredictionType::Classification {
+            if config.prediction_type == PredictionType::Classification {
                 columns.insert(
-                    prediction_column.clone(),
-                    Column::categorical(&prediction_column, &data),
+                    config.prediction_column.clone(),
+                    Column::categorical(&config.prediction_column, &data),
                 );
             }
 
-            let config_clone = config.clone();
-            let anon_config = ClientMessage::from(config_clone);
-
             // Anonymise the prediction column for the job
-            let anonymised_config = anon_config.anonymise(&columns);
+            let anonymised_config = config.anonymise(&columns);
 
             let cluster = match nodepool.build_cluster(anonymised_config).await {
                 Some(c) => c,
