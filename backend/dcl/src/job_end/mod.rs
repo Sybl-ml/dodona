@@ -134,12 +134,13 @@ impl ClusterControl {
     }
 
     /// Decrements the cluster counter
-    pub async fn decrement(&self) {
+    pub async fn decrement(&self) -> usize {
         let mut write_cc = self.counter.write().await;
         *write_cc -= 1;
         if *write_cc == 0 {
             self.notify.notify_one();
         }
+        *write_cc
     }
 }
 
@@ -614,12 +615,14 @@ pub async fn dcl_protocol(
     let message = serde_json::to_string(&message).unwrap();
 
     nodepool.end(&model_id).await?;
-    cluster_control.decrement().await;
+    let remaining_clusters = cluster_control.decrement().await;
 
+    let cluster_size = info.config.cluster_size as usize;
     // Produce message
     let message = ClientCompleteMessage {
         project_id: &info.project_id.to_string(),
-        cluster_size: info.config.cluster_size,
+        cluster_size: cluster_size,
+        model_complete_count: cluster_size - remaining_clusters, 
         success: model_sucess,
     };
     let message = serde_json::to_string(&message).unwrap();

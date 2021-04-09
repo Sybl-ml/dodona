@@ -38,7 +38,9 @@ pub struct ClientCompleteMessage<'a> {
     /// Model id which node completed
     pub project_id: &'a str,
     /// the number of time the model as been run
-    pub cluster_size: i32,
+    pub cluster_size: usize,
+    /// The number of models completed for this project
+    pub model_complete_count: usize,
     /// If the model was successfull
     pub success: bool,
 }

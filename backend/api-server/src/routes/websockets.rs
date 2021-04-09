@@ -165,13 +165,9 @@ pub async fn consume_updates(port: u16, map: Arc<Mutex<HashMap<String, Addr<Proj
             message.timestamp()
         );
 
-        let project_update: ClientCompleteMessage = serde_json::from_slice(&payload).unwrap();
+        let project_update: ClientCompleteMessage<'_> = serde_json::from_slice(&payload).unwrap();
+        let ws_msg = WebsocketMessage::from(&project_update);
 
-        let ws_msg = WebsocketMessage::ModelComplete {
-            project_id: project_update.project_id.to_string(),
-            cluster_size: project_update.cluster_size,
-            success: project_update.success,
-        };
         let user_id = std::str::from_utf8(&message.key().unwrap()).unwrap();
         let socket_map = map.lock().unwrap();
         if let Some(socket) = socket_map.get(user_id) {

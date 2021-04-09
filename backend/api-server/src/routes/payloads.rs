@@ -4,6 +4,7 @@ use actix::prelude::Message;
 use mongodb::bson::{oid::ObjectId, Array, Document};
 
 use models::jobs::PredictionType;
+use messages::kafka_message::ClientCompleteMessage;
 
 /// Stores the options for filtering all users.
 #[derive(Debug, Deserialize)]
@@ -160,7 +161,9 @@ pub enum WebsocketMessage {
         /// Model id which node completed
         project_id: String,
         /// the number of time the model as been run
-        cluster_size: i32,
+        cluster_size: usize,
+        /// The number of models completed for this project
+        model_complete_count: usize,
         /// If the model was successfull
         success: bool,
     },
@@ -168,3 +171,14 @@ pub enum WebsocketMessage {
         id: ObjectId,
     },
 }
+
+impl From<&ClientCompleteMessage<'_>> for WebsocketMessage {
+    fn from(msg: &ClientCompleteMessage<'_>) -> Self {
+      WebsocketMessage::ModelComplete {
+        project_id: msg.project_id.to_string(),
+        cluster_size: msg.cluster_size,
+        model_complete_count: msg.model_complete_count,
+        success: msg.success,
+      }
+    }
+  }
