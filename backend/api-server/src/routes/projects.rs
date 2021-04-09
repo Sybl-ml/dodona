@@ -216,8 +216,6 @@ pub async fn upload_train_and_predict(
             .get_filename()
             .ok_or(ServerError::UnprocessableEntity)?;
 
-        log::info!("Filename: {}", filename);
-
         let name = content_disposition
             .get_name()
             .ok_or(ServerError::UnprocessableEntity)?;
@@ -229,7 +227,6 @@ pub async fn upload_train_and_predict(
                 if initial {
                     let data_head = std::str::from_utf8(&chunk).unwrap();
                     let data_head = data_head.split("\n").take(6).collect::<Vec<_>>().join("\n");
-                    log::info!("First 5 lines: {:?}", &data_head);
 
                     initial = false;
 
@@ -588,6 +585,7 @@ pub async fn get_dataset(
     // Parse the dataset itself
     let dataset: Dataset = from_document(document)?;
 
+    // Decide which file to find based on the request type
     let id = match dataset_type {
         DatasetType::Train => &dataset.dataset,
         DatasetType::Predict => &dataset.predict,

@@ -95,6 +95,12 @@ pub struct ClientModel {
 
 impl ClientModel {
     pub fn new(user_id: ObjectId, name: String, challenge: Vec<u8>) -> Self {
+        log::debug!(
+            "Creating a new model for user_id={} with name={}",
+            user_id,
+            name
+        );
+
         Self {
             id: ObjectId::new(),
             user_id,
@@ -136,6 +142,8 @@ impl ClientModel {
 
     pub async fn delete(&self, database: &mongodb::Database) -> mongodb::error::Result<()> {
         let models = database.collection("models");
+
+        log::debug!("Deleting model with id={}", self.id);
 
         let filter = doc! {"_id": &self.id};
         models.delete_one(filter, None).await?;

@@ -7,8 +7,10 @@ use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::Arc;
 
 use anyhow::Result;
-use mongodb::bson::doc;
-use mongodb::Database;
+use mongodb::{
+    bson::{doc, oid::ObjectId},
+    Database,
+};
 use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
 use rdkafka::consumer::{stream_consumer::StreamConsumer, Consumer, DefaultConsumerContext};
 use rdkafka::Message;
@@ -28,7 +30,7 @@ use crate::{DatasetPair, JobControl};
 /// job end to be sent to a compute node.
 pub async fn run(port: u16, db_conn: Arc<Database>, job_control: JobControl) -> Result<()> {
     let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port).to_string();
-    log::info!("Broker Socket: {:?}", addr);
+    log::info!("Listening to messages from Kafka on: {}", addr);
 
     let consumer: StreamConsumer<DefaultConsumerContext> = ClientConfig::new()
         .set("group.id", "job_config")
@@ -59,14 +61,21 @@ pub async fn run(port: u16, db_conn: Arc<Database>, job_control: JobControl) -> 
         };
 
         log::debug!(
-            "Message key: {:?}, timestamp: {:?}",
+            "Message key={:?}, timestamp={:?}",
             message.key(),
             message.timestamp()
         );
 
         let database = Arc::clone(&db_conn);
         let jc_clone = job_control.clone();
-        let job_config = serde_json::from_slice(&payload).unwrap();
+
+        let job_config = match serde_json::from_slice(&payload) {
+            Ok(config) => config,
+            Err(e) => {
+                log::error!("Failed to deserialize a message from Kafka: {}", e);
+                continue;
+            }
+        };
 
         tokio::spawn(async move {
             process_job(database, jc_clone, job_config).await.unwrap();
@@ -74,6 +83,19 @@ pub async fn run(port: u16, db_conn: Arc<Database>, job_control: JobControl) -> 
     }
 
     Ok(())
+}
+
+async fn download_dataset(database: &Database, identifier: &ObjectId) -> Result<Vec<u8>> {
+    let files = database.collection("files");
+
+    let filter = doc! { "_id": identifier };
+    let doc = files
+        .find_one(filter, None)
+        .await?
+        .expect("Failed to find a document with the previous filter");
+
+    let file: gridfs::File = mongodb::bson::de::from_document(doc)?;
+    Ok(file.download_dataset(&database).await?)
 }
 
 async fn process_job(
@@ -84,54 +106,35 @@ async fn process_job(
     let JobConfiguration {
         dataset_id,
         node_computation_time,
-        column_types,
         ..
     } = job_config.clone();
 
     log::debug!(
-        "Received a job to process: dataset_id={}, node_computation_time={}, column_types={:?}",
+        "Received a job to process: dataset_id={}, node_computation_time={}",
         dataset_id,
         node_computation_time,
-        column_types
     );
 
     let datasets = db_conn.collection("datasets");
-    let files = db_conn.collection("files");
 
     let filter = doc! { "_id": dataset_id };
-    log::debug!("Finding datasets with filter: {:?}", &filter);
 
     let doc = datasets
         .find_one(filter, None)
         .await?
         .expect("Failed to find a document with the previous filter");
+
     let dataset: Dataset = mongodb::bson::de::from_document(doc)?;
 
-    log::debug!("Fetched dataset with id: {}", dataset.id);
+    log::debug!("Found the dataset with id={}", dataset.id);
 
     // Get the decompressed data from GridFS
-    let train_filter = doc! { "_id": dataset.dataset };
-    let doc = files
-        .find_one(train_filter, None)
-        .await?
-        .expect("Failed to find a document with the previous filter");
-    let train_file: gridfs::File = mongodb::bson::de::from_document(doc)?;
-    let comp_train: Vec<u8> = train_file.download_dataset(&db_conn).await?;
-
-    let predict_filter = doc! { "_id": dataset.predict };
-    let doc = files
-        .find_one(predict_filter, None)
-        .await?
-        .expect("Failed to find a document with the previous filter");
-    let predict_file: gridfs::File = mongodb::bson::de::from_document(doc)?;
-    let comp_predict: Vec<u8> = predict_file.download_dataset(&db_conn).await?;
+    let compressed_train = download_dataset(&db_conn, &dataset.dataset).await?;
+    let compressed_predict = download_dataset(&db_conn, &dataset.predict).await?;
 
     // Convert it to a string
-    let train = String::from_utf8(comp_train)?;
-    let predict = String::from_utf8(comp_predict)?;
-
-    log::debug!("Decompressed {} bytes of training data", train.len());
-    log::debug!("Decompressed {} bytes of prediction data", predict.len());
+    let train = String::from_utf8(compressed_train)?;
+    let predict = String::from_utf8(compressed_predict)?;
 
     job_control.job_queue.push((
         dataset.project_id,

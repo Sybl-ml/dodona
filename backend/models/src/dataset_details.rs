@@ -34,6 +34,12 @@ impl DatasetDetails {
         head: String,
         column_types: Columns,
     ) -> Self {
+        log::debug!(
+            "Creating some new details for a dataset with project_id={}, column_types={:?}",
+            project_id,
+            column_types
+        );
+
         Self {
             id: ObjectId::new(),
             dataset_name: Some(dataset_name),
@@ -48,6 +54,8 @@ impl DatasetDetails {
 
     pub async fn delete(&self, database: &mongodb::Database) -> mongodb::error::Result<()> {
         let dataset_details = database.collection("dataset_details");
+
+        log::debug!("Deleting the dataset details with id={}", self.id);
 
         let filter = doc! {"_id": &self.id};
         dataset_details.delete_one(filter, None).await?;

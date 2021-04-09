@@ -4,6 +4,8 @@ use config::Environment;
 async fn main() -> actix_web::Result<()> {
     let filters = vec![
         ("api_server", log::LevelFilter::Debug),
+        ("config", log::LevelFilter::Debug),
+        ("models", log::LevelFilter::Debug),
         ("actix_web", log::LevelFilter::Debug),
         ("actix_server", log::LevelFilter::Info),
     ];

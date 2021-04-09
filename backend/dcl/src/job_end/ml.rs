@@ -141,6 +141,7 @@ pub fn evaluate_model(
         .iter()
         .map(|s| s.split(',').next().unwrap())
         .collect();
+
     if predicted
         == info
             .validation_ans
@@ -174,12 +175,14 @@ pub async fn model_performance(
     for (model, weight) in &weights {
         let val = (weight * model_num as f64) - 1.0;
         let perf: f64 = 0.5 * ((2.0 * val).tanh()) + 0.5;
+
         log::info!(
-            "Model: {:?}, Weight: {:?}, Performance: {:?}",
-            &model,
-            &weight,
-            &perf
+            "Model with id={} has weight={} and performance={}",
+            model,
+            weight,
+            perf
         );
+
         let job_performance = JobPerformance::new(
             project_id.clone(),
             ObjectId::with_string(&model).unwrap(),
@@ -195,13 +198,12 @@ pub async fn model_performance(
 
     if job_perf_vec.is_empty() {
         log::warn!(
-            "No models returned correct predictions for project {}",
+            "No models returned correct predictions for project_id={}",
             project_id
         );
-        return Ok(());
+    } else {
+        job_performances.insert_many(job_perf_vec, None).await?;
     }
-
-    job_performances.insert_many(job_perf_vec, None).await?;
 
     Ok(())
 }
@@ -218,19 +220,22 @@ pub async fn penalise(
 ) -> Result<()> {
     let job_performances = database.collection("job_performances");
     let mut job_perf_vec: Vec<Document> = Vec::new();
+
     for model in models {
         let perf: f64 = 0.0;
 
-        log::info!(
-            "Model: {:?} is being penalised for malicious behaviour, Performance: {:?}",
-            &model,
-            &perf
+        log::warn!(
+            "Model with id={} is being penalised for malicious behaviour, performance={}",
+            model,
+            perf
         );
+
         let job_performance = JobPerformance::new(
             project_id.clone(),
             ObjectId::with_string(&model).unwrap(),
             perf,
         );
+
         if let Some(np) = &nodepool {
             np.update_node_performance(&model, perf).await;
         }
@@ -239,11 +244,10 @@ pub async fn penalise(
     }
 
     if job_perf_vec.is_empty() {
-        log::info!("No models were penalised for project {}", project_id);
-        return Ok(());
+        log::info!("No models were penalised for project_id={}", project_id);
+    } else {
+        job_performances.insert_many(job_perf_vec, None).await?;
     }
-
-    job_performances.insert_many(job_perf_vec, None).await?;
 
     Ok(())
 }
