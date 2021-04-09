@@ -368,7 +368,14 @@ pub async fn upload_train_and_predict(
         data.delete(&state.database).await?;
     }
     // Communicate with Analytics Server
-    produce_analytics_message(&object_id).await;
+    let analytics_job = serde_json::to_string(&object_id).unwrap();
+    let topic = "analytics";
+    if produce_message(&analytics_job, &analytics_job, &topic)
+        .await
+        .is_err()
+    {
+        log::warn!("Failed to forward object_id={} to Kafka", object_id);
+    }
 
     // Update the project status
     let option = options::FindOneAndUpdateOptions::builder()
