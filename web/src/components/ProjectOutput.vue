@@ -49,50 +49,15 @@ export default {
     datasetName: String,
   },
   methods: {
-    parsePredictions() {
-      this.full_preds = this.getFullPredictions(this.results)
-      var parsed = Papa.parse(this.full_preds, { header: true });
-      let new_fields = this.buildFields(parsed.meta.fields);
-      this.fields = new_fields;
-      this.pred_data = parsed.data;
-    },
-    getFullPredictions(data) {
-      var new_data = [];
-      var split_predict = this.predict_data.trim().split("\n");
-      var split_predicted = data.split("\n");
-
-      new_data.push(split_predict[0]);
-      for (var i = 1; i < split_predict.length; i++) {
-        var residual = split_predict[i].concat(split_predicted[i - 1]);
-        new_data.push(residual);
-      }
-
-      let ret_data = new_data.join("\n").trim();
-
-      return ret_data;
-    },
-    downloadCSVData() {
+    async downloadCSVData() {
+      let page_data = await this.$http.get(
+        `api/projects/${this.projectId}/data/prediction`
+      );
       const anchor = document.createElement("a");
-      anchor.href = "data:text/csv;charset=utf-8," + encodeURIComponent(this.full_preds);
+      anchor.href = "data:text/csv;charset=utf-8," + encodeURIComponent(page_data.data);
       anchor.target = "_blank";
       anchor.download = "predictions.csv";
       anchor.click();
-    },
-    buildFields(fields) {
-      let built_fields = [
-        {
-          name: VuetableFieldHandle,
-        },
-      ];
-
-      fields.forEach(function(item, index) {
-        built_fields.push({
-          name: item,
-          title: item,
-          sortField: item,
-        });
-      });
-      return built_fields;
     },
   },
 };

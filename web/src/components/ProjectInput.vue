@@ -41,23 +41,6 @@ export default {
     projectId: String,
     datasetName: String,
   },
-  methods: {
-    buildFields(fields) {
-      let built_fields = [
-        {
-          name: VuetableFieldHandle,
-        },
-      ];
-      fields.forEach(function(item, index) {
-        built_fields.push({
-          name: item,
-          title: item,
-          sortField: item,
-        });
-      });
-      return built_fields;
-    },
-  },
   computed: {
     getDatasetDate() {
       return `${this.dataDate.toLocaleString("en-GB", {
