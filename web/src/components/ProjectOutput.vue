@@ -27,7 +27,7 @@
         {{ parsePredictions() }}
         <pagination-table
           :projectId="projectId"
-          :dataset_type="'predict'"
+          :dataset_type="'prediction'"
         />
       </b-col>
     </b-row>

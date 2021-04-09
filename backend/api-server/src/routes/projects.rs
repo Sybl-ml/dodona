@@ -53,6 +53,8 @@ pub enum DatasetType {
     Train,
     /// Predict dataset type
     Predict,
+    /// Predict dataset type
+    Prediction,
 }
 
 /// Struct to capture query string information
@@ -591,6 +593,8 @@ pub async fn get_dataset(
     let filter = match dataset_type {
         DatasetType::Train => doc! { "_id": &dataset.dataset.unwrap() },
         DatasetType::Predict => doc! { "_id": &dataset.predict.unwrap() },
+        // Need to find a way to stream combined version
+        DatasetType::Prediction => doc! { "_id": &dataset.predict.unwrap() },
     };
 
     // Find the file in the database
@@ -753,6 +757,67 @@ pub async fn pagination(
             }
         }
         DatasetType::Predict => {
+            // If Train
+            //      Get correct chunks
+            //      Extract data page that is needed
+            //      Return it to frontend
+            let filter = doc! { "_id": &dataset.predict.unwrap() };
+            // Find the file in the database
+            let document = files
+                .find_one(filter, None)
+                .await?
+                .ok_or(ServerError::NotFound)?;
+
+            // Parse the dataset itself
+            let file: gridfs::File = from_document(document)?;
+
+            let mut cursor = file
+                .download_specific_chunks(&state.database, &chunk_vec)
+                .await?;
+            // Iterate over chunks and build page
+            while let Some(chunk) = cursor.next().await {
+                let chunk: gridfs::Chunk = from_document(chunk?)?;
+                let chunk_bytes = chunk.data.bytes;
+                let decomp_data = decompress_data(&chunk_bytes).unwrap();
+                let chunk_string = String::from_utf8(decomp_data)?;
+                let mut chunk_iter = chunk_string.split("\n");
+                // Go through iterator
+                while let Some(row) = chunk_iter.next() {
+                    // If header, add to page
+                    if initial {
+                        header = String::from(row);
+                        initial = false;
+                        if min_row != 0 {
+                            continue;
+                        }
+                    }
+                    // If within bounds, add to page
+                    if row_count > min_row && row_count <= max_row {
+                        // Create empty document (mutable)
+                        let mut row_doc = Vec::new();
+                        // Break row into vector
+                        let row_iter = row.split(",");
+                        // Go through each and add to document each column for row
+                        for col_val in row_iter {
+                            // Header: col_value
+                            row_doc.push(col_val);
+                        }
+                        // Add to page
+                        page.push(row_doc.join(","));
+                    } else if row_count > max_row {
+                        // End of page search
+                        break;
+                    }
+
+                    row_count += 1;
+                }
+                // End of page search
+                if row_count > max_row {
+                    break;
+                }
+            }
+        }
+        DatasetType::Prediction => {
             // If Predict
             //      Get correct predict chunk
             //      Get correct predictions chunk
