@@ -870,7 +870,7 @@ pub async fn pagination(
     // Structure for VueTables2
     response_from_json(doc! {
        "data": page.join("\n"),
-       "fields": header.split(",").collect::<Vec<&str>>(),
+       "fields": header,
        // Work this out
        "total": 200
     })

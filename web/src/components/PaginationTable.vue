@@ -67,25 +67,18 @@ export default {
     },
     async dataManager(sortOrder, pagination) {
       // Query endpoint for the page that is needed
+      // Wait for return
       let page_data = await this.$http.get(
         `api/projects/${this.projectId}/pagination/${this.dataset_type}?page=${pagination.current_page}&per_page=${this.perPage}`
       );
-      // Wait for return
-      console.log(page_data);
-      console.log(pagination);
       // Set fields
       let total = page_data.data.total;
       let local = page_data.data.data;
-      this.fields = page_data.data.fields;
+      this.fields = page_data.data.fields.split(",");
 
-      // sortOrder can be empty, so we have to check for that as well
-      // if (sortOrder.length > 0) {
-      //   local = _.orderBy(
-      //     local,
-      //     sortOrder[0].sortField,
-      //     sortOrder[0].direction
-      //   );
-      // }
+      let with_header = page_data.data.fields.concat("\n").concat(local);
+
+      let parsed = Papa.parse(with_header, { header: true });
 
       // do pagination calculations
       pagination = this.$refs.vuetable.makePagination(
@@ -94,9 +87,6 @@ export default {
       );
 
       // return data from endpoint
-      
-      let parsed = Papa.parse(local, { header: false });
-      console.log(parsed.data);
       return {
         pagination: pagination,
         data: parsed.data,
