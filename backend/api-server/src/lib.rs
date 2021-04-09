@@ -203,7 +203,7 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
             .route("/api/users/login", web::post().to(routes::users::login))
             .route("/api/users/delete", web::post().to(routes::users::delete))
             .service(
-                web::resource("/project_updates/").route(web::get().to(routes::websockets::index)),
+                web::resource("/project_updates").route(web::get().to(routes::websockets::index)),
             )
     })
     .bind("0.0.0.0:3001")?

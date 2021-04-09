@@ -622,7 +622,7 @@ pub async fn dcl_protocol(
     let message = ClientCompleteMessage {
         project_id: &info.project_id.to_string(),
         cluster_size: cluster_size,
-        model_complete_count: cluster_size - remaining_clusters, 
+        model_complete_count: cluster_size - remaining_clusters,
         success: model_sucess,
     };
     let message = serde_json::to_string(&message).unwrap();
