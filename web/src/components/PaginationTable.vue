@@ -33,6 +33,7 @@ import Vuetable from "vuetable-2/src/components/Vuetable";
 import VuetablePagination from "vuetable-2/src/components/VuetablePagination";
 import PaginationTableStyle from "@/assets/css/PaginationTableStyle.js";
 import _ from "lodash";
+import Papa from "papaparse";
 
 export default {
   name: "PaginationTable",
@@ -71,6 +72,7 @@ export default {
       );
       // Wait for return
       console.log(page_data);
+      console.log(pagination);
       // Set fields
       let total = page_data.data.total;
       let local = page_data.data.data;
@@ -92,9 +94,12 @@ export default {
       );
 
       // return data from endpoint
+      
+      let parsed = Papa.parse(local, { header: false });
+      console.log(parsed.data);
       return {
         pagination: pagination,
-        data: local,
+        data: parsed.data,
       };
     },
   },
