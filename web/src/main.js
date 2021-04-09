@@ -5,11 +5,19 @@ import store from "./store";
 import { BootstrapVue, BootstrapVueIcons } from "bootstrap-vue";
 import VueCookies from "vue-cookies";
 import axios from "axios";
+import VueNativeSock from 'vue-native-websocket'
 
 // Install BootstrapVue
 Vue.use(BootstrapVue);
 Vue.use(BootstrapVueIcons);
 Vue.use(VueCookies);
+
+Vue.use(VueNativeSock, 'ws://localhost:3001/project_updates', {
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 3000,
+  format: 'json'
+})
 
 import "@/assets/css/custom.scss";
 
