@@ -741,6 +741,7 @@ pub async fn get_dataset(
     }
 }
 
+/// Function to zip 2 cursors so they iterate together
 async fn zip(
     left: &mut mongodb::Cursor,
     right: &mut mongodb::Cursor,
@@ -754,6 +755,8 @@ async fn zip(
     (left_side, right_side)
 }
 
+/// function to get single pagination page and returns
+/// the correct JSON reply.
 async fn data_collection(
     filter: Document,
     chunk_vec: Vec<i32>,
@@ -881,26 +884,26 @@ pub async fn pagination(
     let min_row = (page_num - 1) * amount;
     let max_row = page_num * amount;
 
-    let chunk1 = (min_row / CHUNK_SIZE) as i32;
-    let chunk2 = (max_row / CHUNK_SIZE) as i32;
+    let lower_chunk = (min_row / CHUNK_SIZE) as i32;
+    let upper_chunk = (max_row / CHUNK_SIZE) as i32;
 
     // Equal size
-    if chunk1 == chunk2 {
+    if lower_chunk == upper_chunk {
         // If one chunk is the first chunk
         // Need to bring in extra chunk because first chunk has 9999 elements instead
-        if chunk1 == 0 {
-            chunk_vec = vec![chunk2, (chunk2 + 1)];
+        if lower_chunk == 0 {
+            chunk_vec = vec![upper_chunk, (upper_chunk + 1)];
         } else {
-            chunk_vec = vec![0, chunk2, (chunk2 + 1)];
+            chunk_vec = vec![0, upper_chunk, (upper_chunk + 1)];
         }
     }
     // Different sizes
     else {
         // If one chunk is the first chunk
-        if chunk1 == 0 {
-            chunk_vec = vec![chunk1, chunk2];
+        if lower_chunk == 0 {
+            chunk_vec = vec![lower_chunk, upper_chunk];
         } else {
-            chunk_vec = vec![0, chunk1, chunk2];
+            chunk_vec = vec![0, lower_chunk, upper_chunk];
         }
     }
 
@@ -915,7 +918,7 @@ pub async fn pagination(
             let info = DataCollection {
                 min_row,
                 max_row,
-                lower_chunk: chunk1 as usize,
+                lower_chunk: lower_chunk as usize,
             };
 
             // Find the file in the database
@@ -939,7 +942,7 @@ pub async fn pagination(
             let info = DataCollection {
                 min_row,
                 max_row,
-                lower_chunk: chunk1 as usize,
+                lower_chunk: lower_chunk as usize,
             };
 
             // Find the file in the database
@@ -966,9 +969,9 @@ pub async fn pagination(
             let mut header: String = String::new();
             let mut row_count: usize = 0;
 
-            if chunk1 != 0 {
+            if lower_chunk != 0 {
                 // calculate the base row of Chunk1
-                row_count = (((chunk1 + 1) * CHUNK_SIZE as i32) - 1) as usize;
+                row_count = (((lower_chunk + 1) * CHUNK_SIZE as i32) - 1) as usize;
             }
 
             // Get predict data
@@ -1042,7 +1045,7 @@ pub async fn pagination(
                     if initial {
                         header = String::from(predict_row);
                         initial = false;
-                        if chunk1 != 0 {
+                        if lower_chunk != 0 {
                             continue;
                         }
                     }
