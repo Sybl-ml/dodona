@@ -2,11 +2,18 @@
   <b-container>
     <b-row>
       <b-col>
-        <p>
-          This is your private key please save this somewhere secure. This key
-          will not be saved but you can request a new one anytime through the
-          settings.
-        </p>
+        <h1>Models</h1>
+      </b-col>
+    </b-row>
+
+    <hr />
+    <b-row class="justify-content-center mb-2">
+      <b-col xs="12" lg="10">
+        <h5>This is your private key please save this somewhere secure.</h5>
+        <h5>
+          This key will not be saved but you can request a new one anytime
+          through the settings.
+        </h5>
       </b-col>
     </b-row>
     <b-row class="justify-content-center mb-5">
@@ -36,10 +43,10 @@
 </template>
 
 <style scoped>
-  .rsaDisplay{
-    user-select: none; 
-    white-space:pre-wrap;
-  }
+.rsaDisplay {
+  user-select: none;
+  white-space: pre-wrap;
+}
 </style>
 
 <script>
