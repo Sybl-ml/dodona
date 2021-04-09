@@ -26,12 +26,12 @@
           onfocus="this.blur();"
         >
           <b-icon-plus-circle-fill></b-icon-plus-circle-fill>
-          Add New Node
+          Register A New Model
         </b-button>
       </b-col>
     </b-row>
     <b-row class="justify-content-center">
-      <b-col xs="12" lg="7">
+      <b-col xs="12" lg="9">
         <b-collapse id="collapse-new" class="mb-4 nodeExpansion">
           <b-card
             class="mb-4 shadow"
@@ -40,32 +40,26 @@
             onfocus="this.blur();"
           >
             <b-card-body title-tag="h5">
-              <b-card-title>Connect a New Node</b-card-title>
+              <b-card-title>Register A New Model</b-card-title>
               <p>
-                Execute the below script on your host compute node to get the
-                Sybl-CLI
+                1) Clone the Sybl Client repository
               </p>
               <b-row class="justify-content-center">
                 <b-col xs="12" lg="10">
                   <b-card class="shadow">
                     <b-row>
                       <b-col md="10">
-                        <code>{{ cli_code }}</code>
+                        <code>{{ clone_code }}</code>
                       </b-col>
                       <b-col style="text-align: right" md="2">
                         <b-button
                           no-body
+                          size="sm"
                           variant="dark"
-                          style="
-                            background: none;
-                            border: none;
-                            margin: 0;
-                            padding: 0;
-                          "
                           onfocus="this.blur();"
                         >
                           <b-icon-clipboard-plus
-                            @click="copy(cli_code)"
+                            @click="copy(clone_code)"
                           ></b-icon-clipboard-plus>
                         </b-button>
                       </b-col>
@@ -75,30 +69,24 @@
               </b-row>
               <br />
               <p>
-                Then run the following commands to connect your compute node the
-                Sybl servers
+                2) Install the necessary requirements
               </p>
               <b-row class="justify-content-center">
                 <b-col xs="12" lg="10">
                   <b-card class="shadow">
                     <b-row>
                       <b-col md="10">
-                        <code>{{ cli_setup }}</code>
+                        <code>{{ req_code }}</code>
                       </b-col>
                       <b-col style="text-align: right" md="2">
                         <b-button
                           no-body
+                          size="sm"
                           variant="dark"
-                          style="
-                            background: none;
-                            border: none;
-                            margin: 0;
-                            padding: 0;
-                          "
                           onfocus="this.blur();"
                         >
                           <b-icon-clipboard-plus
-                            @click="copy(cli_setup)"
+                            @click="copy(req_code)"
                           ></b-icon-clipboard-plus>
                         </b-button>
                       </b-col>
@@ -107,18 +95,29 @@
                 </b-col>
               </b-row>
               <br />
+              <p>
+                3) Copy your unique Private Key into your .env file
+              </p>
+              <p>
+                4) Run the authentication script using your Sybl account details
+              </p>
+              <p>
+                5) Now a new model is linked to Sybl and can be seen in the model dashboard, you must unlock it to continue,
+              </p>
+              <vue-markdown>**Inline Math**: $\sqrt{3x-1}+(1+x)^2$</vue-markdown>
             </b-card-body>
           </b-card>
         </b-collapse>
       </b-col>
     </b-row>
+    <speedometer />
   </b-container>
 </template>
 
-<style></style>
-
 <script>
 import ModelCard from "@/components/ModelCard";
+import VueMarkdown from 'vue-markdown';
+import Speedometer from "@/components/charts/Speedometer";
 
 export default {
   name: "Nodes",
@@ -127,12 +126,15 @@ export default {
       model_data: [],
       auth_token: "",
       error: false,
-      cli_code: "git clone www.sybl.com/cli",
+      clone_code: "git clone https://github.com/G-Kemp101/mallus.git",
+      req_code: "pip3 install -r requirements.txt",
       cli_setup: "sybl-cli new",
     };
   },
   components: {
     ModelCard,
+    VueMarkdown,
+    Speedometer,
   },
   async mounted() {
     let user_id = $cookies.get("token");
