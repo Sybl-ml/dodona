@@ -1,6 +1,9 @@
 <template>
   <b-container fluid>
-    <b-card style="height:7rem;border:none;box-shadow:none">
+    <b-card
+      class="view"
+      style="height: 7rem; border: none; box-shadow: none; background: none"
+    >
       <h2>{{ name }}</h2>
       <p>
         {{ getProjectDate }}
@@ -32,7 +35,7 @@
             v-on:input-tab="viewInput"
           />
         </b-tab>
-        <b-tab title="Input" ref="inputTab" :disabled="datasetName == '' ">
+        <b-tab title="Input" ref="inputTab" :disabled="datasetName == ''">
           <project-input
             :projectId="projectId"
             :key="projectId"
@@ -110,7 +113,7 @@ export default {
     ProjectSettings,
   },
   watch: {
-    projectId: function() {
+    projectId: function () {
       this.resetProject();
       this.fetchProject();
       this.$refs.overviewTab.activate();
@@ -159,7 +162,7 @@ export default {
       this.results = null;
       this.predict_data = null;
       this.training_data = null;
-      
+
       this.prediction_data = null;
       this.loading = false;
       this.results_loading = false;

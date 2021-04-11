@@ -2,7 +2,7 @@
   <div>
     <b-container fluid>
       <b-row>
-        <b-col xs="12" order-xs="2" lg="3">
+        <b-col xs="12" order-xs="1" lg="3">
           <b-row>
             <b-col class="mb-2">
               <b-form-input
@@ -17,11 +17,9 @@
             <b-col>
               <router-link :to="{ name: 'AddProject' }">
                 <b-button variant="primary" class="mb-2 shadow-sm add-new" block
-                  ><b-row
-                    ><b-col md="10" class="text-left">Add new project</b-col
-                    ><b-col md="2" class="ml-auto text-right">
-                      <b-icon-plus-circle /></b-col></b-row></b-button
-              ></router-link>
+                  ><b-icon-plus-circle /> Add new project
+                </b-button></router-link
+              >
               <router-link
                 v-for="p in filtered_projects"
                 :key="p.id"
@@ -58,7 +56,7 @@
                           <b-icon-hourglass-split
                             v-if="p.status == 'Processing'"
                             animation="fade"
-                            style="color: #FFC12F"
+                            style="color: #ffc12f"
                           />
                           <b-icon-check2-circle
                             v-else-if="p.status == 'Completed'"
@@ -82,7 +80,7 @@
             </b-col>
           </b-row>
         </b-col>
-        <b-col lg="9">
+        <b-col lg="9" order-xs="1">
           <router-view
             @update:name="updateName"
             @update:description="updateDescription"
@@ -94,12 +92,14 @@
         </b-col>
       </b-row>
     </b-container>
+
+    <particles-bg  color="#cccccc" num=150 type="cobweb" :bg="true"/>
   </div>
 </template>
 
 <style>
 .add-new {
-  height: 40px;
+  height: 2.5rem;
   font-size: large;
 }
 
@@ -119,6 +119,7 @@
 
 <script>
 import Vue from "vue";
+import { ParticlesBg } from "particles-bg-vue";
 
 export default {
   name: "Dashboard",
@@ -127,6 +128,9 @@ export default {
       projects: [],
       search: "",
     };
+  },
+  components:{
+    ParticlesBg
   },
   async mounted() {
     let user_id = $cookies.get("token");
@@ -206,9 +210,8 @@ export default {
     },
   },
   computed: {
-    filtered_projects: function() {
+    filtered_projects: function () {
       return this.projects.filter((x) => {
-        
         if (x["name"].includes(this.search)) {
           return x;
         }

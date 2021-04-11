@@ -144,7 +144,7 @@
         You must be at least 18 to make an account
       </b-alert>
     </b-row>
-    <particles-bg  color="#fbb000" num=200 type="cobweb" :bg="true"/>
+    <particles-bg  color="#cccccc" num=150 type="cobweb" :bg="true"/>
   </b-container>
 </template>
 
