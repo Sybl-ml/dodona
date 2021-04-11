@@ -745,6 +745,12 @@ async fn zip(
     tokio::join!(left.next(), right.next())
 }
 
+async fn chunk_to_byte(chunk: Document) -> Vec<u8> {
+    let chunk: gridfs::Chunk = from_document(chunk).unwrap();
+    let chunk_bytes = chunk.data.bytes;
+    decompress_data(&chunk_bytes).unwrap()
+}
+
 /// function to get single pagination page and returns
 /// the correct JSON reply.
 async fn data_collection(
@@ -756,16 +762,7 @@ async fn data_collection(
     dataset_type: &DatasetType,
 ) -> ServerResponse {
     let files = database.collection("files");
-
-    let mut initial = true;
-    let mut page: Vec<String> = vec![];
     let mut header: String = String::new();
-    let mut row_count: usize = 0;
-
-    if info.lower_chunk != 0 {
-        // calculate the base row of Chunk1
-        row_count = (((info.lower_chunk + 1) * CHUNK_SIZE) - 1) as usize;
-    }
 
     let document = files
         .find_one(filter, None)
@@ -776,45 +773,73 @@ async fn data_collection(
     let file: gridfs::File = from_document(document)?;
 
     let mut cursor = file.download_specific_chunks(&database, &chunk_vec).await?;
-    // Iterate over chunks and build page
-    while let Some(chunk) = cursor.next().await {
-        let chunk: gridfs::Chunk = from_document(chunk?)?;
-        let chunk_bytes = chunk.data.bytes;
-        let decomp_data = decompress_data(&chunk_bytes).unwrap();
-        let chunk_string = String::from_utf8(decomp_data)?;
-        // Go through iterator
-        for row in chunk_string.split("\n") {
-            // If header, add to page
-            if initial {
-                header = String::from(row);
-                initial = false;
-                if info.lower_chunk != 0 {
-                    continue;
-                }
-            }
-            // If within bounds, add to page
-            if row_count > info.min_row && row_count <= info.max_row {
-                // Add to page
-                page.push(String::from(row));
-            } else if row_count > info.max_row {
-                // End of page search
-                break;
-            }
 
-            row_count += 1;
-        }
-        // End of page search
-        if row_count > info.max_row {
-            break;
+    // Here we have our chunks X
+    // Get the header from the first chunk X
+    // If the lower chunk == 0, add it to the byte buffer, else continue X
+    // Go through rest of chunks and workout if they are needed, add to byte buffer X
+
+    let mut byte_buffer: Vec<u8> = Vec::new();
+    let mut chunk_vec_iter = chunk_vec.iter();
+
+    while let Some(chunk) = cursor.next().await {
+        // Get the number of the chunk
+        let chunk_num = chunk_vec_iter.next().unwrap();
+        let decomp_data: Vec<u8> = chunk_to_byte(chunk?).await;
+        if *chunk_num == 0 {
+            // Get header
+            let header_idx = decomp_data
+                .iter()
+                .enumerate()
+                .filter(|(_, b)| **b == b'\n')
+                .nth(0)
+                .and_then(|(i, _)| Some(i))
+                .expect("Failed to find header");
+            let header_bytes = &decomp_data[..header_idx];
+            header = String::from_utf8(Vec::from(header_bytes)).unwrap();
+            if info.lower_chunk == 0 {
+                byte_buffer.extend_from_slice(&decomp_data[header_idx..]);
+            }
+        } else {
+            byte_buffer.extend_from_slice(&decomp_data);
         }
     }
+
+    // Workout index of min_row and max_row in byte buffer
+
+    let page_size = info.max_row - info.min_row - 1;
+    let buffer_min = info.min_row - (info.lower_chunk * CHUNK_SIZE);
+
+    // Get byte slice up to that row (take fewer rows if less rows there)
+    let start: usize = byte_buffer
+        .iter()
+        .enumerate()
+        .filter(|(_, b)| **b == b'\n')
+        .nth(buffer_min)
+        .and_then(|(i, _)| Some(i))
+        .or_else(|| Some(0))
+        .unwrap();
+
+    let slice = &byte_buffer[start + 1..];
+
+    let end: usize = slice
+        .iter()
+        .enumerate()
+        .filter(|(_, b)| **b == b'\n')
+        .nth(page_size)
+        .and_then(|(i, _)| Some(i))
+        .or_else(|| Some(slice.len()))
+        .unwrap();
+
+    let rows = String::from_utf8(Vec::from(&slice[..end])).unwrap();
+
     let total = match dataset_type {
         DatasetType::Train => dataset_detail.train_size,
         _ => dataset_detail.predict_size,
     };
     // Structure for VueTables2
     response_from_json(doc! {
-        "data": page.join("\n"),
+        "data": rows,
         "fields": header,
         // Work this out
         "total": total
