@@ -92,6 +92,8 @@
         </b-col>
       </b-row>
     </b-container>
+
+    <particles-bg  color="#cccccc" num=150 type="cobweb" :bg="true"/>
   </div>
 </template>
 
@@ -117,6 +119,7 @@
 
 <script>
 import Vue from "vue";
+import { ParticlesBg } from "particles-bg-vue";
 
 export default {
   name: "Dashboard",
@@ -125,6 +128,9 @@ export default {
       projects: [],
       search: "",
     };
+  },
+  components:{
+    ParticlesBg
   },
   async mounted() {
     let user_id = $cookies.get("token");
