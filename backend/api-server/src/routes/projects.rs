@@ -13,6 +13,7 @@ use actix_web::{
     HttpResponse,
 };
 use futures::stream::poll_fn;
+use itertools::Itertools;
 use mongodb::{
     bson::{de::from_document, doc, document::Document, oid::ObjectId, ser::to_document},
     Collection,
@@ -51,9 +52,9 @@ static CHUNK_SIZE: usize = 10_000;
 pub enum DatasetType {
     /// Training dataset type
     Train,
-    /// Predict dataset type
+    /// Predict dataset type. Represents just predict data
     Predict,
-    /// Predict dataset type
+    /// Prediction dataset type. Represents both predict and predictions data
     Prediction,
 }
 
@@ -681,7 +682,7 @@ pub async fn get_dataset(
                             let mut chunk_vec: Vec<String> = Vec::new();
 
                             // Split based on rows
-                            for (prediction_row, predict_row) in prediction_rows.zip(predict_rows) {
+                            for (predicted_row, predict_row) in prediction_rows.zip(predict_rows) {
                                 // Work out if header
                                 if initial {
                                     // Header
@@ -690,22 +691,14 @@ pub async fn get_dataset(
                                     continue;
                                 }
                                 //      Split predict based on commas
-                                let predict_cols = predict_row.split(",");
-                                //      Go through row
-                                let mut row_vec: Vec<String> = Vec::new();
-                                for column in predict_cols {
-                                    if column.trim() == "" {
-                                        //      If empty col, fill with predicted data
-                                        row_vec.push(String::from(prediction_row));
-                                    } else {
-                                        //      else, push col
-                                        row_vec.push(String::from(column));
-                                    }
-                                }
-                                // join with commas
-                                let joined_row = row_vec.join(",");
+                                let row = predict_row
+                                    .split(',')
+                                    .map(|v| {
+                                        v.trim().is_empty().then(|| predicted_row).unwrap_or(v)
+                                    })
+                                    .join(",");
                                 // push to whole chunk vector
-                                chunk_vec.push(joined_row);
+                                chunk_vec.push(row);
                             }
                             let joined_chunk: String = chunk_vec.join("\n");
                             // Join together whole chunk
@@ -749,10 +742,7 @@ async fn zip(
     Option<mongodb::error::Result<Document>>,
     Option<mongodb::error::Result<Document>>,
 ) {
-    let left_side = left.next().await;
-    let right_side = right.next().await;
-
-    (left_side, right_side)
+    tokio::join!(left.next(), right.next())
 }
 
 /// function to get single pagination page and returns
@@ -792,9 +782,8 @@ async fn data_collection(
         let chunk_bytes = chunk.data.bytes;
         let decomp_data = decompress_data(&chunk_bytes).unwrap();
         let chunk_string = String::from_utf8(decomp_data)?;
-        let mut chunk_iter = chunk_string.split("\n");
         // Go through iterator
-        while let Some(row) = chunk_iter.next() {
+        for row in chunk_string.split("\n") {
             // If header, add to page
             if initial {
                 header = String::from(row);
@@ -843,7 +832,6 @@ pub async fn pagination(
     extractor: web::Path<(String, DatasetType)>,
     query: web::Query<QueryInfo>,
 ) -> ServerResponse {
-    log::info!("Pagination");
     let datasets = state.database.collection("datasets");
     let dataset_details = state.database.collection("dataset_details");
     let projects = state.database.collection("projects");
@@ -855,7 +843,6 @@ pub async fn pagination(
     let amount = query.per_page;
     let page_num = query.page;
 
-    log::info!("Dataset Type: {:?}", dataset_type);
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
     let filter = doc! { "project_id": &object_id };
 
@@ -880,65 +867,23 @@ pub async fn pagination(
     let dataset_detail: DatasetDetails = from_document(document)?;
 
     // Calculate the chunk that is needed
-    let chunk_vec: Vec<i32>;
     let min_row = (page_num - 1) * amount;
     let max_row = page_num * amount;
 
-    let lower_chunk = (min_row / CHUNK_SIZE) as i32;
-    let upper_chunk = (max_row / CHUNK_SIZE) as i32;
+    let (chunk_vec, lower_chunk) = utils::chunk_calculate(min_row, max_row, CHUNK_SIZE);
 
-    // Equal size
-    if lower_chunk == upper_chunk {
-        // If one chunk is the first chunk
-        // Need to bring in extra chunk because first chunk has 9999 elements instead
-        if lower_chunk == 0 {
-            chunk_vec = vec![upper_chunk, (upper_chunk + 1)];
-        } else {
-            chunk_vec = vec![0, upper_chunk, (upper_chunk + 1)];
-        }
-    }
-    // Different sizes
-    else {
-        // If one chunk is the first chunk
-        if lower_chunk == 0 {
-            chunk_vec = vec![lower_chunk, upper_chunk];
-        } else {
-            chunk_vec = vec![0, lower_chunk, upper_chunk];
-        }
-    }
+    let filter = match dataset_type {
+        DatasetType::Train => doc! { "_id": &dataset.dataset },
+        DatasetType::Predict | DatasetType::Prediction => doc! { "_id": &dataset.predict },
+    };
 
     // Decide filter based off enum
     match dataset_type {
-        DatasetType::Train => {
+        DatasetType::Train | DatasetType::Predict => {
             // If Train
             //      Get correct chunks
             //      Extract data page that is needed
             //      Return it to frontend
-            let filter = doc! { "_id": &dataset.dataset };
-            let info = DataCollection {
-                min_row,
-                max_row,
-                lower_chunk: lower_chunk as usize,
-            };
-
-            // Find the file in the database
-            data_collection(
-                filter,
-                chunk_vec,
-                &state.database,
-                info,
-                dataset_detail,
-                dataset_type,
-            )
-            .await
-        }
-        DatasetType::Predict => {
-            // If Train
-            //      Get correct chunks
-            //      Extract data page that is needed
-            //      Return it to frontend
-            let filter = doc! { "_id": &dataset.predict };
-            // Find the file in the database
             let info = DataCollection {
                 min_row,
                 max_row,
@@ -973,9 +918,6 @@ pub async fn pagination(
                 // calculate the base row of Chunk1
                 row_count = (((lower_chunk + 1) * CHUNK_SIZE as i32) - 1) as usize;
             }
-
-            // Get predict data
-            let filter = doc! { "_id": &dataset.predict };
 
             let document = files
                 .find_one(filter, None)
@@ -1022,7 +964,6 @@ pub async fn pagination(
                 let chunk_bytes = chunk.data.bytes;
                 let decomp_data = decompress_data(&chunk_bytes).unwrap();
                 let chunk_string = String::from_utf8(decomp_data)?;
-                let chunk_iter = chunk_string.split("\n");
 
                 // Predictions Chunk
                 let pred_chunk_string = match predictions_cursor.next().await {
@@ -1036,11 +977,9 @@ pub async fn pagination(
                 }
                 .ok_or(ServerError::NotFound)?;
 
-                let pred_chunk_iter = pred_chunk_string.split("\n");
-
-                let mut row_iter = chunk_iter.zip(pred_chunk_iter);
-
-                while let Some((predict_row, predicted_row)) = row_iter.next() {
+                for (predict_row, predicted_row) in
+                    chunk_string.split('\n').zip(pred_chunk_string.split('\n'))
+                {
                     // If header, add to page
                     if initial {
                         header = String::from(predict_row);
@@ -1051,21 +990,13 @@ pub async fn pagination(
                     }
                     // If within bounds, create predictions row and add to page
                     if row_count > min_row && row_count <= max_row {
-                        // Create empty document (mutable)\
-                        let mut row_doc = Vec::new();
-                        // Break row into vector
-                        let row_iter = predict_row.split(",");
-                        // Go through each and add to document each column for row
-                        for col_val in row_iter {
-                            // Header: col_value
-                            if col_val.trim() == "" {
-                                row_doc.push(predicted_row);
-                            } else {
-                                row_doc.push(col_val);
-                            }
-                        }
+                        let row = predict_row
+                            .split(',')
+                            .map(|v| v.trim().is_empty().then(|| predicted_row).unwrap_or(v))
+                            .join(",");
+
                         // Add to page
-                        page.push(row_doc.join(","));
+                        page.push(row);
                     } else if row_count > max_row {
                         // End of page search
                         break;

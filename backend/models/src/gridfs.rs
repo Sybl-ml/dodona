@@ -99,7 +99,7 @@ impl File {
     pub async fn download_specific_chunks(
         &self,
         database: &mongodb::Database,
-        chunk_vec: &Vec<i32>,
+        chunk_vec: &[i32],
     ) -> mongodb::error::Result<mongodb::Cursor<Document>> {
         let chunks = database.collection("chunks");
 
