@@ -126,7 +126,7 @@ export default {
         pageName === "Nodes";
     },
     async getAvatar() {
-      if (!atLanding) {
+      if ($cookies.get("token")) {
         let response = await this.$http.get(`api/users/avatar`);
         console.log(response);
         this.avatar = response.data.img;
