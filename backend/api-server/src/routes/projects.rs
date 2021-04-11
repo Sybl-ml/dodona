@@ -822,11 +822,9 @@ async fn data_collection(
     let end: usize = slice
         .iter()
         .enumerate()
-        .filter(|(_, b)| **b == b'\n')
+        .filter_map(|(i, b)| (*b == b'\n').then(|| i))
         .nth(page_size)
-        .and_then(|(i, _)| Some(i))
-        .or_else(|| Some(slice.len()))
-        .unwrap();
+        .unwrap_or_else(|| slice.len());
 
     let rows = std::str::from_utf8(&slice[..end])?;
 
