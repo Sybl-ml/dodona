@@ -10,15 +10,19 @@ use mongodb::bson::oid::ObjectId;
 
 use crate::error::ServerError;
 
+#[cfg(debug_assertions)]
+const KEY: &[u8] = include_bytes!("../../jwt_key");
+
+#[cfg(not(debug_assertions))]
+const KEY: &[u8] = include_bytes!("../../prod_jwt_key");
+
 /// Retrieves the encoding key used for JWT authentication.
 pub fn get_encoding_key() -> EncodingKey {
-    let key = include_str!("../../jwt_key");
-    EncodingKey::from_secret(&key.as_bytes())
+    EncodingKey::from_secret(KEY)
 }
 
 fn get_decoding_key() -> DecodingKey<'static> {
-    let key = include_str!("../../jwt_key");
-    DecodingKey::from_secret(&key.as_bytes())
+    DecodingKey::from_secret(KEY)
 }
 
 /// The claims made by a user for authentication.

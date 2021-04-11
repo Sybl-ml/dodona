@@ -1,6 +1,6 @@
 //! Defines the structure of datasets in the `MongoDB` instance.
 
-use mongodb::bson::{self, doc, oid::ObjectId, Binary};
+use mongodb::bson::{doc, oid::ObjectId};
 
 use crate::dataset_analysis::DatasetAnalysis;
 use crate::dataset_details::DatasetDetails;
@@ -13,26 +13,27 @@ pub struct Dataset {
     pub id: ObjectId,
     /// Unique identifier for the associated project
     pub project_id: ObjectId,
-    /// Dataset binary stored in the database
-    pub dataset: Option<Binary>,
-    /// Dataset to be predicted by the model
-    pub predict: Option<Binary>,
+    /// Dataset File ObjectId stored in the database
+    pub dataset: ObjectId,
+    /// Dataset File ObjectId for prediction stored in the database
+    pub predict: ObjectId,
 }
 
 impl Dataset {
     /// Creates a new [`Dataset`] for a project with some data.
-    pub fn new(project_id: ObjectId, dataset: Vec<u8>, predict: Vec<u8>) -> Self {
+    pub fn new(project_id: ObjectId, dataset: ObjectId, predict: ObjectId) -> Self {
+        log::debug!(
+            "Creating a new dataset for project_id={} with dataset_id={} and predict_id={}",
+            project_id,
+            dataset,
+            predict
+        );
+
         Self {
             id: ObjectId::new(),
             project_id,
-            dataset: Some(Binary {
-                subtype: bson::spec::BinarySubtype::Generic,
-                bytes: dataset,
-            }),
-            predict: Some(Binary {
-                subtype: bson::spec::BinarySubtype::Generic,
-                bytes: predict,
-            }),
+            dataset,
+            predict,
         }
     }
 

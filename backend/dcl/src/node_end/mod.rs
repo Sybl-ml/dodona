@@ -23,8 +23,8 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Notify, RwLock};
 
 use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
-use models::job_performance::JobPerformance;
 use models::models::Status;
+use models::{job_performance::JobPerformance, jobs::JobConfiguration};
 
 use crate::protocol;
 
@@ -159,7 +159,7 @@ impl NodePool {
         let mut node_vec = self.nodes.write().await;
         let mut info_vec = self.info.write().await;
 
-        log::info!("Adding node to the pool with id: {}", id);
+        log::info!("Adding node to the pool with id={}", id);
 
         node_vec.insert(id.clone(), node);
         info_vec.insert(
@@ -201,19 +201,27 @@ impl NodePool {
     /// it is still returned. This also uses the performance metric to build well performing clusters.
     pub async fn build_cluster(
         &self,
-        config: ClientMessage,
+        config: JobConfiguration,
     ) -> Option<HashMap<String, Arc<RwLock<TcpStream>>>> {
-        let size = match config {
-            ClientMessage::JobConfig { cluster_size, .. } => cluster_size as usize,
-            _ => 1,
-        };
+        // Convert to usize as MongoDB stores as i32
+        let cluster_size = config.cluster_size as usize;
+
+        log::debug!("Attempting to build a cluster with size={}", cluster_size);
 
         let nodes_read = self.nodes.read().await;
         let mut accepted_job: Vec<(String, f64)> = Vec::new();
         let mut better_nodes: Vec<(String, f64)> = Vec::new();
         let mut info_write = self.info.write().await;
 
-        if self.active.load(Ordering::SeqCst) < size {
+        let active = self.active.load(Ordering::SeqCst);
+
+        if active < cluster_size {
+            log::warn!(
+                "Only {} nodes are active, so a cluster of size={} could not be built",
+                active,
+                cluster_size
+            );
+
             return None;
         }
 
@@ -223,22 +231,44 @@ impl NodePool {
             if info.alive && !info.using {
                 info.using = true;
                 let stream = nodes_read.get(id).unwrap().get_tcp();
+                let config_response = NodePool::job_accepted(&stream, &config, &id).await;
 
-                if NodePool::job_accepted(stream.clone(), config.clone(), id.clone()).await {
-                    accepted_job.push((id.clone(), info.performance));
+                // Check all 3 possible states:
+                //      - Explicit acceptance
+                //      - Explicit rejection
+                //      - An error in the stream itself
+                match config_response {
+                    Ok(true) => {
+                        log::info!("Node with id={} accepted the job", id);
+                        accepted_job.push((id.clone(), info.performance));
 
-                    if info.performance > 0.5 {
-                        better_nodes.push((id.clone(), info.performance));
+                        if info.performance > 0.5 {
+                            better_nodes.push((id.clone(), info.performance));
+                        }
+
+                        continue;
                     }
-                } else {
-                    info.using = false;
+                    Ok(false) => {
+                        log::debug!("model_id={} explicitly rejected the job", id);
+                    }
+                    Err(e) => {
+                        log::warn!("Error occurred asking model_id={} about the job: {}", id, e);
+                    }
                 }
+
+                info.using = false;
             }
         }
 
         // Checks if number of nodes that accepted the job is less than
         // the size of the cluster required.
-        if size > accepted_job.len() {
+        if cluster_size > accepted_job.len() {
+            log::warn!(
+                "Only {} nodes accepted the job, required at least {}",
+                accepted_job.len(),
+                cluster_size
+            );
+
             return None;
         }
 
@@ -247,7 +277,7 @@ impl NodePool {
         let mut cluster_performance: f64 = 0.0;
 
         // Build cluster of size
-        while cluster.len() < size {
+        while cluster.len() < cluster_size {
             // Choose a node which has accepted job
             let (chosen_node, performance) = NodePool::choose_random_node(
                 &mut accepted_job,
@@ -269,14 +299,14 @@ impl NodePool {
         }
 
         log::info!(
-            "\nBuilt Cluster: {:?}\nAverage Performance: {}\n",
-            &cluster,
-            &cluster_performance
+            "Successfully built a cluster with size={}, cluster_performance={}",
+            cluster_size,
+            cluster_performance
         );
 
         self.active.fetch_sub(cluster.len(), Ordering::SeqCst);
 
-        for (model_id, _) in accepted_job.iter() {
+        for (model_id, _) in &accepted_job {
             info_write.get_mut(model_id).unwrap().using = false;
         }
 
@@ -319,25 +349,30 @@ impl NodePool {
 
     /// Checks with a node if it will accept a job or not
     pub async fn job_accepted(
-        stream: Arc<RwLock<TcpStream>>,
-        config: ClientMessage,
-        key: String,
-    ) -> bool {
+        stream: &Arc<RwLock<TcpStream>>,
+        config: &JobConfiguration,
+        key: &str,
+    ) -> Result<bool> {
         let mut dcn_stream = stream.write().await;
 
         let mut buffer = [0_u8; 1024];
-        dcn_stream.write(&config.as_bytes()).await.unwrap();
+        let message = ClientMessage::from(config);
+        dcn_stream.write(&message.as_bytes()).await?;
 
-        let config_response = ClientMessage::from_stream(&mut *dcn_stream, &mut buffer).await;
+        let config_response = ClientMessage::from_stream(&mut *dcn_stream, &mut buffer).await?;
 
-        let accept = match config_response.unwrap() {
+        let accept = match config_response {
             ClientMessage::ConfigResponse { accept } => accept,
             _ => unreachable!(),
         };
 
-        log::info!("(Node {}) Config response: {:?}", &key, accept);
+        log::debug!(
+            "Node with id={} responsed with '{}' to the job config",
+            key,
+            accept
+        );
 
-        accept
+        Ok(accept)
     }
 
     /// Changes the `using` flag on a [`NodeInfo`] object
@@ -345,8 +380,11 @@ impl NodePool {
     /// When passed an [`ObjectId`], this function will find the [`NodeInfo`] instance for that ID
     /// and will set its `using` flag to be false, signifying the end of its use.
     pub async fn end(&self, key: &str) -> Result<()> {
+        log::trace!("Finished using model_id={}, updating its status", key);
+
         let mut info_write = self.info.write().await;
         info_write.get_mut(key).unwrap().using = false;
+
         self.active.fetch_add(1, Ordering::SeqCst);
         self.job_notify.notify_waiters();
 
@@ -361,10 +399,16 @@ impl NodePool {
         let mut info_write = self.info.write().await;
         let node_info = info_write.get_mut(id).unwrap();
 
-        if node_info.alive == false && status == true {
+        log::trace!(
+            "Updating liveness status of model_id={}, setting to alive={}",
+            id,
+            status
+        );
+
+        if !node_info.alive && status {
             self.active.fetch_add(1, Ordering::SeqCst);
             self.job_notify.notify_waiters();
-        } else if node_info.alive == true && status == false {
+        } else if node_info.alive && !status {
             self.active.fetch_sub(1, Ordering::SeqCst);
         }
 
@@ -392,6 +436,8 @@ impl NodePool {
         let mut info_write = self.info.write().await;
         let node_info = info_write.get_mut(id).unwrap();
 
+        log::trace!("Updating model_id={} with performance={}", id, performance);
+
         if node_info.performance == 0.0 {
             node_info.performance = performance
         } else {
@@ -414,14 +460,15 @@ pub async fn run(nodepool: Arc<NodePool>, database: Arc<Database>, port: u16) ->
     let ip = Ipv4Addr::LOCALHOST;
 
     let socket = SocketAddr::V4(SocketAddrV4::new(ip, port));
-    log::info!("Node Socket: {:?}", socket);
     let listener = TcpListener::bind(&socket).await?;
+
+    log::info!("Listening for client connections on: {}", socket);
 
     while let Ok((inbound, _)) = listener.accept().await {
         let sp_clone = Arc::clone(&nodepool);
         let db_clone = Arc::clone(&database);
 
-        log::info!("Node Connection: {}", inbound.peer_addr()?);
+        log::info!("Received a node connection from: {}", inbound.peer_addr()?);
 
         tokio::spawn(async move {
             process_connection(inbound, db_clone, sp_clone)
@@ -439,16 +486,12 @@ async fn process_connection(
     nodepool: Arc<NodePool>,
 ) -> Result<()> {
     let mut handler = protocol::Handler::new(&mut stream);
-    let (model_id, token) = match handler.get_access_token().await? {
-        Some(t) => t,
+    let model_id = match handler.get_access_token().await? {
+        Some(t) => t.0,
         None => return Ok(()),
     };
 
-    log::info!("New registered connection with:");
-    log::info!("\tModel ID: {}", model_id);
-    log::info!("\tToken: {}", token);
-
-    update_model_status(Arc::clone(&database), &model_id).await?;
+    update_model_status(Arc::clone(&database), &model_id, Status::Running).await?;
 
     let node = Node::new(stream, model_id);
     nodepool.add(node, Arc::clone(&database)).await;
@@ -460,12 +503,18 @@ async fn process_connection(
 ///
 /// When a model authenticates with the DCL correctly and is heartbeating, this will set the status
 /// in the database to `Running`. This can then be displayed on the frontend.
-pub async fn update_model_status(database: Arc<Database>, model_id: &str) -> Result<()> {
+pub async fn update_model_status(
+    database: Arc<Database>,
+    model_id: &str,
+    status: Status,
+) -> Result<()> {
     let models = database.collection("models");
+
+    log::debug!("Setting model_id={} to status={:?}", model_id, status);
 
     let object_id = ObjectId::with_string(model_id)?;
     let query = doc! {"_id": &object_id};
-    let update = doc! { "$set": { "status": Status::Running } };
+    let update = doc! { "$set": { "status": status } };
     models.update_one(query, update, None).await?;
 
     Ok(())

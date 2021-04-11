@@ -2,21 +2,24 @@
   <div>
     <b-container fluid>
       <b-row>
-        <b-col xs="12" order-xs="2" lg="3">
+        <b-col xs="12" order-xs="1" lg="3">
           <b-row>
             <b-col class="mb-2">
-              <b-form-input class="shadow-sm" v-model="search" placeholder="Search" block />
+              <b-form-input
+                class="shadow-sm"
+                v-model="search"
+                placeholder="Search"
+                block
+              />
             </b-col>
           </b-row>
           <b-row class="text-left">
             <b-col>
               <router-link :to="{ name: 'AddProject' }">
                 <b-button variant="primary" class="mb-2 shadow-sm add-new" block
-                  ><b-row
-                    ><b-col md="10" class="text-left">Add new project</b-col
-                    ><b-col md="2" class="ml-auto text-right">
-                      <b-icon-plus-circle /></b-col></b-row></b-button
-              ></router-link>
+                  ><b-icon-plus-circle /> Add new project
+                </b-button></router-link
+              >
               <router-link
                 v-for="p in filtered_projects"
                 :key="p.id"
@@ -27,14 +30,20 @@
                   },
                 }"
               >
-                <b-card class="mb-2 shadow-sm" no-body :class="p.status.toLowerCase()" style="border: none">
+                <b-card
+                  class="mb-2 shadow-sm"
+                  no-body
+                  :class="p.status.toLowerCase()"
+                  style="border: none"
+                >
                   <b-row
                     no-gutters
                     class="ml-2"
                     style="background-color: white"
                   >
                     <b-col>
-                      <b-card-body :title="p.name" title-tag="h5">
+                      <b-card-body title-tag="h5">
+                        <b-card-title>{{ p.name }} </b-card-title>
                         <b-card-text>
                           <b-icon-play-fill
                             v-if="p.status == 'Unfinished'"
@@ -47,13 +56,21 @@
                           <b-icon-hourglass-split
                             v-if="p.status == 'Processing'"
                             animation="fade"
-                            style="color: #FFC12F"
+                            style="color: #ffc12f"
                           />
                           <b-icon-check2-circle
                             v-else-if="p.status == 'Completed'"
                             style="color: #00bf26"
                           />
                           {{ p.status }}
+                          <b-badge
+                            pill
+                            variant="success"
+                            class="mx-1"
+                            v-for="tag in p.tags"
+                            v-bind:key="tag.id"
+                            >{{ tag }}</b-badge
+                          >
                         </b-card-text>
                       </b-card-body>
                     </b-col>
@@ -63,10 +80,11 @@
             </b-col>
           </b-row>
         </b-col>
-        <b-col lg="9">
+        <b-col lg="9" order-xs="1">
           <router-view
-            @update:description="updateDescription"
             @update:name="updateName"
+            @update:description="updateDescription"
+            @update:tags="updateTags"
             @delete:project="deleteProject"
             @insert:project="addProject"
             @update:project="updateProject"
@@ -74,12 +92,14 @@
         </b-col>
       </b-row>
     </b-container>
+
+    <particles-bg  color="#cccccc" num=150 type="cobweb" :bg="true"/>
   </div>
 </template>
 
 <style>
 .add-new {
-  height: 40px;
+  height: 2.5rem;
   font-size: large;
 }
 
@@ -90,7 +110,7 @@
   background-color: #6391ff !important;
 }
 .processing {
-  background-color: #FFC12F !important;
+  background-color: #ffc12f !important;
 }
 .completed {
   background-color: #00bf26 !important;
@@ -99,6 +119,7 @@
 
 <script>
 import Vue from "vue";
+import { ParticlesBg } from "particles-bg-vue";
 
 export default {
   name: "Dashboard",
@@ -108,12 +129,13 @@ export default {
       search: "",
     };
   },
+  components:{
+    ParticlesBg
+  },
   async mounted() {
     let user_id = $cookies.get("token");
 
-    let response = await this.$http.get(
-      `api/projects`
-    );
+    let response = await this.$http.get(`api/projects`);
 
     this.projects = response.data.map((x) => {
       let y = {
@@ -145,10 +167,16 @@ export default {
         }
       }
     },
+    updateTags(newTags, id) {
+      for (var i in this.projects) {
+        if (this.projects[i].id == id) {
+          Vue.set(this.projects[i], "tags", newTags);
+          break;
+        }
+      }
+    },
     async addProject(id) {
-      let project_response = await this.$http.get(
-        `api/projects/${id}`
-      );
+      let project_response = await this.$http.get(`api/projects/${id}`);
 
       let x = project_response.data.project;
       let y = {
@@ -159,7 +187,7 @@ export default {
       };
       delete y._id;
 
-      this.projects.push(y)
+      this.projects.push(y);
     },
     deleteProject(id) {
       let index = 0;
@@ -185,6 +213,10 @@ export default {
     filtered_projects: function () {
       return this.projects.filter((x) => {
         if (x["name"].includes(this.search)) {
+          return x;
+        }
+
+        if (x["tags"].includes(this.search)) {
           return x;
         }
       });

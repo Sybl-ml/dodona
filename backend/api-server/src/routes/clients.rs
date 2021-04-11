@@ -46,7 +46,7 @@ pub async fn register(
     }
 
     let peppered = format!("{}{}", payload.password, &state.pepper);
-    pbkdf2::pbkdf2_check(&peppered, &user.hash)?;
+    crypto::verify_password(&peppered, &user.hash)?;
 
     // Entered and stored email and password match
     if email == user.email {
@@ -104,7 +104,7 @@ pub async fn new_model(
 
     let user: User = from_document(document)?;
     let peppered = format!("{}{}", &payload.password, &state.pepper);
-    pbkdf2::pbkdf2_check(&peppered, &user.hash)?;
+    crypto::verify_password(&peppered, &user.hash)?;
 
     if !user.client {
         return Err(ServerError::Forbidden);
@@ -239,7 +239,7 @@ pub async fn unlock_model(
     let user: User = from_document(user_doc)?;
 
     let peppered = format!("{}{}", payload.password, &state.pepper);
-    let verified = pbkdf2::pbkdf2_check(&peppered, &user.hash).is_err();
+    let verified = crypto::verify_password(&peppered, &user.hash).is_err();
 
     if !model.authenticated || verified {
         log::warn!(

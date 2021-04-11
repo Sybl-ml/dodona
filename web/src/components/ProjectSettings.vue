@@ -28,22 +28,53 @@
         ><b-icon-pen /> Edit</b-button
       >
     </b-form-group>
+
+    <b-form-group label="Project Name" id="name" class="font-weight-bold">
+      <b-row no-gutters class="mb-2">
+        <b-col lg="8" class="pr-2"
+          ><b-form-tags
+            class="mb-3"
+            tag-variant="success"
+            tag-pills
+            remove-on-delete
+            v-model="newTags"
+          ></b-form-tags
+        ></b-col>
+        <b-col
+          ><b-button variant="primary" @click="updateTags"
+            >Update</b-button
+          ></b-col
+        >
+      </b-row>
+    </b-form-group>
     <b-card border-variant="secondary" class="mt-3 shadow">
       <b-form-group
         label="Delete Project"
         description="WARNING: This is permanent all data and analysis will be deleted"
         class="font-weight-bold"
       >
-        <b-button id="delete" variant="secondary"  v-b-modal.deleteCheck
+        <b-button id="delete" variant="secondary" v-b-modal.deleteCheck
           >DELETE</b-button
         >
 
-        <b-modal id="deleteCheck" ref="deleteCheck" title="Are your sure?" hide-footer>
-          <p>You are removing this project: {{name}}</p>
-          <p> Please confirm you are happy to continue</p>
+        <b-modal
+          id="deleteCheck"
+          ref="deleteCheck"
+          title="Are your sure?"
+          hide-footer
+        >
+          <p>You are removing this project: {{ name }}</p>
+          <p>Please confirm you are happy to continue</p>
           <b-row class="justify-content-center text-center">
-            <b-button class="m-2" variant="success" @click="deleteProject">Confirm</b-button>
-            <b-button class="m-2" variant="warning" @click="$bvModal.hide('deleteCheck')">Cancel</b-button>
+            <b-button class="m-2" variant="success" @click="deleteProject"
+              >Confirm</b-button
+            >
+            <b-button
+              class="m-2"
+              variant="warning"
+              @click="$bvModal.hide('deleteCheck')"
+              >Cancel</b-button
+            >
           </b-row>
         </b-modal>
       </b-form-group>
@@ -65,12 +96,14 @@ export default {
     return {
       newName: this.name,
       newDescription: this.description,
+      newTags: this.tags,
     };
   },
   props: {
     projectId: String,
     name: String,
     description: String,
+    tags: Array,
   },
   methods: {
     async updateName() {
@@ -82,7 +115,7 @@ export default {
           {
             changes: {
               name: this.newName,
-            }
+            },
           }
         );
       } catch (err) {
@@ -98,7 +131,23 @@ export default {
           {
             changes: {
               description: this.newDescription,
-            }
+            },
+          }
+        );
+      } catch (err) {
+        console.log(err);
+      }
+    },
+    async updateTags() {
+      this.$emit("update:tags", this.newTags);
+
+      try {
+        let project_response = await this.$http.patch(
+          `api/projects/${this.projectId}`,
+          {
+            changes: {
+              tags: this.newTags,
+            },
           }
         );
       } catch (err) {
@@ -116,7 +165,7 @@ export default {
         console.log(err);
       }
 
-      this.$refs['deleteCheck'].hide();
+      this.$refs["deleteCheck"].hide();
       this.$router.replace("/dashboard");
     },
   },

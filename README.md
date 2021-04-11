@@ -1,7 +1,7 @@
 # Dodona
 
 Dodona encapsulates the frontend and API server for the business website. The
-frontend is written in React and the server is written in Rust, using MongoDB
+frontend is written in Vue.js and the server is written in Rust, using MongoDB
 as a persistant store.
 
 ## Requirements
@@ -10,9 +10,6 @@ as a persistant store.
 
 You can install the Rust compiler and toolchain
 [here](https://www.rust-lang.org/learn/get-started).
-
-After installing the toolchain, you'll need to swap to the nightly compiler by
-using `rustup default nightly`.
 
 ### JavaScript and Docker
 

@@ -20,6 +20,10 @@ pub struct DatasetDetails {
     pub head: Option<String>,
     /// The types of each column
     pub column_types: Columns,
+    /// The number of rows in train set (nearest 100)
+    pub train_size: i32,
+    /// The number of rows in predict set (nearest 100)
+    pub predict_size: i32,
 }
 
 impl DatasetDetails {
@@ -30,6 +34,12 @@ impl DatasetDetails {
         head: String,
         column_types: Columns,
     ) -> Self {
+        log::debug!(
+            "Creating some new details for a dataset with project_id={}, column_types={:?}",
+            project_id,
+            column_types
+        );
+
         Self {
             id: ObjectId::new(),
             dataset_name: Some(dataset_name),
@@ -37,11 +47,15 @@ impl DatasetDetails {
             date_created: bson::DateTime(Utc::now()),
             head: Some(head),
             column_types,
+            train_size: 0,
+            predict_size: 0,
         }
     }
 
     pub async fn delete(&self, database: &mongodb::Database) -> mongodb::error::Result<()> {
         let dataset_details = database.collection("dataset_details");
+
+        log::debug!("Deleting the dataset details with id={}", self.id);
 
         let filter = doc! {"_id": &self.id};
         dataset_details.delete_one(filter, None).await?;

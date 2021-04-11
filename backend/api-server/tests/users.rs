@@ -1,4 +1,4 @@
-use actix_web::web::post;
+use actix_web::web::{get, post};
 use actix_web::{middleware, test, App, Result};
 use api_server::routes::users;
 use mongodb::bson::{doc, document::Document};
@@ -60,10 +60,7 @@ async fn users_cannot_register_twice() -> Result<()> {
         .to_request();
 
     let res = test::call_service(&mut app, req).await;
-    assert_eq!(actix_web::http::StatusCode::OK, res.status());
-
-    let body: AuthResponse = test::read_body_json(res).await;
-    assert_eq!(body.token, "null");
+    assert_eq!(actix_web::http::StatusCode::CONFLICT, res.status());
 
     Ok(())
 }
@@ -132,10 +129,62 @@ async fn users_cannot_login_without_correct_email() -> Result<()> {
 }
 
 #[actix_rt::test]
+async fn users_can_upload_an_avatar_image() -> Result<()> {
+    let mut app = api_with! { post: "/api/users/avatar" => users::new_avatar };
+
+    // Trim here as trailing newlines will cause a 422
+    let doc = doc! { "avatar": include_str!("assets/base64_avatar.txt").trim() };
+
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::POST)
+        .uri("/api/users/avatar")
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
+        .set_json(&doc)
+        .to_request();
+
+    let res = test::call_service(&mut app, req).await;
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
+
+    Ok(())
+}
+
+#[actix_rt::test]
+async fn users_can_retrieve_an_avatar_image() -> Result<()> {
+    let mut app = api_with! {
+        post: "/api/users/avatar" => users::new_avatar,
+        get: "/api/users/avatar" => users::get_avatar,
+    };
+
+    // Trim here as trailing newlines will cause a 422
+    let doc = doc! { "avatar": include_str!("assets/base64_avatar.txt").trim() };
+
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::POST)
+        .uri("/api/users/avatar")
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
+        .set_json(&doc)
+        .to_request();
+
+    let res = test::call_service(&mut app, req).await;
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
+
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::GET)
+        .uri("/api/users/avatar")
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
+        .to_request();
+
+    let res = test::call_service(&mut app, req).await;
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
+
+    Ok(())
+}
+
+#[actix_rt::test]
 async fn filter_finds_given_user_and_no_others() -> Result<()> {
     let mut app = api_with! { post: "/api/users/filter" => users::filter };
 
-    let doc = doc! {"filter": { "email": "matthewsmith@email.com" } };
+    let doc = doc! {"filter": { "email": "lone@email.com" } };
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::POST)
         .uri("/api/users/filter")
@@ -151,8 +200,8 @@ async fn filter_finds_given_user_and_no_others() -> Result<()> {
 
     let found = &users[0];
 
-    assert_eq!("Matthew", found.first_name);
-    assert_eq!("Smith", found.last_name);
+    assert_eq!("Lone", found.first_name);
+    assert_eq!("User", found.last_name);
 
     Ok(())
 }

@@ -16,6 +16,7 @@ use fern::colors::{Color, ColoredLevelConfig};
 pub mod analysis;
 pub mod anon;
 pub mod compress;
+pub mod finance;
 
 /// Represents the types that a CSV column could have.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -65,7 +66,7 @@ impl Column {
             column_type: ColumnType::Categorical(
                 values
                     .iter()
-                    .filter(|v| *v != "")
+                    .filter(|v| !v.is_empty())
                     .zip(values.iter().map(|v| Column::obfuscate(v)))
                     .map(|(v, o)| (v.to_string(), o))
                     .collect(),
@@ -167,7 +168,7 @@ impl From<ColumnValues> for Column {
         // check if all values in the column are numerical
         if let Ok(numerical) = values
             .iter()
-            .filter(|v| *v != "")
+            .filter(|v| !v.is_empty())
             .map(|v| f64::from_str(v))
             .collect::<Result<Vec<_>, _>>()
         {
@@ -193,7 +194,7 @@ impl From<ColumnValues> for Column {
             let column_type = ColumnType::Categorical(
                 values
                     .iter()
-                    .filter(|v| *v != "")
+                    .filter(|v| !v.is_empty())
                     // obfuscate each value in the column with a random pseudonym
                     .zip(values.iter().map(|v| Column::obfuscate(v)))
                     .map(|(v, o)| (v.to_string(), o))
@@ -272,7 +273,7 @@ pub fn column_values(name: String, records: &[StringRecord], col: usize) -> Colu
 /// more easily later on. It does not allocate new strings either, meaning it should function well
 /// even with large datasets.
 pub fn infer_train_and_predict(data: &str) -> (Vec<&str>, Vec<&str>) {
-    let mut lines = data.split('\n');
+    let mut lines = data.lines();
     let header = lines.next().unwrap();
 
     // Include the header in both
@@ -341,12 +342,12 @@ pub fn generate_ids(dataset: &str) -> (String, Vec<String>) {
     let records: Vec<StringRecord> = reader.records().filter_map(Result::ok).collect();
 
     let mut new_header = vec!["record_id"];
+
     for field in headers.iter() {
         new_header.push(field);
     }
-    headers = StringRecord::from(new_header);
 
-    println!("{:?}", headers);
+    headers = StringRecord::from(new_header);
 
     let with_ids = records
         .iter()
@@ -360,8 +361,6 @@ pub fn generate_ids(dataset: &str) -> (String, Vec<String>) {
             StringRecord::from(new_line)
         })
         .collect::<Vec<_>>();
-
-    println!("{:?}", with_ids);
 
     // Write headers
     writer.write_record(headers.iter()).unwrap();
@@ -427,4 +426,37 @@ where
         .chain(std::io::stdout())
         .apply()
         .expect("Failed to initialise the logger");
+}
+
+/// Function to workout what chunks the row slice belongs to
+///
+/// Returns the selection of chunks to get data from, as well as the index of
+/// the lower chunk
+pub fn calculate_chunk_indices(
+    min_row: usize,
+    max_row: usize,
+    chunk_size: usize,
+) -> (Vec<i32>, i32) {
+    let lower_chunk = (min_row / chunk_size) as i32;
+    let upper_chunk = (max_row / chunk_size) as i32;
+
+    // Equal size
+    if lower_chunk == upper_chunk {
+        // If one chunk is the first chunk
+        // Need to bring in extra chunk because first chunk has 9999 elements instead
+        if lower_chunk == 0 {
+            (vec![upper_chunk, (upper_chunk + 1)], lower_chunk)
+        } else {
+            (vec![0, upper_chunk, (upper_chunk + 1)], lower_chunk)
+        }
+    }
+    // Different sizes
+    else {
+        // If one chunk is the first chunk
+        if lower_chunk == 0 {
+            (vec![lower_chunk, upper_chunk], lower_chunk)
+        } else {
+            (vec![0, lower_chunk, upper_chunk], lower_chunk)
+        }
+    }
 }

@@ -7,12 +7,11 @@ use float_cmp::approx_eq;
 use futures::stream::StreamExt;
 use mongodb::bson::{doc, oid::ObjectId};
 
-use dcl::job_end::finance::Pricing;
 use dcl::job_end::ml::{evaluate_model, model_performance, penalise, weight_predictions};
 use dcl::job_end::{ClusterInfo, ModelID, WriteBackMemory};
-use messages::ClientMessage;
-use models::jobs::PredictionType;
+use models::jobs::{JobConfiguration, PredictionType};
 use models::users::User;
+use utils::finance::{reimburse, COMMISSION_RATE};
 
 mod common;
 
@@ -94,9 +93,21 @@ fn test_evaluate_model() {
     let info = ClusterInfo {
         project_id: ObjectId::with_string(common::USER_ID).unwrap(),
         columns: HashMap::new(),
-        config: ClientMessage::Alive { timestamp: 0 },
-        validation_ans: validation_ans,
-        prediction_rids: prediction_rids,
+        config: JobConfiguration {
+            dataset_id: ObjectId::new(),
+            node_computation_time: 0,
+            cluster_size: 3,
+            column_types: vec![],
+            feature_dim: 0,
+            train_size: 0,
+            predict_size: 0,
+            prediction_column: "".to_string(),
+            prediction_type: PredictionType::Classification,
+            cost: 0,
+        },
+        validation_ans,
+        prediction_rids,
+        node_computation_time: Duration::from_secs(6000),
     };
 
     let predictions = "2,3\n3,2\n4,1\n5,0\n6,0\n7,0\n8,0".to_owned();
@@ -166,15 +177,21 @@ fn test_weight_predictions() {
     let info = ClusterInfo {
         project_id: ObjectId::with_string(common::USER_ID).unwrap(),
         columns: HashMap::new(),
-        config: ClientMessage::JobConfig {
-            timeout: 0,
+        config: JobConfiguration {
+            dataset_id: ObjectId::new(),
+            node_computation_time: 0,
             cluster_size: 3,
             column_types: vec![],
+            feature_dim: 0,
+            train_size: 0,
+            predict_size: 0,
             prediction_column: "".to_string(),
             prediction_type: PredictionType::Classification,
+            cost: 0,
         },
         validation_ans: validation_ans.clone(),
         prediction_rids: prediction_rids.clone(),
+        node_computation_time: Duration::from_secs(6000),
     };
 
     let mut model_predictions: HashMap<(ModelID, usize), String> = HashMap::new();
@@ -192,28 +209,34 @@ fn test_weight_predictions() {
 
     let sum = weights.values().sum::<f64>();
     assert!(approx_eq!(f64, sum, 1.0, ulps = 2));
-    assert_eq!(final_predictions.join("\n"), "5\n6\n7\n8");
+    assert_eq!(final_predictions.join("\n"), "predicted\n5\n6\n7\n8");
 
     // Tests for regression-based problems
 
     let info = ClusterInfo {
         project_id: ObjectId::with_string(common::USER_ID).unwrap(),
         columns: HashMap::new(),
-        config: ClientMessage::JobConfig {
-            timeout: 0,
+        config: JobConfiguration {
+            dataset_id: ObjectId::new(),
+            node_computation_time: 0,
             cluster_size: 3,
             column_types: vec![],
+            feature_dim: 0,
+            train_size: 0,
+            predict_size: 0,
             prediction_column: "".to_string(),
             prediction_type: PredictionType::Regression,
+            cost: 0,
         },
-        validation_ans: validation_ans,
-        prediction_rids: prediction_rids,
+        validation_ans,
+        prediction_rids,
+        node_computation_time: Duration::from_secs(6000),
     };
 
     let mut model_predictions: HashMap<(ModelID, usize), String> = HashMap::new();
     let mut model_errors: HashMap<ModelID, Option<f64>> = HashMap::new();
 
-    for (model, prediction) in ids.iter().zip(predictions.iter()) {
+    for (model, prediction) in ids.iter().zip(predictions.iter().skip(1)) {
         let (test, model_error) = evaluate_model(&model, &prediction.to_string(), &info).unwrap();
         for (index, prediction) in test.into_iter() {
             model_predictions.insert((model.clone(), index), prediction);
@@ -224,7 +247,11 @@ fn test_weight_predictions() {
     let (weights, final_predictions) = weight_predictions(&model_predictions, &model_errors, &info);
     let sum = weights.values().sum::<f64>();
     assert!(approx_eq!(f64, sum, 1.0, ulps = 2));
-    for (prediction, actual) in final_predictions.iter().zip("5\n6\n7\n8".split("\n")) {
+    for (prediction, actual) in final_predictions
+        .iter()
+        .zip("predicted\n5\n6\n7\n8".split("\n"))
+        .skip(1)
+    {
         assert!(prediction.parse::<f64>().unwrap() - actual.parse::<f64>().unwrap() < 0.1);
     }
 }
@@ -233,16 +260,16 @@ fn test_weight_predictions() {
 async fn test_reimbuse_client() {
     let (database, _) = common::initialise_with_db().await;
     let database = Arc::new(database);
-    let pricing = Pricing::new(10.0, 0.1);
-    let weight = 10.0;
-    pricing
-        .reimburse(
-            database.clone(),
-            ObjectId::with_string(common::USER_ID).unwrap(),
-            weight,
-        )
-        .await
-        .unwrap();
+    let revenue = 10;
+    let weight = 0.5;
+    reimburse(
+        database.clone(),
+        &ObjectId::with_string(common::USER_ID).unwrap(),
+        revenue,
+        weight,
+    )
+    .await
+    .unwrap();
 
     let users = database.collection("users");
 
@@ -251,8 +278,8 @@ async fn test_reimbuse_client() {
 
     let user: User = mongodb::bson::de::from_document(user_doc).unwrap();
 
-    let amount: i32 = (((&pricing.revenue - (&pricing.revenue * &pricing.commision_rate)) * weight)
-        * 100.0) as i32;
+    let revenue = revenue as f64;
+    let amount: i32 = (((revenue - (revenue * COMMISSION_RATE)) * weight) * 100.0) as i32;
 
     assert_eq!(user.credits, amount);
 }

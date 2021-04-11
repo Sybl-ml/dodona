@@ -34,6 +34,7 @@ macro_rules! api_with {
 
 // Hardcoded random identifiers for various tests
 pub static MAIN_USER_ID: &str = "5f8ca1a80065f27b0089e8b5";
+pub static ALONE_USER_ID: &str = "5f8ca1a80065f27b0089e8c6";
 pub static DELETE_UID: &str = "5fbe3239ea6cfda08a459622";
 pub static CREATES_PROJECT_UID: &str = "5f8d7b4f0017036400d60cab";
 pub static NON_EXISTENT_USER_ID: &str = "5f8de85300eb281e00306b0b";
@@ -43,6 +44,7 @@ pub static MAIN_CLIENT_ID: &str = "602bfa774f986d0e58618187";
 
 pub static MAIN_PROJECT_ID: &str = "5f8ca1a80065f27c0089e8b5";
 pub static USERLESS_PROJECT_ID: &str = "5f8ca1a80065f27b0089e8b6";
+pub static DD_PROJECT_ID: &str = "5f8ca1a80065f27c0089e8b7";
 #[allow(dead_code)]
 pub static NON_EXISTENT_PROJECT_ID: &str = "5f8ca1a80065f27b0089e8a5";
 pub static OVERWRITTEN_DATA_PROJECT_ID: &str = "5fb784e4ead1758e1ce67bcd";
@@ -165,7 +167,12 @@ fn create_client_with_id(
 }
 
 fn create_project_with_id(id: &str, name: &str, desc: &str, uid: &str) -> bson::Document {
-    let mut project = Project::new(name, desc, ObjectId::with_string(uid).unwrap());
+    let mut project = Project::new(
+        name,
+        desc,
+        vec![bson::bson!("test"), bson::bson!("tag")],
+        ObjectId::with_string(uid).unwrap(),
+    );
 
     project.id = ObjectId::with_string(id).unwrap();
 
@@ -175,7 +182,7 @@ fn create_project_with_id(id: &str, name: &str, desc: &str, uid: &str) -> bson::
 async fn insert_test_users(database: &mongodb::Database) {
     let peppered = format!("password{}", std::env::var("PEPPER").unwrap());
     let pbkdf2_iterations = u32::from_str(&std::env::var("PBKDF2_ITERATIONS").unwrap()).unwrap();
-    let hash = pbkdf2::pbkdf2_simple(&peppered, pbkdf2_iterations).unwrap();
+    let hash = crypto::hash_password(&peppered, pbkdf2_iterations).unwrap();
 
     let matthew = create_user_with_id(
         MAIN_USER_ID,
@@ -200,8 +207,11 @@ async fn insert_test_users(database: &mongodb::Database) {
         "Project",
     );
 
+    let lone = create_user_with_id(ALONE_USER_ID, "lone@email.com", &hash, "Lone", "User");
+
     let users = database.collection("users");
     users.insert_one(matthew, None).await.unwrap();
+    users.insert_one(lone, None).await.unwrap();
     users.insert_one(delete, None).await.unwrap();
     users.insert_one(creates_project, None).await.unwrap();
     users.insert_one(deletes_project, None).await.unwrap();
@@ -210,7 +220,7 @@ async fn insert_test_users(database: &mongodb::Database) {
 async fn insert_test_clients(database: &mongodb::Database) {
     let peppered = format!("password{}", std::env::var("PEPPER").unwrap());
     let pbkdf2_iterations = u32::from_str(&std::env::var("PBKDF2_ITERATIONS").unwrap()).unwrap();
-    let hash = pbkdf2::pbkdf2_simple(&peppered, pbkdf2_iterations).unwrap();
+    let hash = crypto::hash_password(&peppered, pbkdf2_iterations).unwrap();
 
     let (user, client) =
         create_client_with_id(MAIN_CLIENT_ID, "client@sybl.com", &hash, "client", "user");
@@ -247,6 +257,14 @@ async fn insert_test_projects(database: &mongodb::Database) {
         "Test Description",
         DELETES_PROJECT_UID,
     );
+
+    let dd_info = create_project_with_id(
+        DD_PROJECT_ID,
+        "Query Dimensions Project",
+        "Test Description",
+        MAIN_USER_ID,
+    );
+
     let editable =
         create_project_with_id(EDITABLE_PROJECT_ID, "Edit Project", "edit me", MAIN_USER_ID);
 
@@ -256,6 +274,7 @@ async fn insert_test_projects(database: &mongodb::Database) {
     projects.insert_one(overwritten_data, None).await.unwrap();
     projects.insert_one(deletable, None).await.unwrap();
     projects.insert_one(editable, None).await.unwrap();
+    projects.insert_one(dd_info, None).await.unwrap();
 }
 
 async fn insert_test_job_performances(database: &mongodb::Database) {

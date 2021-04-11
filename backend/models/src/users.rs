@@ -1,10 +1,12 @@
 //! Defines the structure of users in the `MongoDB` instance.
-use mongodb::bson::{doc, oid::ObjectId};
+use mongodb::bson::{doc, oid::ObjectId, Binary};
 use serde::{Deserialize, Serialize};
 use tokio_stream::StreamExt;
 
 use crate::models::ClientModel;
 use crate::projects::Project;
+
+pub const STARTING_CREDITS: i32 = 10000;
 
 /// Defines the information that should be stored with a user in the database.
 #[derive(Debug, Serialize, Deserialize)]
@@ -26,20 +28,35 @@ pub struct User {
     pub client: bool,
     /// The user's credits
     pub credits: i32,
+    /// Avatar Image
+    pub avatar: Option<Binary>,
 }
 
 impl User {
     /// Creates a new instance of [`User`].
     pub fn new<T: Into<String>>(email: T, hash: T, first_name: T, last_name: T) -> Self {
+        let email = email.into();
+        let hash = hash.into();
+        let first_name = first_name.into();
+        let last_name = last_name.into();
+
+        log::debug!(
+            "Creating a new user with email={}, first_name={}, last_name={}",
+            email,
+            first_name,
+            last_name
+        );
+
         Self {
             id: ObjectId::new(),
-            email: email.into(),
-            hash: hash.into(),
-            first_name: first_name.into(),
-            last_name: last_name.into(),
+            email,
+            hash,
+            first_name,
+            last_name,
             api_key: crypto::generate_user_api_key(),
             client: false,
-            credits: 10,
+            credits: STARTING_CREDITS,
+            avatar: None,
         }
     }
 
@@ -47,6 +64,8 @@ impl User {
         let users = database.collection("users");
         let projects = database.collection("projects");
         let clients = database.collection("clients");
+
+        log::debug!("Deleting user with id={}, email={}", self.id, self.email);
 
         let filter = doc! { "_id": &self.id };
         // Remove user from database
@@ -87,6 +106,8 @@ pub struct Client {
 
 impl Client {
     pub fn new(user_id: ObjectId, public_key: String) -> Self {
+        log::debug!("Creating a new client with user_id={}", user_id);
+
         Self {
             id: ObjectId::new(),
             user_id,
@@ -97,6 +118,8 @@ impl Client {
     pub async fn delete(&self, database: &mongodb::Database) -> mongodb::error::Result<()> {
         let clients = database.collection("clients");
         let models = database.collection("models");
+
+        log::debug!("Deleting client with id={}", self.id);
 
         let filter = doc! {"_id": &self.id};
         clients.delete_one(filter, None).await?;

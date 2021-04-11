@@ -83,7 +83,7 @@ async fn project_tree_can_be_deleted() -> Result<()> {
 }
 
 #[tokio::test]
-async fn predic_can_be_deleted() -> Result<()> {
+async fn predict_can_be_deleted() -> Result<()> {
     let (db, _lock) = common::initialise().await;
     let predictions = db.collection("predictions");
 

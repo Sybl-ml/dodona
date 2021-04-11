@@ -1,0 +1,7 @@
+--boundary
+Content-Disposition: form-data; filename="predict.csv"; name="predict"
+
+age,sex,location
+24,M,
+20,F,
+--boundary--

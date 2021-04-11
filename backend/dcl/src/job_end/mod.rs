@@ -1,35 +1,47 @@
 //! Part of DCL that takes a DCN and a dataset and comunicates with node
 
-use rand::seq::SliceRandom;
-use rand::{thread_rng, Rng};
 use std::cmp::max;
 use std::collections::HashMap;
+use std::convert::From;
+use std::env;
 use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use anyhow::Result;
+use bytes::Bytes;
+use lettre::transport::smtp::authentication::Credentials;
+use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 use mongodb::{
-    bson::{doc, oid::ObjectId},
+    bson::{doc, from_document, oid::ObjectId},
     Database,
 };
+use rand::seq::SliceRandom;
+use rand::{thread_rng, Rng};
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio::sync::{Notify, RwLock};
+use tokio::time::timeout;
 
 use crate::node_end::NodePool;
 use crate::JobControl;
 use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
+use models::gridfs;
+use models::jobs::JobConfiguration;
 use models::jobs::PredictionType;
 use models::predictions::Prediction;
-use models::projects::Status;
+use models::projects::{Project, Status};
+use models::users::User;
 
 use utils::anon::{anonymise_dataset, deanonymise_dataset, infer_dataset_columns};
-use utils::compress::compress_bytes;
+use utils::compress::compress_data;
+use utils::finance::reimburse;
 use utils::generate_ids;
 use utils::{Column, Columns};
 
-pub mod finance;
 pub mod ml;
+
+const PREDICTION_CHUNK_SIZE: usize = 10_000;
 
 /// Struct to pass information for a cluster to function
 #[derive(Debug, Clone)]
@@ -39,11 +51,13 @@ pub struct ClusterInfo {
     /// Columns in dataset
     pub columns: Columns,
     /// Config
-    pub config: ClientMessage,
+    pub config: JobConfiguration,
     /// Validation results
     pub validation_ans: HashMap<(ModelID, String), String>,
     /// Test record IDs
     pub prediction_rids: HashMap<(ModelID, String), usize>,
+    /// The amount of time each node is allowed to compute for
+    pub node_computation_time: Duration,
 }
 
 /// The `String` predictions of model `ModelID` on test example `usize`
@@ -74,7 +88,8 @@ impl WriteBackMemory {
     /// Function to write back a hashmap of (index, prediction) tuples
     pub fn write_predictions(&self, id: ModelID, pred_map: HashMap<usize, String>) {
         let mut predictions = self.predictions.lock().unwrap();
-        for (index, prediction) in pred_map.into_iter() {
+
+        for (index, prediction) in pred_map {
             predictions.insert((id.clone(), index), prediction);
         }
     }
@@ -126,6 +141,28 @@ impl ClusterControl {
     }
 }
 
+/// The configuration for sending emails.
+#[derive(Debug)]
+pub struct Config {
+    /// The address to send from.
+    pub from_address: String,
+    /// The name to send from.
+    pub from_name: String,
+    /// The application specific password for Gmail.
+    pub app_password: String,
+}
+
+impl Config {
+    /// Builds a configuration from the environment variables.
+    pub fn from_env() -> Result<Self, std::env::VarError> {
+        Ok(Self {
+            from_address: env::var("FROM_ADDRESS")?,
+            from_name: env::var("FROM_NAME")?,
+            app_password: env::var("APP_PASSWORD")?,
+        })
+    }
+}
+
 // The proportion of training examples to use as validation examples
 const VALIDATION_SPLIT: f64 = 0.2;
 
@@ -146,15 +183,11 @@ pub async fn run(
     database: Arc<Database>,
     job_control: JobControl,
 ) -> Result<()> {
-    log::info!("Job End Running");
-
     loop {
         let jq_filter = job_control.job_queue.filter(&nodepool.active);
-        log::info!("Filtered Jobs: {:?}", &jq_filter);
+
         if jq_filter.is_empty() {
-            log::info!("Nothing in the Job Queue to inspect");
             job_control.notify.notified().await;
-            log::info!("Something has changed!");
             continue;
         }
 
@@ -171,15 +204,29 @@ pub async fn run(
 
             let mut columns = infer_dataset_columns(&data).unwrap();
 
-            log::info!("Columns: {:?}", &columns);
+            if config.prediction_type == PredictionType::Classification {
+                columns.insert(
+                    config.prediction_column.clone(),
+                    Column::categorical(&config.prediction_column, &data),
+                );
+            }
 
-            let cluster = match nodepool.build_cluster(config.anonymise(&columns)).await {
+            // Anonymise the prediction column for the job
+            let anonymised_config = config.anonymise(&columns);
+
+            let cluster = match nodepool.build_cluster(anonymised_config).await {
                 Some(c) => c,
                 _ => {
-                    log::info!("No cluster could be built");
-                    &job_control
+                    log::warn!(
+                        "Failed to build a cluster for project_id={}, requiring a configuration of: {:?}",
+                        project_id,
+                        config
+                    );
+
+                    job_control
                         .job_queue
                         .insert(index, (project_id, msg, config));
+
                     continue;
                 }
             };
@@ -197,49 +244,34 @@ pub async fn run(
             let mut validation = Vec::new();
             let test = msg.predict.trim().split('\n').skip(1).collect::<Vec<_>>();
 
-            let (prediction_column, prediction_type) = match config {
-                ClientMessage::JobConfig {
-                    ref prediction_column,
-                    prediction_type,
-                    ..
-                } => (prediction_column.to_string(), prediction_type),
-                _ => (
-                    headers.split(',').last().unwrap().to_string(),
-                    PredictionType::Classification,
-                ),
-            };
-
-            if prediction_type == PredictionType::Classification {
-                columns.insert(
-                    prediction_column.clone(),
-                    Column::categorical(&prediction_column, &data),
-                );
-            }
-
             for _ in 0..max(1, (train.len() as f64 * VALIDATION_SPLIT) as usize) {
                 validation.push(train.swap_remove(thread_rng().gen_range(0..train.len())));
             }
-            log::info!("Built validation data");
 
             let (bags, validation_ans, prediction_rids) = prepare_cluster(
                 &cluster,
                 headers,
-                train,
-                test,
-                validation,
+                &train,
+                &test,
+                &validation,
                 &columns,
-                prediction_column,
+                &config.prediction_column,
             );
+
             let info = ClusterInfo {
                 project_id: project_id.clone(),
                 columns: columns.clone(),
                 config: config.clone(),
                 validation_ans: validation_ans.clone(),
                 prediction_rids: prediction_rids.clone(),
+                node_computation_time: Duration::from_secs(
+                    (config.node_computation_time * 60) as u64,
+                ),
             };
 
             let np_clone = Arc::clone(&nodepool);
             let database_clone = Arc::clone(&database);
+
             run_cluster(
                 np_clone,
                 database_clone,
@@ -248,12 +280,12 @@ pub async fn run(
                 bags.clone(),
             )
             .await?;
+
             break;
         }
 
-        log::info!("Nothing in the JobQueue can be run");
+        log::info!("No jobs could be completed at the moment, waiting for changes");
         job_control.notify.notified().await;
-        log::info!("Something has changed!");
     }
 }
 
@@ -264,11 +296,11 @@ pub async fn run(
 pub fn prepare_cluster(
     cluster: &HashMap<String, Arc<RwLock<TcpStream>>>,
     headers: &str,
-    train: Vec<&str>,
-    test: Vec<&str>,
-    validation: Vec<&str>,
+    train: &[&str],
+    test: &[&str],
+    validation: &[&str],
     columns: &Columns,
-    prediction_column: String,
+    prediction_column: &str,
 ) -> (
     HashMap<ModelID, (String, String)>,
     HashMap<(ModelID, String), String>,
@@ -284,7 +316,7 @@ pub fn prepare_cluster(
     let mut prediction_rids: HashMap<(ModelID, String), usize> = HashMap::new();
 
     for key in cluster.keys() {
-        log::info!("BOOTSTRAPPING");
+        log::info!("Bootstrapping dataset with key={}", key);
 
         // current method resamples the same number of training examples
         let model_train: Vec<_> = train
@@ -313,11 +345,13 @@ pub fn prepare_cluster(
 
         // Add record ids to train
         let (anon_train, train_rids) = generate_ids(&anon_train);
-        log::info!(
+
+        log::trace!(
             "IDs: {:?}\nAnonymised Train: {:?}",
             &train_rids,
             &anon_train
         );
+
         // Add record ids to test
         let (anon_test, test_rids) = generate_ids(&anon_test);
 
@@ -326,16 +360,18 @@ pub fn prepare_cluster(
             prediction_rids.insert((key.clone(), rid.clone()), i);
         }
 
-        log::info!("IDs: {:?}\nAnonymised Test: {:?}", &test_rids, &anon_test);
+        log::trace!("IDs: {:?}\nAnonymised Test: {:?}", &test_rids, &anon_test);
+
         // Add record ids to validation
         let (anon_valid_ans, valid_rids) = generate_ids(&anon_valid);
-        log::info!(
+
+        log::trace!(
             "IDs: {:?}\nAnonymised Valid: {:?}",
-            &valid_rids,
-            &anon_valid_ans
+            valid_rids,
+            anon_valid_ans
         );
 
-        let mut anon_valid_ans: Vec<_> = anon_valid_ans.trim().split("\n").collect();
+        let mut anon_valid_ans: Vec<_> = anon_valid_ans.trim().lines().collect();
         let mut anon_valid: Vec<String> = Vec::new();
 
         anon_valid_ans.remove(0);
@@ -345,12 +381,12 @@ pub fn prepare_cluster(
             let values: Vec<_> = record.split(',').zip(headers.split(',')).collect();
             let anon_ans = values
                 .iter()
-                .filter_map(|(v, h)| (*h == prediction_column).then(|| *v))
-                .next()
+                .find_map(|(v, h)| (*h == prediction_column).then(|| *v))
                 .unwrap()
                 .to_string();
+
             let ans = columns
-                .get(&prediction_column)
+                .get(prediction_column)
                 .unwrap()
                 .deanonymise(anon_ans)
                 .unwrap();
@@ -359,14 +395,14 @@ pub fn prepare_cluster(
             anon_valid.push(
                 values
                     .iter()
-                    .map(|(v, h)| if *h != prediction_column { *v } else { "" })
+                    .map(|(v, h)| if *h == prediction_column { "" } else { *v })
                     .collect::<Vec<_>>()
                     .join(","),
             );
         }
 
         let mut anon_valid: Vec<&str> = anon_valid.iter().map(|s| s.as_ref()).collect();
-        let mut anon_test = anon_test.trim().split("\n").collect::<Vec<_>>();
+        let mut anon_test = anon_test.trim().lines().collect::<Vec<_>>();
 
         // Get the new anonymised headers for test set
         let new_headers = anon_test.remove(0);
@@ -377,7 +413,7 @@ pub fn prepare_cluster(
         let mut final_anon_test = vec![new_headers];
         final_anon_test.extend_from_slice(&anon_test);
 
-        log::info!("Anonymised Test with Validation: {:?}", &final_anon_test);
+        log::trace!("Anonymised Test with Validation: {:?}", &final_anon_test);
 
         // Add to bag
         bags.insert(key.clone(), (anon_train, final_anon_test.join("\n")));
@@ -405,7 +441,9 @@ async fn run_cluster(
         let train_predict = prediction_bag.get(&model_id).unwrap().clone();
 
         tokio::spawn(async move {
-            dcl_protcol(
+            let wait = info_clone.node_computation_time;
+
+            let future = dcl_protocol(
                 np_clone,
                 database_clone,
                 model_id,
@@ -414,22 +452,32 @@ async fn run_cluster(
                 cc_clone,
                 train_predict,
                 wbm_clone,
-            )
-            .await
-            .unwrap();
+            );
+
+            timeout(wait, future).await.unwrap()
         });
     }
 
     let project_id = info.project_id.clone();
 
     cc.notify.notified().await;
-    log::info!("All Jobs Complete!");
 
     let (weights, predictions) =
         ml::weight_predictions(&wbm.get_predictions(), &wbm.get_errors(), &info);
 
     // TODO: reimburse clients based on weights
     log::info!("Model weights: {:?}", weights);
+
+    for (model_id, weight) in &weights {
+        let database_clone = Arc::clone(&database);
+        reimburse(
+            database_clone,
+            &ObjectId::with_string(model_id).unwrap(),
+            info.config.cost,
+            *weight,
+        )
+        .await?;
+    }
 
     let database_clone = Arc::clone(&database);
     ml::model_performance(
@@ -454,18 +502,28 @@ async fn run_cluster(
     )
     .await?;
 
-    let csv: String = predictions.join("\n");
-
-    write_predictions(database.clone(), info.project_id, csv.as_bytes())
+    write_predictions(database.clone(), info.project_id, predictions)
         .await
-        .unwrap_or_else(|error| log::error!("Error writing predictions to DB: {}", error));
+        .unwrap_or_else(|error| {
+            log::error!("Failed to write predirections to the database: {}", error)
+        });
 
-    change_status(database, project_id, Status::Complete).await?;
+    change_status(&database, &project_id, Status::Complete).await?;
+
+    // Status has been updated to complete, so email the user
+    if let Err(e) = email_user_on_project_finish(&database, &project_id).await {
+        log::warn!(
+            "Failed to email the user upon finishing processing of project_id={}: {}",
+            project_id,
+            e
+        );
+    }
+
     Ok(())
 }
 
 /// Function to execute DCL protocol
-pub async fn dcl_protcol(
+pub async fn dcl_protocol(
     nodepool: Arc<NodePool>,
     database: Arc<Database>,
     model_id: String,
@@ -475,7 +533,7 @@ pub async fn dcl_protcol(
     train_predict: (String, String),
     write_back: WriteBackMemory,
 ) -> Result<()> {
-    log::info!("Sending a job to node with key: {}", &model_id);
+    log::debug!("Sending a job to node with id={}", model_id);
 
     let mut dcn_stream = stream.write().await;
 
@@ -495,8 +553,8 @@ pub async fn dcl_protcol(
                 cluster_control.decrement().await;
 
                 log::error!(
-                    "(Node {}) Error dealing with node predictions: {}",
-                    &model_id,
+                    "Node with id={} failed to deal with predictions: {}",
+                    model_id,
                     error
                 );
 
@@ -510,18 +568,19 @@ pub async fn dcl_protcol(
     };
     let anonymised_predictions = raw_anonymised_predictions.trim();
 
-    log::info!("Predictions: {:?}", &anonymised_predictions);
-
-    let predictions = deanonymise_dataset(&anonymised_predictions, &info.columns).unwrap();
-
     if let Some((model_predictions, model_error)) =
-        ml::evaluate_model(&model_id, &predictions, &info)
+        deanonymise_dataset(&anonymised_predictions, &info.columns)
+            .and_then(|predictions| ml::evaluate_model(&model_id, &predictions, &info))
     {
+        log::info!(
+            "Node with id={} produced {} bytes of predictions",
+            model_id,
+            anonymised_predictions.len()
+        );
         write_back.write_error(model_id.clone(), Some(model_error));
         write_back.write_predictions(model_id.clone(), model_predictions);
-        log::info!("(Node: {}) Computed Data: {}", &model_id, predictions);
     } else {
-        log::info!("(Node: {}) Failed to respond to all examples", &model_id);
+        log::warn!("Node with id={} failed to respond correctly", model_id);
         write_back.write_error(model_id.clone(), None);
     }
 
@@ -535,18 +594,28 @@ pub async fn dcl_protcol(
 }
 
 /// Writes predictions back to the Mongo database for long term storage.
+///
+/// Write predictions back to the database using the GridFS interface. This allows
+/// bigger files to be stored for long term storage of results.
 pub async fn write_predictions(
     database: Arc<Database>,
     id: ObjectId,
-    dataset: &[u8],
+    dataset: Vec<String>,
 ) -> Result<()> {
     let predictions = database.collection("predictions");
 
-    // Compress the data and make a new struct instance
-    let compressed = compress_bytes(dataset)?;
-    let prediction = Prediction::new(id, compressed);
+    let mut pred_dataset = gridfs::File::new(String::from("predictions"));
+
+    for chunk in dataset.chunks(PREDICTION_CHUNK_SIZE) {
+        let joined = chunk.join("\n");
+        let compressed = Bytes::from(compress_data(&joined)?);
+        pred_dataset.upload_chunk(&database, &compressed).await?;
+    }
+
+    pred_dataset.finalise(&database).await?;
 
     // Convert to a document and insert it
+    let prediction = Prediction::new(id, pred_dataset.id);
     let document = mongodb::bson::ser::to_document(&prediction)?;
     predictions.insert_one(document, None).await?;
 
@@ -558,6 +627,8 @@ pub async fn increment_run_count(database: Arc<Database>, model_id: &str) -> Res
     let models = database.collection("models");
     let object_id = ObjectId::with_string(model_id)?;
 
+    log::debug!("Incrementing the run count for model with id={}", model_id);
+
     let query = doc! {"_id": &object_id};
     let update = doc! { "$inc": { "times_run": 1 } };
     models.update_one(query, update, None).await?;
@@ -567,19 +638,85 @@ pub async fn increment_run_count(database: Arc<Database>, model_id: &str) -> Res
 
 /// Change the status of a project after it has been completed
 pub async fn change_status(
-    database: Arc<Database>,
-    project_id: ObjectId,
+    database: &Arc<Database>,
+    project_id: &ObjectId,
     status: Status,
 ) -> Result<()> {
     let projects = database.collection("projects");
 
+    log::info!("Setting status={:?} for project_id={}", status, project_id);
+
     projects
         .update_one(
-            doc! { "_id": &project_id},
+            doc! { "_id": project_id},
             doc! {"$set": {"status": status}},
             None,
         )
         .await?;
+
+    Ok(())
+}
+
+/// Emails the user to inform them the project has finished.
+///
+/// If any of the appropriate environment variables are not set (being the `FROM_ADDRESS`,
+/// `FROM_NAME` and `APP_PASSWORD`), no emails will sent. Otherwise, this will retrieve the project
+/// information from the database and the user who created it, before formatting an email and
+/// sending it to them. This is currently hardcoded to use Google's mail servers and is largely
+/// based on similar code that runs the email system for `blackboards.pl`.
+pub async fn email_user_on_project_finish(
+    database: &Arc<Database>,
+    project_id: &ObjectId,
+) -> Result<()> {
+    let users = database.collection("users");
+    let projects = database.collection("projects");
+
+    // Find the project itself and convert it
+    let document = projects
+        .find_one(doc! { "_id": &project_id }, None)
+        .await?
+        .expect("Project did not exist in the database");
+
+    let project = from_document::<Project>(document)?;
+
+    // Find the user associated with the project and deserialize it
+    let user_document = users
+        .find_one(doc! { "_id": &project.user_id }, None)
+        .await?
+        .expect("Failed to find user associated with project");
+
+    let user: User = from_document(user_document)?;
+
+    // Get the configuration from the environment if it exists
+    let email_config = Config::from_env()?;
+
+    // Form the sender and receiver addresses, as well as the body
+    let from = format!("{} <{}>", email_config.from_name, email_config.from_address);
+    let to = format!("{} {} <{}>", user.first_name, user.last_name, user.email);
+    let body = format!(
+        r#"Hi {},
+
+Your project '{}' has finished processing, and results are now available. You can view them at https://sybl.tech/dashboard/{}"#,
+        user.first_name, project.name, project_id
+    );
+
+    // Build the message to send
+    let email = Message::builder()
+        .from(from.parse()?)
+        .to(to.parse()?)
+        .subject("Sybl Project Completion")
+        .body(body)?;
+
+    // Use the credentials from the configuration parsed earlier
+    let creds = Credentials::new(email_config.from_address, email_config.app_password);
+
+    // Open a remote connection to gmail
+    let mailer = AsyncSmtpTransport::<Tokio1Executor>::relay("smtp.gmail.com")?
+        .credentials(creds)
+        .build();
+
+    // Send the email itself
+    mailer.send(email).await?;
 
     Ok(())
 }

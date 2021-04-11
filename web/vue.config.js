@@ -4,5 +4,6 @@ module.exports = {
     devServer: {
         progress: false
     },
-    publicPath: "/"
+    publicPath: "/",
+    runtimeCompiler: true
 }

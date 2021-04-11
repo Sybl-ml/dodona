@@ -74,6 +74,7 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
             .allow_any_origin()
             .allow_any_method()
             .allow_any_header()
+            .disable_vary_header()
             .max_age(3600);
 
         // launch http server
@@ -104,20 +105,28 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
             )
             .route("/api/projects/new", web::post().to(routes::projects::new))
             .route(
-                "/api/projects/{project_id}/data",
-                web::put().to(routes::projects::add_data),
+                "/api/projects/{project_id}/upload_and_split",
+                web::put().to(routes::projects::upload_and_split),
+            )
+            .route(
+                "/api/projects/{project_id}/upload_train_and_predict",
+                web::put().to(routes::projects::upload_train_and_predict),
             )
             .route(
                 "/api/projects/{project_id}/overview",
                 web::post().to(routes::projects::overview),
             )
             .route(
-                "/api/projects/{project_id}/data",
-                web::get().to(routes::projects::get_data),
+                "/api/projects/{project_id}/data/{dataset_type}",
+                web::get().to(routes::projects::get_dataset),
             )
             .route(
                 "/api/projects/{project_id}/data",
                 web::delete().to(routes::projects::remove_data),
+            )
+            .route(
+                "/api/projects/{project_id}/pagination/{dataset_type}",
+                web::get().to(routes::projects::pagination),
             )
             .route(
                 "/api/projects/{project_id}/process",
@@ -160,6 +169,14 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
             .route("/api/users", web::get().to(routes::users::get))
             .route("/api/users/filter", web::post().to(routes::users::filter))
             .route("/api/users/new", web::post().to(routes::users::new))
+            .route(
+                "/api/users/avatar",
+                web::post().to(routes::users::new_avatar),
+            )
+            .route(
+                "/api/users/avatar",
+                web::get().to(routes::users::get_avatar),
+            )
             .route("/api/users/edit", web::post().to(routes::users::edit))
             .route("/api/users/login", web::post().to(routes::users::login))
             .route("/api/users/delete", web::post().to(routes::users::delete))

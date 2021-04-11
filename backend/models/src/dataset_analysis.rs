@@ -19,6 +19,12 @@ pub struct DatasetAnalysis {
 impl DatasetAnalysis {
     /// Creates a new instance of [`DatasetDetails`].
     pub fn new(project_id: ObjectId, columns: HashMap<String, ColumnAnalysis>) -> Self {
+        log::debug!(
+            "Creating a new analysis for project_id={}, columns={:?}",
+            project_id,
+            columns
+        );
+
         Self {
             id: ObjectId::new(),
             project_id,
@@ -28,6 +34,8 @@ impl DatasetAnalysis {
 
     pub async fn delete(&self, database: &mongodb::Database) -> mongodb::error::Result<()> {
         let dataset_analysis = database.collection("dataset_analysis");
+
+        log::debug!("Deleting analysis with id={}", self.id);
 
         let filter = doc! {"_id": &self.id};
         dataset_analysis.delete_one(filter, None).await?;
@@ -54,6 +62,8 @@ pub struct NumericalAnalysis {
     pub min: f64,
     pub sum: f64,
     pub avg: f64,
+    /// All the values in the column
+    pub values: HashMap<String, i64>,
 }
 
 impl Default for NumericalAnalysis {
@@ -63,6 +73,7 @@ impl Default for NumericalAnalysis {
             min: f64::MAX,
             sum: 0.0,
             avg: 0.0,
+            values: HashMap::new(),
         }
     }
 }
