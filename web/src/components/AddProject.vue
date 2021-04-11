@@ -31,7 +31,6 @@
             v-model="tags"
           ></b-form-tags>
         </template>
-
         <template v-slot:2>
           <b-card-text>
             Please upload a dataset...
@@ -41,7 +40,6 @@
             <strong>TIP:</strong> You can upload a dataset later
           </b-alert></template
         >
-
         <template v-slot:3>
           <b-card-text>Confirm the Details Below Before Creation</b-card-text>
           <b-table striped hover :items="reviewItems"></b-table>
@@ -141,63 +139,57 @@ export default {
     async onSubmit() {
       this.submitted = true;
       this.upload_in_progress = true;
+
       try {
-        let project_response = await this.$http.post(`api/projects/new`, {
+        let project_response = await this.$store.dispatch("postNewProject", {
           name: this.name,
           description: this.description,
           tags: this.tags,
         });
 
         this.project_id = project_response.data.project_id.$oid;
-      } catch (err) {
-        console.log(err);
-      }
-      if (this.file) {
-        this.processFile()
-      }
-      
-      await this.sleep(100);
-      
-      this.$router.replace("/dashboard/" + this.project_id);
-      this.$emit("insert:project", this.project_id);
-    },
-    async sendFile(file, name) {
-      let project_response = await this.$http.put(
-        `api/projects/${this.project_id}/data`,
-        {
-          name: name,
-          content: file,
+
+        this.$store.dispatch("addProject", this.project_id);
+        if (this.file) {
+          await this.processFile();
         }
-      );
+        this.$router.replace(`/dashboard/${this.project_id}`);
+      } catch (error) {
+        console.error(error);
+      }
     },
     async processFile() {
+      console.log("Processing uploaded data");
       if (this.file.file) {
         try {
-          const file = await readUploadedFileAsText(this.file.file);
-          this.sendFile(file, this.file.file.name);
+          console.log("Processing single file");
+          let payload = {
+            project_id: this.project_id,
+            multipart: false,
+            files: this.file.file,
+          };
+          this.$store.dispatch("sendFile", payload);
         } catch (e) {
           console.warn(e.message);
         }
-      }
-      else if (this.file.train){
+      } else if (this.file.train) {
+        // Use train endpoint and predict endpoint
+        console.log("Processing 2 files");
         try {
-          let train = await readUploadedFileAsText(this.file.train);
-          let predict = await readUploadedFileAsText(this.file.predict);
-          let trainLine = train.split('\n')[0]
-          let predictLine = predict.split('\n')[0]
-
-          if (trainLine == predictLine) {
-            let lines = predict.split('\n');
-            lines.splice(0,1);
-            let file = train + lines.join('\n');
-            
-            this.sendFile(file, this.file.train.name);
-          }
+          let payload = {
+            project_id: this.project_id,
+            multipart: true,
+            files: {
+              train: this.file.train,
+              predict: this.file.predict,
+            },
+          };
+          this.$store.dispatch("sendFile", payload);
         } catch (e) {
           console.warn(e.message);
         }
       }
-    }
+    },
   },
 };
 </script>

@@ -19,7 +19,7 @@
         <h4>Linked Dataset:</h4>
         <b-button-group size="sm" class="mb-3">
           <b-button variant="secondary" @click="$emit('input-tab')">{{
-            datasetName
+            dataset_name
           }}</b-button>
           <b-button variant="outline-secondary" v-b-modal.deleteDataCheck
             >X</b-button
@@ -32,7 +32,7 @@
           title="Are your sure?"
           hide-footer
         >
-          <p>You are removing {{ datasetName }} from this project</p>
+          <p>You are removing {{ dataset_name }} from this project</p>
           <p>Please confirm you are happy to continue</p>
           <b-row class="justify-content-center text-center">
             <b-button class="m-2" variant="success" @click="deleteDataset"
@@ -66,6 +66,7 @@
               id="dropdown-form-timeout"
               size="sm"
               type="number"
+              min="1"
               v-model="nodeComputationTime"
             ></b-form-input>
           </b-form-group>
@@ -77,6 +78,7 @@
               id="dropdown-form-cluster-size"
               size="sm"
               type="number"
+              min="1"
               v-model="cluster_size"
             ></b-form-input>
           </b-form-group>
@@ -120,8 +122,11 @@
           >Upload</b-button
         >
       </b-col>
-      <b-col lg="4" sm="12" >
-        <b-card class="h-100 shadow" v-if="!checkStatus('Unfinished') & analysis_loaded">
+      <b-col lg="4" sm="12">
+        <b-card
+          class="h-100 shadow"
+          v-if="!checkStatus('Unfinished') & analysis_loaded"
+        >
           <template #header>
             <h4 class="mb-0">Analysis</h4>
           </template>
@@ -205,21 +210,6 @@ import DataAnalyticsBar from "@/components/charts/DataAnalyticsBar";
 import NumericalDataAnalyticsBar from "@/components/charts/NumericalDataAnalyticsBar";
 import FileUpload from "@/components/FileUpload";
 
-const readUploadedFileAsText = (inputFile) => {
-  const temporaryFileReader = new FileReader();
-  return new Promise((resolve, reject) => {
-    temporaryFileReader.onerror = () => {
-      temporaryFileReader.abort();
-      reject(new DOMException("Problem parsing input file."));
-    };
-
-    temporaryFileReader.onload = () => {
-      resolve(temporaryFileReader.result);
-    };
-    temporaryFileReader.readAsText(inputFile);
-  });
-};
-
 export default {
   name: "ProjectOverview",
   components: {
@@ -257,19 +247,19 @@ export default {
   props: {
     projectId: String,
     description: String,
-    datasetName: String,
-    dataDate: Date,
-    dataHead: Object,
-    dataTypes: Object,
     status: String,
+    dataset_name: String,
+    dataset_head: Object,
+    dataset_date: Date,
+    dataset_types: Object,
     analysis: Object,
     analysis_loaded: Boolean,
   },
   computed: {
     getDatasetDate() {
-      return `${this.dataDate.toLocaleString("en-GB", {
+      return `${this.dataset_date.toLocaleString("en-GB", {
         dateStyle: "short",
-      })} - ${this.dataDate.toLocaleString("en-GB", {
+      })} - ${this.dataset_date.toLocaleString("en-GB", {
         timeStyle: "short",
       })}`;
     },
@@ -285,7 +275,7 @@ export default {
       }
     },
     getColumnNames() {
-      let keys = Object.keys(this.dataTypes);
+      let keys = Object.keys(this.dataset_types);
       let options = [
         {
           value: null,
@@ -309,27 +299,15 @@ export default {
   },
   methods: {
     async start() {
-      this.nodeComputationTime = parseInt(this.nodeComputationTime);
-      this.cluster_size = parseInt(this.cluster_size);
-      if (this.nodeComputationTime <= 0) {
-        this.nodeComputationTime = 1;
-      }
-      if (this.cluster_size <= 0) {
-        this.cluster_size = 1;
-      }
-      try {
-        await this.$http.post(`api/projects/${this.projectId}/process`, {
-          nodeComputationTime: this.nodeComputationTime,
-          clusterSize: this.cluster_size,
-          predictionType: this.problemType,
-          predictionColumn: this.predColumn,
-        });
-      } catch (err) {
-        console.log(err);
-      }
+      let payload = {
+        projectId: this.projectId,
+        node_computation_time: this.nodeComputationTime,
+        cluster_size: this.cluster_size,
+        prediction_type: this.problemType,
+        prediction_column: this.predColumn,
+      };
 
-      // this.$router.replace("/dashboard/"+this.projectId);
-      this.$emit("update:project", this.projectId);
+      this.$store.dispatch("startProcessing", payload);
     },
     async deleteDataset() {
       try {
@@ -343,49 +321,17 @@ export default {
 
       window.location.reload();
     },
-    async sendFile(file) {
-
-      let formData = new FormData();
-
-      formData.append("dataset", file);
-
-      let config = { headers: { 'Content-Type': 'multipart/form-data' } };
-
-      let project_response = await this.$http.put(
-        `api/projects/${this.projectId}/upload_and_split`, formData, config
-      );
-
-      console.log(project_response)
-      
-      // On Success should update dashboard using emitters
-      window.location.reload();
-    },
-
-    async sendMultiFile(train, predict) {
-
-      let formData = new FormData();
-
-      formData.append("train", train);
-      formData.append("predict", predict);
-
-      let config = { headers: { 'Content-Type': 'multipart/form-data' } };
-
-      let project_response = await this.$http.put(
-        `api/projects/${this.projectId}/upload_train_and_predict`, formData, config
-      );
-
-      console.log(project_response)
-      
-      // On Success should update dashboard using emitters
-      window.location.reload();
-    },
-    
     async processFile() {
       console.log("Processing uploaded data");
       if (this.file.file) {
         try {
           console.log("Processing single file");
-          this.sendFile(this.file.file);
+          let payload = {
+            project_id: this.projectId,
+            multipart: false,
+            files: this.file.file,
+          };
+          this.$store.dispatch("sendFile", payload);
         } catch (e) {
           console.warn(e.message);
         }
@@ -393,7 +339,15 @@ export default {
         // Use train endpoint and predict endpoint
         console.log("Processing 2 files");
         try {
-          this.sendMultiFile(this.file.train, this.file.predict);
+          let payload = {
+            project_id: this.projectId,
+            multipart: true,
+            files: {
+              train: this.file.train,
+              predict: this.file.predict,
+            },
+          };
+          this.$store.dispatch("sendFile", payload);
         } catch (e) {
           console.warn(e.message);
         }
