@@ -1,23 +1,32 @@
 <template>
-  <b-navbar :key="$route.fullPath">
+  <b-navbar :key="$route.fullPath" toggleable="md">
     <b-navbar-brand :to="logoRoute">
       <icon-logo width="5em" height="3em" :show_text="true" />
     </b-navbar-brand>
-    <b-navbar-nav v-if="atDashboard">
+    <b-navbar-toggle target="landingCollapse"> </b-navbar-toggle>
+    <b-collapse is-nav id="landingCollapse" v-if="atDashboard">
+    <b-navbar-nav>
       <b-nav-item disabled> {{ time }} </b-nav-item>
     </b-navbar-nav>
-    <b-navbar-nav v-else-if="atLanding">
-      <b-nav-item>Product</b-nav-item>
-      <b-nav-item>Meet the Team</b-nav-item>
-      <b-nav-item>Pricing</b-nav-item>
-      <b-nav-item>Guides</b-nav-item>
-    </b-navbar-nav>
+    </b-collapse>
 
+    <b-collapse is-nav id="landingCollapse" v-else-if="atLanding">
+      <b-navbar-nav>
+        <b-nav-item>Product</b-nav-item>
+        <b-nav-item>Meet the Team</b-nav-item>
+        <b-nav-item>Pricing</b-nav-item>
+        <b-nav-item>Guides</b-nav-item>
+      </b-navbar-nav>
+    </b-collapse>
+    <b-collapse is-nav id="landingCollapse" v-if="loggedIn">
     <b-navbar-nav class="ml-auto" v-if="loggedIn">
       <b-nav-item disabled>{{ credits }} Credits</b-nav-item>
       <b-nav-item-dropdown right>
         <template #button-content>
-          <b-avatar size="1.75em" :src="'data:image/png;base64,'+avatar"></b-avatar>
+          <b-avatar
+            size="1.75em"
+            :src="'data:image/png;base64,' + avatar"
+          ></b-avatar>
           {{ name }}
         </template>
         <b-dropdown-item disabled>{{ email }}</b-dropdown-item>
@@ -34,13 +43,18 @@
         <b-dropdown-item @click="signout">Sign Out</b-dropdown-item>
       </b-nav-item-dropdown>
     </b-navbar-nav>
+    </b-collapse>
 
-    <b-navbar-nav v-else class="ml-auto">
-      <b-nav-form>
-        <b-nav-item><router-link to="/login">Sign In</router-link></b-nav-item>
-        <b-button variant="primary" to="/register">SIGN UP NOW</b-button>
-      </b-nav-form>
-    </b-navbar-nav>
+    <b-collapse is-nav id="landingCollapse" v-else>
+      <b-navbar-nav class="ml-auto">
+        <b-nav-form>
+          <b-nav-item class="mr-1"
+            ><router-link to="/login">Sign In</router-link></b-nav-item
+          >
+          <b-button variant="primary" to="/register">SIGN UP NOW</b-button>
+        </b-nav-form>
+      </b-navbar-nav>
+    </b-collapse>
   </b-navbar>
 </template>
 
@@ -84,9 +98,7 @@ export default {
         return;
       }
       try {
-        let user_data = await this.$http.get(
-          `api/users`
-        );
+        let user_data = await this.$http.get(`api/users`);
         this.name = user_data.data.first_name + " " + user_data.data.last_name;
         this.email = user_data.data.email;
         this.client = user_data.data.client;
@@ -101,7 +113,7 @@ export default {
       this.getUserData();
 
       let pageName = this.$route.name;
-      
+
       this.loggedIn = user_id ? true : false;
       this.logoRoute = user_id ? "/dashboard" : "/";
 
@@ -112,12 +124,12 @@ export default {
         pageName === "ProjectView" ||
         pageName === "Nodes";
     },
-    async getAvatar () {
-      let response = await this.$http.get(
-        `api/users/avatar`
-      );
-      console.log(response)
-      this.avatar = response.data.img;
+    async getAvatar() {
+      if (!atLanding) {
+        let response = await this.$http.get(`api/users/avatar`);
+        console.log(response);
+        this.avatar = response.data.img;
+      }
     },
   },
   async mounted() {

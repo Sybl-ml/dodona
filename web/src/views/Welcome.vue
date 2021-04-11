@@ -3,8 +3,17 @@
     <b-row class="pb-3 justify-content-center">
       <b-col class="main" md="12" lg="6">
         <b-row class="justify-content-center">
+           <icon-logo
+          class="mt-5 mb-2"
+          height="10em"
+          width="25em"
+          :show_text="false"
+        />
+        </b-row>
+        <b-row class="justify-content-center">
           <b-col md="12" lg="8">
-            <h1 class="title">Data Science. Simplified.</h1>
+            <h1 class="title">Data Science.</h1>
+            <h1 class="title">Simplified.</h1>
             <br />
             <h3 class="subtitle">
               Get access to Machine Learning with a no-code solution.
@@ -19,7 +28,6 @@
           </b-col>
         </b-row>
       </b-col>
-
     </b-row>
 
     <waves />
@@ -34,7 +42,7 @@
         </h4>
       </b-row>
       <b-row class="justify-content-center mr-0 ml-0">
-        <b-col cols="auto" class="detail_card">
+        <b-col cols="auto" class="m-3">
           <b-card
             tag="article"
             style="max-width: 20rem"
@@ -49,7 +57,7 @@
             </b-card-text>
           </b-card>
         </b-col>
-        <b-col cols="auto" class="detail_card">
+        <b-col cols="auto" class="m-3">
           <b-card
             tag="article"
             style="max-width: 20rem"
@@ -65,8 +73,8 @@
           </b-card>
         </b-col>
       </b-row>
-      <b-row class="justify-content-center m-3">
-        <b-col cols="auto" class="detail_card">
+      <b-row class="justify-content-center">
+        <b-col cols="auto" class="m-3">
           <b-card
             tag="article"
             style="max-width: 20rem"
@@ -81,7 +89,7 @@
             </b-card-text>
           </b-card>
         </b-col>
-        <b-col cols="auto">
+        <b-col cols="auto" class="m-3">
           <b-card
             tag="article"
             style="max-width: 20rem"
@@ -206,7 +214,6 @@ body {
 }
 
 .title {
-  padding-top: 8rem;
   font-weight: bold;
   font-size: 4rem;
 }
@@ -247,6 +254,7 @@ body {
 </style>
 
 <script>
+import IconLogo from "@/components/icons/IconLogo";
 import LandingImage from "@/components/icons/LandingImage";
 import Waves from "@/components/icons/waves";
 import { ParticlesBg } from "particles-bg-vue";
@@ -257,6 +265,7 @@ export default {
     landing: LandingImage,
     Waves,
     ParticlesBg,
+    IconLogo,
   },
 };
 </script>
