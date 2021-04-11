@@ -745,7 +745,7 @@ async fn zip(
     tokio::join!(left.next(), right.next())
 }
 
-async fn chunk_to_bytes(chunk: Document) -> ServerResult<Vec<u8>> {
+fn chunk_to_bytes(chunk: Document) -> ServerResult<Vec<u8>> {
     let chunk: gridfs::Chunk = from_document(chunk)?;
     let chunk_bytes = chunk.data.bytes;
     Ok(decompress_data(&chunk_bytes)?)
@@ -785,7 +785,7 @@ async fn data_collection(
     while let Some(chunk) = cursor.next().await {
         // Get the number of the chunk
         let chunk_num = chunk_vec_iter.next().unwrap();
-        let decomp_data: Vec<u8> = chunk_to_bytes(chunk?).await?;
+        let decomp_data: Vec<u8> = chunk_to_bytes(chunk?)?;
         if *chunk_num == 0 {
             // Get header
             let header_idx = decomp_data
