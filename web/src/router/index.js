@@ -3,6 +3,7 @@ import VueRouter from "vue-router";
 import Welcome from "../views/Welcome.vue";
 import Login from "../views/Login.vue";
 import Register from "../views/Register.vue";
+import Pricing from "../views/Pricing.vue";
 import Nodes from "../views/Nodes.vue";
 import Confirm from "../views/Confirm.vue";
 import Settings from "../views/Settings.vue";
@@ -28,6 +29,11 @@ const routes = [
     path: "/register",
     name: "Register",
     component: Register,
+  },
+  {
+    path: "/pricing",
+    name: "Pricing",
+    component: Pricing,
   },
   {
     path: "/client/confirm",
@@ -79,7 +85,7 @@ const router = new VueRouter({
 router.beforeEach((to, from, next) => {
   let access_token = Vue.$cookies.get("token");
   if (access_token === null) {
-    if (to.name === "Login" || to.name === "Register" || to.name === "Welcome")
+    if (to.name === "Login" || to.name === "Register" || to.name === "Welcome" || to.name == "Pricing")
       next();
     else next({ name: "Login" });
   } else {
