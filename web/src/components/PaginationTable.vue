@@ -33,6 +33,7 @@ import Vuetable from "vuetable-2/src/components/Vuetable";
 import VuetablePagination from "vuetable-2/src/components/VuetablePagination";
 import PaginationTableStyle from "@/assets/css/PaginationTableStyle.js";
 import _ from "lodash";
+import Papa from "papaparse";
 
 export default {
   name: "PaginationTable",
@@ -46,45 +47,51 @@ export default {
       css: PaginationTableStyle,
       perPage: 10,
       options: [10, 25, 50, 100],
+      fields: []
     };
   },
   props: {
-    data: Array,
-    fields: Array,
+    projectId: String,
+    dataset_type: String,
   },
 
   methods: {
+    vuetable() {
+      return this.$refs.vuetable
+    },
     onPaginationData(paginationData) {
       this.$refs.pagination.setPaginationData(paginationData);
     },
     onChangePage(page) {
       this.$refs.vuetable.changePage(page);
     },
-    dataManager(sortOrder, pagination) {
-      if (this.data.length < 1) return;
+    async dataManager(sortOrder, pagination) {
+      // Query endpoint for the page that is needed
+      // Wait for return
+      let page_data = await this.$http.get(
+        `api/projects/${this.projectId}/pagination/${this.dataset_type}?page=${pagination.current_page}&per_page=${this.perPage}`
+      );
 
-      let local = this.data;
+      console.log(page_data);
+      // Set fields
+      let total = page_data.data.total;
+      let local = page_data.data.data;
+      this.fields = page_data.data.fields.split(",");
 
-      // sortOrder can be empty, so we have to check for that as well
-      if (sortOrder.length > 0) {
-        local = _.orderBy(
-          local,
-          sortOrder[0].sortField,
-          sortOrder[0].direction
-        );
-      }
+      let with_header = page_data.data.fields.concat("\n").concat(local);
 
+      let parsed = Papa.parse(with_header, { header: true });
+
+      // do pagination calculations
       pagination = this.$refs.vuetable.makePagination(
-        local.length,
+        total,
         this.perPage
       );
-      
-      let from = pagination.from - 1;
-      let to = from + this.perPage;
 
+      // return data from endpoint
       return {
         pagination: pagination,
-        data: _.slice(local, from, to),
+        data: parsed.data,
       };
     },
   },

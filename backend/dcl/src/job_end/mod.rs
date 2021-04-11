@@ -204,6 +204,13 @@ pub async fn run(
 
             let mut columns = infer_dataset_columns(&data).unwrap();
 
+            if config.prediction_type == PredictionType::Classification {
+                columns.insert(
+                    config.prediction_column.clone(),
+                    Column::categorical(&config.prediction_column, &data),
+                );
+            }
+
             // Anonymise the prediction column for the job
             let anonymised_config = config.anonymise(&columns);
 
@@ -236,13 +243,6 @@ pub async fn run(
             let headers = train.remove(0);
             let mut validation = Vec::new();
             let test = msg.predict.trim().split('\n').skip(1).collect::<Vec<_>>();
-
-            if config.prediction_type == PredictionType::Classification {
-                columns.insert(
-                    config.prediction_column.clone(),
-                    Column::categorical(&config.prediction_column, &data),
-                );
-            }
 
             for _ in 0..max(1, (train.len() as f64 * VALIDATION_SPLIT) as usize) {
                 validation.push(train.swap_remove(thread_rng().gen_range(0..train.len())));

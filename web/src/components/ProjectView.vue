@@ -1,6 +1,9 @@
 <template>
   <b-container fluid>
-    <b-card style="height:7rem;border:none;box-shadow:none">
+    <b-card
+      class="view"
+      style="height: 7rem; border: none; box-shadow: none; background: none"
+    >
       <h2>{{ name }}</h2>
       <p>
         {{ getProjectDate }}
@@ -32,16 +35,11 @@
             v-on:input-tab="viewInput"
           />
         </b-tab>
-        <b-tab title="Input" ref="inputTab" :disabled="datasetName == '' ">
+        <b-tab title="Input" ref="inputTab" :disabled="datasetName == ''">
           <project-input
             :projectId="projectId"
             :key="projectId"
-            :dataHead="dataHead"
-            @get-data="fetchData"
-            :training_data="training_data"
-            :predict_data="predict_data"
             :datasetName="datasetName"
-            :loading="loading"
           />
         </b-tab>
         <b-tab title="Output" lazy :disabled="false">
@@ -49,11 +47,7 @@
             :disabled="!results"
             :projectId="projectId"
             :key="projectId"
-            @get-results="fetchResults"
-            :results="results"
-            :predict_data="predict_data"
             :datasetName="datasetName"
-            :loading="results_loading"
           />
         </b-tab>
         <b-tab title="Settings" lazy>
@@ -119,7 +113,7 @@ export default {
     ProjectSettings,
   },
   watch: {
-    projectId: function() {
+    projectId: function () {
       this.resetProject();
       this.fetchProject();
       this.$refs.overviewTab.activate();
@@ -154,43 +148,6 @@ export default {
         this.analysis_loaded = true;
       }
     },
-    async fetchData() {
-      this.loading = true;
-
-      let train_response = await this.$http.get(
-        `api/projects/${this.projectId}/data/train`
-      );
-
-      let train = train_response.data;
-
-      this.training_data = Papa.parse(train, { header: true });
-
-      let predict_response = await this.$http.get(
-        `api/projects/${this.projectId}/data/predict`
-      );
-
-      let predict = predict_response.data;
-
-      this.predict_data = Papa.parse(predict, { header: true });
-
-      this.loading = false;
-    },
-    async fetchResults() {
-      this.results_loading = true;
-
-      let project_predict = await this.$http.get(
-        `api/projects/${this.projectId}/data/predict`
-      );
-
-
-      let project_predictions = await this.$http.get(
-        `api/projects/${this.projectId}/predictions`
-      );
-
-      this.results = project_predictions.data;
-      this.predict_data = project_predict.data;
-      this.results_loading = false;
-    },
     resetProject() {
       // this.name = "";
       // this.description = "";
@@ -205,7 +162,7 @@ export default {
       this.results = null;
       this.predict_data = null;
       this.training_data = null;
-      
+
       this.prediction_data = null;
       this.loading = false;
       this.results_loading = false;

@@ -13,6 +13,7 @@ use actix_web::{
     HttpResponse,
 };
 use futures::stream::poll_fn;
+use itertools::Itertools;
 use mongodb::{
     bson::{de::from_document, doc, document::Document, oid::ObjectId, ser::to_document},
     Collection,
@@ -51,8 +52,32 @@ static CHUNK_SIZE: usize = 10_000;
 pub enum DatasetType {
     /// Training dataset type
     Train,
-    /// Predict dataset type
+    /// Predict dataset type. Represents just predict data
     Predict,
+    /// Prediction dataset type. Represents both predict and predictions data
+    Prediction,
+}
+
+/// Struct to capture query string information
+#[derive(Deserialize, Debug)]
+pub struct QueryInfo {
+    /// Sort order for data
+    pub sort: Option<String>,
+    /// What page is being viewed
+    pub page: usize,
+    /// How many items per page
+    pub per_page: usize,
+}
+
+/// Struct to capture query string information
+#[derive(Deserialize, Debug)]
+pub struct DataCollection {
+    /// Min row being collected
+    pub min_row: usize,
+    /// Max row being collected
+    pub max_row: usize,
+    /// Lower chunk id
+    pub lower_chunk: usize,
 }
 
 /// Finds a project in the database given an identifier.
@@ -291,7 +316,7 @@ pub async fn upload_train_and_predict(
             dataset_details
                 .update_one(
                     doc! { "project_id": &object_id},
-                    doc! {"$set": {"predict_size": ((data_size + 99) / 100) * 100}},
+                    doc! {"$set": {"train_size": data_size}},
                     None,
                 )
                 .await?;
@@ -301,7 +326,7 @@ pub async fn upload_train_and_predict(
             dataset_details
                 .update_one(
                     doc! { "project_id": &object_id},
-                    doc! {"$set": {"predict_size": ((data_size + 99) / 100) * 100}},
+                    doc! {"$set": {"predict_size": data_size }},
                     None,
                 )
                 .await?;
@@ -497,12 +522,12 @@ pub async fn upload_and_split(
 
     // Update dataset details with train and predict sizes
     dataset_details
-    .update_one(
-        doc! { "project_id": &object_id},
-        doc! {"$set": {"train_size": ((train_size + 99) / 100) * 100, "predict_size": ((predict_size + 99) / 100) * 100}},
-        None,
-    )
-    .await?;
+        .update_one(
+            doc! { "project_id": &object_id},
+            doc! {"$set": {"train_size": train_size, "predict_size": predict_size }},
+            None,
+        )
+        .await?;
 
     // Check whether the project has data already
     let existing_data = datasets
@@ -566,6 +591,7 @@ pub async fn get_dataset(
     extractor: web::Path<(String, DatasetType)>,
 ) -> ServerResponse {
     let datasets = state.database.collection("datasets");
+    let predictions = state.database.collection("predictions");
     let projects = state.database.collection("projects");
     let files = state.database.collection("files");
 
@@ -585,13 +611,13 @@ pub async fn get_dataset(
     // Parse the dataset itself
     let dataset: Dataset = from_document(document)?;
 
-    // Decide which file to find based on the request type
-    let id = match dataset_type {
-        DatasetType::Train => &dataset.dataset,
-        DatasetType::Predict => &dataset.predict,
+    // Decide filter based off enum
+    let filter = match dataset_type {
+        DatasetType::Train => doc! { "_id": &dataset.dataset },
+        DatasetType::Predict => doc! { "_id": &dataset.predict },
+        // Need to find a way to stream combined version
+        DatasetType::Prediction => doc! { "_id": &dataset.predict },
     };
-
-    let filter = doc! { "_id": id };
 
     // Find the file in the database
     let document = files
@@ -603,22 +629,416 @@ pub async fn get_dataset(
     let file: gridfs::File = from_document(document)?;
 
     let mut cursor = file.download_chunks(&state.database).await?;
-    let byte_stream = poll_fn(
-        move |_| -> Poll<Option<Result<Bytes, actix_web::error::Error>>> {
-            // While Cursor not empty
-            match futures::executor::block_on(cursor.next()) {
-                Some(next) => {
-                    let chunk: gridfs::Chunk = from_document(next.unwrap()).unwrap();
-                    let chunk_bytes = chunk.data.bytes;
-                    let decomp_train = decompress_data(&chunk_bytes).unwrap();
-                    Poll::Ready(Some(Ok(Bytes::from(decomp_train))))
-                }
-                None => Poll::Ready(None),
-            }
-        },
-    );
 
-    Ok(HttpResponseBuilder::new(StatusCode::OK).streaming(byte_stream))
+    match dataset_type {
+        DatasetType::Prediction => {
+            let filter = doc! { "project_id": &object_id };
+
+            // Find the dataset in the database
+            let document = predictions
+                .find_one(filter, None)
+                .await?
+                .ok_or(ServerError::NotFound)?;
+
+            // Parse the prediction itself
+            let prediction: Prediction = from_document(document)?;
+
+            let filter = doc! { "_id": &prediction.predictions };
+
+            // Find the file in the database
+            let document = files
+                .find_one(filter, None)
+                .await?
+                .ok_or(ServerError::NotFound)?;
+
+            // Parse the dataset itself
+            let predictions_file: gridfs::File = from_document(document)?;
+
+            let mut predictions_cursor = predictions_file.download_chunks(&state.database).await?;
+
+            let mut initial: bool = true;
+
+            let byte_stream = poll_fn(
+                move |_| -> Poll<Option<Result<Bytes, actix_web::error::Error>>> {
+                    // While Cursor not empty
+                    match futures::executor::block_on(zip(&mut predictions_cursor, &mut cursor)) {
+                        (Some(prediction_chunk), Some(predict_chunk)) => {
+                            let chunk: gridfs::Chunk =
+                                from_document(predict_chunk.unwrap()).unwrap();
+                            let chunk_bytes = chunk.data.bytes;
+                            let decomp_predict = decompress_data(&chunk_bytes).unwrap();
+                            // Convert both to utf 8
+                            let utf_predict = String::from_utf8(decomp_predict).unwrap();
+                            let predict_rows = utf_predict.split("\n");
+
+                            let chunk: gridfs::Chunk =
+                                from_document(prediction_chunk.unwrap()).unwrap();
+                            let chunk_bytes = chunk.data.bytes;
+                            let decomp_prediction = decompress_data(&chunk_bytes).unwrap();
+                            // Convert both to utf 8
+                            let utf_prediction = String::from_utf8(decomp_prediction).unwrap();
+                            let prediction_rows = utf_prediction.split("\n");
+
+                            let mut chunk_vec: Vec<String> = Vec::new();
+
+                            // Split based on rows
+                            for (predicted_row, predict_row) in prediction_rows.zip(predict_rows) {
+                                // Work out if header
+                                if initial {
+                                    // Header
+                                    initial = false;
+                                    chunk_vec.push(String::from(predict_row));
+                                    continue;
+                                }
+                                //      Split predict based on commas
+                                let row = predict_row
+                                    .split(',')
+                                    .map(|v| {
+                                        v.trim().is_empty().then(|| predicted_row).unwrap_or(v)
+                                    })
+                                    .join(",");
+                                // push to whole chunk vector
+                                chunk_vec.push(row);
+                            }
+                            let joined_chunk: String = chunk_vec.join("\n");
+                            // Join together whole chunk
+                            // convert to bytes
+                            // return chunk
+                            Poll::Ready(Some(Ok(Bytes::from(joined_chunk.into_bytes()))))
+                        }
+                        _ => Poll::Ready(None),
+                    }
+                },
+            );
+
+            Ok(HttpResponseBuilder::new(StatusCode::OK).streaming(byte_stream))
+        }
+        _ => {
+            let byte_stream = poll_fn(
+                move |_| -> Poll<Option<Result<Bytes, actix_web::error::Error>>> {
+                    // While Cursor not empty
+                    match futures::executor::block_on(cursor.next()) {
+                        Some(next) => {
+                            let chunk: gridfs::Chunk = from_document(next.unwrap()).unwrap();
+                            let chunk_bytes = chunk.data.bytes;
+                            let decomp_train = decompress_data(&chunk_bytes).unwrap();
+                            Poll::Ready(Some(Ok(Bytes::from(decomp_train))))
+                        }
+                        None => Poll::Ready(None),
+                    }
+                },
+            );
+
+            Ok(HttpResponseBuilder::new(StatusCode::OK).streaming(byte_stream))
+        }
+    }
+}
+
+/// Function to zip 2 cursors so they iterate together
+async fn zip(
+    left: &mut mongodb::Cursor,
+    right: &mut mongodb::Cursor,
+) -> (
+    Option<mongodb::error::Result<Document>>,
+    Option<mongodb::error::Result<Document>>,
+) {
+    tokio::join!(left.next(), right.next())
+}
+
+fn chunk_to_bytes(chunk: Document) -> ServerResult<Vec<u8>> {
+    let chunk: gridfs::Chunk = from_document(chunk)?;
+    let chunk_bytes = chunk.data.bytes;
+    Ok(decompress_data(&chunk_bytes)?)
+}
+
+/// function to get single pagination page and returns
+/// the correct JSON reply.
+async fn data_collection(
+    filter: Document,
+    chunk_vec: Vec<i32>,
+    database: &mongodb::Database,
+    info: DataCollection,
+    dataset_detail: DatasetDetails,
+    dataset_type: &DatasetType,
+) -> ServerResponse {
+    let files = database.collection("files");
+    let mut header: String = String::new();
+
+    let document = files
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
+
+    // Parse the dataset itself
+    let file: gridfs::File = from_document(document)?;
+
+    let mut cursor = file.download_specific_chunks(&database, &chunk_vec).await?;
+
+    // Here we have our chunks X
+    // Get the header from the first chunk X
+    // If the lower chunk == 0, add it to the byte buffer, else continue X
+    // Go through rest of chunks and workout if they are needed, add to byte buffer X
+
+    let mut byte_buffer: Vec<u8> = Vec::new();
+    let mut chunk_vec_iter = chunk_vec.iter();
+
+    while let Some(chunk) = cursor.next().await {
+        // Get the number of the chunk
+        let chunk_num = chunk_vec_iter.next().unwrap();
+        let decomp_data: Vec<u8> = chunk_to_bytes(chunk?)?;
+        if *chunk_num == 0 {
+            // Get header
+            let header_idx = decomp_data
+                .iter()
+                .enumerate()
+                .filter_map(|(i, b)| (*b == b'\n').then(|| i))
+                .next()
+                .expect("Failed to find header");
+            let header_bytes = &decomp_data[..header_idx];
+            header = String::from_utf8(Vec::from(header_bytes)).unwrap();
+            if info.lower_chunk == 0 {
+                byte_buffer.extend_from_slice(&decomp_data[header_idx..]);
+            }
+        } else {
+            byte_buffer.extend_from_slice(&decomp_data);
+        }
+    }
+
+    // Workout index of min_row and max_row in byte buffer
+
+    let page_size = info.max_row - info.min_row - 1;
+    let buffer_min = info.min_row - (info.lower_chunk * CHUNK_SIZE);
+
+    // Get byte slice up to that row (take fewer rows if less rows there)
+    let start: usize = byte_buffer
+        .iter()
+        .enumerate()
+        .filter_map(|(i, b)| (*b == b'\n').then(|| i))
+        .nth(buffer_min)
+        .unwrap_or_default();
+
+    let slice = &byte_buffer[start + 1..];
+
+    let end: usize = slice
+        .iter()
+        .enumerate()
+        .filter_map(|(i, b)| (*b == b'\n').then(|| i))
+        .nth(page_size)
+        .unwrap_or_else(|| slice.len());
+
+    let rows = std::str::from_utf8(&slice[..end])?;
+
+    let total = match dataset_type {
+        DatasetType::Train => dataset_detail.train_size,
+        _ => dataset_detail.predict_size,
+    };
+    // Structure for VueTables2
+    response_from_json(doc! {
+        "data": rows,
+        "fields": header,
+        // Work this out
+        "total": total
+    })
+}
+
+/// Route for returning pagination data
+///
+/// Passing a full dataset to the frontend can be heavy duty and take up a
+/// lot of data. Using pagination, sections of a dataset can be given to the
+/// frontend when they are needed so that data usage can be reduced.
+pub async fn pagination(
+    claims: auth::Claims,
+    state: web::Data<State>,
+    extractor: web::Path<(String, DatasetType)>,
+    query: web::Query<QueryInfo>,
+) -> ServerResponse {
+    let datasets = state.database.collection("datasets");
+    let dataset_details = state.database.collection("dataset_details");
+    let projects = state.database.collection("projects");
+    let files = state.database.collection("files");
+    let predictions = state.database.collection("predictions");
+
+    let project_id = &extractor.0;
+    let dataset_type = &extractor.1;
+    let amount = query.per_page;
+    let page_num = query.page;
+
+    let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
+    let filter = doc! { "project_id": &object_id };
+
+    // Find the dataset in the database
+    let document = datasets
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
+
+    // Parse the dataset itself
+    let dataset: Dataset = from_document(document)?;
+
+    let filter = doc! { "project_id": &object_id };
+
+    // Find the dataset details in the database
+    let document = dataset_details
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
+
+    // Parse the dataset itself
+    let dataset_detail: DatasetDetails = from_document(document)?;
+
+    // Calculate the chunk that is needed
+    let min_row = (page_num - 1) * amount;
+    let max_row = page_num * amount;
+
+    let (chunk_vec, lower_chunk) = utils::calculate_chunk_indices(min_row, max_row, CHUNK_SIZE);
+
+    let filter = match dataset_type {
+        DatasetType::Train => doc! { "_id": &dataset.dataset },
+        DatasetType::Predict | DatasetType::Prediction => doc! { "_id": &dataset.predict },
+    };
+
+    // Decide filter based off enum
+    match dataset_type {
+        DatasetType::Train | DatasetType::Predict => {
+            // If Train
+            //      Get correct chunks
+            //      Extract data page that is needed
+            //      Return it to frontend
+            let info = DataCollection {
+                min_row,
+                max_row,
+                lower_chunk: lower_chunk as usize,
+            };
+
+            // Find the file in the database
+            data_collection(
+                filter,
+                chunk_vec,
+                &state.database,
+                info,
+                dataset_detail,
+                dataset_type,
+            )
+            .await
+        }
+        DatasetType::Prediction => {
+            // If Prediction
+            //      Get correct predict chunk
+            //      Get correct predictions chunk
+            //      Extract data page from both that is needed
+            //      Combine the two pages into 1
+            //      Return to frontend
+
+            let mut initial = true;
+            let mut page: Vec<String> = vec![];
+            let mut header: String = String::new();
+            let mut row_count: usize = 0;
+
+            if lower_chunk != 0 {
+                // calculate the base row of Chunk1
+                row_count = (((lower_chunk + 1) * CHUNK_SIZE as i32) - 1) as usize;
+            }
+
+            let document = files
+                .find_one(filter, None)
+                .await?
+                .ok_or(ServerError::NotFound)?;
+
+            // Parse the dataset itself
+            let predict_file: gridfs::File = from_document(document)?;
+
+            let mut predict_cursor = predict_file
+                .download_specific_chunks(&state.database, &chunk_vec)
+                .await?;
+
+            // Get the predictions
+            let filter = doc! { "project_id": &object_id };
+
+            // Find the dataset in the database
+            let document = predictions
+                .find_one(filter, None)
+                .await?
+                .ok_or(ServerError::NotFound)?;
+
+            // Parse the prediction itself
+            let prediction: Prediction = from_document(document)?;
+
+            let filter = doc! { "_id": &prediction.predictions };
+
+            // Find the file in the database
+            let document = files
+                .find_one(filter, None)
+                .await?
+                .ok_or(ServerError::NotFound)?;
+
+            // Parse the dataset itself
+            let predictions_file: gridfs::File = from_document(document)?;
+
+            let mut predictions_cursor = predictions_file
+                .download_specific_chunks(&state.database, &chunk_vec)
+                .await?;
+
+            while let Some(chunk) = predict_cursor.next().await {
+                // Predict Chunk
+                let chunk: gridfs::Chunk = from_document(chunk?)?;
+                let chunk_bytes = chunk.data.bytes;
+                let decomp_data = decompress_data(&chunk_bytes).unwrap();
+                let chunk_string = String::from_utf8(decomp_data)?;
+
+                // Predictions Chunk
+                let pred_chunk_string = match predictions_cursor.next().await {
+                    Some(chunk) => {
+                        let chunk: gridfs::Chunk = from_document(chunk?)?;
+                        let chunk_bytes = chunk.data.bytes;
+                        let decomp_data = decompress_data(&chunk_bytes).unwrap();
+                        Some(String::from_utf8(decomp_data)?)
+                    }
+                    None => None,
+                }
+                .ok_or(ServerError::NotFound)?;
+
+                for (predict_row, predicted_row) in
+                    chunk_string.split('\n').zip(pred_chunk_string.split('\n'))
+                {
+                    // If header, add to page
+                    if initial {
+                        header = String::from(predict_row);
+                        initial = false;
+                        if lower_chunk != 0 {
+                            continue;
+                        }
+                    }
+                    // If within bounds, create predictions row and add to page
+                    if row_count > min_row && row_count <= max_row {
+                        let row = predict_row
+                            .split(',')
+                            .map(|v| v.trim().is_empty().then(|| predicted_row).unwrap_or(v))
+                            .join(",");
+
+                        // Add to page
+                        page.push(row);
+                    } else if row_count > max_row {
+                        // End of page search
+                        break;
+                    }
+
+                    row_count += 1;
+                }
+                // End of page search
+                if row_count > max_row {
+                    break;
+                }
+            }
+
+            // Structure for VueTables2
+            response_from_json(doc! {
+                "data": page.join("\n"),
+                "fields": header,
+                // Work this out
+                "total": dataset_detail.predict_size
+            })
+        }
+    }
 }
 
 /// Removes the data associated with a given project identifier.
@@ -730,8 +1150,8 @@ pub async fn begin_processing(
         cluster_size: payload.cluster_size as i32,
         column_types,
         feature_dim,
-        train_size: dataset_detail.train_size,
-        predict_size: dataset_detail.predict_size,
+        train_size: ((dataset_detail.train_size + 99) / 100) * 100,
+        predict_size: ((dataset_detail.predict_size + 99) / 100) * 100,
         prediction_column: payload.prediction_column.clone(),
         prediction_type: payload.prediction_type,
         cost,

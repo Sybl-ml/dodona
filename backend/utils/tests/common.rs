@@ -1,4 +1,6 @@
-use utils::{infer_columns, infer_train_and_predict};
+use utils::{calculate_chunk_indices, infer_columns, infer_train_and_predict};
+
+pub static CHUNK_SIZE: usize = 100;
 
 #[test]
 fn categorical_data_can_be_inferred() {
@@ -45,4 +47,34 @@ fn train_and_predict_data_can_be_inferred() {
 
     assert_eq!(data, vec!["age,location", "20,Coventry", "21,Leamington"]);
     assert_eq!(predict, vec!["age,location", "20,"])
+}
+
+#[test]
+fn correct_chunks_calculated_chunk_one() {
+    let min_row = 0;
+    let max_row = 10;
+
+    let (chunk_vec, lower_chunk) = calculate_chunk_indices(min_row, max_row, CHUNK_SIZE);
+    assert_eq!(0, lower_chunk);
+    assert_eq!(chunk_vec, vec![0, 1]);
+}
+
+#[test]
+fn correct_chunks_calculated_chunk_two() {
+    let min_row = 101;
+    let max_row = 125;
+
+    let (chunk_vec, lower_chunk) = calculate_chunk_indices(min_row, max_row, CHUNK_SIZE);
+    assert_eq!(1, lower_chunk);
+    assert_eq!(chunk_vec, vec![0, 1, 2]);
+}
+
+#[test]
+fn correct_chunks_calculated_multi_chunk() {
+    let min_row = 90;
+    let max_row = 101;
+
+    let (chunk_vec, lower_chunk) = calculate_chunk_indices(min_row, max_row, CHUNK_SIZE);
+    assert_eq!(0, lower_chunk);
+    assert_eq!(chunk_vec, vec![0, 1]);
 }
