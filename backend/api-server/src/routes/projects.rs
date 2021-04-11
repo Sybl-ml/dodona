@@ -745,10 +745,10 @@ async fn zip(
     tokio::join!(left.next(), right.next())
 }
 
-async fn chunk_to_byte(chunk: Document) -> Vec<u8> {
-    let chunk: gridfs::Chunk = from_document(chunk).unwrap();
+async fn chunk_to_bytes(chunk: Document) -> ServerResult<Vec<u8>> {
+    let chunk: gridfs::Chunk = from_document(chunk)?;
     let chunk_bytes = chunk.data.bytes;
-    decompress_data(&chunk_bytes).unwrap()
+    Ok(decompress_data(&chunk_bytes)?)
 }
 
 /// function to get single pagination page and returns
@@ -785,15 +785,14 @@ async fn data_collection(
     while let Some(chunk) = cursor.next().await {
         // Get the number of the chunk
         let chunk_num = chunk_vec_iter.next().unwrap();
-        let decomp_data: Vec<u8> = chunk_to_byte(chunk?).await;
+        let decomp_data: Vec<u8> = chunk_to_bytes(chunk?).await?;
         if *chunk_num == 0 {
             // Get header
             let header_idx = decomp_data
                 .iter()
                 .enumerate()
-                .filter(|(_, b)| **b == b'\n')
-                .nth(0)
-                .and_then(|(i, _)| Some(i))
+                .filter_map(|(i, b)| (*b == b'\n').then(|| i))
+                .next()
                 .expect("Failed to find header");
             let header_bytes = &decomp_data[..header_idx];
             header = String::from_utf8(Vec::from(header_bytes)).unwrap();
@@ -814,11 +813,9 @@ async fn data_collection(
     let start: usize = byte_buffer
         .iter()
         .enumerate()
-        .filter(|(_, b)| **b == b'\n')
+        .filter_map(|(i, b)| (*b == b'\n').then(|| i))
         .nth(buffer_min)
-        .and_then(|(i, _)| Some(i))
-        .or_else(|| Some(0))
-        .unwrap();
+        .unwrap_or_default();
 
     let slice = &byte_buffer[start + 1..];
 
@@ -831,7 +828,7 @@ async fn data_collection(
         .or_else(|| Some(slice.len()))
         .unwrap();
 
-    let rows = String::from_utf8(Vec::from(&slice[..end])).unwrap();
+    let rows = std::str::from_utf8(&slice[..end])?;
 
     let total = match dataset_type {
         DatasetType::Train => dataset_detail.train_size,
