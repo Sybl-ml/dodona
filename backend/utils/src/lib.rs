@@ -427,3 +427,36 @@ where
         .apply()
         .expect("Failed to initialise the logger");
 }
+
+/// Function to workout what chunks the row slice belongs to
+///
+/// Returns the selection of chunks to get data from, as well as the index of
+/// the lower chunk
+pub fn calculate_chunk_indices(
+    min_row: usize,
+    max_row: usize,
+    chunk_size: usize,
+) -> (Vec<i32>, i32) {
+    let lower_chunk = (min_row / chunk_size) as i32;
+    let upper_chunk = (max_row / chunk_size) as i32;
+
+    // Equal size
+    if lower_chunk == upper_chunk {
+        // If one chunk is the first chunk
+        // Need to bring in extra chunk because first chunk has 9999 elements instead
+        if lower_chunk == 0 {
+            (vec![upper_chunk, (upper_chunk + 1)], lower_chunk)
+        } else {
+            (vec![0, upper_chunk, (upper_chunk + 1)], lower_chunk)
+        }
+    }
+    // Different sizes
+    else {
+        // If one chunk is the first chunk
+        if lower_chunk == 0 {
+            (vec![lower_chunk, upper_chunk], lower_chunk)
+        } else {
+            (vec![0, lower_chunk, upper_chunk], lower_chunk)
+        }
+    }
+}

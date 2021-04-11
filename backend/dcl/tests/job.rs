@@ -209,7 +209,7 @@ fn test_weight_predictions() {
 
     let sum = weights.values().sum::<f64>();
     assert!(approx_eq!(f64, sum, 1.0, ulps = 2));
-    assert_eq!(final_predictions.join("\n"), "5\n6\n7\n8");
+    assert_eq!(final_predictions.join("\n"), "predicted\n5\n6\n7\n8");
 
     // Tests for regression-based problems
 
@@ -236,7 +236,7 @@ fn test_weight_predictions() {
     let mut model_predictions: HashMap<(ModelID, usize), String> = HashMap::new();
     let mut model_errors: HashMap<ModelID, Option<f64>> = HashMap::new();
 
-    for (model, prediction) in ids.iter().zip(predictions.iter()) {
+    for (model, prediction) in ids.iter().zip(predictions.iter().skip(1)) {
         let (test, model_error) = evaluate_model(&model, &prediction.to_string(), &info).unwrap();
         for (index, prediction) in test.into_iter() {
             model_predictions.insert((model.clone(), index), prediction);
@@ -247,7 +247,11 @@ fn test_weight_predictions() {
     let (weights, final_predictions) = weight_predictions(&model_predictions, &model_errors, &info);
     let sum = weights.values().sum::<f64>();
     assert!(approx_eq!(f64, sum, 1.0, ulps = 2));
-    for (prediction, actual) in final_predictions.iter().zip("5\n6\n7\n8".split("\n")) {
+    for (prediction, actual) in final_predictions
+        .iter()
+        .zip("predicted\n5\n6\n7\n8".split("\n"))
+        .skip(1)
+    {
         assert!(prediction.parse::<f64>().unwrap() - actual.parse::<f64>().unwrap() < 0.1);
     }
 }
