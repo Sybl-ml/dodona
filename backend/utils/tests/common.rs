@@ -1,4 +1,4 @@
-use utils::{chunk_calculate, infer_columns, infer_train_and_predict};
+use utils::{calculate_chunk_indices, infer_columns, infer_train_and_predict};
 
 pub static CHUNK_SIZE: usize = 100;
 
@@ -54,7 +54,7 @@ fn correct_chunks_calculated_chunk_one() {
     let min_row = 0;
     let max_row = 10;
 
-    let (chunk_vec, lower_chunk) = chunk_calculate(min_row, max_row, CHUNK_SIZE);
+    let (chunk_vec, lower_chunk) = calculate_chunk_indices(min_row, max_row, CHUNK_SIZE);
     assert_eq!(0, lower_chunk);
     assert_eq!(chunk_vec, vec![0, 1]);
 }
@@ -64,7 +64,7 @@ fn correct_chunks_calculated_chunk_two() {
     let min_row = 101;
     let max_row = 125;
 
-    let (chunk_vec, lower_chunk) = chunk_calculate(min_row, max_row, CHUNK_SIZE);
+    let (chunk_vec, lower_chunk) = calculate_chunk_indices(min_row, max_row, CHUNK_SIZE);
     assert_eq!(1, lower_chunk);
     assert_eq!(chunk_vec, vec![0, 1, 2]);
 }
@@ -74,7 +74,7 @@ fn correct_chunks_calculated_multi_chunk() {
     let min_row = 90;
     let max_row = 101;
 
-    let (chunk_vec, lower_chunk) = chunk_calculate(min_row, max_row, CHUNK_SIZE);
+    let (chunk_vec, lower_chunk) = calculate_chunk_indices(min_row, max_row, CHUNK_SIZE);
     assert_eq!(0, lower_chunk);
     assert_eq!(chunk_vec, vec![0, 1]);
 }

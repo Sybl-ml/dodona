@@ -432,7 +432,11 @@ where
 ///
 /// Returns the selection of chunks to get data from, as well as the index of
 /// the lower chunk
-pub fn chunk_calculate(min_row: usize, max_row: usize, chunk_size: usize) -> (Vec<i32>, i32) {
+pub fn calculate_chunk_indices(
+    min_row: usize,
+    max_row: usize,
+    chunk_size: usize,
+) -> (Vec<i32>, i32) {
     let lower_chunk = (min_row / chunk_size) as i32;
     let upper_chunk = (max_row / chunk_size) as i32;
 

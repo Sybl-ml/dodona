@@ -895,7 +895,7 @@ pub async fn pagination(
     let min_row = (page_num - 1) * amount;
     let max_row = page_num * amount;
 
-    let (chunk_vec, lower_chunk) = utils::chunk_calculate(min_row, max_row, CHUNK_SIZE);
+    let (chunk_vec, lower_chunk) = utils::calculate_chunk_indices(min_row, max_row, CHUNK_SIZE);
 
     let filter = match dataset_type {
         DatasetType::Train => doc! { "_id": &dataset.dataset },
