@@ -16,7 +16,7 @@ use futures::stream::poll_fn;
 use itertools::Itertools;
 use mongodb::{
     bson::{de::from_document, doc, document::Document, oid::ObjectId, ser::to_document},
-    Collection,
+    options, Collection,
 };
 use rdkafka::config::ClientConfig;
 use rdkafka::error::KafkaResult;
@@ -90,26 +90,18 @@ pub async fn get_project(
     project_id: web::Path<String>,
 ) -> ServerResponse {
     let projects = state.database.collection("projects");
-    let details = state.database.collection("dataset_details");
-    let analysis = state.database.collection("dataset_analysis");
 
-    let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
+    let project_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
-    let filter = doc! { "_id": &object_id };
+    let filter = doc! { "_id": &project_id };
     let doc = projects
         .find_one(filter, None)
         .await?
         .ok_or(ServerError::NotFound)?;
 
     // get that project from the projects collection
-    let filter = doc! { "project_id": &object_id };
-    let details_doc = details.find_one(filter.clone(), None).await?;
-
-    // get that project from the projects collection
-    let analysis_doc = analysis.find_one(filter, None).await?;
-
-    // Begin by adding the project as we know we will respond with that
-    let mut response = doc! { "project": doc };
+    let (analysis_doc, details_doc) = get_all_project_info(&project_id, &state.database).await?;
+    let mut response = doc! {"project": doc};
 
     if let Some(details_doc) = details_doc {
         // Insert the details as well
@@ -177,10 +169,47 @@ pub async fn get_user_projects(claims: auth::Claims, state: web::Data<State>) ->
     let projects = state.database.collection("projects");
 
     let filter = doc! { "user_id": &claims.id };
-    let cursor = projects.find(filter, None).await?;
-    let documents: Vec<Document> = cursor.collect::<Result<_, _>>().await?;
+    let mut cursor = projects.find(filter, None).await?;
 
-    response_from_json(documents)
+    let mut projects = Vec::new();
+
+    while let Some(Ok(proj)) = cursor.next().await {
+        let (analysis_doc, details_doc) =
+            get_all_project_info(proj.get_object_id("_id").unwrap(), &state.database).await?;
+
+        let mut response = doc! {"project": proj};
+
+        if let Some(details_doc) = details_doc {
+            // Insert the details as well
+            response.insert("details", details_doc);
+        }
+
+        if let Some(analysis_doc) = analysis_doc {
+            // Insert the details as well
+            response.insert("analysis", analysis_doc);
+        }
+
+        projects.push(response);
+    }
+
+    response_from_json(projects)
+}
+
+async fn get_all_project_info(
+    project_id: &ObjectId,
+    database: &mongodb::Database,
+) -> ServerResult<(Option<Document>, Option<Document>)> {
+    let details = database.collection("dataset_details");
+    let analysis = database.collection("dataset_analysis");
+
+    // get that project from the projects collection
+    let filter = doc! { "project_id": &project_id };
+    let details_doc = details.find_one(filter.clone(), None).await?;
+
+    // get that analysis from the analysis collection
+    let analysis_doc = analysis.find_one(filter, None).await?;
+
+    Ok((analysis_doc, details_doc))
 }
 
 /// Creates a new project for a given user.
@@ -349,24 +378,41 @@ pub async fn upload_train_and_predict(
     produce_analytics_message(&object_id).await;
 
     // Update the project status
-    projects
-        .update_one(
+    let option = options::FindOneAndUpdateOptions::builder()
+        .return_document(options::ReturnDocument::After)
+        .build();
+    let project_doc = projects
+        .find_one_and_update(
             doc! { "_id": &object_id},
             doc! {"$set": {"status": Status::Ready}},
-            None,
+            option,
         )
-        .await?;
+        .await?
+        .unwrap();
 
     let dataset_doc = Dataset::new(
-        object_id,
+        object_id.clone(),
         train_id.ok_or(ServerError::UnprocessableEntity)?,
         predict_id.ok_or(ServerError::UnprocessableEntity)?,
     );
 
     let document = to_document(&dataset_doc)?;
-    let id = datasets.insert_one(document, None).await?.inserted_id;
+    let _id = datasets.insert_one(document, None).await?.inserted_id;
 
-    response_from_json(doc! {"dataset_id": id})
+    let (analysis_doc, details_doc) = get_all_project_info(&object_id, &state.database).await?;
+    let mut response = doc! {"project": project_doc};
+
+    if let Some(details_doc) = details_doc {
+        // Insert the details as well
+        response.insert("details", details_doc);
+    }
+
+    if let Some(analysis_doc) = analysis_doc {
+        // Insert the details as well
+        response.insert("analysis", analysis_doc);
+    }
+
+    response_from_json(response)
 }
 
 /// Adds data to a given project.
@@ -541,23 +587,40 @@ pub async fn upload_and_split(
         data.delete(&state.database).await?;
     }
 
-    let dataset_doc = Dataset::new(object_id.clone(), dataset.id, predict.id);
-    let document = to_document(&dataset_doc)?;
-    let id = datasets.insert_one(document, None).await?.inserted_id;
-
     // Communicate with Analytics Server
     produce_analytics_message(&object_id).await;
 
+    let dataset_doc = Dataset::new(object_id.clone(), dataset.id, predict.id);
+    let document = to_document(&dataset_doc)?;
+    let _id = datasets.insert_one(document, None).await?.inserted_id;
+
     // Update the project status
-    projects
-        .update_one(
+    let option = options::FindOneAndUpdateOptions::builder()
+        .return_document(options::ReturnDocument::After)
+        .build();
+    let project_doc = projects
+        .find_one_and_update(
             doc! { "_id": &object_id},
             doc! {"$set": {"status": Status::Ready}},
-            None,
+            option,
         )
-        .await?;
+        .await?
+        .unwrap();
 
-    response_from_json(doc! {"dataset_id": id})
+    let (analysis_doc, details_doc) = get_all_project_info(&object_id, &state.database).await?;
+    let mut response = doc! {"project": project_doc};
+
+    if let Some(details_doc) = details_doc {
+        // Insert the details as well
+        response.insert("details", details_doc);
+    }
+
+    if let Some(analysis_doc) = analysis_doc {
+        // Insert the details as well
+        response.insert("analysis", analysis_doc);
+    }
+
+    response_from_json(response)
 }
 
 /// Gets the dataset details associated with a given project.
