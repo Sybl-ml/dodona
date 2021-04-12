@@ -13,14 +13,12 @@
           <navigatable-tab
             :tabs="[
               { key: '1', title: '1. Name' },
-              { key: '2', title: '2. Details' },
-              { key: '3', title: '3. Photo' },
-              { key: '4', title: '4. Payment' },
-              { key: '5', title: '5. Create' },
+              { key: '2', title: '2. Photo' },
+              { key: '3', title: '3. Details' },
             ]"
           >
             <template v-slot:1>
-              <b-card-text>To start with what is your name ...</b-card-text>
+              <h4>Personal Information</h4>
 
               <b-form-input
                 class="mb-3"
@@ -36,31 +34,18 @@
                 placeholder="Last Name"
                 v-model="lastName"
               />
-            </template>
-            <template v-slot:2>
-              <b-card-text> Select Your Prefered Currency </b-card-text>
-
-              <b-form-select
+              <b-form-checkbox
                 class="mb-3"
-                v-model="preferedCurrency"
-                :options="currencyOptions"
-              ></b-form-select>
-              <b-card-text> Select Your Date of Birth </b-card-text>
-              <b-form-datepicker v-model="dob" class="mb-3"></b-form-datepicker>
+                v-model="overAge"
+              >I am over 18 (required)</b-form-checkbox>
             </template>
 
-            <template v-slot:3>
+            <template v-slot:2>
               <avatar-upload @upload="onUpload" />
             </template>
 
-            <template v-slot:4>
-              <h4>To Be Completed...</h4>
-            </template>
-
-            <template v-slot:5>
-              <b-card-text
-                >Please provide your required login infomation...</b-card-text
-              >
+            <template v-slot:3>
+              <h4>Login Details</h4>
               <b-input-group class="mb-3" prepend="@">
                 <b-form-input
                   type="email"
@@ -88,10 +73,9 @@
                   </b-input-group-text>
                 </template>
               </b-input-group>
-
               <b-input-group class="mb-3" prepend="#">
                 <b-form-input
-                  type="password"
+                  :type="passwordType"
                   required
                   id="confirmPass"
                   placeholder="Confirm Password"
@@ -139,11 +123,7 @@
       <b-alert v-model="failed" variant="danger" dismissible>
         Something is wrong with your infomation
       </b-alert> </b-row
-    ><b-row class="justify-content-center text-center">
-      <b-alert v-model="overAge" variant="warning" dismissible>
-        You must be at least 18 to make an account
-      </b-alert>
-    </b-row>
+    >
     <particles-bg  color="#cccccc" num=150 type="cobweb" :bg="true"/>
   </b-container>
 </template>
@@ -160,8 +140,6 @@ export default {
       email: "",
       password: "",
       confirmPassword: "",
-      preferedCurrency: "",
-      dob: "",
       firstName: "",
       lastName: "",
 
@@ -170,14 +148,7 @@ export default {
       submitted: false,
       hidePassword: true,
       failed: false,
-
-      currencyOptions: [
-        { value: null, text: "Please select an option" },
-        { value: "USD", text: "U.S. Dollar (USD)" },
-        { value: "GBP", text: "Great British Pound (GBP)" },
-        { value: "EUR", text: "Euros (EUR)" },
-        { value: "YEN", text: "Japenese Yen (JPY)" },
-      ],
+      overAge: false,
     };
   },
   components: {
@@ -192,9 +163,9 @@ export default {
         this.email &&
         this.firstName &&
         this.lastName &&
+        this.overAge &&
         this.password &&
         this.confirmPassword &&
-        !this.overAge &&
         this.password === this.confirmPassword
       );
     },
@@ -203,14 +174,6 @@ export default {
     },
     passwordIcon() {
       return this.hidePassword ? "eye-fill" : "eye-slash-fill";
-    },
-    overAge() {
-      if (this.dob) {
-        let diff = new Date(Date.now() - Date.parse(this.dob));
-        let age = diff.getUTCFullYear() - 1970;
-        return false;
-      }
-      return false;
     },
   },
   methods: {
@@ -228,8 +191,6 @@ export default {
           password: this.password,
           firstName: this.firstName,
           lastName: this.lastName,
-          currency: this.preferedCurrency,
-          dob: this.dob,
         });
 
         $cookies.set("token", response.data.token, {
