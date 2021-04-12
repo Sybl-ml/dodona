@@ -12,5 +12,13 @@ export default {
   components: {
     Header
   },
+  watch: {
+        $route: {
+            immediate: true,
+            handler(to, from) {
+                document.title = this.$route.name || 'Sybl';
+            }
+        },
+    }
 };
 </script>
