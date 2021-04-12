@@ -186,7 +186,7 @@ export default {
       this.submitted = true;
 
       try {
-        let response = await this.$http.post("api/users/new", {
+        let response = await this.$store.dispatch("register", {
           email: this.email,
           password: this.password,
           firstName: this.firstName,
@@ -211,9 +211,7 @@ export default {
     },
     uploadAvatar() {
       if (this.avatarSrc) {
-        this.$http.post("api/users/avatar", {
-          avatar: this.avatarSrc.split(",")[1],
-        });
+        this.$store.dispatch("uploadAvatar", this.avatarSrc.split(",")[1]);
       }
     },
   },

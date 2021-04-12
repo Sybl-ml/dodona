@@ -164,8 +164,8 @@ export default {
       return {
         projectId: this.projectId,
         dataset_head: p.details.dataset_head,
-        training_data: p.training_data,
-        predict_data: p.predict_data,
+        training_data: this.training_data,
+        predict_data: this.predict_data,
         dataset_name: p.details.dataset_name,
         loading: this.loading,
       };

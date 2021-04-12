@@ -55,7 +55,6 @@
           </b-form>
         </b-card>
       </b-col>
-      
     </b-row>
     <b-row class="justify-content-center text-center">
       <b-alert v-model="failed" variant="danger" dismissible>
@@ -99,28 +98,20 @@ export default {
         setTimeout(resolve, ms);
       });
     },
-    async onSubmit(e) {
+    async onSubmit() {
       this.submitted = true;
-      let response = await this.$http
-        .post("api/users/login", {
-          email: this.email,
-          password: this.password,
-        })
-        .catch((error) => {
-          console.log(error.response.data.error);
-        });
 
-      if (response) {
-        response = response.data;
-        if (response.token === "null") {
-          this.failed = true;
-        } else {
-          this.failed = false;
-          $cookies.set("token", response.token, { path: "/", sameSite: true });
-          this.$router.push("dashboard");
-        }
-      }
-      await this.sleep(1000);
+      let response = await this.$store.dispatch("login", {
+        email: this.email,
+        password: this.password,
+      });
+
+      $cookies.set("token", response.data.token, {
+        path: "/",
+        sameSite: true,
+      });
+
+      this.$router.push("dashboard");
       this.failed = true;
       this.submitted = false;
     },

@@ -1,5 +1,6 @@
 import Vue from "vue";
 import Vuex from "vuex";
+import createPersistedState from "vuex-persistedstate";
 import $http from "../services/axios-instance";
 import _ from "lodash";
 import Papa from "papaparse";
@@ -37,9 +38,11 @@ function unpackProjectResponse(response) {
 }
 
 export default new Vuex.Store({
+  // plugins: [createPersistedState()],
   state: {
     projects: [],
     models: [],
+    user_data: {},
   },
   getters: {
     filteredProjects: (state) => (search) => {
@@ -60,10 +63,22 @@ export default new Vuex.Store({
       console.log(p);
       return p[0];
     },
+    isAuthenticated: (state) => {
+      return !_.isEmpty(state.user_data);
+    },
   },
   mutations: {
     setProjects(state, projects) {
       state.projects = projects;
+    },
+    setModels(state, models) {
+      state.models = models;
+    },
+    setUser(state, user) {
+      Vue.set(state, "user_data", user);
+    },
+    setAvatar(state, avatar) {
+      state.user_data.avatar = avatar;
     },
     addProject(state, new_project) {
       let index = 0;
@@ -88,7 +103,7 @@ export default new Vuex.Store({
       let new_route = "/";
       if (index >= 1) {
         new_route += state.projects[index - 1]._id;
-      } else if (index == 0 && state.models.length > 0) {
+      } else if (index == 0 && state.projects.length > 0) {
         new_route += state.projects[index]._id;
       } else {
         new_route = "";
@@ -107,7 +122,38 @@ export default new Vuex.Store({
       console.log(project_response);
 
       commit("setProjects", project_response);
+
+      if (project_response.length > 0) {
+        if (!("projectId" in router.currentRoute.params)) {
+          router.replace({
+            name: `ProjectView`,
+            params: {
+              projectId: project_response[0]._id,
+            },
+          });
+        }
+      }
       console.log("Fetched projects");
+    },
+    async getModels({ commit }) {
+      try {
+        let data = await $http.get(`api/clients/models`);
+
+        console.log(data.data);
+        commit("setModels", data.data);
+      } catch (err) {
+        console.log(err);
+      }
+    },
+    async getUserData(context) {
+      if (context.user_data) {
+        return;
+      }
+      return $http.get(`api/users`);
+    },
+    async getAvatar({ commit }) {
+      let response = await $http.get(`api/users/avatar`);
+      commit("setAvatar", response.data.img);
     },
     async addProject(context, id) {
       let project_response = await $http.get(`api/projects/${id}`);
@@ -209,6 +255,34 @@ export default new Vuex.Store({
       }
 
       commit("deleteProject", projectId);
+    },
+    async login({ commit }, { email, password }) {
+      return $http.post("api/users/login", {
+        email: email,
+        password: password,
+      });
+    },
+    async logout({ commit }) {
+      Vue.prototype.$cookies.remove("token");
+      commit("setUser", null);
+    },
+    async register(
+      { commit },
+      { email, password, firstName, lastName, currency, dob }
+    ) {
+      return $http.post("api/users/new", {
+        email: email,
+        password: password,
+        firstName: firstName,
+        lastName: lastName,
+        currency: currency,
+        dob: dob,
+      });
+    },
+    async uploadAvatar(context, avatar) {
+      return $http.post("api/users/avatar", {
+        avatar,
+      });
     },
   },
 });
