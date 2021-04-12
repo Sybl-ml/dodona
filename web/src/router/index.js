@@ -92,16 +92,6 @@ const router = new VueRouter({
   routes,
 });
 
-<<<<<<< HEAD
-router.beforeEach((to, from, next) => {
-  let access_token = Vue.$cookies.get("token");
-  if (access_token === null) {
-    if (to.name === "Login" || to.name === "Register" || to.name === "Welcome" || to.name == "Pricing")
-      next();
-    else next({ name: "Login" });
-  } else {
-    if (to.name === "Login" || to.name === "Register"){
-=======
 router.beforeEach(async (to, from, next) => {
   let token = Vue.prototype.$cookies.get("token");
   if (to.matched.some((record) => record.meta.guest)) {
@@ -119,7 +109,6 @@ router.beforeEach(async (to, from, next) => {
       };
 
       store.commit("setUser", commit_payload);
->>>>>>> Add better authentication and Navigation guards
       next({ name: "Dashboard" });
       return;
     }
