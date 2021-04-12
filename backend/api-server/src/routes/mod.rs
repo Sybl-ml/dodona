@@ -63,6 +63,6 @@ pub async fn check_user_owns_project(
     if project.user_id == *user_id {
         Ok(object_id)
     } else {
-        Err(ServerError::Unauthorized)
+        Err(ServerError::Forbidden)
     }
 }
