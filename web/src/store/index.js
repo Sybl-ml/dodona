@@ -110,6 +110,11 @@ export default new Vuex.Store({
       }
       router.replace(`/dashboard${new_route}`);
     },
+    unlockModel(state, model_id){
+      console.log(state)
+      let index = state.models.findIndex((m) => m._id.$oid == model_id);
+      state.models[index].locked = false;
+    },
   },
   actions: {
     async getProjects({ commit }) {
@@ -294,6 +299,20 @@ export default new Vuex.Store({
       return $http.post("api/users/avatar", {
         avatar,
       });
+    },
+    async unlockModel(context, { model_id, password }) {
+      try {
+        // let response = await $http.post(
+        //   `api/clients/models/${model_id}/unlock`,
+        //   {
+        //     password: password,
+        //   });
+        console.log(`Unlocking Model ${model_id}`)
+        context.commit("unlockModel", model_id);
+      } catch (err) {
+        console.log(err);
+      }
+
     },
   },
 });

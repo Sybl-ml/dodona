@@ -153,7 +153,6 @@ export default {
   },
   computed: {
     status_variant() {
-      console.log(this.data._id.$oid);
       if (this.data.status === "NotStarted") {
         return "primary";
       } else if (this.data.status === "Running") {
@@ -167,18 +166,13 @@ export default {
   },
   methods: {
     async onSubmit() {
-      let response = await this.$http.post(
-        `api/clients/models/${this.data._id.$oid}/unlock`,
-        {
-          password: this.password,
-        }
-      );
-
-      response = response.data;
-      console.log(response);
+      
+      this.$store.dispatch("unlockModel", {model_id: this.data._id.$oid, password: this.password});
+      
     },
     renderChart(model_id) {
-      this.$refs[`model-performance-${model_id}`].show();
+      if (this.data.status === "Running")
+        this.$refs[`model-performance-${model_id}`].show();
     },
   },
 };
