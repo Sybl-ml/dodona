@@ -55,11 +55,8 @@ export default {
     },
     uploadAvatar(){
       if (this.avatarSrc) {
-        this.$http.post("api/users/avatar", {
-          avatar: this.avatarSrc.split(",")[1],
-        });
+        this.$store.dispatch("postNewAvatar", this.avatarSrc.split(",")[1]);
       }
-      window.location.reload()
     },
   },
 };

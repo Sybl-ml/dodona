@@ -4,7 +4,7 @@ import Welcome from "../views/Welcome.vue";
 import Login from "../views/Login.vue";
 import Register from "../views/Register.vue";
 import Pricing from "../views/Pricing.vue";
-import Nodes from "../views/Nodes.vue";
+import Models from "../views/Models.vue";
 import Confirm from "../views/Confirm.vue";
 import Settings from "../views/Settings.vue";
 import Dashboard from "../views/Dashboard.vue";
@@ -79,9 +79,9 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
-    path: "/nodes",
-    name: "Nodes",
-    component: Nodes,
+    path: "/models",
+    name: "Models",
+    component: Models,
     meta: { requiresAuth: true },
   },
 ];
@@ -112,7 +112,6 @@ router.beforeEach(async (to, from, next) => {
       next({ name: "Dashboard" });
       return;
     }
-    console.log("next");
     next();
   }
   next();
@@ -133,6 +132,7 @@ router.beforeEach(async (to, from, next) => {
         };
 
         store.commit("setUser", commit_payload);
+        store.dispatch("getAvatar");
       }
       next();
       return;

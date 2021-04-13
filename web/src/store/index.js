@@ -1,6 +1,6 @@
 import Vue from "vue";
 import Vuex from "vuex";
-import createPersistedState from "vuex-persistedstate";
+// import createPersistedState from "vuex-persistedstate";
 import $http from "../services/axios-instance";
 import _ from "lodash";
 import Papa from "papaparse";
@@ -78,7 +78,7 @@ export default new Vuex.Store({
       Vue.set(state, "user_data", user);
     },
     setAvatar(state, avatar) {
-      state.user_data.avatar = avatar;
+      Vue.set(state.user_data, "avatar", avatar);
     },
     addProject(state, new_project) {
       let index = 0;
@@ -154,6 +154,17 @@ export default new Vuex.Store({
     async getAvatar({ commit }) {
       let response = await $http.get(`api/users/avatar`);
       commit("setAvatar", response.data.img);
+    },
+    async postNewAvatar(context, avatar) {
+      try {
+        await $http.post("api/users/avatar", {
+          avatar: avatar,
+        });
+      } catch (err) {
+        console.log(err);
+      }
+
+      context.commit("setAvatar", avatar);
     },
     async addProject(context, id) {
       let project_response = await $http.get(`api/projects/${id}`);
@@ -264,7 +275,7 @@ export default new Vuex.Store({
     },
     async logout({ commit }) {
       Vue.prototype.$cookies.remove("token");
-      commit("setUser", null);
+      commit("setUser", {});
     },
     async register(
       { commit },
