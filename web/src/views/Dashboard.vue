@@ -7,11 +7,13 @@
             <b-col class="mb-2">
               <b-form-input
                 class="shadow-sm"
+                type="search"
                 v-model="search"
                 placeholder="Search"
                 block
               />
             </b-col>
+            
           </b-row>
           <b-row class="text-left">
             <b-col>
@@ -128,7 +130,7 @@ export default {
       if (id == this.$router.currentRoute.path.split("/")[2])
         return "mx-2";
       return "ml-2";
-    }
+    },
   },
   computed: {
     filtered_projects() {
