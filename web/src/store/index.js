@@ -229,7 +229,7 @@ export default new Vuex.Store({
         predictionType: prediction_type,
         predictionColumn: prediction_column,
       };
-      console.log(payload);
+      
       try {
         await $http.post(`api/projects/${projectId}/process`, payload);
       } catch (err) {
@@ -281,6 +281,7 @@ export default new Vuex.Store({
     async logout({ commit }) {
       Vue.prototype.$cookies.remove("token");
       commit("setUser", {});
+      router.push("/login");
     },
     async register(
       { commit },
@@ -302,11 +303,11 @@ export default new Vuex.Store({
     },
     async unlockModel(context, { model_id, password }) {
       try {
-        // let response = await $http.post(
-        //   `api/clients/models/${model_id}/unlock`,
-        //   {
-        //     password: password,
-        //   });
+        let response = await $http.post(
+          `api/clients/models/${model_id}/unlock`,
+          {
+            password: password,
+          });
         console.log(`Unlocking Model ${model_id}`)
         context.commit("unlockModel", model_id);
       } catch (err) {
