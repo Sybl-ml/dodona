@@ -75,7 +75,7 @@
       >
         <b-card class="shadow" v-if="data.locked == true">
           <b-row class="justify-content-center text-center">
-            <b-col lg="4" md="8" sm="10" xs="12">
+            <b-col md="8" sm="10" xs="12">
               <br />
               <h1>
                 <b-icon-lock-fill style="color: #fbb000"></b-icon-lock-fill>
