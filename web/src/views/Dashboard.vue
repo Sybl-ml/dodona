@@ -2,7 +2,7 @@
   <div>
     <b-container fluid>
       <b-row>
-        <b-col xs="12" order-xs="1" lg="3">
+        <b-col xs="12" order="2" order-lg="1" lg="3">
           <b-row>
             <b-col class="mb-2">
               <b-form-input
@@ -80,7 +80,7 @@
             </b-col>
           </b-row>
         </b-col>
-        <b-col lg="9">
+        <b-col lg="9" order="1" class="mb-4">
           <router-view></router-view>
         </b-col>
       </b-row>
