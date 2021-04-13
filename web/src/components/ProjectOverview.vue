@@ -1,7 +1,7 @@
 <template>
   <b-container fluid>
     <b-row>
-      <b-col lg="8" sm="12" v-if="checkStatus('Processing')">
+      <b-col lg="8" sm="12" v-if="checkStatus('Processing')" class="mb-3">
         <h4>Project Is Running ...</h4>
         <b-progress
           :value="value"
@@ -11,7 +11,7 @@
           animated
         ></b-progress>
       </b-col>
-      <b-col lg="8" sm="12" v-else-if="checkStatus('Ready')">
+      <b-col lg="8" sm="12" v-else-if="checkStatus('Ready')" class="mb-3">
         <h4>Description:</h4>
         <div class="scrollable_description mb-3">
           {{ description }}
@@ -125,7 +125,7 @@
       <b-col lg="4" sm="12">
         <b-card
           class="h-100 shadow"
-          v-if="!checkStatus('Unfinished') & analysis_loaded"
+          v-if="!checkStatus('Unfinished')"
         >
           <template #header>
             <h4 class="mb-0">Analysis</h4>
