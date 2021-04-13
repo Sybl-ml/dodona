@@ -124,7 +124,6 @@
         Something is wrong with your infomation
       </b-alert> </b-row
     >
-    <particles-bg  color="#cccccc" num=150 type="cobweb" :bg="true"/>
   </b-container>
 </template>
 
@@ -132,7 +131,6 @@
 import IconLogo from "@/components/icons/IconLogo";
 import NavigatableTab from "@/components/NavigatableTab.vue";
 import AvatarUpload from "@/components/AvatarUpload.vue";
-import { ParticlesBg } from "particles-bg-vue";
 
 export default {
   data() {
@@ -155,7 +153,6 @@ export default {
     IconLogo,
     NavigatableTab,
     AvatarUpload,
-    ParticlesBg,
   },
   computed: {
     validCredentials() {

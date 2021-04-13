@@ -85,8 +85,6 @@
         </b-col>
       </b-row>
     </b-container>
-
-    <particles-bg color="#cccccc" num="150" type="cobweb" :bg="true" />
   </div>
 </template>
 
@@ -111,8 +109,6 @@
 </style>
 
 <script>
-import Vue from "vue";
-import { ParticlesBg } from "particles-bg-vue";
 
 export default {
   name: "Dashboard",
@@ -120,9 +116,6 @@ export default {
     return {
       search: "",
     };
-  },
-  components: {
-    ParticlesBg,
   },
   async created() {
     await this.$store.dispatch("getProjects");
