@@ -132,10 +132,6 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
                 "/api/projects/{project_id}/process",
                 web::post().to(routes::projects::begin_processing),
             )
-            .route(
-                "/api/projects/{project_id}/predictions",
-                web::get().to(routes::projects::get_predictions),
-            )
             // Clients
             .route(
                 "/api/clients/register",

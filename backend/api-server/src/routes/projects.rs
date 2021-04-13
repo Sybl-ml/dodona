@@ -1188,64 +1188,6 @@ pub async fn begin_processing(
     response_from_json(doc! {"success": true})
 }
 
-/// Gets the predicted data for a project.
-///
-/// Queries the database for all [`Prediction`] instances for a given project identifier, before
-/// decompressing each and returning them.
-pub async fn get_predictions(
-    claims: auth::Claims,
-    state: web::Data<State>,
-    project_id: web::Path<String>,
-) -> ServerResponse {
-    // Get the projects and the predictions collections
-    let projects = state.database.collection("projects");
-    let predictions = state.database.collection("predictions");
-    let files = state.database.collection("files");
-
-    // Get the project identifier and check it exists
-    let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
-
-    let filter = doc! { "project_id": &object_id };
-
-    // Find the dataset in the database
-    let document = predictions
-        .find_one(filter, None)
-        .await?
-        .ok_or(ServerError::NotFound)?;
-
-    // Parse the prediction itself
-    let prediction: Prediction = from_document(document)?;
-
-    let filter = doc! { "_id": &prediction.predictions };
-
-    // Find the file in the database
-    let document = files
-        .find_one(filter, None)
-        .await?
-        .ok_or(ServerError::NotFound)?;
-
-    // Parse the dataset itself
-    let file: gridfs::File = from_document(document)?;
-
-    let mut cursor = file.download_chunks(&state.database).await?;
-    let byte_stream = poll_fn(
-        move |_| -> Poll<Option<Result<Bytes, actix_web::error::Error>>> {
-            // While Cursor not empty
-            match futures::executor::block_on(cursor.next()) {
-                Some(next) => {
-                    let chunk: gridfs::Chunk = from_document(next.unwrap()).unwrap();
-                    let chunk_bytes = chunk.data.bytes;
-                    let decomp_train = decompress_data(&chunk_bytes).unwrap();
-                    Poll::Ready(Some(Ok(Bytes::from(decomp_train))))
-                }
-                None => Poll::Ready(None),
-            }
-        },
-    );
-
-    Ok(HttpResponseBuilder::new(StatusCode::OK).streaming(byte_stream))
-}
-
 async fn produce_message(job: &Job) -> KafkaResult<()> {
     // Get the environment variable for the kafka broker
     // if not set use 9092
