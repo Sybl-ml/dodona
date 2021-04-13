@@ -48,6 +48,23 @@
         </b-modal>
 
         <h4>Job Configuration:</h4>
+        
+        <b-form-group label="Problem Type" label-for="dropdown-form-type">
+          <b-form-select
+            id="dropdown-form-type"
+            size="sm"
+            :options="problemTypeOptions"
+            v-model="problemType"
+          />
+        </b-form-group>
+        <b-form-group label="Prediction Column" label-for="dropdown-pred-col">
+          <b-form-select
+            id="dropdown-pred-col"
+            size="sm"
+            :options="getColumnNames"
+            v-model="predColumn"
+          />
+        </b-form-group>
         <b-button
           v-b-toggle.job-config
           pill
@@ -55,7 +72,7 @@
           size="sm"
           class="mb-3"
           @click="expandJob = !expandJob"
-          >{{ expandJob ? "Show" : "Hide" }}</b-button
+          >{{ expandJob ? "Advanced" : "Minimize" }}</b-button
         >
         <b-collapse id="job-config">
           <b-form-group
@@ -82,22 +99,6 @@
               v-model="cluster_size"
             ></b-form-input>
           </b-form-group>
-          <b-form-group label="Problem Type" label-for="dropdown-form-type">
-            <b-form-select
-              id="dropdown-form-type"
-              size="sm"
-              :options="problemTypeOptions"
-              v-model="problemType"
-            />
-          </b-form-group>
-          <b-form-group label="Prediction Column" label-for="dropdown-pred-col">
-            <b-form-select
-              id="dropdown-pred-col"
-              size="sm"
-              :options="getColumnNames"
-              v-model="predColumn"
-            />
-          </b-form-group>
         </b-collapse>
         <h4>To start computation click the button below</h4>
         <div class="text-center">
@@ -123,10 +124,7 @@
         >
       </b-col>
       <b-col lg="4" sm="12">
-        <b-card
-          class="h-100 shadow"
-          v-if="!checkStatus('Unfinished')"
-        >
+        <b-card class="h-100 shadow" v-if="!checkStatus('Unfinished')">
           <template #header>
             <h4 class="mb-0">Analysis</h4>
           </template>
