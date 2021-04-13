@@ -38,7 +38,7 @@
                 >
                   <b-row
                     no-gutters
-                    class="ml-2"
+                    :class="cardStyle(p._id)"
                     style="background-color: white"
                   >
                     <b-col>
@@ -121,14 +121,20 @@ export default {
     await this.$store.dispatch("getProjects");
   },
   methods: {
-    async addProject(id) {},
+    async addProject(id) {
+
+    },
+    cardStyle(id){
+      if (id == this.$router.currentRoute.path.split("/")[2])
+        return "mx-2";
+      return "ml-2";
+    }
   },
   computed: {
     filtered_projects() {
       return this.$store.getters.filteredProjects(this.search);
     },
     projects() {
-      console.log(this.$store.state.projects);
       return this.$store.state.projects;
     },
   },
