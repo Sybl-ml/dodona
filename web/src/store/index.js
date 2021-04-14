@@ -31,9 +31,9 @@ function unpackProjectResponse(response) {
     _id: project._id.$oid,
     date_created: new Date(project.date_created.$date),
   });
-  console.log(response)
   project.details = details;
   project.analysis = analysis;
+  
   return project;
 }
 
@@ -108,7 +108,6 @@ export default new Vuex.Store({
       router.replace(`/dashboard${new_route}`);
     },
     unlockModel(state, model_id) {
-      console.log(state)
       let index = state.models.findIndex((m) => m._id.$oid == model_id);
       state.models[index].locked = false;
     },
@@ -121,7 +120,6 @@ export default new Vuex.Store({
         let p = unpackProjectResponse(x);
         return p;
       });
-      console.log(project_response);
 
       commit("setProjects", project_response);
 
@@ -141,7 +139,6 @@ export default new Vuex.Store({
       try {
         let data = await $http.get(`api/clients/models`);
 
-        console.log(data.data);
         commit("setModels", data.data);
       } catch (err) {
         console.log(err);
@@ -313,7 +310,7 @@ export default new Vuex.Store({
     },
     async deleteData(context, projectId) {
       try {
-        await this.$http.delete(
+        await $http.delete(
           `api/projects/${projectId}/data`
         );
       } catch (err) {
