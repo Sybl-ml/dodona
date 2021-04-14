@@ -1,8 +1,6 @@
 <template>
-  <b-card class="h-100 shadow">
-    <template #header>
-      <h4 class="mb-0">Analysis</h4>
-    </template>
+  <b-container fluid>
+    <h4 class="mb-0">Analysis</h4>
 
     <b-form-group label="Select a Column:" label-for="dropdown-analysis-select">
       <b-form-select
@@ -10,14 +8,11 @@
         size="sm"
         :options="getAnalysisOptions"
         v-model="analysis_selected"
-        v-on:change="update_analysis"
       />
     </b-form-group>
-    <b-row v-if="!analysis_loaded" class="justify-content-center text-center">
-      <b-spinner />
-    </b-row>
-    <div v-else>
-      <!-- <div v-if="this.analysis.columns[this.analysis_selected].Numerical">
+
+    <b-row>
+      <div v-if="this.analysis.columns[this.analysis_selected].Numerical">
         <numerical-data-analytics-bar
           :chart-data="
             this.analysis.columns[this.analysis_selected].Numerical.values
@@ -46,16 +41,16 @@
           :name="this.analysis_selected"
           ref="analysis_chart"
         />
-      </div> -->
-    </div>
-  </b-card>
+      </div>
+    </b-row>
+  </b-container>
 </template>
 
 <script>
 import DataAnalyticsBar from "@/components/charts/DataAnalyticsBar";
 import NumericalDataAnalyticsBar from "@/components/charts/NumericalDataAnalyticsBar";
 
-export default ({
+export default {
   name: "ProjectAnalysis",
   components: {
     DataAnalyticsBar,
@@ -68,29 +63,20 @@ export default ({
   },
   props: {
     id: String,
+    analysis: Object,
   },
   computed: {
-    project(){
-        return this.$store.getters.getProject(this.id);
-    },
-    analysis() {
-      return this.project.analysis;
-    },
     getAnalysisOptions() {
+      let keys = Object.keys(this.analysis.columns);
+      this.analysis_selected = keys[0];
 
-          console.log(this.project)
-        // let keys = Object.keys(this.analysis.columns);
-        // this.analysis_selected = keys[0];
-        // return keys;
-      
-      return [];
+      if (this.$refs.analysis_chart)
+        this.$refs.analysis_chart.renderNewData(this.analysis.columns[this.analysis_selected].Categorical.values);
+      return keys;
     },
     update_analysis() {
-      if (this.analysis.columns[this.analysis_selected].Categorical)
-        this.$refs.analysis_chart.renderNewData(
-          this.analysis.columns[this.analysis_selected].Categorical.values
-        );
+
     },
   },
-});
+};
 </script>

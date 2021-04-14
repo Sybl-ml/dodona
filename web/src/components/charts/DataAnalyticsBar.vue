@@ -11,7 +11,7 @@ export default {
     return {
       options: {
         responsive: true,
-        maintainAspectRatio: false,
+        maintainAspectRatio: true,
         scales: {
           xAxes: [
             {
@@ -30,6 +30,7 @@ export default {
                 labelString: "Count",
               },
               ticks: {
+                beginAtZero: true,
                 stepSize: 1,
               },
             },
@@ -56,5 +57,10 @@ export default {
       this.renderChart(render_data, this.options);
     },
   },
+  watch: {
+    chartData: function() {
+      this.renderNewData(this.chartData);
+    }
+  }
 };
 </script>

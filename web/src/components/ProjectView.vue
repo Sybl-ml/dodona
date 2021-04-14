@@ -23,22 +23,20 @@
           <project-overview
             v-if="project"
             v-bind="overviewProps"
-            v-on:input-tab="viewInput"
           />
         </b-tab>
-        <b-tab title="Input" ref="inputTab" :disabled="datasetName == ''">
-          <project-input
-            :projectId="projectId"
-            :key="projectId"
-            :datasetName="datasetName"
-          />
+        <b-tab title="Analysis" ref="analysisTab">
+          <project-analysis :id="projectId" v-bind="analysisProps" />
+        </b-tab>
+        <b-tab title="Input" ref="inputTab">
+          <project-input :projectId="projectId" :key="projectId" 
+            v-on:input-tab="viewInput"/>
         </b-tab>
         <b-tab title="Output" lazy :disabled="false">
           <project-output
             :disabled="!results"
             :projectId="projectId"
             :key="projectId"
-            :datasetName="datasetName"
           />
         </b-tab>
         <b-tab title="Settings" lazy>
@@ -52,6 +50,7 @@
 <script>
 import Papa from "papaparse";
 import ProjectOverview from "@/components/ProjectOverview";
+import ProjectAnalysis from "@/components/ProjectAnalysis";
 import ProjectInput from "@/components/ProjectInput";
 import ProjectOutput from "@/components/ProjectOutput";
 import ProjectSettings from "@/components/ProjectSettings";
@@ -73,6 +72,7 @@ export default {
   },
   components: {
     ProjectOverview,
+    ProjectAnalysis,
     ProjectInput,
     ProjectOutput,
     ProjectSettings,
@@ -152,6 +152,13 @@ export default {
         dataset_head: p.details.dataset_head,
         dataset_date: p.details.dataset_date,
         dataset_types: p.details.column_types,
+      };
+    },
+    analysisProps() {
+      let p = this.project;
+      return {
+        projectId: this.projectId,
+        analysis: p.analysis,
       };
     },
     inputProps() {

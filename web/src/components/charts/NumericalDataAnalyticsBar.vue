@@ -83,5 +83,10 @@ export default {
       this.renderChart(render_data, this.options);
     },
   },
+  watch: {
+    chartData: function() {
+      this.renderNewData(this.chartData);
+    }
+  }
 };
 </script>
