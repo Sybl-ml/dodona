@@ -63,9 +63,6 @@ export default {
       training_data: null,
       predict_data: null,
       loading: false,
-
-      analysis_loaded: false,
-
       results: null,
       predict_data: null,
       results_loading: false,
@@ -155,8 +152,6 @@ export default {
         dataset_head: p.details.dataset_head,
         dataset_date: p.details.dataset_date,
         dataset_types: p.details.column_types,
-        analysis: p.analysis,
-        analysis_loaded: this.analysis_loaded,
       };
     },
     inputProps() {
