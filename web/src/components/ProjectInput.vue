@@ -11,7 +11,7 @@
             <br />
             <pagination-table :projectId="projectId" :dataset_type="'train'" />
           </b-tab>
-          <b-tab title="Prediction" active lazy>
+          <b-tab title="Prediction" lazy>
             <br />
             <pagination-table
               :projectId="projectId"
