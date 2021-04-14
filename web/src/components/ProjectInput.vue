@@ -25,7 +25,6 @@
 </template>
 
 <script>
-import VuetableFieldHandle from "vuetable-2/src/components/VuetableFieldHandle.vue";
 import PaginationTable from "./PaginationTable.vue";
 
 export default {

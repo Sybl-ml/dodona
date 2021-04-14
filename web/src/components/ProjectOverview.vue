@@ -1,7 +1,7 @@
 <template>
   <b-container fluid>
     <b-row>
-      <b-col lg="8" sm="12" v-if="checkStatus('Processing')" class="mb-3">
+      <b-col  v-if="checkStatus('Processing')" class="mb-3">
         <h4>Project Is Running ...</h4>
         <b-progress
           :value="value"
@@ -123,12 +123,6 @@
           >Upload</b-button
         >
       </b-col>
-      <b-col lg="4" sm="12">
-        <project-analysis
-          v-if="!checkStatus('Unfinished')"
-          :id="projectId"
-        />
-      </b-col>
     </b-row>
   </b-container>
 </template>
@@ -145,13 +139,11 @@
 </style>
 
 <script>
-import ProjectAnalysis from "@/components/ProjectAnalysis";
 import FileUpload from "@/components/FileUpload";
 
 export default {
   name: "ProjectOverview",
   components: {
-    ProjectAnalysis,
     FileUpload,
   },
   data() {

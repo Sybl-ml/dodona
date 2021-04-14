@@ -42,7 +42,7 @@
           "
           :name="this.analysis_selected"
           color="rgb(99, 255, 222)"
-          ref="analysis_chart"
+          ref="analysis_chart" 
         />
         </b-col>
         <b-col lg="4">

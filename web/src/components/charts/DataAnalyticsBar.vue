@@ -12,7 +12,7 @@ export default {
     return {
       options: {
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
         scales: {
           xAxes: [
             {
