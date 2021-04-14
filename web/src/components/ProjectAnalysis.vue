@@ -12,12 +12,13 @@
     </b-form-group>
 
     <b-row>
-      <div v-if="this.analysis.columns[this.analysis_selected].Numerical">
-        <numerical-data-analytics-bar
+      <b-row v-if="this.analysis.columns[this.analysis_selected].Numerical">
+        <data-analytics-bar
           :chart-data="
             this.analysis.columns[this.analysis_selected].Numerical.values
           "
           :name="this.analysis_selected"
+          color="rgb(255, 99, 132)"
           ref="analysis_chart"
         />
         <p>
@@ -32,33 +33,37 @@
           AVG -
           {{ this.analysis.columns[this.analysis_selected].Numerical.avg }}
         </p>
-      </div>
-      <div v-else>
+      </b-row>
+      <b-row v-else>
+        <b-col lg="8">
         <data-analytics-bar
           :chart-data="
             this.analysis.columns[this.analysis_selected].Categorical.values
           "
           :name="this.analysis_selected"
+          color="rgb(99, 255, 222)"
           ref="analysis_chart"
         />
-      </div>
+        </b-col>
+        <b-col lg="4">
+          <b-table hover striped :items="columns"></b-table>
+        </b-col>
+      </b-row>
     </b-row>
   </b-container>
 </template>
 
 <script>
 import DataAnalyticsBar from "@/components/charts/DataAnalyticsBar";
-import NumericalDataAnalyticsBar from "@/components/charts/NumericalDataAnalyticsBar";
 
 export default {
   name: "ProjectAnalysis",
   components: {
     DataAnalyticsBar,
-    NumericalDataAnalyticsBar,
   },
   data() {
     return {
-      analysis_selected: null,
+      analysis_selected: "",
     };
   },
   props: {
@@ -69,14 +74,16 @@ export default {
     getAnalysisOptions() {
       let keys = Object.keys(this.analysis.columns);
       this.analysis_selected = keys[0];
-
-      if (this.$refs.analysis_chart)
-        this.$refs.analysis_chart.renderNewData(this.analysis.columns[this.analysis_selected].Categorical.values);
       return keys;
     },
-    update_analysis() {
-
-    },
+    columns() {
+      let columns_list = Object.keys(this.analysis.columns[this.analysis_selected].Categorical.values);
+      let columns_obj = [];
+      for (let col of columns_list) {
+        columns_obj.push({attributes: col})
+      }
+      return columns_obj
+    }
   },
 };
 </script>

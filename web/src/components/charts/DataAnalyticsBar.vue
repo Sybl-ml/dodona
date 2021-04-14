@@ -6,6 +6,7 @@ export default {
   props: {
     chartData: Object,
     name: String,
+    color: String,
   },
   data() {
     return {
@@ -49,7 +50,7 @@ export default {
         datasets: [
           {
             label: this.name,
-            backgroundColor: "rgb(255, 99, 132)",
+            backgroundColor: this.color,
             data: Object.values(data),
           },
         ],
