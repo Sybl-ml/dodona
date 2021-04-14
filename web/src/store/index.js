@@ -31,7 +31,7 @@ function unpackProjectResponse(response) {
     _id: project._id.$oid,
     date_created: new Date(project.date_created.$date),
   });
-
+  console.log(response)
   project.details = details;
   project.analysis = analysis;
   return project;
@@ -57,10 +57,7 @@ export default new Vuex.Store({
       });
     },
     getProject: (state) => (id) => {
-      console.log(id);
-      console.log(state.projects);
       let p = state.projects.filter((project) => project._id == id);
-      console.log(p);
       return p[0];
     },
     isAuthenticated: (state) => {
@@ -110,7 +107,7 @@ export default new Vuex.Store({
       }
       router.replace(`/dashboard${new_route}`);
     },
-    unlockModel(state, model_id){
+    unlockModel(state, model_id) {
       console.log(state)
       let index = state.models.findIndex((m) => m._id.$oid == model_id);
       state.models[index].locked = false;
@@ -229,7 +226,7 @@ export default new Vuex.Store({
         predictionType: prediction_type,
         predictionColumn: prediction_column,
       };
-      
+
       try {
         await $http.post(`api/projects/${projectId}/process`, payload);
       } catch (err) {
@@ -313,7 +310,18 @@ export default new Vuex.Store({
       } catch (err) {
         console.log(err);
       }
+    },
+    async deleteData(context, projectId) {
+      try {
+        await this.$http.delete(
+          `api/projects/${projectId}/data`
+        );
+      } catch (err) {
+        console.log(err);
+      }
 
+      context.commit("updateProject",
+        { project_id: projectId, field: "status", new_data: "Unfinished" });
     },
   },
 });
