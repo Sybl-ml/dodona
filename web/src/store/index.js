@@ -16,6 +16,8 @@ function unpackProjectResponse(response) {
       dataset_name: "",
       dataset_head: {},
       dataset_types: {},
+      train_size: 0,
+      predict_size: 0,
     },
     analysis = {},
   } = response;

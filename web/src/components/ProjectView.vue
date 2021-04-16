@@ -152,6 +152,8 @@ export default {
         dataset_head: p.details.dataset_head,
         dataset_date: p.details.dataset_date,
         dataset_types: p.details.column_types,
+        dataset_train_size: Math.round((p.details.train_size+99)/100)*100,
+        dataset_predict_size: Math.round((p.details.predict_size+99)/100)*100,
       };
     },
     analysisProps() {
