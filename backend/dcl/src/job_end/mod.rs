@@ -573,21 +573,25 @@ pub async fn dcl_protocol(
         };
 
     // Ensure it is the right message and decode + decompress it
-    let raw_anonymised_predictions = match prediction_message {
-        ClientMessage::Predictions(s) => decode_and_decompress(&s)?,
+    let anonymised_predictions = match prediction_message {
+        ClientMessage::Predictions(s) => decode_and_decompress(&s),
         _ => unreachable!(),
     };
-    let anonymised_predictions = raw_anonymised_predictions.trim();
 
-    if let Some((model_predictions, model_error)) =
-        deanonymise_dataset(&anonymised_predictions, &info.columns)
+    // Evaluate the model
+    let model_evaluation = anonymised_predictions.map(|preds| {
+        deanonymise_dataset(preds.trim(), &info.columns)
             .and_then(|predictions| ml::evaluate_model(&model_id, &predictions, &info))
-    {
+    });
+
+    // Check that we got valid predictions and they evaluated correctly
+    if let Ok(Some((model_predictions, model_error))) = model_evaluation {
         log::info!(
-            "Node with id={} produced {} bytes of predictions",
+            "Node with id={} produced {} rows of predictions",
             model_id,
-            anonymised_predictions.len()
+            model_predictions.len()
         );
+
         write_back.write_error(model_id.clone(), Some(model_error));
         write_back.write_predictions(model_id.clone(), model_predictions);
     } else {
