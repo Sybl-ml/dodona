@@ -31,23 +31,11 @@ export default {
   name: "Settings",
   data() {
     return {
-      user_data: {},
       avatarSrc: "",
     }
   },
   components: {
     AvatarUpload,
-  },
-  async mounted() {
-    let user_id = $cookies.get("token");
-    try {
-      let data = await this.$http.get(
-        `api/users`
-      );
-      this.user_data = data.data
-    } catch (err) {
-      console.log(err);
-    }
   },
   methods: {
     onUpload(avatarSrc){
@@ -59,5 +47,10 @@ export default {
       }
     },
   },
+  computed: {
+    user_data(){
+      this.$store.dispatch("getUserData");
+    }
+  }
 };
 </script>
