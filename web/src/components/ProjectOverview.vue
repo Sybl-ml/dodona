@@ -48,7 +48,7 @@
         </b-modal>
 
         <h4>Job Configuration:</h4>
-
+        
         <p><b>Job Cost:</b> {{this.jobCost}} credits</p>
 
         <b-form-group label="Problem Type" label-for="dropdown-form-type">
