@@ -9,9 +9,9 @@
     <hr />
 
     <model-card
-      v-for="(m, index) in model_data"
+      v-for="(model, index) in model_data"
       :key="index"
-      :data="m"
+      :model="model"
       :i="index"
     />
 
