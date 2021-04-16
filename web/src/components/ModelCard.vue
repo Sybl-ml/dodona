@@ -82,11 +82,12 @@
               </h1>
               <b-card-title>Unlock Model</b-card-title>
               <b-card-text>Please provide your password to confirm</b-card-text>
-              <b-form class="mt-5 mb-3" @submit.prevent="onSubmit">
+              <b-form class="mt-3 mb-3" @submit.prevent="onSubmit">
                 <b-form-input
                   type="password"
                   id="name"
                   class="mb-3"
+                  placeholder="Password"
                   v-model="password"
                 ></b-form-input>
                 <b-button type="submit" variant="primary" class="mb-3">
@@ -133,8 +134,6 @@ export default {
   },
   data() {
     return {
-      test_performance: [{ performance: 0.5 }, { performance: 0.4 }],
-      performance: [],
       password: "",
     };
   },
@@ -142,14 +141,7 @@ export default {
     ModelPerformance,
   },
   async mounted() {
-    try {
-      let data = await this.$http.get(
-        `api/clients/models/${this.data._id.$oid}/performance`,
-      );
-      this.performance = data.data;
-    } catch (err) {
-      console.log(err);
-    }
+    this.$store.dispatch("getModelPerformance", this.data._id.$oid);
   },
   computed: {
     status_variant() {
@@ -163,12 +155,13 @@ export default {
         return "secondary";
       }
     },
+    performance() {
+      return this.$store.getters.getModelPerformance(this.data._id.$oid);
+    }
   },
   methods: {
     async onSubmit() {
-      
       this.$store.dispatch("unlockModel", {model_id: this.data._id.$oid, password: this.password});
-      
     },
     renderChart(model_id) {
       if (this.data.status === "Running")

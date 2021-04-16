@@ -33,7 +33,7 @@ function unpackProjectResponse(response) {
   });
   project.details = details;
   project.analysis = analysis;
-  
+
   return project;
 }
 
@@ -63,6 +63,11 @@ export default new Vuex.Store({
     isAuthenticated: (state) => {
       return !_.isEmpty(state.user_data);
     },
+    getModelPerformance: (state) => (id) => {
+      let index = state.models.findIndex((m) => m._id.$oid == id);
+      let performance = state.models[index].performance;
+      return performance;
+    },
   },
   mutations: {
     setProjects(state, projects) {
@@ -70,6 +75,10 @@ export default new Vuex.Store({
     },
     setModels(state, models) {
       state.models = models;
+    },
+    setModelPerformance(state, { performance, id }) {
+      let index = state.models.findIndex((m) => m._id.$oid == id);
+      Vue.set(state.models[index], "performance", performance);
     },
     setUser(state, user) {
       Vue.set(state, "user_data", user);
@@ -109,7 +118,7 @@ export default new Vuex.Store({
     },
     unlockModel(state, model_id) {
       let index = state.models.findIndex((m) => m._id.$oid == model_id);
-      state.models[index].locked = false;
+      Vue.set(state.models[index], "locked", false);
     },
   },
   actions: {
@@ -140,6 +149,17 @@ export default new Vuex.Store({
         let data = await $http.get(`api/clients/models`);
 
         commit("setModels", data.data);
+
+      } catch (err) {
+        console.log(err);
+      }
+    },
+    async getModelPerformance(context, id) {
+      try {
+        let data = await $http.get(
+          `api/clients/models/${id}/performance`,
+        );
+        context.commit("setModelPerformance", { performance: data.data, id: id });
       } catch (err) {
         console.log(err);
       }
