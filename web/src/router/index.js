@@ -48,7 +48,7 @@ const routes = [
   },
   {
     path: "/client/confirm/success",
-    name: "Private Key",
+    name: "PrivateKey",
     component: KeyConfirmation,
     meta: { requiresAuth: true },
     props: true,
