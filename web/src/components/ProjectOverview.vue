@@ -1,7 +1,7 @@
 <template>
   <b-container fluid>
     <b-row>
-      <b-col lg="8" sm="12" v-if="checkStatus('Processing')">
+      <b-col  v-if="checkStatus('Processing')" class="mb-3">
         <h4>Project Is Running ...</h4>
         <b-progress
           :value="value"
@@ -11,7 +11,7 @@
           animated
         ></b-progress>
       </b-col>
-      <b-col lg="8" sm="12" v-else-if="checkStatus('Ready')">
+      <b-col lg="8" sm="12" v-else-if="checkStatus('Ready')" class="mb-3">
         <h4>Description:</h4>
         <div class="scrollable_description mb-3">
           {{ description }}
@@ -19,7 +19,7 @@
         <h4>Linked Dataset:</h4>
         <b-button-group size="sm" class="mb-3">
           <b-button variant="secondary" @click="$emit('input-tab')">{{
-            datasetName
+            dataset_name
           }}</b-button>
           <b-button variant="outline-secondary" v-b-modal.deleteDataCheck
             >X</b-button
@@ -32,7 +32,7 @@
           title="Are your sure?"
           hide-footer
         >
-          <p>You are removing {{ datasetName }} from this project</p>
+          <p>You are removing {{ dataset_name }} from this project</p>
           <p>Please confirm you are happy to continue</p>
           <b-row class="justify-content-center text-center">
             <b-button class="m-2" variant="success" @click="deleteDataset"
@@ -48,6 +48,23 @@
         </b-modal>
 
         <h4>Job Configuration:</h4>
+
+        <b-form-group label="Problem Type" label-for="dropdown-form-type">
+          <b-form-select
+            id="dropdown-form-type"
+            size="sm"
+            :options="problemTypeOptions"
+            v-model="problemType"
+          />
+        </b-form-group>
+        <b-form-group label="Prediction Column" label-for="dropdown-pred-col">
+          <b-form-select
+            id="dropdown-pred-col"
+            size="sm"
+            :options="getColumnNames"
+            v-model="predColumn"
+          />
+        </b-form-group>
         <b-button
           v-b-toggle.job-config
           pill
@@ -55,7 +72,7 @@
           size="sm"
           class="mb-3"
           @click="expandJob = !expandJob"
-          >{{ expandJob ? "Show" : "Hide" }}</b-button
+          >{{ expandJob ? "Advanced" : "Minimize" }}</b-button
         >
         <b-collapse id="job-config">
           <b-form-group
@@ -66,6 +83,7 @@
               id="dropdown-form-timeout"
               size="sm"
               type="number"
+              min="1"
               v-model="nodeComputationTime"
             ></b-form-input>
           </b-form-group>
@@ -77,24 +95,9 @@
               id="dropdown-form-cluster-size"
               size="sm"
               type="number"
+              min="1"
               v-model="cluster_size"
             ></b-form-input>
-          </b-form-group>
-          <b-form-group label="Problem Type" label-for="dropdown-form-type">
-            <b-form-select
-              id="dropdown-form-type"
-              size="sm"
-              :options="problemTypeOptions"
-              v-model="problemType"
-            />
-          </b-form-group>
-          <b-form-group label="Prediction Column" label-for="dropdown-pred-col">
-            <b-form-select
-              id="dropdown-pred-col"
-              size="sm"
-              :options="getColumnNames"
-              v-model="predColumn"
-            />
           </b-form-group>
         </b-collapse>
         <h4>To start computation click the button below</h4>
@@ -120,71 +123,6 @@
           >Upload</b-button
         >
       </b-col>
-      <b-col lg="4" sm="12" >
-        <b-card class="h-100 shadow" v-if="!checkStatus('Unfinished') & analysis_loaded">
-          <template #header>
-            <h4 class="mb-0">Analysis</h4>
-          </template>
-
-          <b-form-group
-            label="Select a Column:"
-            label-for="dropdown-analysis-select"
-          >
-            <b-form-select
-              id="dropdown-analysis-select"
-              size="sm"
-              :options="getAnalysisOptions"
-              v-model="analysis_selected"
-              v-on:change="update_analysis"
-            />
-          </b-form-group>
-          <b-row
-            v-if="!analysis_loaded"
-            class="justify-content-center text-center"
-          >
-            <b-spinner />
-          </b-row>
-          <div v-else>
-            <div v-if="this.analysis.columns[this.analysis_selected].Numerical">
-              <numerical-data-analytics-bar
-                :chart-data="
-                  this.analysis.columns[this.analysis_selected].Numerical.values
-                "
-                :name="this.analysis_selected"
-                ref="analysis_chart"
-              />
-              <p>
-                MAX -
-                {{
-                  this.analysis.columns[this.analysis_selected].Numerical.max
-                }}
-              </p>
-              <p>
-                MIN -
-                {{
-                  this.analysis.columns[this.analysis_selected].Numerical.min
-                }}
-              </p>
-              <p>
-                AVG -
-                {{
-                  this.analysis.columns[this.analysis_selected].Numerical.avg
-                }}
-              </p>
-            </div>
-            <div v-else>
-              <data-analytics-bar
-                :chart-data="
-                  this.analysis.columns[this.analysis_selected].Categorical
-                    .values
-                "
-                :name="this.analysis_selected"
-                ref="analysis_chart"
-              />
-            </div>
-          </div>
-        </b-card>
-      </b-col>
     </b-row>
   </b-container>
 </template>
@@ -201,31 +139,12 @@
 </style>
 
 <script>
-import DataAnalyticsBar from "@/components/charts/DataAnalyticsBar";
-import NumericalDataAnalyticsBar from "@/components/charts/NumericalDataAnalyticsBar";
 import FileUpload from "@/components/FileUpload";
-
-const readUploadedFileAsText = (inputFile) => {
-  const temporaryFileReader = new FileReader();
-  return new Promise((resolve, reject) => {
-    temporaryFileReader.onerror = () => {
-      temporaryFileReader.abort();
-      reject(new DOMException("Problem parsing input file."));
-    };
-
-    temporaryFileReader.onload = () => {
-      resolve(temporaryFileReader.result);
-    };
-    temporaryFileReader.readAsText(inputFile);
-  });
-};
 
 export default {
   name: "ProjectOverview",
   components: {
     FileUpload,
-    DataAnalyticsBar,
-    NumericalDataAnalyticsBar,
   },
   data() {
     return {
@@ -235,9 +154,7 @@ export default {
       file: null,
       problemType: null,
       predColumn: null,
-      analysis_selected: null,
       expandJob: true,
-
       problemTypeOptions: [
         {
           value: null,
@@ -257,19 +174,17 @@ export default {
   props: {
     projectId: String,
     description: String,
-    datasetName: String,
-    dataDate: Date,
-    dataHead: Object,
-    dataTypes: Object,
     status: String,
-    analysis: Object,
-    analysis_loaded: Boolean,
+    dataset_name: String,
+    dataset_head: Object,
+    dataset_date: Date,
+    dataset_types: Object,
   },
   computed: {
     getDatasetDate() {
-      return `${this.dataDate.toLocaleString("en-GB", {
+      return `${this.dataset_date.toLocaleString("en-GB", {
         dateStyle: "short",
-      })} - ${this.dataDate.toLocaleString("en-GB", {
+      })} - ${this.dataset_date.toLocaleString("en-GB", {
         timeStyle: "short",
       })}`;
     },
@@ -285,7 +200,7 @@ export default {
       }
     },
     getColumnNames() {
-      let keys = Object.keys(this.dataTypes);
+      let keys = Object.keys(this.dataset_types);
       let options = [
         {
           value: null,
@@ -294,98 +209,40 @@ export default {
       ];
       keys.forEach((key) => options.push({ value: key, text: key }));
       return options;
+      
     },
     startDisabled() {
       return this.predColumn == null || this.problemType == null;
     },
-    getAnalysisOptions() {
-      if (this.analysis_loaded) {
-        let keys = Object.keys(this.analysis.columns);
-        this.analysis_selected = keys[0];
-        return keys;
-      }
-      return [];
-    },
   },
   methods: {
     async start() {
-      this.nodeComputationTime = parseInt(this.nodeComputationTime);
-      this.cluster_size = parseInt(this.cluster_size);
-      if (this.nodeComputationTime <= 0) {
-        this.nodeComputationTime = 1;
-      }
-      if (this.cluster_size <= 0) {
-        this.cluster_size = 1;
-      }
-      try {
-        await this.$http.post(`api/projects/${this.projectId}/process`, {
-          nodeComputationTime: this.nodeComputationTime,
-          clusterSize: this.cluster_size,
-          predictionType: this.problemType,
-          predictionColumn: this.predColumn,
-        });
-      } catch (err) {
-        console.log(err);
-      }
+      let payload = {
+        projectId: this.projectId,
+        node_computation_time: this.nodeComputationTime,
+        cluster_size: this.cluster_size,
+        prediction_type: this.problemType,
+        prediction_column: this.predColumn,
+      };
 
-      // this.$router.replace("/dashboard/"+this.projectId);
-      this.$emit("update:project", this.projectId);
+      this.$store.dispatch("startProcessing", payload);
     },
     async deleteDataset() {
-      try {
-        let project_response = await this.$http.delete(
-          `api/projects/${this.projectId}/data`
-        );
-      } catch (err) {
-        console.log(err);
-      }
+      console.log(this.projectId)
+      this.$store.dispatch("deleteData", this.projectId);
       this.$refs["deleteDataCheck"].hide();
-
-      window.location.reload();
     },
-    async sendFile(file) {
-
-      let formData = new FormData();
-
-      formData.append("dataset", file);
-
-      let config = { headers: { 'Content-Type': 'multipart/form-data' } };
-
-      let project_response = await this.$http.put(
-        `api/projects/${this.projectId}/upload_and_split`, formData, config
-      );
-
-      console.log(project_response)
-      
-      // On Success should update dashboard using emitters
-      window.location.reload();
-    },
-
-    async sendMultiFile(train, predict) {
-
-      let formData = new FormData();
-
-      formData.append("train", train);
-      formData.append("predict", predict);
-
-      let config = { headers: { 'Content-Type': 'multipart/form-data' } };
-
-      let project_response = await this.$http.put(
-        `api/projects/${this.projectId}/upload_train_and_predict`, formData, config
-      );
-
-      console.log(project_response)
-      
-      // On Success should update dashboard using emitters
-      window.location.reload();
-    },
-    
     async processFile() {
       console.log("Processing uploaded data");
       if (this.file.file) {
         try {
           console.log("Processing single file");
-          this.sendFile(this.file.file);
+          let payload = {
+            project_id: this.projectId,
+            multipart: false,
+            files: this.file.file,
+          };
+          this.$store.dispatch("sendFile", payload);
         } catch (e) {
           console.warn(e.message);
         }
@@ -393,17 +250,19 @@ export default {
         // Use train endpoint and predict endpoint
         console.log("Processing 2 files");
         try {
-          this.sendMultiFile(this.file.train, this.file.predict);
+          let payload = {
+            project_id: this.projectId,
+            multipart: true,
+            files: {
+              train: this.file.train,
+              predict: this.file.predict,
+            },
+          };
+          this.$store.dispatch("sendFile", payload);
         } catch (e) {
           console.warn(e.message);
         }
       }
-    },
-    update_analysis() {
-      if (this.analysis.columns[this.analysis_selected].Categorical)
-        this.$refs.analysis_chart.renderNewData(
-          this.analysis.columns[this.analysis_selected].Categorical.values
-        );
     },
     checkStatus(status_check) {
       return this.status == status_check;

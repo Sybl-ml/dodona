@@ -19,12 +19,14 @@
       >
     </b-row>
     <b-row class="justify-content-center">
-      <b-avatar :src="imageSrc" size="6rem" />
+      <b-avatar v-if="imageSrc" :src="imageSrc" size="6rem" />
+      <b-avatar v-else-if="original" :src="'data:image/png;base64,' + original" size="6rem" />
     </b-row>
   </b-container>
 </template>
 
 <script>
+
 const base64Encode = (data) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -37,14 +39,16 @@ export default {
   data() {
     return {
       image: null,
-      imageSrc: null,
-      avatar: "",
+      imageSrc: "",
     };
   },
   computed: {
     hasImage() {
       return !!this.image;
     },
+    original(){
+      return this.$store.state.user_data.avatar;
+    }
   },
   methods: {
     handleImage(e) {
@@ -69,24 +73,10 @@ export default {
     },
     clearImage() {
       this.image = null;
-      this.imageSrc = "data:image/png;base64," + this.avatar;
-      this.$emit("upload", null);
+      this.imageSrc = "";
+      this.$emit("upload", null); 
     },
-    async getAvatar() {
-      let response = await this.$http
-        .get(`api/users/avatar`)
-        .then((response) => {
-          console.log(response);
-          this.avatar = response.data.img;
-          this.imageSrc = "data:image/png;base64," + this.avatar;
-        })
-        .catch((error) => {
-          console.log(error);
-        });
-    },
-  },
-  async mounted() {
-    this.getAvatar();
+
   },
 };
 </script>

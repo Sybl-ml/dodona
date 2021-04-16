@@ -9,9 +9,9 @@
     <hr />
 
     <model-card
-      v-for="(m, index) in model_data"
+      v-for="(model, index) in model_data"
       :key="index"
-      :data="m"
+      :model="model"
       :i="index"
     />
 
@@ -124,7 +124,6 @@ export default {
   name: "Nodes",
   data() {
     return {
-      model_data: [],
       auth_token: "",
       error: false,
       cli_code: "git clone www.sybl.com/cli",
@@ -134,16 +133,8 @@ export default {
   components: {
     ModelCard,
   },
-  async mounted() {
-    let user_id = $cookies.get("token");
-    try {
-      let data = await this.$http.get(
-        `api/clients/models`
-      );
-      this.model_data = data.data;
-    } catch (err) {
-      console.log(err);
-    }
+  async created() {
+    this.$store.dispatch("getModels");
   },
   methods: {
     async copy(s) {
@@ -153,6 +144,9 @@ export default {
   computed: {
     validation() {
       return !this.error;
+    },
+    model_data() {
+      return this.$store.state.models;
     },
   },
 };

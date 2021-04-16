@@ -53,7 +53,7 @@ export default {
       await navigator.clipboard.writeText(s);
     },
     nodes() {
-      this.$router.push({ name: "Nodes" });
+      this.$router.push({ name: "Models" });
     },
   },
 };

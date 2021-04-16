@@ -31,23 +31,11 @@ export default {
   name: "Settings",
   data() {
     return {
-      user_data: {},
       avatarSrc: "",
     }
   },
   components: {
     AvatarUpload,
-  },
-  async mounted() {
-    let user_id = $cookies.get("token");
-    try {
-      let data = await this.$http.get(
-        `api/users`
-      );
-      this.user_data = data.data
-    } catch (err) {
-      console.log(err);
-    }
   },
   methods: {
     onUpload(avatarSrc){
@@ -55,12 +43,14 @@ export default {
     },
     uploadAvatar(){
       if (this.avatarSrc) {
-        this.$http.post("api/users/avatar", {
-          avatar: this.avatarSrc.split(",")[1],
-        });
+        this.$store.dispatch("postNewAvatar", this.avatarSrc.split(",")[1]);
       }
-      window.location.reload()
     },
   },
+  computed: {
+    user_data(){
+      this.$store.dispatch("getUserData");
+    }
+  }
 };
 </script>

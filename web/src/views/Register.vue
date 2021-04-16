@@ -124,7 +124,6 @@
         Something is wrong with your infomation
       </b-alert> </b-row
     >
-    <particles-bg  color="#cccccc" num=150 type="cobweb" :bg="true"/>
   </b-container>
 </template>
 
@@ -132,7 +131,6 @@
 import IconLogo from "@/components/icons/IconLogo";
 import NavigatableTab from "@/components/NavigatableTab.vue";
 import AvatarUpload from "@/components/AvatarUpload.vue";
-import { ParticlesBg } from "particles-bg-vue";
 
 export default {
   data() {
@@ -155,7 +153,6 @@ export default {
     IconLogo,
     NavigatableTab,
     AvatarUpload,
-    ParticlesBg,
   },
   computed: {
     validCredentials() {
@@ -186,7 +183,7 @@ export default {
       this.submitted = true;
 
       try {
-        let response = await this.$http.post("api/users/new", {
+        let response = await this.$store.dispatch("register", {
           email: this.email,
           password: this.password,
           firstName: this.firstName,
@@ -211,9 +208,7 @@ export default {
     },
     uploadAvatar() {
       if (this.avatarSrc) {
-        this.$http.post("api/users/avatar", {
-          avatar: this.avatarSrc.split(",")[1],
-        });
+        this.$store.dispatch("uploadAvatar", this.avatarSrc.split(",")[1]);
       }
     },
   },
