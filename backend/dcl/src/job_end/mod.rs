@@ -522,24 +522,6 @@ async fn run_cluster(
     Ok(())
 }
 
-/// Compresses the data and uses Base64 encoding to form a [`ClientMessage`].
-fn create_dataset_message(train: &str, predict: &str) -> ClientMessage {
-    // Compress the data
-    let training_bytes = utils::compress::compress_bytes(train.as_bytes())
-        .expect("Failed to compress the training data");
-    let prediction_bytes = utils::compress::compress_bytes(predict.as_bytes())
-        .expect("Failed to compress the prediction data");
-
-    // Perform Base64 encoding
-    let encoded_training = base64::encode(&training_bytes);
-    let encoded_prediction = base64::encode(&prediction_bytes);
-
-    ClientMessage::Dataset {
-        train: encoded_training,
-        predict: encoded_prediction,
-    }
-}
-
 /// Decodes the incoming data and decompresses it.
 ///
 /// Incoming data is expected to be compressed and then encoded with Base64, so this will simply
@@ -568,7 +550,7 @@ pub async fn dcl_protocol(
     let mut buffer = [0_u8; 1024];
 
     // Compress the data beforehand
-    let dataset_message = create_dataset_message(&train, &predict);
+    let dataset_message = ClientMessage::from_train_and_predict(&train, &predict);
 
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
