@@ -522,6 +522,34 @@ async fn run_cluster(
     Ok(())
 }
 
+/// Compresses the data and uses Base64 encoding to form a [`ClientMessage`].
+fn create_dataset_message(train: &str, predict: &str) -> ClientMessage {
+    // Compress the data
+    let training_bytes = utils::compress::compress_bytes(train.as_bytes())
+        .expect("Failed to compress the training data");
+    let prediction_bytes = utils::compress::compress_bytes(predict.as_bytes())
+        .expect("Failed to compress the prediction data");
+
+    // Perform Base64 encoding
+    let encoded_training = base64::encode(&training_bytes);
+    let encoded_prediction = base64::encode(&prediction_bytes);
+
+    ClientMessage::Dataset {
+        train: encoded_training,
+        predict: encoded_prediction,
+    }
+}
+
+/// Decodes the incoming data and decompresses it.
+///
+/// Incoming data is expected to be compressed and then encoded with Base64, so this will simply
+/// reverse the process.
+fn decode_and_decompress(data: &str) -> Result<String> {
+    let decoded = base64::decode(data)?;
+    let decompressed = utils::compress::decompress_data(&decoded)?;
+    Ok(String::from_utf8(decompressed)?)
+}
+
 /// Function to execute DCL protocol
 pub async fn dcl_protocol(
     nodepool: Arc<NodePool>,
@@ -530,7 +558,7 @@ pub async fn dcl_protocol(
     stream: Arc<RwLock<TcpStream>>,
     info: ClusterInfo,
     cluster_control: ClusterControl,
-    train_predict: (String, String),
+    (train, predict): (String, String),
     write_back: WriteBackMemory,
 ) -> Result<()> {
     log::debug!("Sending a job to node with id={}", model_id);
@@ -538,9 +566,9 @@ pub async fn dcl_protocol(
     let mut dcn_stream = stream.write().await;
 
     let mut buffer = [0_u8; 1024];
-    let (train, predict) = train_predict;
 
-    let dataset_message = ClientMessage::Dataset { train, predict };
+    // Compress the data beforehand
+    let dataset_message = create_dataset_message(&train, &predict);
 
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
@@ -562,8 +590,9 @@ pub async fn dcl_protocol(
             }
         };
 
+    // Ensure it is the right message and decode + decompress it
     let raw_anonymised_predictions = match prediction_message {
-        ClientMessage::Predictions(s) => s,
+        ClientMessage::Predictions(s) => decode_and_decompress(&s)?,
         _ => unreachable!(),
     };
     let anonymised_predictions = raw_anonymised_predictions.trim();
