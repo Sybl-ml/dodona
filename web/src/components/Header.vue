@@ -24,6 +24,7 @@
         <b-nav-item-dropdown right>
           <template #button-content>
             <b-avatar
+              v-if="avatar"
               size="1.75em"
               :src="'data:image/png;base64,' + avatar"
             ></b-avatar>
@@ -32,7 +33,7 @@
           <b-dropdown-item disabled>{{ email }}</b-dropdown-item>
           <b-dropdown-divider />
           <b-dropdown-item to="/dashboard">Dashboard</b-dropdown-item>
-          <b-dropdown-item v-if="client" to="/nodes">Models</b-dropdown-item>
+          <b-dropdown-item v-if="client" to="/models">Models</b-dropdown-item>
           <b-dropdown-item v-else to="/client/confirm">
             Register as Client
           </b-dropdown-item>
@@ -79,7 +80,6 @@ export default {
       logoRoute: "/",
       atDashboard: false,
       atLanding: false,
-      avatar: "",
     };
   },
   computed: {
@@ -98,23 +98,20 @@ export default {
     loggedIn() {
       return this.$store.getters.isAuthenticated;
     },
+    avatar() {
+        return this.$store.state.user_data.avatar;
+    },
   },
   methods: {
     signout() {
-      $cookies.remove("token");
       this.$store.dispatch("logout");
     },
-    getUserData() {
-      this.$store.dispatch("getUserData");
-    },
+
     updateHeader() {
       let user_id = $cookies.get("token");
 
-      this.getUserData();
-
       let pageName = this.$route.name;
 
-      this.loggedIn = user_id ? true : false;
       this.logoRoute = user_id ? "/dashboard" : "/";
 
       this.atLanding = pageName == "Welcome" || pageName == "Pricing";
@@ -125,30 +122,24 @@ export default {
         pageName === "ProjectView" ||
         pageName === "Nodes";
     },
-    async getAvatar() {
-      let response = await this.$http.get(`api/users/avatar`);
-      console.log(response);
-      this.avatar = response.data.img;
+  },
+  async mounted() {
+    setInterval(() => {
+      this.time = new Date().toLocaleString("en-GB", {
+        dateStyle: "long",
+        timeStyle: "medium",
+      });
+      this.time = this.time.toString().replace(" at", ",");
+    }, 1000);
+  },
+
+  watch: {
+    $route: function () {
+      this.updateHeader();
     },
   },
-  // async mounted() {
-  //   this.getUserData();
-  //   this.getAvatar();
-  //   setInterval(() => {
-  //     this.time = new Date().toLocaleString("en-GB", {
-  //       dateStyle: "long",
-  //       timeStyle: "medium",
-  //     });
-  //     this.time = this.time.toString().replace(" at", ",");
-  //   }, 1000);
-  // },
-  // created() {
-  //   this.updateHeader();
-  // },
-  watch: {
-    // $route: function() {
-    //   this.updateHeader();
-    // },
+  async created() {
+    this.updateHeader();
   },
 };
 </script>

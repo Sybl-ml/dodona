@@ -1,6 +1,6 @@
 import Vue from "vue";
 import Vuex from "vuex";
-import createPersistedState from "vuex-persistedstate";
+// import createPersistedState from "vuex-persistedstate";
 import $http from "../services/axios-instance";
 import _ from "lodash";
 import Papa from "papaparse";
@@ -31,9 +31,9 @@ function unpackProjectResponse(response) {
     _id: project._id.$oid,
     date_created: new Date(project.date_created.$date),
   });
-
   project.details = details;
   project.analysis = analysis;
+
   return project;
 }
 
@@ -57,14 +57,16 @@ export default new Vuex.Store({
       });
     },
     getProject: (state) => (id) => {
-      console.log(id);
-      console.log(state.projects);
       let p = state.projects.filter((project) => project._id == id);
-      console.log(p);
       return p[0];
     },
     isAuthenticated: (state) => {
       return !_.isEmpty(state.user_data);
+    },
+    getModelPerformance: (state) => (id) => {
+      let index = state.models.findIndex((m) => m._id.$oid == id);
+      let performance = state.models[index].performance;
+      return performance;
     },
   },
   mutations: {
@@ -74,11 +76,15 @@ export default new Vuex.Store({
     setModels(state, models) {
       state.models = models;
     },
+    setModelPerformance(state, { performance, id }) {
+      let index = state.models.findIndex((m) => m._id.$oid == id);
+      Vue.set(state.models[index], "performance", performance);
+    },
     setUser(state, user) {
       Vue.set(state, "user_data", user);
     },
     setAvatar(state, avatar) {
-      state.user_data.avatar = avatar;
+      Vue.set(state.user_data, "avatar", avatar);
     },
     addProject(state, new_project) {
       let index = 0;
@@ -110,6 +116,10 @@ export default new Vuex.Store({
       }
       router.replace(`/dashboard${new_route}`);
     },
+    unlockModel(state, model_id) {
+      let index = state.models.findIndex((m) => m._id.$oid == model_id);
+      Vue.set(state.models[index], "locked", false);
+    },
   },
   actions: {
     async getProjects({ commit }) {
@@ -119,7 +129,6 @@ export default new Vuex.Store({
         let p = unpackProjectResponse(x);
         return p;
       });
-      console.log(project_response);
 
       commit("setProjects", project_response);
 
@@ -139,8 +148,18 @@ export default new Vuex.Store({
       try {
         let data = await $http.get(`api/clients/models`);
 
-        console.log(data.data);
         commit("setModels", data.data);
+
+      } catch (err) {
+        console.log(err);
+      }
+    },
+    async getModelPerformance(context, id) {
+      try {
+        let data = await $http.get(
+          `api/clients/models/${id}/performance`,
+        );
+        context.commit("setModelPerformance", { performance: data.data, id: id });
       } catch (err) {
         console.log(err);
       }
@@ -154,6 +173,17 @@ export default new Vuex.Store({
     async getAvatar({ commit }) {
       let response = await $http.get(`api/users/avatar`);
       commit("setAvatar", response.data.img);
+    },
+    async postNewAvatar(context, avatar) {
+      try {
+        await $http.post("api/users/avatar", {
+          avatar: avatar,
+        });
+      } catch (err) {
+        console.log(err);
+      }
+
+      context.commit("setAvatar", avatar);
     },
     async addProject(context, id) {
       let project_response = await $http.get(`api/projects/${id}`);
@@ -213,7 +243,7 @@ export default new Vuex.Store({
         predictionType: prediction_type,
         predictionColumn: prediction_column,
       };
-      console.log(payload);
+
       try {
         await $http.post(`api/projects/${projectId}/process`, payload);
       } catch (err) {
@@ -264,7 +294,8 @@ export default new Vuex.Store({
     },
     async logout({ commit }) {
       Vue.prototype.$cookies.remove("token");
-      commit("setUser", null);
+      commit("setUser", {});
+      router.push("/login");
     },
     async register(
       { commit },
@@ -283,6 +314,31 @@ export default new Vuex.Store({
       return $http.post("api/users/avatar", {
         avatar,
       });
+    },
+    async unlockModel(context, { model_id, password }) {
+      try {
+        let response = await $http.post(
+          `api/clients/models/${model_id}/unlock`,
+          {
+            password: password,
+          });
+        console.log(`Unlocking Model ${model_id}`)
+        context.commit("unlockModel", model_id);
+      } catch (err) {
+        console.log(err);
+      }
+    },
+    async deleteData(context, projectId) {
+      try {
+        await $http.delete(
+          `api/projects/${projectId}/data`
+        );
+      } catch (err) {
+        console.log(err);
+      }
+
+      context.commit("updateProject",
+        { project_id: projectId, field: "status", new_data: "Unfinished" });
     },
   },
 });

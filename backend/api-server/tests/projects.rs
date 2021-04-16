@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Duration};
 
 use api_server::routes::projects;
+use models::dataset_analysis::DatasetAnalysis;
 use models::dataset_details::DatasetDetails;
 use models::projects::Project;
 
@@ -17,6 +18,7 @@ use common::get_bearer_token;
 pub struct ProjectResponse {
     project: Project,
     details: Option<DatasetDetails>,
+    analysis: Option<DatasetAnalysis>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -44,14 +46,14 @@ async fn projects_can_be_fetched_for_a_user() -> Result<()> {
 
     assert_eq!(actix_web::http::StatusCode::OK, res.status());
 
-    let projects: Vec<Project> = test::read_body_json(res).await;
+    let projects: Vec<ProjectResponse> = test::read_body_json(res).await;
 
     assert_eq!(projects.len(), 3);
 
     let found = &projects[0];
 
-    assert_eq!("Test Project", found.name);
-    assert_eq!("Test Description", found.description);
+    assert_eq!("Test Project", found.project.name);
+    assert_eq!("Test Description", found.project.description);
 
     Ok(())
 }
@@ -110,7 +112,7 @@ async fn projects_cannot_be_fetched_by_users_who_do_not_own_it() -> Result<()> {
 
     let res = test::call_service(&mut app, req).await;
 
-    assert_eq!(actix_web::http::StatusCode::UNAUTHORIZED, res.status());
+    assert_eq!(actix_web::http::StatusCode::FORBIDDEN, res.status());
 
     Ok(())
 }

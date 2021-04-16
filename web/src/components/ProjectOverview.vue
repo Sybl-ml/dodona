@@ -1,7 +1,7 @@
 <template>
   <b-container fluid>
     <b-row>
-      <b-col lg="8" sm="12" v-if="checkStatus('Processing')">
+      <b-col  v-if="checkStatus('Processing')" class="mb-3">
         <h4>Project Is Running ...</h4>
         <b-progress
           :value="value"
@@ -11,7 +11,7 @@
           animated
         ></b-progress>
       </b-col>
-      <b-col lg="8" sm="12" v-else-if="checkStatus('Ready')">
+      <b-col lg="8" sm="12" v-else-if="checkStatus('Ready')" class="mb-3">
         <h4>Description:</h4>
         <div class="scrollable_description mb-3">
           {{ description }}
@@ -48,6 +48,23 @@
         </b-modal>
 
         <h4>Job Configuration:</h4>
+
+        <b-form-group label="Problem Type" label-for="dropdown-form-type">
+          <b-form-select
+            id="dropdown-form-type"
+            size="sm"
+            :options="problemTypeOptions"
+            v-model="problemType"
+          />
+        </b-form-group>
+        <b-form-group label="Prediction Column" label-for="dropdown-pred-col">
+          <b-form-select
+            id="dropdown-pred-col"
+            size="sm"
+            :options="getColumnNames"
+            v-model="predColumn"
+          />
+        </b-form-group>
         <b-button
           v-b-toggle.job-config
           pill
@@ -55,7 +72,7 @@
           size="sm"
           class="mb-3"
           @click="expandJob = !expandJob"
-          >{{ expandJob ? "Show" : "Hide" }}</b-button
+          >{{ expandJob ? "Advanced" : "Minimize" }}</b-button
         >
         <b-collapse id="job-config">
           <b-form-group
@@ -82,22 +99,6 @@
               v-model="cluster_size"
             ></b-form-input>
           </b-form-group>
-          <b-form-group label="Problem Type" label-for="dropdown-form-type">
-            <b-form-select
-              id="dropdown-form-type"
-              size="sm"
-              :options="problemTypeOptions"
-              v-model="problemType"
-            />
-          </b-form-group>
-          <b-form-group label="Prediction Column" label-for="dropdown-pred-col">
-            <b-form-select
-              id="dropdown-pred-col"
-              size="sm"
-              :options="getColumnNames"
-              v-model="predColumn"
-            />
-          </b-form-group>
         </b-collapse>
         <h4>To start computation click the button below</h4>
         <div class="text-center">
@@ -122,74 +123,6 @@
           >Upload</b-button
         >
       </b-col>
-      <b-col lg="4" sm="12">
-        <b-card
-          class="h-100 shadow"
-          v-if="!checkStatus('Unfinished') & analysis_loaded"
-        >
-          <template #header>
-            <h4 class="mb-0">Analysis</h4>
-          </template>
-
-          <b-form-group
-            label="Select a Column:"
-            label-for="dropdown-analysis-select"
-          >
-            <b-form-select
-              id="dropdown-analysis-select"
-              size="sm"
-              :options="getAnalysisOptions"
-              v-model="analysis_selected"
-              v-on:change="update_analysis"
-            />
-          </b-form-group>
-          <b-row
-            v-if="!analysis_loaded"
-            class="justify-content-center text-center"
-          >
-            <b-spinner />
-          </b-row>
-          <div v-else>
-            <div v-if="this.analysis.columns[this.analysis_selected].Numerical">
-              <numerical-data-analytics-bar
-                :chart-data="
-                  this.analysis.columns[this.analysis_selected].Numerical.values
-                "
-                :name="this.analysis_selected"
-                ref="analysis_chart"
-              />
-              <p>
-                MAX -
-                {{
-                  this.analysis.columns[this.analysis_selected].Numerical.max
-                }}
-              </p>
-              <p>
-                MIN -
-                {{
-                  this.analysis.columns[this.analysis_selected].Numerical.min
-                }}
-              </p>
-              <p>
-                AVG -
-                {{
-                  this.analysis.columns[this.analysis_selected].Numerical.avg
-                }}
-              </p>
-            </div>
-            <div v-else>
-              <data-analytics-bar
-                :chart-data="
-                  this.analysis.columns[this.analysis_selected].Categorical
-                    .values
-                "
-                :name="this.analysis_selected"
-                ref="analysis_chart"
-              />
-            </div>
-          </div>
-        </b-card>
-      </b-col>
     </b-row>
   </b-container>
 </template>
@@ -206,16 +139,12 @@
 </style>
 
 <script>
-import DataAnalyticsBar from "@/components/charts/DataAnalyticsBar";
-import NumericalDataAnalyticsBar from "@/components/charts/NumericalDataAnalyticsBar";
 import FileUpload from "@/components/FileUpload";
 
 export default {
   name: "ProjectOverview",
   components: {
     FileUpload,
-    DataAnalyticsBar,
-    NumericalDataAnalyticsBar,
   },
   data() {
     return {
@@ -225,9 +154,7 @@ export default {
       file: null,
       problemType: null,
       predColumn: null,
-      analysis_selected: null,
       expandJob: true,
-
       problemTypeOptions: [
         {
           value: null,
@@ -252,8 +179,6 @@ export default {
     dataset_head: Object,
     dataset_date: Date,
     dataset_types: Object,
-    analysis: Object,
-    analysis_loaded: Boolean,
   },
   computed: {
     getDatasetDate() {
@@ -284,17 +209,10 @@ export default {
       ];
       keys.forEach((key) => options.push({ value: key, text: key }));
       return options;
+      
     },
     startDisabled() {
       return this.predColumn == null || this.problemType == null;
-    },
-    getAnalysisOptions() {
-      if (this.analysis_loaded) {
-        let keys = Object.keys(this.analysis.columns);
-        this.analysis_selected = keys[0];
-        return keys;
-      }
-      return [];
     },
   },
   methods: {
@@ -310,16 +228,9 @@ export default {
       this.$store.dispatch("startProcessing", payload);
     },
     async deleteDataset() {
-      try {
-        let project_response = await this.$http.delete(
-          `api/projects/${this.projectId}/data`
-        );
-      } catch (err) {
-        console.log(err);
-      }
+      console.log(this.projectId)
+      this.$store.dispatch("deleteData", this.projectId);
       this.$refs["deleteDataCheck"].hide();
-
-      window.location.reload();
     },
     async processFile() {
       console.log("Processing uploaded data");
@@ -352,12 +263,6 @@ export default {
           console.warn(e.message);
         }
       }
-    },
-    update_analysis() {
-      if (this.analysis.columns[this.analysis_selected].Categorical)
-        this.$refs.analysis_chart.renderNewData(
-          this.analysis.columns[this.analysis_selected].Categorical.values
-        );
     },
     checkStatus(status_check) {
       return this.status == status_check;

@@ -75,18 +75,19 @@
       >
         <b-card class="shadow" v-if="data.locked == true">
           <b-row class="justify-content-center text-center">
-            <b-col lg="4" md="8" sm="10" xs="12">
+            <b-col md="8" sm="10" xs="12">
               <br />
               <h1>
                 <b-icon-lock-fill style="color: #fbb000"></b-icon-lock-fill>
               </h1>
               <b-card-title>Unlock Model</b-card-title>
               <b-card-text>Please provide your password to confirm</b-card-text>
-              <b-form class="mt-5 mb-3" @submit.prevent="onSubmit">
+              <b-form class="mt-3 mb-3" @submit.prevent="onSubmit">
                 <b-form-input
                   type="password"
                   id="name"
                   class="mb-3"
+                  placeholder="Password"
                   v-model="password"
                 ></b-form-input>
                 <b-button type="submit" variant="primary" class="mb-3">
@@ -133,8 +134,6 @@ export default {
   },
   data() {
     return {
-      test_performance: [{ performance: 0.5 }, { performance: 0.4 }],
-      performance: [],
       password: "",
     };
   },
@@ -142,18 +141,10 @@ export default {
     ModelPerformance,
   },
   async mounted() {
-    try {
-      let data = await this.$http.get(
-        `api/clients/models/${this.data._id.$oid}/performance`,
-      );
-      this.performance = data.data;
-    } catch (err) {
-      console.log(err);
-    }
+    this.$store.dispatch("getModelPerformance", this.data._id.$oid);
   },
   computed: {
     status_variant() {
-      console.log(this.data._id.$oid);
       if (this.data.status === "NotStarted") {
         return "primary";
       } else if (this.data.status === "Running") {
@@ -164,21 +155,17 @@ export default {
         return "secondary";
       }
     },
+    performance() {
+      return this.$store.getters.getModelPerformance(this.data._id.$oid);
+    }
   },
   methods: {
     async onSubmit() {
-      let response = await this.$http.post(
-        `api/clients/models/${this.data._id.$oid}/unlock`,
-        {
-          password: this.password,
-        }
-      );
-
-      response = response.data;
-      console.log(response);
+      this.$store.dispatch("unlockModel", {model_id: this.data._id.$oid, password: this.password});
     },
     renderChart(model_id) {
-      this.$refs[`model-performance-${model_id}`].show();
+      if (this.data.status === "Running")
+        this.$refs[`model-performance-${model_id}`].show();
     },
   },
 };

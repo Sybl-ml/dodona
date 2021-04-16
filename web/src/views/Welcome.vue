@@ -257,14 +257,12 @@ body {
 import IconLogo from "@/components/icons/IconLogo";
 import LandingImage from "@/components/icons/LandingImage";
 import Waves from "@/components/icons/waves";
-import { ParticlesBg } from "particles-bg-vue";
 
 export default {
   name: "Welcome",
   components: {
     landing: LandingImage,
     Waves,
-    ParticlesBg,
     IconLogo,
   },
 };

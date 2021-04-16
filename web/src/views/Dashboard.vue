@@ -2,16 +2,18 @@
   <div>
     <b-container fluid>
       <b-row>
-        <b-col xs="12" order-xs="1" lg="3">
+        <b-col xs="12" order="2" order-lg="1" lg="3">
           <b-row>
             <b-col class="mb-2">
               <b-form-input
                 class="shadow-sm"
+                type="search"
                 v-model="search"
                 placeholder="Search"
                 block
               />
             </b-col>
+            
           </b-row>
           <b-row class="text-left">
             <b-col>
@@ -38,7 +40,7 @@
                 >
                   <b-row
                     no-gutters
-                    class="ml-2"
+                    :class="cardStyle(p._id)"
                     style="background-color: white"
                   >
                     <b-col>
@@ -80,13 +82,11 @@
             </b-col>
           </b-row>
         </b-col>
-        <b-col lg="9">
+        <b-col lg="9" order="1" class="mb-4">
           <router-view></router-view>
         </b-col>
       </b-row>
     </b-container>
-
-    <particles-bg color="#cccccc" num="150" type="cobweb" :bg="true" />
   </div>
 </template>
 
@@ -111,8 +111,6 @@
 </style>
 
 <script>
-import Vue from "vue";
-import { ParticlesBg } from "particles-bg-vue";
 
 export default {
   name: "Dashboard",
@@ -121,21 +119,24 @@ export default {
       search: "",
     };
   },
-  components: {
-    ParticlesBg,
-  },
   async created() {
     await this.$store.dispatch("getProjects");
   },
   methods: {
-    async addProject(id) {},
+    async addProject(id) {
+
+    },
+    cardStyle(id){
+      if (id == this.$router.currentRoute.path.split("/")[2])
+        return "mx-2";
+      return "ml-2";
+    },
   },
   computed: {
     filtered_projects() {
       return this.$store.getters.filteredProjects(this.search);
     },
     projects() {
-      console.log(this.$store.state.projects);
       return this.$store.state.projects;
     },
   },
