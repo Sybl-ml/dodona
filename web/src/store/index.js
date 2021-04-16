@@ -1,6 +1,6 @@
 import Vue from "vue";
 import Vuex from "vuex";
-// import createPersistedState from "vuex-persistedstate";
+import createPersistedState from "vuex-persistedstate";
 import $http from "../services/axios-instance";
 import _ from "lodash";
 import Papa from "papaparse";
@@ -38,7 +38,7 @@ function unpackProjectResponse(response) {
 }
 
 export default new Vuex.Store({
-  // plugins: [createPersistedState()],
+  plugins: [createPersistedState()],
   state: {
     projects: [],
     models: [],
@@ -149,17 +149,17 @@ export default new Vuex.Store({
         let data = await $http.get(`api/clients/models`);
 
         commit("setModels", data.data);
-
       } catch (err) {
         console.log(err);
       }
     },
     async getModelPerformance(context, id) {
       try {
-        let data = await $http.get(
-          `api/clients/models/${id}/performance`,
-        );
-        context.commit("setModelPerformance", { performance: data.data, id: id });
+        let data = await $http.get(`api/clients/models/${id}/performance`);
+        context.commit("setModelPerformance", {
+          performance: data.data,
+          id: id,
+        });
       } catch (err) {
         console.log(err);
       }
@@ -321,8 +321,9 @@ export default new Vuex.Store({
           `api/clients/models/${model_id}/unlock`,
           {
             password: password,
-          });
-        console.log(`Unlocking Model ${model_id}`)
+          }
+        );
+        console.log(`Unlocking Model ${model_id}`);
         context.commit("unlockModel", model_id);
       } catch (err) {
         console.log(err);
@@ -330,15 +331,16 @@ export default new Vuex.Store({
     },
     async deleteData(context, projectId) {
       try {
-        await $http.delete(
-          `api/projects/${projectId}/data`
-        );
+        await $http.delete(`api/projects/${projectId}/data`);
       } catch (err) {
         console.log(err);
       }
 
-      context.commit("updateProject",
-        { project_id: projectId, field: "status", new_data: "Unfinished" });
+      context.commit("updateProject", {
+        project_id: projectId,
+        field: "status",
+        new_data: "Unfinished",
+      });
     },
   },
 });
