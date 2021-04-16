@@ -216,7 +216,7 @@ export default {
       
     },
     startDisabled() {
-      return this.predColumn == null || this.problemType == null;
+      return this.predColumn == null || this.problemType == null || this.jobCost > this.$store.state.user_data.credits;
     },
     jobCost() {
       return (this.dataset_train_size + this.dataset_predict_size) * this.cluster_size * Object.keys(this.dataset_types).length;
