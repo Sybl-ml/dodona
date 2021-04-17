@@ -16,6 +16,8 @@ function unpackProjectResponse(response) {
       dataset_name: "",
       dataset_head: {},
       dataset_types: {},
+      train_size: 0,
+      predict_size: 0,
     },
     analysis = {},
   } = response;
@@ -149,6 +151,7 @@ export default new Vuex.Store({
         let data = await $http.get(`api/clients/models`);
 
         commit("setModels", data.data);
+
       } catch (err) {
         console.log(err);
       }
@@ -335,7 +338,6 @@ export default new Vuex.Store({
       } catch (err) {
         console.log(err);
       }
-
       context.commit("updateProject", {
         project_id: projectId,
         field: "status",

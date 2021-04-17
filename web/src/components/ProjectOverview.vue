@@ -48,6 +48,8 @@
         </b-modal>
 
         <h4>Job Configuration:</h4>
+        
+        <p><b>Job Cost:</b> {{this.jobCost}} credits</p>
 
         <b-form-group label="Problem Type" label-for="dropdown-form-type">
           <b-form-select
@@ -179,6 +181,8 @@ export default {
     dataset_head: Object,
     dataset_date: Date,
     dataset_types: Object,
+    dataset_train_size: Number,
+    dataset_predict_size: Number
   },
   computed: {
     getDatasetDate() {
@@ -212,8 +216,11 @@ export default {
       
     },
     startDisabled() {
-      return this.predColumn == null || this.problemType == null;
+      return this.predColumn == null || this.problemType == null || this.jobCost > this.$store.state.user_data.credits;
     },
+    jobCost() {
+      return (this.dataset_train_size + this.dataset_predict_size) * this.cluster_size * Object.keys(this.dataset_types).length;
+    }
   },
   methods: {
     async start() {
