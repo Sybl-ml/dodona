@@ -68,6 +68,26 @@ pub enum ClientMessage {
     Predictions(String),
 }
 
+impl ClientMessage {
+    /// Compresses the data and uses Base64 encoding to form a [`ClientMessage`].
+    pub fn from_train_and_predict(train: &str, predict: &str) -> Self {
+        // Compress the data
+        let training_bytes = utils::compress::compress_bytes(train.as_bytes())
+            .expect("Failed to compress the training data");
+        let prediction_bytes = utils::compress::compress_bytes(predict.as_bytes())
+            .expect("Failed to compress the prediction data");
+
+        // Perform Base64 encoding
+        let encoded_training = base64::encode(&training_bytes);
+        let encoded_prediction = base64::encode(&prediction_bytes);
+
+        Self::Dataset {
+            train: encoded_training,
+            predict: encoded_prediction,
+        }
+    }
+}
+
 impl From<&JobConfiguration> for ClientMessage {
     fn from(value: &JobConfiguration) -> Self {
         let JobConfiguration {
