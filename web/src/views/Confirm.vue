@@ -59,17 +59,14 @@ export default {
             password: this.password,
           }
         );
-        if (response.status === 200) {
-          this.authenticated = true;
-          this.$router.push({
-            name: "PrivateKey",
-            params: { private_key: response.data.privKey },
-          });
-        } else {
-          this.authenticated = false;
-        }
+        this.authenticated = true;
+        this.$router.push({
+          name: "PrivateKey",
+          params: { private_key: response.data.privKey },
+        });
       } catch (error){
         this.failed = true;
+        this.authenticated = false;
       }
     },
   },
