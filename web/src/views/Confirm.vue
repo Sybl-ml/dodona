@@ -26,6 +26,11 @@
         <p v-show="!valid_credentials">Incorrect Username or Password</p>
       </b-col>
     </b-row>
+    <b-row class="justify-content-center text-center">
+      <b-alert v-model="failed" variant="danger" dismissible>
+        Incorrect Username or Password
+      </b-alert>
+    </b-row>
   </b-container>
 </template>
 
@@ -37,6 +42,7 @@ export default {
       email: "",
       password: "",
       valid_credentials: true,
+      failed: false,
     };
   },
   components: {
@@ -44,23 +50,26 @@ export default {
   },
   methods: {
     async onSubmit() {
-      let response = await this.$http.post(
-        "api/clients/register",
-        {
-          id: $cookies.get("token"),
-          email: this.email,
-          password: this.password,
+      try{
+        let response = await this.$http.post(
+          "api/clients/register",
+          {
+            id: $cookies.get("token"),
+            email: this.email,
+            password: this.password,
+          }
+        );
+        if (response.status === 200) {
+          this.authenticated = true;
+          this.$router.push({
+            name: "Private Key",
+            params: { private_key: response.data.privKey },
+          });
+        } else {
+          this.authenticated = false;
         }
-      );
-
-      if (response.status === 200) {
-        this.authenticated = true;
-        this.$router.push({
-          name: "Private Key",
-          params: { private_key: response.data.privKey },
-        });
-      } else {
-        this.authenticated = false;
+      } catch (error){
+        this.failed = true;
       }
     },
   },
