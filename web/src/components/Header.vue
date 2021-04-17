@@ -38,6 +38,7 @@
           <b-dropdown-divider />
           <b-dropdown-item to="/settings">My Profile</b-dropdown-item>
           <b-dropdown-item to="#">Help</b-dropdown-item>
+          <b-dropdown-item href="https://www.notion.so/Guides-f5df7a1b451242cd9874a04495f0dfd3">Guides</b-dropdown-item>
           <b-dropdown-divider />
           <b-dropdown-item @click="signout">Sign Out</b-dropdown-item>
         </b-nav-item-dropdown>
