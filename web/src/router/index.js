@@ -4,6 +4,7 @@ import Welcome from "../views/Welcome.vue";
 import Login from "../views/Login.vue";
 import Register from "../views/Register.vue";
 import Pricing from "../views/Pricing.vue";
+import Guides from "../views/Guides.vue";
 import Models from "../views/Models.vue";
 import Confirm from "../views/Confirm.vue";
 import Settings from "../views/Settings.vue";
@@ -39,6 +40,11 @@ const routes = [
     path: "/pricing",
     name: "Pricing",
     component: Pricing,
+  },
+  {
+    path: "/guides",
+    name: "Guides",
+    component: Guides,
   },
   {
     path: "/client/confirm",

@@ -15,7 +15,7 @@
         <b-nav-item>Product</b-nav-item>
         <b-nav-item>Meet the Team</b-nav-item>
         <b-nav-item to="/pricing">Pricing</b-nav-item>
-        <b-nav-item>Guides</b-nav-item>
+        <b-nav-item to="/guides">Guides</b-nav-item>
       </b-navbar-nav>
     </b-collapse>
     <b-collapse is-nav id="landingCollapse" v-if="loggedIn">
@@ -114,7 +114,7 @@ export default {
 
       this.logoRoute = user_id ? "/dashboard" : "/";
 
-      this.atLanding = pageName == "Welcome" || pageName == "Pricing";
+      this.atLanding = pageName == "Welcome" || pageName == "Pricing" || pageName == "Guides";
 
       this.atDashboard =
         pageName === "Dashboard" ||
