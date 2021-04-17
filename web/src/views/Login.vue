@@ -98,19 +98,23 @@ export default {
     async onSubmit() {
       this.submitted = true;
 
-      let response = await this.$store.dispatch("login", {
-        email: this.email,
-        password: this.password,
-      });
+      try {
+        let response = await this.$store.dispatch("login", {
+          email: this.email,
+          password: this.password,
+        });
 
-      $cookies.set("token", response.data.token, {
-        path: "/",
-        sameSite: true,
-      });
+        $cookies.set("token", response.data.token, {
+          path: "/",
+          sameSite: true,
+        });
 
-      this.$router.push("dashboard");
-      this.failed = true;
-      this.submitted = false;
+        this.$router.push("dashboard");
+      } catch (error) {
+        console.debug("Invalid details when logging in a user");
+        this.failed = true;
+        this.submitted = false;
+      }
     },
   },
 };
