@@ -22,7 +22,7 @@
             <b-button class="mr-3" variant="primary" size="lg" to="/register">
               I Have Data 💾
             </b-button>
-            <b-button class="ml-3" size="lg" variant="primary">
+            <b-button class="ml-3" size="lg" variant="primary" target="_blank" href="https://www.notion.so/Become-a-Client-581ccdc92e2946159ad94e3dec44f72e">
               I Have Models 📙
             </b-button>
           </b-col>
@@ -177,7 +177,6 @@
             </b-col>
             <b-col sm="12" lg="6">
               <b-row class="justify-content-center">
-                <!-- <drop /> -->
                 <b-icon icon="folder-symlink-fill" font-scale="10" />
               </b-row>
             </b-col>
@@ -195,7 +194,7 @@
         <b-button class="mr-3" variant="ready" size="lg" to="/register">
           I Have Data 💾
         </b-button>
-        <b-button class="ml-3" variant="ready" size="lg">
+        <b-button class="ml-3" variant="ready" size="lg" target="_blank" href="https://www.notion.so/Become-a-Client-581ccdc92e2946159ad94e3dec44f72e">
           I Have Models 📙
         </b-button>
       </b-row>
