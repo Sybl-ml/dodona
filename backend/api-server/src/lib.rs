@@ -17,7 +17,6 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 use actix::prelude::Addr;
-use actix::prelude::Recipient;
 use actix_cors::Cors;
 use actix_web::{middleware, web, App, HttpServer, Result};
 use mongodb::{options::ClientOptions, Client, Database};
@@ -35,12 +34,6 @@ pub struct State {
     pub pepper: Arc<String>,
     /// The number of iterations to use for hashing
     pub pbkdf2_iterations: u32,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct WebsocketState {
-    /// Map of userids to open sockets
-    pub map: Arc<Mutex<HashMap<String, Addr<routes::websockets::ProjectUpdateWs>>>>,
 }
 
 #[derive(Clone, Debug, Default)]

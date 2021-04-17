@@ -620,12 +620,11 @@ pub async fn upload_and_split(
     if let Some(details_doc) = details_doc {
         // Insert the details as well
         response.insert("details", details_doc);
-        .await?;
-        
-        if let Some(analysis_doc) = analysis_doc {
-            // Insert the details as well
-            response.insert("analysis", analysis_doc);
-        }
+    }
+    if let Some(analysis_doc) = analysis_doc {
+        // Insert the details as well
+        response.insert("analysis", analysis_doc);
+    }
     // Communicate with Analytics Server
     let analytics_job = serde_json::to_string(&object_id).unwrap();
     let topic = "analytics";

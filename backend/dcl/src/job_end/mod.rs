@@ -606,14 +606,6 @@ pub async fn dcl_protocol(
 
     increment_run_count(&database, &model_id).await?;
 
-    // Produce message
-    let message = ClientCompleteMessage {
-        project_id: &info.project_id.to_string(),
-        cluster_size: info.config.cluster_size,
-        success: model_sucess,
-    };
-    let message = serde_json::to_string(&message).unwrap();
-
     nodepool.end(&model_id).await?;
     let remaining_clusters = cluster_control.decrement().await;
 
