@@ -83,6 +83,28 @@ pub async fn register(
     }
 }
 
+/// Generates a new private key for the user.
+///
+/// This is used if they misplace or forget their old one and will delete the existing matching
+/// public key from the database.
+pub async fn generate_private_key(claims: auth::Claims, state: web::Data<State>) -> ServerResponse {
+    let clients = state.database.collection("clients");
+
+    // Generate a new public and private key
+    let (private_key, public_key) = crypto::encoded_key_pair();
+
+    // Build filter and update documents
+    let filter = doc! { "user_id": &claims.id };
+    let update = doc! { "$set": { "public_key": public_key } };
+
+    // Update the database with the new public key, asserting we changed something
+    let update_result = clients.update_one(filter, update, None).await?;
+    debug_assert!(update_result.modified_count == 1);
+
+    // Send the key back to the frontend to display
+    response_from_json(doc! {"privKey": private_key})
+}
+
 /// Registers a new model for a given user.
 ///
 /// Checks whether the given user is a client and that they do not already have a model with the
