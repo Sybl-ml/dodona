@@ -62,7 +62,7 @@ export default {
         if (response.status === 200) {
           this.authenticated = true;
           this.$router.push({
-            name: "Private Key",
+            name: "PrivateKey",
             params: { private_key: response.data.privKey },
           });
         } else {
