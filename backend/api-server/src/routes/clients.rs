@@ -99,7 +99,22 @@ pub async fn generate_private_key(claims: auth::Claims, state: web::Data<State>)
 
     // Update the database with the new public key, asserting we changed something
     let update_result = clients.update_one(filter, update, None).await?;
-    debug_assert!(update_result.modified_count == 1);
+
+    // If nothing happened, return a 403 Forbidden as the user is not a client
+    if update_result.modified_count != 1 {
+        log::warn!(
+            "Updated {} clients matching user_id={} with a new private key",
+            update_result.modified_count,
+            &claims.id
+        );
+
+        return Err(ServerError::Forbidden);
+    }
+
+    log::info!(
+        "Updated the public/private key pair for user_id={}",
+        claims.id
+    );
 
     // Send the key back to the frontend to display
     response_from_json(doc! {"privKey": private_key})
