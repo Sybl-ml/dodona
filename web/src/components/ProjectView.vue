@@ -25,14 +25,14 @@
             v-bind="overviewProps"
           />
         </b-tab>
-        <b-tab title="Analysis" ref="analysisTab">
+        <b-tab title="Analysis" lazy ref="analysisTab" :disabled="projectUnfinished">
           <project-analysis :id="projectId" v-bind="analysisProps" />
         </b-tab>
-        <b-tab title="Input" ref="inputTab">
+        <b-tab title="Input" lazy ref="inputTab" :disabled="projectUnfinished">
           <project-input :projectId="projectId" :key="projectId" 
             v-on:input-tab="viewInput"/>
         </b-tab>
-        <b-tab title="Output" lazy :disabled="false">
+        <b-tab title="Output" lazy :disabled="projectComplete">
           <project-output
             :disabled="!results"
             :projectId="projectId"
@@ -69,6 +69,7 @@ export default {
   },
   props: {
     projectId: String,
+    project_status: String,
   },
   components: {
     ProjectOverview,
@@ -125,6 +126,12 @@ export default {
     },
   },
   computed: {
+    projectUnfinished() {
+      return this.project_status == "unfinished";
+    },
+    projectComplete() {
+      return this.project_status != "complete";
+    },
     loadedProject() {
       return this.project;
     },

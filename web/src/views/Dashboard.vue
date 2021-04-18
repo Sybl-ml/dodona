@@ -29,6 +29,7 @@
                   name: `ProjectView`,
                   params: {
                     projectId: p._id,
+                    project_status: p.status.toLowerCase(),
                   },
                 }"
               >
