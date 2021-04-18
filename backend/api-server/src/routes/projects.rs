@@ -36,8 +36,6 @@ use crate::{
     State,
 };
 
-static JOB_TOPIC: &str = "jobs";
-static ANALYTICS_TOPIC: &str = "analytics";
 static CHUNK_SIZE: usize = 10_000;
 
 /// Enum to decide type of dataset to return
@@ -1267,10 +1265,11 @@ pub async fn begin_processing(
 
     // Mark the project as processing
     let filter = doc! { "_id": &object_id};
-    let update = doc! { "$set": doc!{ "status": Status::Processing } };
+    let update =
+        doc! { "$set": doc!{ "status": Status::Processing { model_success: 0, model_err: 0 } } };
     projects.update_one(filter, update, None).await?;
 
-    response_from_json(doc! {"success": true})
+    response_from_json(job)
 }
 /// Inserts a [`JobConfiguration`] into MongoDB.
 async fn insert_to_queue(job: &Job, collection: Collection) -> ServerResult<()> {

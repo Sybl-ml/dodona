@@ -70,6 +70,9 @@ impl ProjectUpdateWs {
                     .lock()
                     .unwrap()
                     .insert(claims.id.to_string(), ctx.address());
+                ctx.text(
+                    serde_json::to_string(&WebsocketMessage::Hello { id: claims.id }).unwrap(),
+                );
             }
             _ => (),
         }
