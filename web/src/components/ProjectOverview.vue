@@ -48,7 +48,7 @@
         </b-modal>
 
         <h4>Job Configuration:</h4>
-        
+
         <p><b>Job Cost:</b> {{this.jobCost}} credits</p>
 
         <b-form-group label="Problem Type" label-for="dropdown-form-type">
@@ -213,13 +213,14 @@ export default {
       ];
       keys.forEach((key) => options.push({ value: key, text: key }));
       return options;
-      
+
     },
     startDisabled() {
       return this.predColumn == null || this.problemType == null || this.jobCost > this.$store.state.user_data.credits;
     },
     jobCost() {
-      return (this.dataset_train_size + this.dataset_predict_size) * this.cluster_size * Object.keys(this.dataset_types).length;
+      let size = this.dataset_train_size + this.dataset_predict_size;
+      return Math.max(Math.floor(size / 1000), 1) * this.cluster_size * Object.keys(this.dataset_types).length;
     }
   },
   methods: {
