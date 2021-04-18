@@ -116,6 +116,12 @@
       </b-col>
       <b-col v-else-if="checkStatus('Uploading')" class="mb-3">
         <b-row class="justify-content-center">
+          <h2>Data Uploading</h2>
+        </b-row>
+        <b-row class="justify-content-center">
+          <h2>Please do not refresh...</h2>
+        </b-row>
+        <b-row class="justify-content-center">
           <b-spinner variant="primary" style="width: 3rem; height: 3rem;"/>
         </b-row>
       </b-col>
