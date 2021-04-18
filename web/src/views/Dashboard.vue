@@ -51,6 +51,12 @@
                             v-if="p.status == 'Unfinished'"
                             style="color: #ff643d"
                           />
+                          <b-icon
+                            icon="arrow-clockwise"
+                            animation="spin"
+                            v-else-if="p.status == 'Uploading'"
+                            style="color: #8363ff"
+                          />
                           <b-icon-play-fill
                             v-else-if="p.status == 'Ready'"
                             style="color: #6391ff"
@@ -98,6 +104,9 @@
 
 .unfinished {
   background-color: #ff643d !important;
+}
+.uploading {
+  background-color: #8363ff !important;
 }
 .ready {
   background-color: #6391ff !important;

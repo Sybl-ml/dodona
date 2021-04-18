@@ -205,6 +205,12 @@ export default new Vuex.Store({
       let formData = new FormData();
       let config = { headers: { "Content-Type": "multipart/form-data" } };
 
+      context.commit("updateProject", {
+        project_id: project_id,
+        field: "status",
+        new_data: "Uploading",
+      });
+      
       let route = "";
       if (!multipart) {
         formData.append("dataset", files);
