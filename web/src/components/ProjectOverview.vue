@@ -119,7 +119,7 @@
           <h2>Data Uploading</h2>
         </b-row>
         <b-row class="justify-content-center">
-          <h2>Please do not refresh...</h2>
+          <h2>Please Do Not Refresh!</h2>
         </b-row>
         <b-row class="justify-content-center">
           <b-spinner variant="primary" style="width: 3rem; height: 3rem;"/>
