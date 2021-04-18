@@ -8,7 +8,7 @@ use rdkafka::Message;
 use tokio_stream::StreamExt;
 
 use actix::prelude::Addr;
-use actix::{Actor, ActorContext, AsyncContext, Handler, StreamHandler};
+use actix::{Actor, ActorContext, AsyncContext, Handler, Running, StreamHandler};
 use actix_web::{web, HttpResponse};
 use actix_web_actors::ws;
 use mongodb::bson::oid::ObjectId;
@@ -35,6 +35,13 @@ impl Actor for ProjectUpdateWs {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         self.hb(ctx)
+    }
+
+    fn stopping(&mut self, ctx: &mut Self::Context) -> Running {
+        if let Some(id) = &self.id {
+            self.map.lock().unwrap().remove(&id.to_string());
+        }
+        Running::Stop
     }
 }
 
