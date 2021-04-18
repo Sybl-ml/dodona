@@ -1,5 +1,5 @@
 <template>
-  <b-container fluid>
+  <b-container fluid v-if="!loadedProject">
     <b-card
       class="view"
       style="height: 7rem; border: none; box-shadow: none; background: none"
@@ -20,17 +20,17 @@
     <b-card no-body class="shadow">
       <b-tabs pills card>
         <b-tab title="Overview" active lazy ref="overviewTab">
-          <project-overview
-            v-if="project"
-            v-bind="overviewProps"
-          />
+          <project-overview v-if="project" v-bind="overviewProps" />
         </b-tab>
         <b-tab title="Analysis" ref="analysisTab">
-          <project-analysis :id="projectId" v-bind="analysisProps" />
+          <!-- <project-analysis :id="projectId" v-bind="analysisProps" /> -->
         </b-tab>
         <b-tab title="Input" ref="inputTab">
-          <project-input :projectId="projectId" :key="projectId" 
-            v-on:input-tab="viewInput"/>
+          <project-input
+            :projectId="projectId"
+            :key="projectId"
+            v-on:input-tab="viewInput"
+          />
         </b-tab>
         <b-tab title="Output" lazy :disabled="false">
           <project-output
@@ -126,7 +126,7 @@ export default {
   },
   computed: {
     loadedProject() {
-      return this.project;
+      return this.project === undefined;
     },
     getProjectDate() {
       if (!this.project.name) {
@@ -152,8 +152,9 @@ export default {
         dataset_head: p.details.dataset_head,
         dataset_date: p.details.dataset_date,
         dataset_types: p.details.column_types,
-        dataset_train_size: Math.round((p.details.train_size+99)/100)*100,
-        dataset_predict_size: Math.round((p.details.predict_size+99)/100)*100,
+        dataset_train_size: Math.round((p.details.train_size + 99) / 100) * 100,
+        dataset_predict_size:
+          Math.round((p.details.predict_size + 99) / 100) * 100,
       };
     },
     analysisProps() {
