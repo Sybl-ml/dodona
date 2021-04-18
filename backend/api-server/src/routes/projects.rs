@@ -1277,7 +1277,6 @@ pub async fn currently_running_job(
 ) -> ServerResponse {
     let projects = state.database.collection("projects");
     let jobs = state.database.collection("jobs");
-
     let project_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
     // Query the jobs for this project, sorting by date
