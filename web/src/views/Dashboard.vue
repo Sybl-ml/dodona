@@ -13,7 +13,6 @@
                 block
               />
             </b-col>
-            
           </b-row>
           <b-row class="text-left">
             <b-col>
@@ -111,7 +110,6 @@
 </style>
 
 <script>
-
 export default {
   name: "Dashboard",
   data() {
@@ -122,37 +120,28 @@ export default {
   async created() {
     await this.$store.dispatch("getProjects");
   },
-  created() {
-    let user_id = $cookies.get("token");
-    console.log("Starting websocket connnection");
-
-    this.$options.sockets.onmessage = (data) => this.handleMessage(data);
-
-    let auth = {
-      authentication: { token: user_id },
-    };
-
-    this.$socket.sendObj(auth);
-  },
-  methods: {
-    async addProject(id) {
-
-    },
-    cardStyle(id){
-      if (id == this.$router.currentRoute.path.split("/")[2])
-        return "mx-2";
-      return "ml-2";
-    },
-    handleMessage(msg) {
-      data = JSON.parse(msg.data);
-
-      for (var i in this.projects) {
-        if (this.projects[i].id == id) {
-          this.projects[i].status = "Processing";
+  mounted() {
+    this.unwatch = this.$store.watch(
+      (state) => state.socket.isConnected,
+      (newValue, oldValue) => {
+        if (newValue === true) {
+          let token = this.$cookies.get("token");
+          let auth = {
+            authentication: { token: token },
+          };
+          console.log("sending auth msg");
+          this.$store.dispatch("sendMsg", auth);
         }
       }
-
-      console.log(msg);
+    );
+  },
+  beforeDestroy() {
+    this.unwatch();
+  },
+  methods: {
+    cardStyle(id) {
+      if (id == this.$router.currentRoute.path.split("/")[2]) return "mx-2";
+      return "ml-2";
     },
   },
   computed: {

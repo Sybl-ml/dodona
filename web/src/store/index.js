@@ -32,6 +32,9 @@ function unpackProjectResponse(response) {
   project = _.assign(project, {
     _id: project._id.$oid,
     date_created: new Date(project.date_created.$date),
+    status: typeof project.status === "object" ? "Processing" : project.status,
+    progress:
+      typeof project.status === "object" ? project.status.Processing : {},
   });
   project.details = details;
   project.analysis = analysis;
@@ -40,11 +43,16 @@ function unpackProjectResponse(response) {
 }
 
 export default new Vuex.Store({
-  plugins: [createPersistedState()],
+  // plugins: [createPersistedState()],
   state: {
     projects: [],
     models: [],
     user_data: {},
+    socket: {
+      isConnected: false,
+      message: "",
+      reconnectError: false,
+    },
   },
   getters: {
     filteredProjects: (state) => (search) => {
@@ -59,8 +67,23 @@ export default new Vuex.Store({
       });
     },
     getProject: (state) => (id) => {
-      let p = state.projects.filter((project) => project._id == id);
-      return p[0];
+      let p = state.projects.find((project) => project._id == id);
+      return p;
+    },
+    getProjectStatus: (state) => (id) => {
+      let p = state.projects.find((project) => project._id == id);
+
+      if (typeof p.status === "object") return "Processing";
+      else return p.status;
+    },
+    getProjectProgress: (state) => (id) => {
+      let p = state.projects.find((project) => project._id == id);
+      if ("current_job" in p && !_.isEmpty(p.current_job)) {
+        return {
+          ...p.progress,
+          max: p.current_job.config.cluster_size,
+        };
+      }
     },
     isAuthenticated: (state) => {
       return !_.isEmpty(state.user_data);
@@ -72,6 +95,26 @@ export default new Vuex.Store({
     },
   },
   mutations: {
+    SOCKET_ONOPEN(state, event) {
+      Vue.prototype.$socket = event.currentTarget;
+      state.socket.isConnected = true;
+    },
+    SOCKET_ONCLOSE(state, event) {
+      state.socket.isConnected = false;
+    },
+    SOCKET_ONMESSAGE(state, message) {
+      state.socket.message = message;
+
+      console.log(message);
+      switch (Object.keys(message)[0]) {
+        case "hello":
+          break;
+        case "modelComplete":
+          break;
+        default:
+          console.err("Unknown Message");
+      }
+    },
     setProjects(state, projects) {
       state.projects = projects;
     },
@@ -104,6 +147,13 @@ export default new Vuex.Store({
       let project = state.projects.find((p) => p._id == project_id);
       Vue.set(project, field, new_data);
     },
+    startJob(state, { project_id, job }) {
+      let project = state.projects.find((p) => p._id == project_id);
+
+      Vue.set(project, "status", "Processing");
+      Vue.set(project, "current_job", job);
+      Vue.set(project, "progress", { model_success: 0, model_err: 0 });
+    },
     deleteProject(state, id) {
       let index = state.projects.findIndex((p) => p._id == id);
       state.projects.splice(index, 1);
@@ -124,6 +174,9 @@ export default new Vuex.Store({
     },
   },
   actions: {
+    sendMsg(context, msg) {
+      Vue.prototype.$socket.sendObj(msg);
+    },
     async getProjects({ commit }) {
       let response = await $http.get(`api/projects`);
 
@@ -151,7 +204,6 @@ export default new Vuex.Store({
         let data = await $http.get(`api/clients/models`);
 
         commit("setModels", data.data);
-
       } catch (err) {
         console.log(err);
       }
@@ -248,16 +300,18 @@ export default new Vuex.Store({
       };
 
       try {
-        await $http.post(`api/projects/${projectId}/process`, payload);
+        let response = await $http.post(
+          `api/projects/${projectId}/process`,
+          payload
+        );
+
+        context.commit("startJob", {
+          project_id: projectId,
+          job: response.data,
+        });
       } catch (err) {
         console.log(err);
       }
-
-      context.commit("updateProject", {
-        project_id: projectId,
-        field: "status",
-        new_data: "Processing",
-      });
     },
     async updateProject(context, { field, new_data, project_id }) {
       let payload = {
