@@ -15,8 +15,14 @@ pub enum PredictionType {
     Regression,
 }
 
+impl Default for PredictionType {
+    fn default() -> Self {
+        Self::Classification
+    }
+}
+
 /// Parameters required for configuring a job.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct JobConfiguration {
     /// The identifier of the project to be processed
     pub project_id: ObjectId,
@@ -101,5 +107,14 @@ impl Job {
         );
 
         Ok(())
+    }
+}
+
+impl Default for Job {
+    fn default() -> Self {
+        Self {
+            date_created: bson::DateTime::from(Utc::now()),
+            ..Default::default()
+        }
     }
 }
