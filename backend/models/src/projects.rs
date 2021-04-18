@@ -13,6 +13,7 @@ use crate::predictions::Prediction;
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Status {
     Unfinished,
+    Uploading,
     Ready,
     Processing,
     Complete,
@@ -23,6 +24,7 @@ impl From<Status> for Bson {
     fn from(status: Status) -> Self {
         Self::from(match status {
             Status::Unfinished => "Unfinished",
+            Status::Uploading => "Uploading",
             Status::Ready => "Ready",
             Status::Processing => "Processing",
             Status::Complete => "Complete",
