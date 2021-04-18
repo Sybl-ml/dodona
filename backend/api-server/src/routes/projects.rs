@@ -456,6 +456,15 @@ pub async fn upload_and_split(
         .get_filename()
         .ok_or(ServerError::UnprocessableEntity)?;
 
+    // Update the project status to uploading
+    projects
+    .update_one(
+        doc! { "_id": &object_id},
+        doc! {"$set": {"status": Status::Uploading}},
+        None,
+    )
+    .await?;
+
     // Create a new instance of our GridFS files
     log::info!("Creating a new file with name: {}", filename);
     let mut dataset = gridfs::File::new(String::from(filename));
