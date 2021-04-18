@@ -11,20 +11,54 @@ use mongodb::{
 pub const COMMISSION_RATE: f64 = 0.25;
 pub const SIZE_DENOMINATOR: i32 = 1000;
 
-/// Function to pay a client for the use of their model
-/// to compute predictions. This is based on their
-/// impact in the final result.
+/// Reimburses a client based on their model performance.
+///
+/// This updates the total amount that the model has earnt in terms of credits and also updates the
+/// users credit balance.
 pub async fn reimburse(
     database: Arc<Database>,
-    user_id: &ObjectId,
+    model_id: &ObjectId,
     revenue: i32,
     weight: f64,
 ) -> Result<()> {
-    let revenue = revenue as f64;
     let users = database.collection("users");
-    let query = doc! { "_id": user_id };
-    let update = doc! {"$inc": {"credits": (((revenue - (revenue * COMMISSION_RATE)) * weight) * 100.0) as i32}};
+    let models = database.collection("models");
+
+    let revenue = f64::from(revenue);
+    let credits = ((revenue * (1.0 - COMMISSION_RATE)) * weight) as i32;
+
+    log::debug!(
+        "Reimbursing model_id={} with {} credits, from revenue={} and weight={}",
+        model_id,
+        credits,
+        revenue,
+        weight
+    );
+
+    // Update the model with the added revenue
+    let filter = doc! { "_id": &model_id };
+    let update = doc! { "$inc": { "credits_earned": credits } };
+    models.update_one(filter.clone(), update, None).await?;
+
+    // Find the model itself
+    let model_doc = models
+        .find_one(filter, None)
+        .await?
+        .expect("Failed to find the model in the database");
+
+    // Get the user identifier of the owner
+    let user_id = model_doc
+        .get_object_id("user_id")
+        .expect("Model had no user_id field");
+
+    log::debug!("Reimbursing user_id={} with {} credits", user_id, credits);
+
+    // Update their account balance
+    let query = doc! { "_id": &user_id };
+    let update = doc! {"$inc": {"credits": credits }};
+
     users.update_one(query, update, None).await?;
+
     Ok(())
 }
 
