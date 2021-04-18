@@ -42,7 +42,6 @@ pub static DELETES_PROJECT_UID: &str = "5fb2b3fa9d524e99ac7f1c40";
 pub static PROCESSED_JOBS_PROJECT_ID: &str = "5fb2b3fa9d524e99ac7f1c41";
 pub static REQUESTS_PRIVATE_KEY_USER_ID: &str = "5fb2b3fa9d524e99ac7f1c41";
 
-
 pub static MAIN_CLIENT_ID: &str = "602bfa774f986d0e58618187";
 pub static PRIVATE_KEY_CLIENT_USER_ID: &str = "602bfa774f986d0e58618188";
 
