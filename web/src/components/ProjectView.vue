@@ -126,10 +126,10 @@ export default {
   },
   computed: {
     projectUnfinished() {
-      return this.project.status.toLowerCase() == "unfinished";
+      return this.project.status == "Unfinished";
     },
     projectComplete() {
-      return this.project.status.toLowerCase() != "complete";
+      return this.project.status != "Complete";
     },
     loadedProject() {
       return this.project;
