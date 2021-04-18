@@ -1,7 +1,7 @@
 //! Defines the structure of jobs in the `MongoDB` instance.
 
 use chrono::Utc;
-use mongodb::bson::{self, oid::ObjectId};
+use mongodb::bson::{self, doc, oid::ObjectId};
 
 use utils::Columns;
 
@@ -61,7 +61,7 @@ impl JobConfiguration {
 }
 
 /// Defines the information that should be stored with a job in the database.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Job {
     /// The unique identifier for the job
     #[serde(rename = "_id")]
@@ -85,5 +85,21 @@ impl Job {
             processed: false,
             date_created: bson::DateTime(Utc::now()),
         }
+    }
+
+    /// Marks the job as processed in the database.
+    pub async fn mark_as_processed(&self, database: &mongodb::Database) -> anyhow::Result<()> {
+        let jobs = database.collection("jobs");
+
+        let filter = doc! { "_id": &self.id };
+        let update = doc! { "$set": { "processed": true } };
+        let result = jobs.update_one(filter, update, None).await?;
+
+        assert!(
+            result.modified_count == 1,
+            "Failed to mark a job as processed"
+        );
+
+        Ok(())
     }
 }
