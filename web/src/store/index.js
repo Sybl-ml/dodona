@@ -332,7 +332,6 @@ export default new Vuex.Store({
       );
       commit("updateUser");
       return response;
-
     },
     async uploadAvatar(context, avatar) {
       return $http.post("api/users/avatar", {
