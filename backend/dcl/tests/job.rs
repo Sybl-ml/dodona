@@ -94,7 +94,7 @@ fn test_evaluate_model() {
         project_id: ObjectId::with_string(common::USER_ID).unwrap(),
         columns: HashMap::new(),
         config: JobConfiguration {
-            dataset_id: ObjectId::new(),
+            project_id: ObjectId::new(),
             node_computation_time: 0,
             cluster_size: 3,
             column_types: vec![],
@@ -178,7 +178,7 @@ fn test_weight_predictions() {
         project_id: ObjectId::with_string(common::USER_ID).unwrap(),
         columns: HashMap::new(),
         config: JobConfiguration {
-            dataset_id: ObjectId::new(),
+            project_id: ObjectId::new(),
             node_computation_time: 0,
             cluster_size: 3,
             column_types: vec![],
@@ -217,7 +217,7 @@ fn test_weight_predictions() {
         project_id: ObjectId::with_string(common::USER_ID).unwrap(),
         columns: HashMap::new(),
         config: JobConfiguration {
-            dataset_id: ObjectId::new(),
+            project_id: ObjectId::new(),
             node_computation_time: 0,
             cluster_size: 3,
             column_types: vec![],

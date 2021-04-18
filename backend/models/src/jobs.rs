@@ -18,8 +18,8 @@ pub enum PredictionType {
 /// Parameters required for configuring a job.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct JobConfiguration {
-    /// The identifier of the dataset to be processed
-    pub dataset_id: ObjectId,
+    /// The identifier of the project to be processed
+    pub project_id: ObjectId,
     /// The amount of time each node is allowed to compute for
     pub node_computation_time: i32,
     /// The cluster size for a job

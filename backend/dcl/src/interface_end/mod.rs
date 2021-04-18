@@ -104,20 +104,21 @@ async fn process_job(
     job_config: JobConfiguration,
 ) -> Result<()> {
     let JobConfiguration {
-        dataset_id,
+        project_id,
         node_computation_time,
         ..
     } = job_config.clone();
 
     log::debug!(
-        "Received a job to process: dataset_id={}, node_computation_time={}",
-        dataset_id,
+        "Received a job to process: project_id={}, node_computation_time={}",
+        project_id,
         node_computation_time,
     );
 
     let datasets = db_conn.collection("datasets");
 
-    let filter = doc! { "_id": dataset_id };
+    // Query the dataset currently associated with the project
+    let filter = doc! { "project_id": &project_id };
 
     let doc = datasets
         .find_one(filter, None)
