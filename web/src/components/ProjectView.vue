@@ -127,7 +127,8 @@ export default {
   },
   computed: {
     projectUnfinished() {
-      return this.project_status == "unfinished";
+      console.log(this.project_status);
+      return (this.project_status == "unfinished") || (this.project_status == undefined);
     },
     projectComplete() {
       return this.project_status != "complete";
