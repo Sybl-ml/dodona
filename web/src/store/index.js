@@ -313,6 +313,10 @@ export default new Vuex.Store({
         dob: dob,
       });
     },
+    async generatePrivateKey({ commit }) {
+      console.log("Generating new private key");
+      return $http.post("api/clients/generatePrivateKey");
+    },
     async uploadAvatar(context, avatar) {
       return $http.post("api/users/avatar", {
         avatar,

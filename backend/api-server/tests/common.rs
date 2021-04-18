@@ -39,8 +39,10 @@ pub static DELETE_UID: &str = "5fbe3239ea6cfda08a459622";
 pub static CREATES_PROJECT_UID: &str = "5f8d7b4f0017036400d60cab";
 pub static NON_EXISTENT_USER_ID: &str = "5f8de85300eb281e00306b0b";
 pub static DELETES_PROJECT_UID: &str = "5fb2b3fa9d524e99ac7f1c40";
+pub static REQUESTS_PRIVATE_KEY_USER_ID: &str = "5fb2b3fa9d524e99ac7f1c41";
 
 pub static MAIN_CLIENT_ID: &str = "602bfa774f986d0e58618187";
+pub static PRIVATE_KEY_CLIENT_USER_ID: &str = "602bfa774f986d0e58618188";
 
 pub static MAIN_PROJECT_ID: &str = "5f8ca1a80065f27c0089e8b5";
 pub static USERLESS_PROJECT_ID: &str = "5f8ca1a80065f27b0089e8b6";
@@ -209,27 +211,48 @@ async fn insert_test_users(database: &mongodb::Database) {
 
     let lone = create_user_with_id(ALONE_USER_ID, "lone@email.com", &hash, "Lone", "User");
 
+    let requests_private_key = create_user_with_id(
+        REQUESTS_PRIVATE_KEY_USER_ID,
+        "requests@pkey.com",
+        &hash,
+        "",
+        "",
+    );
+
     let users = database.collection("users");
     users.insert_one(matthew, None).await.unwrap();
     users.insert_one(lone, None).await.unwrap();
     users.insert_one(delete, None).await.unwrap();
     users.insert_one(creates_project, None).await.unwrap();
     users.insert_one(deletes_project, None).await.unwrap();
+    users.insert_one(requests_private_key, None).await.unwrap();
 }
 
 async fn insert_test_clients(database: &mongodb::Database) {
+    let users = database.collection("users");
+    let clients = database.collection("clients");
+
     let peppered = format!("password{}", std::env::var("PEPPER").unwrap());
     let pbkdf2_iterations = u32::from_str(&std::env::var("PBKDF2_ITERATIONS").unwrap()).unwrap();
     let hash = crypto::hash_password(&peppered, pbkdf2_iterations).unwrap();
 
-    let (user, client) =
-        create_client_with_id(MAIN_CLIENT_ID, "client@sybl.com", &hash, "client", "user");
+    let information = vec![
+        (MAIN_CLIENT_ID, "client@sybl.com", &hash, "client", "user"),
+        (
+            PRIVATE_KEY_CLIENT_USER_ID,
+            "p@key.com",
+            &hash,
+            "client",
+            "user",
+        ),
+    ];
 
-    let users = database.collection("users");
-    users.insert_one(user, None).await.unwrap();
+    for (id, email, hash, first_name, last_name) in information {
+        let (user, client) = create_client_with_id(id, email, hash, first_name, last_name);
 
-    let clients = database.collection("clients");
-    clients.insert_one(client, None).await.unwrap();
+        users.insert_one(user, None).await.unwrap();
+        clients.insert_one(client, None).await.unwrap();
+    }
 }
 
 async fn insert_test_projects(database: &mongodb::Database) {
