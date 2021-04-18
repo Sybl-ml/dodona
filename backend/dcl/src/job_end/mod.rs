@@ -582,7 +582,7 @@ pub async fn dcl_protocol(
     };
 
     // Evaluate the model
-    let mut model_sucess = true;
+    let mut model_success = true;
     let model_evaluation = anonymised_predictions.map(|preds| {
         deanonymise_dataset(preds.trim(), &info.columns)
             .and_then(|predictions| ml::evaluate_model(&model_id, &predictions, &info))
@@ -601,28 +601,33 @@ pub async fn dcl_protocol(
     } else {
         log::warn!("Node with id={} failed to respond correctly", model_id);
         write_back.write_error(model_id.clone(), None);
-        model_sucess = false;
+        model_success = false;
     }
 
     increment_run_count(&database, &model_id).await?;
-
     nodepool.end(&model_id).await?;
-    let remaining_clusters = cluster_control.decrement().await;
 
+    let remaining_nodes = cluster_control.decrement().await;
     let cluster_size = info.config.cluster_size as usize;
     // Produce message
     let message = ClientCompleteMessage {
         project_id: &info.project_id.to_string(),
         cluster_size: cluster_size,
-        model_complete_count: cluster_size - remaining_clusters,
-        success: model_sucess,
+        model_complete_count: cluster_size - remaining_nodes,
+        success: model_success,
     };
-    let message = serde_json::to_string(&message).unwrap();
 
+    let message = serde_json::to_string(&message).unwrap();
     let projects = database.collection("projects");
     let filter = doc! {"_id": info.project_id};
+    let update = if model_success {
+        doc! {"$inc": {"status.Processing.model_success": 1}}
+    } else {
+        doc! {"$inc": {"status.Processing.model_err": 1}}
+    };
+
     let doc = projects
-        .find_one(filter, None)
+        .find_one_and_update(filter, update, None)
         .await?
         .expect("Failed to find project in db");
 
