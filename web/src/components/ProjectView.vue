@@ -69,7 +69,6 @@ export default {
   },
   props: {
     projectId: String,
-    project_status: String,
   },
   components: {
     ProjectOverview,
@@ -127,10 +126,10 @@ export default {
   },
   computed: {
     projectUnfinished() {
-      return this.project_status == "unfinished";
+      return this.project.status.toLowerCase() == "unfinished";
     },
     projectComplete() {
-      return this.project_status != "complete";
+      return this.project.status.toLowerCase() != "complete";
     },
     loadedProject() {
       return this.project;
