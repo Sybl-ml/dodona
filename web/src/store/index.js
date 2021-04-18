@@ -5,6 +5,7 @@ import $http from "../services/axios-instance";
 import _ from "lodash";
 import Papa from "papaparse";
 import router from "../router";
+import VueRouter from "vue-router";
 
 Vue.use(Vuex);
 
@@ -50,6 +51,7 @@ export default new Vuex.Store({
     user_data: {},
     socket: {
       isConnected: false,
+      authenticated: false,
       message: "",
       reconnectError: false,
     },
@@ -89,8 +91,8 @@ export default new Vuex.Store({
       return !_.isEmpty(state.user_data);
     },
     getModelPerformance: (state) => (id) => {
-      let index = state.models.findIndex((m) => m._id.$oid == id);
-      let performance = state.models[index].performance;
+      let model = state.models.find((m) => m._id.$oid == id);
+      let performance = model.performance;
       return performance;
     },
   },
@@ -98,9 +100,17 @@ export default new Vuex.Store({
     SOCKET_ONOPEN(state, event) {
       Vue.prototype.$socket = event.currentTarget;
       state.socket.isConnected = true;
+
+      let token = Vue.prototype.$cookies.get("token");
+      let auth = {
+        authentication: { token: token },
+      };
+      console.log("sending auth msg");
+      Vue.prototype.$socket.sendObj(auth);
     },
     SOCKET_ONCLOSE(state, event) {
       state.socket.isConnected = false;
+      state.socket.authenticated = false;
     },
     SOCKET_ONMESSAGE(state, message) {
       state.socket.message = message;
@@ -110,6 +120,19 @@ export default new Vuex.Store({
         case "hello":
           break;
         case "modelComplete":
+          let {
+            project_id,
+            cluster_size,
+            model_complete_count,
+            success,
+          } = message.modelComplete;
+          let p = state.projects.find((project) => project._id == project_id);
+
+          if (success) {
+            Vue.set(p.progress, "model_success", p.progress.model_success + 1);
+          } else {
+            Vue.set(p.progress, "model_success", p.progress.model_success + 1);
+          }
           break;
         default:
           console.err("Unknown Message");
@@ -122,8 +145,8 @@ export default new Vuex.Store({
       state.models = models;
     },
     setModelPerformance(state, { performance, id }) {
-      let index = state.models.findIndex((m) => m._id.$oid == id);
-      Vue.set(state.models[index], "performance", performance);
+      let model = state.models.find((m) => m._id.$oid == id);
+      Vue.set(model, "performance", performance);
     },
     setUser(state, user) {
       Vue.set(state, "user_data", user);
@@ -154,6 +177,11 @@ export default new Vuex.Store({
       Vue.set(project, "current_job", job);
       Vue.set(project, "progress", { model_success: 0, model_err: 0 });
     },
+    addJobToProject(state, { project_id, job }) {
+      let project = state.projects.find((p) => p._id == project_id);
+
+      Vue.set(project, "current_job", job.job);
+    },
     deleteProject(state, id) {
       let index = state.projects.findIndex((p) => p._id == id);
       state.projects.splice(index, 1);
@@ -177,15 +205,13 @@ export default new Vuex.Store({
     sendMsg(context, msg) {
       Vue.prototype.$socket.sendObj(msg);
     },
-    async getProjects({ commit }) {
+    async getProjects({ dispatch, commit }) {
       let response = await $http.get(`api/projects`);
 
       let project_response = response.data.map((x) => {
         let p = unpackProjectResponse(x);
         return p;
       });
-
-      commit("setProjects", project_response);
 
       if (project_response.length > 0) {
         if (!("projectId" in router.currentRoute.params)) {
@@ -197,7 +223,23 @@ export default new Vuex.Store({
           });
         }
       }
+      commit("setProjects", project_response);
+
+      for (let project of project_response) {
+        console.log(project);
+        if (project.status === "Processing") {
+          await dispatch("getRecentJob", project._id);
+        }
+      }
       console.log("Fetched projects");
+    },
+    async getRecentJob({ commit }, id) {
+      let job = await $http.get(`api/projects/${id}/job`);
+
+      commit("addJobToProject", {
+        project_id: id,
+        job: job.data,
+      });
     },
     async getModels({ commit }) {
       try {

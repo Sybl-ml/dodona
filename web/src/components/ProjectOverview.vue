@@ -3,10 +3,10 @@
     <b-row>
       <b-col v-if="checkStatus('Processing')" class="mb-3">
         <h4>Project Is Running ...</h4>
-        <!-- <b-progress :max="progress.max" height="2rem" show-progress animated>
+        <b-progress :max="progress.max" height="2rem" show-progress animated>
           <b-progress-bar :value="progress.model_success" variant="primary" />
           <b-progress-bar :value="progress.model_err" variant="danger" />
-        </b-progress> -->
+        </b-progress>
       </b-col>
       <b-col lg="8" sm="12" v-else-if="checkStatus('Ready')" class="mb-3">
         <h4>Description:</h4>
