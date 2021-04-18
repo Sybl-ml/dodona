@@ -50,24 +50,23 @@ export default {
   },
   methods: {
     async onSubmit() {
-      try{
-        let response = await this.$http.post(
-          "api/clients/register",
-          {
-            id: $cookies.get("token"),
-            email: this.email,
-            password: this.password,
-          }
-        );
-        this.authenticated = true;
+      try {
+        let response = await this.$store.dispatch("client_register", {
+          id: $cookies.get("token"),
+          email: this.email,
+          password: this.password,
+        });
+
         this.$router.push({
           name: "PrivateKey",
-          params: { private_key: response.data.privKey },
+          params: { private_key:  response.data.privKey},
         });
-      } catch (error){
+      } catch(error) {
+        console.debug("Error: User details incorrect during client registration");
         this.failed = true;
-        this.authenticated = false;
+
       }
+      
     },
   },
 };

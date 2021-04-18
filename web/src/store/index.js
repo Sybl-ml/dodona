@@ -85,6 +85,9 @@ export default new Vuex.Store({
     setUser(state, user) {
       Vue.set(state, "user_data", user);
     },
+    updateUser(state) {
+      Vue.set(state.user_data, "client", true);
+    },
     setAvatar(state, avatar) {
       Vue.set(state.user_data, "avatar", avatar);
     },
@@ -312,6 +315,18 @@ export default new Vuex.Store({
         currency: currency,
         dob: dob,
       });
+    },
+    async client_register ({commit}, {id, email, password}) {
+      let response = await $http.post(
+        "api/clients/register",
+        {
+          id: id,
+          email: email,
+          password: password,
+        }
+      );
+      commit("updateUser");
+      return response;
     },
     async uploadAvatar(context, avatar) {
       return $http.post("api/users/avatar", {
