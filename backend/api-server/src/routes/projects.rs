@@ -1169,15 +1169,12 @@ pub async fn begin_processing(
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
-    // Find the dataset in the database
+    // Ensure a dataset exists for this project
     let filter = doc! { "project_id": &object_id };
-    let document = datasets
+    datasets
         .find_one(filter, None)
         .await?
         .ok_or(ServerError::NotFound)?;
-
-    // Parse the dataset itself
-    let dataset: Dataset = from_document(document)?;
 
     let filter = doc! { "project_id": &object_id };
     let document = dataset_details
@@ -1223,7 +1220,7 @@ pub async fn begin_processing(
 
     // Send a request to the interface layer
     let config = JobConfiguration {
-        dataset_id: dataset.id.clone(),
+        project_id: object_id.clone(),
         node_computation_time: payload.node_computation_time as i32,
         cluster_size: payload.cluster_size as i32,
         column_types,
@@ -1272,6 +1269,38 @@ pub async fn begin_processing(
 
     response_from_json(doc! {"success": true})
 }
+
+/// Queries the currently running job for a given project, if one exists.
+pub async fn currently_running_job(
+    claims: auth::Claims,
+    state: web::Data<State>,
+    project_id: web::Path<String>,
+) -> ServerResponse {
+    let projects = state.database.collection("projects");
+    let jobs = state.database.collection("jobs");
+
+    let project_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
+
+    // Query the jobs for this project, sorting by date
+    let filter = doc! { "config.project_id": &project_id };
+    let sort = doc! { "date_created": -1 };
+    let options = options::FindOneOptions::builder().sort(sort).build();
+
+    let last_job = jobs
+        .find_one(filter, options)
+        .await?
+        .ok_or(ServerError::NotFound)?;
+
+    let mut document = Document::new();
+
+    // If the last job is still processing
+    if let Ok(false) = last_job.get_bool("processed") {
+        document.insert("job", last_job);
+    }
+
+    response_from_json(document)
+}
+
 /// Inserts a [`JobConfiguration`] into MongoDB.
 async fn insert_to_queue(job: &Job, collection: Collection) -> ServerResult<()> {
     let document = to_document(&job)?;
