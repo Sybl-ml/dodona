@@ -36,6 +36,7 @@ pub struct State {
     pub pbkdf2_iterations: u32,
 }
 
+/// State to pass to websockets and the kafka consumer
 #[derive(Clone, Debug, Default)]
 pub struct WebsocketState {
     /// Map of userids to open sockets

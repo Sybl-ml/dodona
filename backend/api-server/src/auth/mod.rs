@@ -68,6 +68,7 @@ impl Claims {
         jsonwebtoken::encode(&header, &claims, &key)
     }
 
+    /// Creates a new claim from a JWT
     pub fn from_token(token: &str) -> Result<Self, ServerError> {
         // Get the secret key from the filesystem
         let key = get_decoding_key();

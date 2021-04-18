@@ -1,3 +1,5 @@
+//! Defines the websocket and related functions for realtime communication with the client
+
 use std::collections::HashMap;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::{Arc, Mutex};
@@ -14,15 +16,16 @@ use actix_web_actors::ws;
 use mongodb::bson::oid::ObjectId;
 use std::time::{Duration, Instant};
 
-use crate::{auth, error::ServerResponse, routes::payloads::WebsocketMessage, WebsocketState};
+use crate::{auth, routes::payloads::WebsocketMessage, WebsocketState};
 use messages::ClientCompleteMessage;
 
-// TODO: Add a userId to this struct for a bit of state
-// using this userid it will be possible to subscribe to the correct topic
-// again possibly using the new datastructure that is storing the topic names
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// ProjectUpdateWs struct
+/// hb is the heartbeat to guarantee websocket is alive
+/// id is the userid which opened this connection
+/// map is the map of userids to websocket connections
 #[derive(Debug)]
 pub struct ProjectUpdateWs {
     hb: Instant,
@@ -37,7 +40,7 @@ impl Actor for ProjectUpdateWs {
         self.hb(ctx)
     }
 
-    fn stopping(&mut self, ctx: &mut Self::Context) -> Running {
+    fn stopping(&mut self, _ctx: &mut Self::Context) -> Running {
         if let Some(id) = &self.id {
             self.map.lock().unwrap().remove(&id.to_string());
         }
@@ -46,6 +49,7 @@ impl Actor for ProjectUpdateWs {
 }
 
 impl ProjectUpdateWs {
+    /// Creates a new ProjectUpdateWs
     pub fn new(map: Arc<Mutex<HashMap<String, Addr<ProjectUpdateWs>>>>) -> ProjectUpdateWs {
         ProjectUpdateWs {
             id: None,
@@ -89,7 +93,7 @@ impl ProjectUpdateWs {
 impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ProjectUpdateWs {
     fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         match msg {
-            Ok(ws::Message::Ping(msg)) => {
+            Ok(ws::Message::Ping(_)) => {
                 self.hb = Instant::now();
             }
             Ok(ws::Message::Pong(_)) => {

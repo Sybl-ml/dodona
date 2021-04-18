@@ -1,3 +1,5 @@
+//! Contains the functions to define messages sent through Kafka and the method to produce a message
+
 use std::env;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::str::FromStr;
@@ -7,6 +9,7 @@ use rdkafka::error::KafkaResult;
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use rdkafka::util::Timeout;
 
+/// Produces a message for Kafka accepting a message, the key and the topic to produce into
 pub async fn produce_message(msg: &str, key: &str, topic: &str) -> KafkaResult<()> {
     // Get the environment variable for the kafka broker
     // if not set use 9092
@@ -33,6 +36,7 @@ pub async fn produce_message(msg: &str, key: &str, topic: &str) -> KafkaResult<(
     Ok(())
 }
 
+/// Message produced when a Model completes
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClientCompleteMessage<'a> {
     /// Model id which node completed

@@ -148,15 +148,17 @@ pub struct AuthenticateModelOptions {
     pub token: String,
 }
 
+/// Payloads sent to and from the websocket
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(rename_all = "camelCase")]
 #[rtype(result = "()")]
 pub enum WebsocketMessage {
-    /// The type of message recieved
+    /// Authentication message sent on websocket open
     Authentication {
+        /// User token to authenticate
         token: String,
     },
-    // Payload of the message containg the token
+    /// Message sent from server when a model completes
     ModelComplete {
         /// Model id which node completed
         project_id: String,
@@ -167,7 +169,9 @@ pub enum WebsocketMessage {
         /// If the model was successfull
         success: bool,
     },
+    /// Message sent from server when the user authenticates
     Hello {
+        /// ID of the user
         id: ObjectId,
     },
 }
