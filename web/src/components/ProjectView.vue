@@ -25,10 +25,10 @@
             v-bind="overviewProps"
           />
         </b-tab>
-        <b-tab title="Analysis" ref="analysisTab">
+        <b-tab title="Analysis" lazy ref="analysisTab">
           <project-analysis :id="projectId" v-bind="analysisProps" />
         </b-tab>
-        <b-tab title="Input" ref="inputTab">
+        <b-tab title="Input" lazy ref="inputTab">
           <project-input :projectId="projectId" :key="projectId" 
             v-on:input-tab="viewInput"/>
         </b-tab>

@@ -85,7 +85,7 @@ export default new Vuex.Store({
     setUser(state, user) {
       Vue.set(state, "user_data", user);
     },
-    updateUser(state) {
+    updateClientStatus(state) {
       Vue.set(state.user_data, "client", true);
     },
     setAvatar(state, avatar) {
@@ -330,7 +330,7 @@ export default new Vuex.Store({
           password: password,
         }
       );
-      commit("updateUser");
+      commit("updateClientStatus");
       return response;
     },
     async uploadAvatar(context, avatar) {
