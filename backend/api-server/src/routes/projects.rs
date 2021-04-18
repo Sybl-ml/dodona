@@ -249,15 +249,6 @@ pub async fn upload_train_and_predict(
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
-    // Update the project status to uploading
-    projects
-        .update_one(
-            doc! { "_id": &object_id},
-            doc! {"$set": {"status": Status::Uploading}},
-            None,
-        )
-        .await?;
-
     // Track the train and predict identifiers
     let mut train_id = None;
     let mut predict_id = None;
@@ -455,15 +446,6 @@ pub async fn upload_and_split(
     let filename = content_disposition
         .get_filename()
         .ok_or(ServerError::UnprocessableEntity)?;
-
-    // Update the project status to uploading
-    projects
-    .update_one(
-        doc! { "_id": &object_id},
-        doc! {"$set": {"status": Status::Uploading}},
-        None,
-    )
-    .await?;
 
     // Create a new instance of our GridFS files
     log::info!("Creating a new file with name: {}", filename);
