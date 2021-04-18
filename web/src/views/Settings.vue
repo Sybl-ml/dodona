@@ -21,17 +21,19 @@
         <br>
         <br>
 
-        <h5>Regenerate Private Key:</h5>
-        <b-button
-          size="sm"
-          variant="ready"
-          type="submit"
-          style="width:10rem"
-          v-b-tooltip.hover
-          @click="generatePrivateKey"
-        >
+        <div v-show="client">
+          <h5>Regenerate Private Key:</h5>
+          <b-button
+            size="sm"
+            variant="ready"
+            type="submit"
+            style="width:10rem"
+            v-b-tooltip.hover
+            @click="generatePrivateKey"
+          >
           Generate
-        </b-button> 
+          </b-button> 
+        </div>
       </b-col>
     </b-row>
   </b-container>
@@ -73,6 +75,9 @@ export default {
   computed: {
     user_data(){
       this.$store.dispatch("getUserData");
+    },
+    client() {
+      return this.$store.state.user_data.client;
     }
   }
 };
