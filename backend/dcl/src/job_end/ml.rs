@@ -41,7 +41,7 @@ pub fn weight_predictions(
     let mut indexes: Vec<&usize> = test_examples.into_iter().collect();
     indexes.sort();
 
-    let job_type = info.config.prediction_type;
+    let job_type = info.job.config.prediction_type;
 
     let mut predictions: Vec<String> = Vec::new();
     predictions.push(String::from("predicted"));
@@ -100,7 +100,7 @@ pub fn evaluate_model(
     let mut model_error: f64 = 1.0;
     let mut model_predictions: Predictions = HashMap::new();
 
-    let job_type = info.config.prediction_type;
+    let job_type = info.job.config.prediction_type;
 
     let mut predictions: Vec<_> = predictions.trim().split('\n').collect();
 

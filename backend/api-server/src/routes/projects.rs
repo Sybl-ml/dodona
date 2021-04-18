@@ -1239,7 +1239,7 @@ pub async fn begin_processing(
     // Insert to MongoDB first, so the interface can immediately mark as processed if needed
     insert_to_queue(&job, state.database.collection("jobs")).await?;
 
-    let job_message = serde_json::to_string(&job.config).unwrap();
+    let job_message = serde_json::to_string(&job).unwrap();
     let job_key = &job.id.to_string();
     let topic = "jobs";
 

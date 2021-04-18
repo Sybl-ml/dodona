@@ -29,7 +29,7 @@ use messages::{
     kafka_message, ClientCompleteMessage, ClientMessage, ReadLengthPrefix, WriteLengthPrefix,
 };
 use models::gridfs;
-use models::jobs::JobConfiguration;
+use models::jobs::Job;
 use models::jobs::PredictionType;
 use models::predictions::Prediction;
 use models::projects::{Project, Status};
@@ -52,8 +52,8 @@ pub struct ClusterInfo {
     pub project_id: ObjectId,
     /// Columns in dataset
     pub columns: Columns,
-    /// Config
-    pub config: JobConfiguration,
+    /// The job that is currently running
+    pub job: Job,
     /// Validation results
     pub validation_ans: HashMap<(ModelID, String), String>,
     /// Test record IDs
@@ -195,7 +195,8 @@ pub async fn run(
         }
 
         for index in jq_filter {
-            let (project_id, msg, config) = job_control.job_queue.remove(index);
+            let (project_id, msg, job) = job_control.job_queue.remove(index);
+            let config = &job.config;
 
             let data = msg
                 .train
@@ -226,9 +227,7 @@ pub async fn run(
                         config
                     );
 
-                    job_control
-                        .job_queue
-                        .insert(index, (project_id, msg, config));
+                    job_control.job_queue.insert(index, (project_id, msg, job));
 
                     continue;
                 }
@@ -264,7 +263,7 @@ pub async fn run(
             let info = ClusterInfo {
                 project_id: project_id.clone(),
                 columns: columns.clone(),
-                config: config.clone(),
+                job: job.clone(),
                 validation_ans: validation_ans.clone(),
                 prediction_rids: prediction_rids.clone(),
                 node_computation_time: Duration::from_secs(
@@ -476,7 +475,7 @@ async fn run_cluster(
         reimburse(
             database_clone,
             &ObjectId::with_string(model_id).unwrap(),
-            info.config.cost,
+            info.job.config.cost,
             *weight,
         )
         .await?;
@@ -512,6 +511,9 @@ async fn run_cluster(
         });
 
     change_status(&database, &project_id, Status::Complete).await?;
+
+    // Mark the job as processed
+    info.job.mark_as_processed(&database).await?;
 
     // Status has been updated to complete, so email the user
     if let Err(e) = email_user_on_project_finish(&database, &project_id).await {
@@ -608,11 +610,11 @@ pub async fn dcl_protocol(
     nodepool.end(&model_id).await?;
 
     let remaining_nodes = cluster_control.decrement().await;
-    let cluster_size = info.config.cluster_size as usize;
+    let cluster_size = info.job.config.cluster_size as usize;
     // Produce message
     let message = ClientCompleteMessage {
         project_id: &info.project_id.to_string(),
-        cluster_size: cluster_size,
+        cluster_size,
         model_complete_count: cluster_size - remaining_nodes,
         success: model_success,
     };
