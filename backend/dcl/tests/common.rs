@@ -120,11 +120,13 @@ pub async fn initialise_with_db() -> (Database, Params) {
         let datasets = database.collection("datasets");
         datasets.insert_one(dataset, None).await.unwrap();
 
-        let model1 = ClientModel::new(
+        let mut model1 = ClientModel::new(
             ObjectId::with_string(USER_ID).unwrap(),
             String::from("Model1"),
             Vec::new(),
         );
+
+        model1.id = ObjectId::with_string(MODEL1_ID).unwrap();
 
         let model2 = ClientModel::new(
             ObjectId::with_string(USER_ID).unwrap(),
