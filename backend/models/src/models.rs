@@ -91,6 +91,10 @@ pub struct ClientModel {
     pub challenge: Option<Binary>,
     /// The number of times the model has been run
     pub times_run: i32,
+    /// The amount of time spent processing predictions
+    pub processing_time_secs: i64,
+    /// The total number of credits earned so far
+    pub credits_earned: i64,
 }
 
 impl ClientModel {
@@ -114,6 +118,8 @@ impl ClientModel {
                 bytes: challenge,
             }),
             times_run: 0,
+            processing_time_secs: 0,
+            credits_earned: 0,
         }
     }
 

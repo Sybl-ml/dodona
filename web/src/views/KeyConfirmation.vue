@@ -19,8 +19,10 @@
             <b-col style="text-align: right" md="2">
               <b-button variant="body">
                 <b-icon-clipboard-plus
+                  id="clipboard_btn"
                   @click="copy(private_key)"
                 ></b-icon-clipboard-plus>
+                <b-tooltip target="clipboard_btn" variant="primary" placement="right" triggers="click">Copied!</b-tooltip>
               </b-button>
             </b-col>
           </b-row>

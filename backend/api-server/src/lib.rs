@@ -138,6 +138,10 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
                 web::post().to(routes::clients::register),
             )
             .route(
+                "/api/clients/generatePrivateKey",
+                web::post().to(routes::clients::generate_private_key),
+            )
+            .route(
                 "/api/clients/models/new",
                 web::post().to(routes::clients::new_model),
             )

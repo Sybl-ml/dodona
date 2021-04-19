@@ -48,7 +48,7 @@
         </b-modal>
 
         <h4>Job Configuration:</h4>
-        
+
         <p><b>Job Cost:</b> {{this.jobCost}} credits</p>
 
         <b-form-group label="Problem Type" label-for="dropdown-form-type">
@@ -57,7 +57,14 @@
             size="sm"
             :options="problemTypeOptions"
             v-model="problemType"
-          />
+          /><b-tooltip
+                target="dropdown-form-type"
+                triggers="hover"
+                variant="primary"
+                placement="right"
+                delay=500
+                >Regression refers to the prediction of decimal numbers. Classification refers to the prediction of different labels. See our guide Introduction to Machine Learning for more details
+              </b-tooltip>
         </b-form-group>
         <b-form-group label="Prediction Column" label-for="dropdown-pred-col">
           <b-form-select
@@ -65,7 +72,14 @@
             size="sm"
             :options="getColumnNames"
             v-model="predColumn"
-          />
+          /><b-tooltip
+                target="dropdown-pred-col"
+                triggers="hover"
+                variant="primary"
+                placement="right"
+                delay=500
+                >The column that you want models to predict on
+              </b-tooltip>
         </b-form-group>
         <b-button
           v-b-toggle.job-config
@@ -88,6 +102,14 @@
               min="1"
               v-model="nodeComputationTime"
             ></b-form-input>
+            <b-tooltip
+                target="dropdown-form-timeout"
+                triggers="hover"
+                variant="primary"
+                placement="right"
+                delay=500
+                >The amount of time models should be given to run on your data
+              </b-tooltip>
           </b-form-group>
           <b-form-group
             label="Cluster Size"
@@ -100,6 +122,14 @@
               min="1"
               v-model="cluster_size"
             ></b-form-input>
+            <b-tooltip
+                target="dropdown-form-cluster-size"
+                triggers="hover"
+                variant="primary"
+                placement="right"
+                delay=500
+                >The number of models who should be asked to make predictions on your data
+              </b-tooltip>
           </b-form-group>
         </b-collapse>
         <h4>To start computation click the button below</h4>
@@ -213,13 +243,14 @@ export default {
       ];
       keys.forEach((key) => options.push({ value: key, text: key }));
       return options;
-      
+
     },
     startDisabled() {
       return this.predColumn == null || this.problemType == null || this.jobCost > this.$store.state.user_data.credits;
     },
     jobCost() {
-      return (this.dataset_train_size + this.dataset_predict_size) * this.cluster_size * Object.keys(this.dataset_types).length;
+      let size = this.dataset_train_size + this.dataset_predict_size;
+      return Math.max(Math.floor(size / 1000), 1) * this.cluster_size * Object.keys(this.dataset_types).length;
     }
   },
   methods: {
