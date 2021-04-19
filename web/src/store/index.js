@@ -234,13 +234,10 @@ export default new Vuex.Store({
       commit("setProjects", project_response);
 
       for (let project of project_response) {
-        console.log(project);
-        console.log(project.status);
         if (project.status === "Processing") {
           await dispatch("getRecentJob", project._id);
         }
         else if (project.status === "Complete") {
-          console.log("Doing Complete Jobs")
           await dispatch("getRecentJob", project._id);
           await dispatch("getJobStatistics", project._id);
 
