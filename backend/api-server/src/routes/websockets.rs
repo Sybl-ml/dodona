@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::net::{Ipv4Addr, SocketAddrV4};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
 use rdkafka::consumer::{stream_consumer::StreamConsumer, Consumer, DefaultConsumerContext};
@@ -30,7 +30,7 @@ const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 pub struct ProjectUpdateWs {
     hb: Instant,
     id: Option<ObjectId>,
-    map: Arc<Mutex<HashMap<String, Addr<ProjectUpdateWs>>>>,
+    map: Arc<RwLock<HashMap<String, Addr<ProjectUpdateWs>>>>,
 }
 
 impl Actor for ProjectUpdateWs {
@@ -42,7 +42,7 @@ impl Actor for ProjectUpdateWs {
 
     fn stopping(&mut self, _ctx: &mut Self::Context) -> Running {
         if let Some(id) = &self.id {
-            self.map.lock().unwrap().remove(&id.to_string());
+            self.map.write().unwrap().remove(&id.to_string());
         }
         Running::Stop
     }
@@ -50,7 +50,7 @@ impl Actor for ProjectUpdateWs {
 
 impl ProjectUpdateWs {
     /// Creates a new ProjectUpdateWs
-    pub fn new(map: Arc<Mutex<HashMap<String, Addr<ProjectUpdateWs>>>>) -> ProjectUpdateWs {
+    pub fn new(map: Arc<RwLock<HashMap<String, Addr<ProjectUpdateWs>>>>) -> ProjectUpdateWs {
         ProjectUpdateWs {
             id: None,
             hb: Instant::now(),
@@ -78,7 +78,7 @@ impl ProjectUpdateWs {
                 log::info!("claims id {:?}", claims.id);
                 self.id = Some(claims.id.clone());
                 self.map
-                    .lock()
+                    .write()
                     .unwrap()
                     .insert(claims.id.to_string(), ctx.address());
                 ctx.text(
@@ -97,15 +97,15 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ProjectUpdateWs {
                 self.hb = Instant::now();
             }
             Ok(ws::Message::Pong(_)) => {
-                // log::info!("PONG!");
                 self.hb = Instant::now();
             }
             Ok(ws::Message::Close(reason)) => {
+                log::info!("Websocket connection closed");
                 ctx.close(reason);
                 ctx.stop();
             }
             Ok(ws::Message::Text(msg)) => {
-                log::info!("Got a message from ws {:?}", msg);
+                log::debug!("message from ws client {:?}", msg);
                 self.handle_message(ctx, &msg);
             }
             Err(e) => {
@@ -121,7 +121,7 @@ impl Handler<WebsocketMessage> for ProjectUpdateWs {
     type Result = ();
 
     fn handle(&mut self, msg: WebsocketMessage, ctx: &mut Self::Context) -> Self::Result {
-        log::debug!("{:?}", msg);
+        log::debug!("Sending msg to client {:?}", msg);
         ctx.text(serde_json::to_string(&msg).unwrap());
     }
 }
@@ -134,13 +134,11 @@ pub async fn index(
 ) -> Result<HttpResponse, actix_web::error::Error> {
     let map = Arc::clone(&state.map);
     let resp = ws::start(ProjectUpdateWs::new(map), &req, stream);
-
-    println!("{:?}", resp);
     resp
 }
 
 /// Consumes from kafka
-pub async fn consume_updates(port: u16, map: Arc<Mutex<HashMap<String, Addr<ProjectUpdateWs>>>>) {
+pub async fn consume_updates(port: u16, map: Arc<RwLock<HashMap<String, Addr<ProjectUpdateWs>>>>) {
     let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port).to_string();
     log::info!("Broker Socket: {:?}", addr);
 
@@ -182,7 +180,7 @@ pub async fn consume_updates(port: u16, map: Arc<Mutex<HashMap<String, Addr<Proj
         let ws_msg = WebsocketMessage::from(&project_update);
 
         let user_id = std::str::from_utf8(&message.key().unwrap()).unwrap();
-        let socket_map = map.lock().unwrap();
+        let socket_map = map.read().unwrap();
         if let Some(socket) = socket_map.get(user_id) {
             socket.try_send(ws_msg).unwrap();
         }

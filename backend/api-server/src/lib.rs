@@ -14,7 +14,7 @@ extern crate serde_json;
 use std::collections::HashMap;
 use std::env;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use actix::prelude::Addr;
 use actix_cors::Cors;
@@ -40,7 +40,7 @@ pub struct State {
 #[derive(Clone, Debug, Default)]
 pub struct WebsocketState {
     /// Map of userids to open sockets
-    pub map: Arc<Mutex<HashMap<String, Addr<routes::websockets::ProjectUpdateWs>>>>,
+    pub map: Arc<RwLock<HashMap<String, Addr<routes::websockets::ProjectUpdateWs>>>>,
 }
 
 /// Builds the default logging middleware for request logging.
@@ -78,7 +78,7 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
     let database = Arc::new(client.database(&database_name));
 
     let map = HashMap::new();
-    let shared_state = Arc::new(Mutex::new(map));
+    let shared_state = Arc::new(RwLock::new(map));
     let consumer_state = Arc::clone(&shared_state);
 
     let websocket_state_data = web::Data::new(WebsocketState { map: shared_state });

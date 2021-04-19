@@ -160,9 +160,9 @@ pub enum WebsocketMessage {
     },
     /// Message sent from server when a model completes
     ModelComplete {
-        /// Model id which node completed
+        /// project id which node completed
         project_id: String,
-        /// the number of time the model as been run
+        /// the cluster size for the project
         cluster_size: usize,
         /// The number of models completed for this project
         model_complete_count: usize,
