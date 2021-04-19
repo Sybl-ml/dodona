@@ -230,7 +230,8 @@ export default new Vuex.Store({
 
       for (let project of project_response) {
         console.log(project);
-        if (project.status === "Processing") {
+        console.log(project.status);
+        if (project.status === "Processing" || project.status === "Complete") {
           await dispatch("getRecentJob", project._id);
         }
       }

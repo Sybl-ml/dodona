@@ -146,7 +146,7 @@ export default {
     },
     overviewProps() {
       let p = this.project;
-
+      console.log(p);
       return {
         projectId: this.projectId,
         description: p.description,
@@ -158,6 +158,7 @@ export default {
         dataset_train_size: Math.round((p.details.train_size + 99) / 100) * 100,
         dataset_predict_size:
           Math.round((p.details.predict_size + 99) / 100) * 100,
+        current_job: p.current_job
       };
     },
     analysisProps() {

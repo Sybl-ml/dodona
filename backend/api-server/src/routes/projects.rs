@@ -1291,10 +1291,7 @@ pub async fn currently_running_job(
 
     let mut document = Document::new();
 
-    // If the last job is still processing
-    if let Ok(false) = last_job.get_bool("processed") {
-        document.insert("job", last_job);
-    }
+    document.insert("job", last_job);
 
     response_from_json(document)
 }
