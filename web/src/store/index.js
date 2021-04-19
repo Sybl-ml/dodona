@@ -185,6 +185,11 @@ export default new Vuex.Store({
 
       Vue.set(project, "current_job", job.job);
     },
+    addJobStatsToProject(state, { project_id, job_stats }) {
+      let project = state.projects.find((p) => p._id == project_id);
+
+      Vue.set(project, "job_stats", job_stats);
+    },
     deleteProject(state, id) {
       let index = state.projects.findIndex((p) => p._id == id);
       state.projects.splice(index, 1);
@@ -231,8 +236,14 @@ export default new Vuex.Store({
       for (let project of project_response) {
         console.log(project);
         console.log(project.status);
-        if (project.status === "Processing" || project.status === "Complete") {
+        if (project.status === "Processing") {
           await dispatch("getRecentJob", project._id);
+        }
+        else if (project.status === "Complete") {
+          console.log("Doing Complete Jobs")
+          await dispatch("getRecentJob", project._id);
+          await dispatch("getJobStatistics", project._id);
+
         }
       }
       console.log("Fetched projects");
@@ -244,6 +255,15 @@ export default new Vuex.Store({
         project_id: id,
         job: job.data,
       });
+    },
+    async getJobStatistics({commit}, project_id) {
+      let job_stats = await $http.get(`api/projects/${project_id}/job_statistics`);
+
+      commit("addJobStatsToProject", {
+        project_id: project_id,
+        job_stats: job_stats.data,
+      });
+
     },
     async getModels({ commit }) {
       try {

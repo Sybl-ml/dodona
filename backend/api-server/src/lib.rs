@@ -156,6 +156,10 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
                 "/api/projects/{project_id}/job",
                 web::get().to(routes::projects::currently_running_job),
             )
+            .route(
+                "/api/projects/{project_id}/job_statistics",
+                web::get().to(routes::projects::get_job_statistics),
+            )
             // Clients
             .route(
                 "/api/clients/register",

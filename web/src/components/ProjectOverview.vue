@@ -15,6 +15,7 @@
         <p><b>Cluster Size:</b> {{this.current_job.config.cluster_size}}</p>
         <p><b>Prediction Column:</b> {{this.current_job.config.prediction_column}}</p>
         <p><b>Date Run:</b> {{(new Date(this.current_job.date_created["$date"])).toUTCString()}}</p>
+        <p><b>Average Model Computation Time:</b> {{this.job_stats.average_job_computation_secs}}s</p>
       </b-col>
       <b-col lg="8" sm="12" v-else-if="checkStatus('Ready')" class="mb-3">
         <h4>Description:</h4>
@@ -219,6 +220,7 @@ export default {
     dataset_train_size: Number,
     dataset_predict_size: Number,
     current_job: Object,
+    job_stats: Object
   },
   computed: {
     getDatasetDate() {
