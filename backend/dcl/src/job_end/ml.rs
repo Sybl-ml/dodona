@@ -92,7 +92,7 @@ pub fn weight_predictions(
 /// utilising validation answers stored in `info`.
 /// Returns a tuple of predictions on test examples and the tuple's validation error
 pub fn evaluate_model(
-    id: &ModelID,
+    model_id: &str,
     predictions: &str,
     info: &ClusterInfo,
 ) -> Option<(Predictions, f64)> {
@@ -110,8 +110,11 @@ pub fn evaluate_model(
     }
 
     for values in predictions.iter().map(|s| s.split(',').collect::<Vec<_>>()) {
+        if values.len() != 2 {
+            return None;
+        }
         let (record_id, prediction) = (values[0].to_owned(), values[1].to_owned());
-        let example = (id.to_owned(), record_id.clone());
+        let example = (model_id.to_owned(), record_id.clone());
         match (info.validation_ans.get(&example), job_type) {
             (Some(answer), PredictionType::Classification) => {
                 // if this is a validation response and the job is a classification problem,
@@ -148,7 +151,7 @@ pub fn evaluate_model(
             .validation_ans
             .keys()
             .chain(info.prediction_rids.keys())
-            .filter_map(|(m, r)| (m == id).then(|| r.as_str()))
+            .filter_map(|(m, r)| (m == model_id).then(|| r.as_str()))
             .collect()
     {
         Some((model_predictions, model_error))

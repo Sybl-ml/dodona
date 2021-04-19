@@ -21,7 +21,7 @@ use rand::{thread_rng, Rng};
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio::sync::{Notify, RwLock};
-use tokio::time::timeout;
+use tokio::time::{timeout, Instant};
 
 use crate::node_end::NodePool;
 use crate::JobControl;
@@ -448,7 +448,7 @@ async fn run_cluster(
             let future = dcl_protocol(
                 np_clone,
                 database_clone,
-                model_id,
+                &model_id,
                 dcn_stream,
                 info_clone,
                 cc_clone,
@@ -456,7 +456,9 @@ async fn run_cluster(
                 wbm_clone,
             );
 
-            timeout(wait, future).await.unwrap()
+            if timeout(wait, future).await.is_err() {
+                log::warn!("Model with id={} failed to respond in time", model_id);
+            }
         });
     }
 
@@ -541,7 +543,7 @@ fn decode_and_decompress(data: &str) -> Result<String> {
 pub async fn dcl_protocol(
     nodepool: Arc<NodePool>,
     database: Arc<Database>,
-    model_id: String,
+    model_id: &str,
     stream: Arc<RwLock<TcpStream>>,
     info: ClusterInfo,
     cluster_control: ClusterControl,
@@ -557,6 +559,8 @@ pub async fn dcl_protocol(
     // Compress the data beforehand
     let dataset_message = ClientMessage::from_train_and_predict(&train, &predict);
 
+    // Start a timer to track execution time and send the data across
+    let start = Instant::now();
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
     // TODO: Propagate this error forward to the frontend so that it can say a node has failed
@@ -577,6 +581,9 @@ pub async fn dcl_protocol(
             }
         };
 
+    // Stop the timer and record how long was spent processing
+    let processing_time_secs = (Instant::now() - start).as_secs();
+
     // Ensure it is the right message and decode + decompress it
     let anonymised_predictions = match prediction_message {
         ClientMessage::Predictions(s) => decode_and_decompress(&s),
@@ -587,7 +594,7 @@ pub async fn dcl_protocol(
     let mut model_success = true;
     let model_evaluation = anonymised_predictions.map(|preds| {
         deanonymise_dataset(preds.trim(), &info.columns)
-            .and_then(|predictions| ml::evaluate_model(&model_id, &predictions, &info))
+            .and_then(|predictions| ml::evaluate_model(model_id, &predictions, &info))
     });
 
     // Check that we got valid predictions and they evaluated correctly
@@ -598,15 +605,15 @@ pub async fn dcl_protocol(
             model_predictions.len()
         );
 
-        write_back.write_error(model_id.clone(), Some(model_error));
-        write_back.write_predictions(model_id.clone(), model_predictions);
+        write_back.write_error(model_id.to_owned(), Some(model_error));
+        write_back.write_predictions(model_id.to_owned(), model_predictions);
     } else {
         log::warn!("Node with id={} failed to respond correctly", model_id);
-        write_back.write_error(model_id.clone(), None);
         model_success = false;
+        write_back.write_error(model_id.to_owned(), None);
     }
 
-    increment_run_count(&database, &model_id).await?;
+    update_model_statistics(&database, &model_id, processing_time_secs).await?;
     nodepool.end(&model_id).await?;
 
     let remaining_nodes = cluster_control.decrement().await;
@@ -676,15 +683,32 @@ pub async fn write_predictions(
     Ok(())
 }
 
-/// Increments the run count for the given model in the database.
-pub async fn increment_run_count(database: &Arc<Database>, model_id: &str) -> Result<()> {
+/// Updates the non-performance related statistics for the given model.
+///
+/// This increments the number of times it has been run and adds the amount of time it spent
+/// processing the last job.
+pub async fn update_model_statistics(
+    database: &Arc<Database>,
+    model_id: &str,
+    processing_time_secs: u64,
+) -> Result<()> {
     let models = database.collection("models");
     let object_id = ObjectId::with_string(model_id)?;
 
-    log::debug!("Incrementing the run count for model with id={}", model_id);
+    log::debug!(
+        "Incrementing run count for model with id={}, adding {} seconds of processing time",
+        model_id,
+        processing_time_secs
+    );
 
     let query = doc! {"_id": &object_id};
-    let update = doc! { "$inc": { "times_run": 1 } };
+    let update = doc! {
+        "$inc": {
+            "times_run": 1,
+            "processing_time_secs": processing_time_secs as i64
+        }
+    };
+
     models.update_one(query, update, None).await?;
 
     Ok(())
