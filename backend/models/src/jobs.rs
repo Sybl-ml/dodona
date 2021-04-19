@@ -109,12 +109,3 @@ impl Job {
         Ok(())
     }
 }
-
-impl Default for Job {
-    fn default() -> Self {
-        Self {
-            date_created: bson::DateTime::from(Utc::now()),
-            ..Default::default()
-        }
-    }
-}

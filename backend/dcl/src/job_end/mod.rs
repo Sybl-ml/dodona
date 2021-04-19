@@ -613,7 +613,7 @@ pub async fn dcl_protocol(
         write_back.write_error(model_id.to_owned(), None);
     }
 
-    update_model_statistics(database, &model_id, processing_time_secs).await?;
+    update_model_statistics(&database, &model_id, processing_time_secs).await?;
     nodepool.end(&model_id).await?;
 
     let remaining_nodes = cluster_control.decrement().await;
@@ -688,7 +688,7 @@ pub async fn write_predictions(
 /// This increments the number of times it has been run and adds the amount of time it spent
 /// processing the last job.
 pub async fn update_model_statistics(
-    database: Arc<Database>,
+    database: &Arc<Database>,
     model_id: &str,
     processing_time_secs: u64,
 ) -> Result<()> {
