@@ -18,7 +18,7 @@
                 </b-card-title>
                 <b-card-text>
                   <b-icon-clock-fill></b-icon-clock-fill>
-                  {{ model.processing_time_secs }}s
+                  {{ model.processing_time_secs }}s total processing
                 </b-card-text>
               </b-card-body>
             </b-col>
@@ -53,7 +53,7 @@
                 </b-card-text>
                 <b-card-text>
                   <b-icon-cash-stack></b-icon-cash-stack>
-                  {{ model.credits_earned }}
+                  {{ model.credits_earned }} credit(s) earned
                 </b-card-text>
               </b-card-body>
             </b-col>
