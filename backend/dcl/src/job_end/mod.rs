@@ -644,7 +644,10 @@ pub async fn write_predictions(
     Ok(())
 }
 
-/// Increments the run count for the given model in the database.
+/// Updates the non-performance related statistics for the given model.
+///
+/// This increments the number of times it has been run and adds the amount of time it spent
+/// processing the last job.
 pub async fn update_model_statistics(
     database: Arc<Database>,
     model_id: &str,
