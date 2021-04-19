@@ -146,7 +146,6 @@ export default {
     },
     overviewProps() {
       let p = this.project;
-      console.log(p);
       return {
         projectId: this.projectId,
         description: p.description,
