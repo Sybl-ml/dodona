@@ -15,35 +15,47 @@
           v-bind:key="tag.id"
           >{{ tag }}</b-badge
         >
-      </p>
-    </b-card>
-    <b-card no-body class="shadow">
-      <b-tabs pills card>
-        <b-tab title="Overview" active lazy ref="overviewTab">
-          <project-overview
-            v-if="project"
-            v-bind="overviewProps"
-          />
-        </b-tab>
-        <b-tab title="Analysis" ref="analysisTab">
-          <project-analysis :id="projectId" v-bind="analysisProps" />
-        </b-tab>
-        <b-tab title="Input" ref="inputTab">
-          <project-input :projectId="projectId" :key="projectId" 
-            v-on:input-tab="viewInput"/>
-        </b-tab>
-        <b-tab title="Output" lazy :disabled="false">
-          <project-output
-            :disabled="!results"
-            :projectId="projectId"
-            :key="projectId"
-          />
-        </b-tab>
-        <b-tab title="Settings" lazy>
-          <project-settings v-if="project" v-bind="settingsProps" />
-        </b-tab>
-      </b-tabs>
-    </b-card>
+      </p> </b-card
+    ><b-overlay :show="project.status == 'Uploading'" rounded="sm">
+      <template #overlay>
+        <b-row class="justify-content-center">
+          <h2>Data Uploading</h2>
+        </b-row>
+        <b-row class="justify-content-center">
+          <h2>Please Do Not Refresh!</h2>
+        </b-row>
+        <b-row class="justify-content-center">
+          <b-spinner variant="primary" style="width: 3rem; height: 3rem" />
+        </b-row>
+      </template>
+      <b-card no-body class="shadow">
+        <b-tabs pills card>
+          <b-tab title="Overview" active lazy ref="overviewTab">
+            <project-overview v-if="project" v-bind="overviewProps" />
+          </b-tab>
+          <b-tab title="Analysis" ref="analysisTab">
+            <project-analysis :id="projectId" v-bind="analysisProps" />
+          </b-tab>
+          <b-tab title="Input" ref="inputTab">
+            <project-input
+              :projectId="projectId"
+              :key="projectId"
+              v-on:input-tab="viewInput"
+            />
+          </b-tab>
+          <b-tab title="Output" lazy :disabled="false">
+            <project-output
+              :disabled="!results"
+              :projectId="projectId"
+              :key="projectId"
+            />
+          </b-tab>
+          <b-tab title="Settings" lazy>
+            <project-settings v-if="project" v-bind="settingsProps" />
+          </b-tab>
+        </b-tabs>
+      </b-card>
+    </b-overlay>
   </b-container>
 </template>
 
@@ -152,8 +164,9 @@ export default {
         dataset_head: p.details.dataset_head,
         dataset_date: p.details.dataset_date,
         dataset_types: p.details.column_types,
-        dataset_train_size: Math.round((p.details.train_size+99)/100)*100,
-        dataset_predict_size: Math.round((p.details.predict_size+99)/100)*100,
+        dataset_train_size: Math.round((p.details.train_size + 99) / 100) * 100,
+        dataset_predict_size:
+          Math.round((p.details.predict_size + 99) / 100) * 100,
       };
     },
     analysisProps() {
