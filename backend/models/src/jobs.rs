@@ -109,3 +109,26 @@ impl Job {
         Ok(())
     }
 }
+
+/// Defines the information that should be stored to analyse statistics from a job
+#[derive(Debug, Serialize, Deserialize)]
+pub struct JobStatistics {
+    /// The unique identifier for the dataset
+    #[serde(rename = "_id")]
+    pub id: ObjectId,
+    /// Unique identifier for the associated job
+    pub job_id: ObjectId,
+    // Column based analysis
+    pub average_job_computation_secs: i64,
+}
+
+impl JobStatistics {
+    /// Creates a new [`Job`] with a given [`JobConfiguration`].
+    pub fn new(job_id: ObjectId, average_job_computation_secs: i64) -> Self {
+        Self {
+            id: ObjectId::new(),
+            job_id,
+            average_job_computation_secs,
+        }
+    }
+}

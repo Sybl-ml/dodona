@@ -29,8 +29,8 @@ use messages::{
     kafka_message, ClientCompleteMessage, ClientMessage, ReadLengthPrefix, WriteLengthPrefix,
 };
 use models::gridfs;
-use models::jobs::Job;
 use models::jobs::PredictionType;
+use models::jobs::{Job, JobStatistics};
 use models::predictions::Prediction;
 use models::projects::{Project, Status};
 use models::users::User;
@@ -79,6 +79,8 @@ pub struct WriteBackMemory {
     pub predictions: Arc<Mutex<ModelPredictions>>,
     /// HashMap of Errors
     pub errors: Arc<Mutex<ModelErrors>>,
+    /// Vector of computation times for each model
+    pub computation_time: Arc<Mutex<Vec<i64>>>,
 }
 
 impl WriteBackMemory {
@@ -102,6 +104,12 @@ impl WriteBackMemory {
         errors.insert(id, error);
     }
 
+    /// Function to write back computation time (secs)
+    pub fn write_time(&self, time: i64) {
+        let mut computation_time = self.computation_time.lock().unwrap();
+        computation_time.push(time);
+    }
+
     /// Gets cloned version of predictions
     pub fn get_predictions(&self) -> ModelPredictions {
         let predictions = self.predictions.lock().unwrap();
@@ -112,6 +120,12 @@ impl WriteBackMemory {
     pub fn get_errors(&self) -> ModelErrors {
         let errors = self.errors.lock().unwrap();
         errors.clone()
+    }
+
+    /// Gets cloned version of errors
+    pub fn get_average_job_time(&self) -> i64 {
+        let computation_time = self.computation_time.lock().unwrap();
+        computation_time.iter().sum::<i64>() as i64 / computation_time.len() as i64
     }
 }
 
@@ -512,6 +526,14 @@ async fn run_cluster(
             log::error!("Failed to write predirections to the database: {}", error)
         });
 
+    // Write job statistics to database
+    let job_statistic = JobStatistics::new(info.job.id.clone(), wbm.get_average_job_time());
+    let document = mongodb::bson::ser::to_document(&job_statistic)?;
+    database
+        .collection("job_statistics")
+        .insert_one(document, None)
+        .await?;
+
     change_status(&database, &project_id, Status::Complete).await?;
 
     // Mark the job as processed
@@ -607,6 +629,7 @@ pub async fn dcl_protocol(
 
         write_back.write_error(model_id.to_owned(), Some(model_error));
         write_back.write_predictions(model_id.to_owned(), model_predictions);
+        write_back.write_time(processing_time_secs as i64);
     } else {
         log::warn!("Node with id={} failed to respond correctly", model_id);
         model_success = false;
