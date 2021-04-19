@@ -110,6 +110,9 @@ pub fn evaluate_model(
     }
 
     for values in predictions.iter().map(|s| s.split(',').collect::<Vec<_>>()) {
+        if values.len() != 2 {
+            return None;
+        }
         let (record_id, prediction) = (values[0].to_owned(), values[1].to_owned());
         let example = (model_id.to_owned(), record_id.clone());
         match (info.validation_ans.get(&example), job_type) {
