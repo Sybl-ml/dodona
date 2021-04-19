@@ -119,6 +119,10 @@ const readUploadedFileAsText = (inputFile) => {
   });
 };
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+};
+
 export default {
   name: "AddProject",
   data() {
@@ -156,7 +160,8 @@ export default {
 
         this.project_id = project_response.data.project_id.$oid;
         this.$store.dispatch("addProject", this.project_id);
-        
+        await sleep(500);
+
         if (this.file) {
           await this.processFile();
         }
