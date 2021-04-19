@@ -17,6 +17,18 @@ use utils::finance::reimburse;
 mod common;
 
 #[tokio::test]
+async fn test_write_back_time() {
+    let wb: WriteBackMemory = WriteBackMemory::new();
+    wb.write_time(1);
+    wb.write_time(2);
+    wb.write_time(3);
+    wb.write_time(4);
+    wb.write_time(5);
+    wb.write_time(6);
+    assert_eq!(3, wb.get_average_job_time());
+}
+
+#[tokio::test]
 async fn test_write_back_predictions() {
     let model_id: ModelID = ModelID::from("ModelID1");
     let val1 = String::from("pred1");

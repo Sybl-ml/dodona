@@ -1291,12 +1291,42 @@ pub async fn currently_running_job(
 
     let mut document = Document::new();
 
-    // If the last job is still processing
-    if let Ok(false) = last_job.get_bool("processed") {
-        document.insert("job", last_job);
-    }
+    document.insert("job", last_job);
 
     response_from_json(document)
+}
+
+/// Queries the currently running job for a given project, if one exists. Gets the job statistics
+pub async fn get_job_statistics(
+    claims: auth::Claims,
+    state: web::Data<State>,
+    project_id: web::Path<String>,
+) -> ServerResponse {
+    let projects = state.database.collection("projects");
+    let jobs = state.database.collection("jobs");
+    let job_statistics = state.database.collection("job_statistics");
+    let project_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
+
+    // Query the jobs for this project, sorting by date
+    let filter = doc! { "config.project_id": &project_id };
+    let sort = doc! { "date_created": -1 };
+    let options = options::FindOneOptions::builder().sort(sort).build();
+
+    let job = jobs
+        .find_one(filter, options)
+        .await?
+        .ok_or(ServerError::NotFound)?;
+
+    let job: Job = from_document(job)?;
+
+    let filter = doc! {"job_id": &job.id};
+
+    let job_statistic = job_statistics
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
+
+    response_from_json(job_statistic)
 }
 
 /// Inserts a [`JobConfiguration`] into MongoDB.
