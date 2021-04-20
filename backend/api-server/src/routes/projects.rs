@@ -498,15 +498,10 @@ pub async fn upload_and_split(
         for row in data_string {
             // Determine if it is a dataset row or predict row
             // Add to the correct buffer
-            let cols = row.split(",").collect::<Vec<_>>();
+            let cols = row.split(",");
             // Tests to see if there is a predition column in row
-            if cols.len() == col_num {
-                if cols
-                    .iter()
-                    .filter(|x| x.trim().is_empty())
-                    .fold(0, |cnt, _| cnt + 1)
-                    == 1
-                {
+            if cols.clone().count() == col_num {
+                if cols.filter(|x| x.trim().is_empty()).count() == 1 {
                     predict_buffer.push(String::from(row));
                     predict_size += 1;
                 } else {
