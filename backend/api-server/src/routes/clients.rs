@@ -219,7 +219,13 @@ pub async fn verify_challenge(
     let challenge_response = base64::decode(&payload.challenge_response)?;
 
     if !crypto::verify_challenge(&challenge, &challenge_response, &public_key) {
-        log::warn!("Provided challenge did not match expected");
+        log::warn!(
+            "Provided challenge did not match expected, deleting model_id={}",
+            model.id
+        );
+
+        models.delete_one(filter, None).await?;
+
         return Err(ServerError::Unauthorized);
     }
 
