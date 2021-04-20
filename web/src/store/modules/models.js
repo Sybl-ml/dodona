@@ -1,4 +1,3 @@
-import router from "../../router";
 import $http from "../../services/axios-instance";
 
 const state = () => ({

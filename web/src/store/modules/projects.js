@@ -1,5 +1,6 @@
 import router from "../../router";
 import $http from "../../services/axios-instance";
+import Vue from "vue";
 
 function unpackProjectResponse(response) {
   let {
