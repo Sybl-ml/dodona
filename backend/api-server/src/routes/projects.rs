@@ -299,9 +299,10 @@ pub async fn upload_train_and_predict(
             let data_string = std::str::from_utf8(&gen_buf_chunk).unwrap().lines();
             // Split data into rows
             for row in data_string {
-                let cols = row.split(",").collect::<Vec<_>>();
+                let cols = row.split(',').count();
+
                 // Check for half row to put in general buffer
-                if cols.len() != col_num {
+                if cols != col_num {
                     // If any incomplete row, set as general buffer
                     general_buffer = row.as_bytes().iter().cloned().collect();
                 } else {
@@ -498,7 +499,8 @@ pub async fn upload_and_split(
         for row in data_string {
             // Determine if it is a dataset row or predict row
             // Add to the correct buffer
-            let cols = row.split(",");
+            let cols = row.split(',');
+
             // Tests to see if there is a predition column in row
             if cols.clone().count() == col_num {
                 if cols.filter(|x| x.trim().is_empty()).count() == 1 {
@@ -1076,7 +1078,7 @@ pub async fn pagination(
                 .ok_or(ServerError::NotFound)?;
 
                 for (predict_row, predicted_row) in
-                    chunk_string.split('\n').zip(pred_chunk_string.split('\n'))
+                    chunk_string.lines().zip(pred_chunk_string.lines())
                 {
                     // If header, add to page
                     if initial {
