@@ -3,8 +3,6 @@ import Vuex from "vuex";
 import createPersistedState from "vuex-persistedstate";
 import $http from "../services/axios-instance";
 import _ from "lodash";
-import Papa from "papaparse";
-import router from "../router";
 
 import projects from "./modules/projects";
 import models from "./modules/models";
