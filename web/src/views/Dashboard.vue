@@ -113,7 +113,7 @@
 .processing {
   background-color: #ffc12f !important;
 }
-.completed {
+.complete {
   background-color: #00bf26 !important;
 }
 </style>
