@@ -16,7 +16,7 @@
                 <b-card-title>
                   {{ model.name }}
                 </b-card-title>
-                <b-card-text>
+                <b-card-text v-if="model.locked == false">
                   <b-icon-clock-fill></b-icon-clock-fill>
                   {{ model.processing_time_secs }}s total processing
                 </b-card-text>
@@ -51,7 +51,7 @@
                   ></b-icon-exclamation-triangle-fill>
                   Error
                 </b-card-text>
-                <b-card-text>
+                <b-card-text v-if="model.locked == false">
                   <b-icon-cash-stack></b-icon-cash-stack>
                   {{ model.credits_earned }} credit(s) earned
                 </b-card-text>
