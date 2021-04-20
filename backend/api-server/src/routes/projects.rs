@@ -365,15 +365,6 @@ pub async fn upload_train_and_predict(
         log::debug!("Deleting existing project data with id={}", data.id);
         data.delete(&state.database).await?;
     }
-    // Communicate with Analytics Server
-    let analytics_job = serde_json::to_string(&object_id).unwrap();
-    let topic = "analytics";
-    if produce_message(&analytics_job, &analytics_job, &topic)
-        .await
-        .is_err()
-    {
-        log::warn!("Failed to forward object_id={} to Kafka", object_id);
-    }
 
     // Update the project status
     let option = options::FindOneAndUpdateOptions::builder()
@@ -396,6 +387,16 @@ pub async fn upload_train_and_predict(
 
     let document = to_document(&dataset_doc)?;
     let _id = datasets.insert_one(document, None).await?.inserted_id;
+
+    // Inform the analysis server of the new job
+    let analytics_job = serde_json::to_string(&object_id).unwrap();
+    let topic = "analytics";
+    if produce_message(&analytics_job, &analytics_job, &topic)
+        .await
+        .is_err()
+    {
+        log::warn!("Failed to forward object_id={} to Kafka", object_id);
+    }
 
     let (analysis_doc, details_doc) = get_all_project_info(&object_id, &state.database).await?;
     let mut response = doc! {"project": project_doc};
@@ -585,16 +586,6 @@ pub async fn upload_and_split(
         data.delete(&state.database).await?;
     }
 
-    // Communicate with Analytics Server
-    let analytics_job = serde_json::to_string(&object_id).unwrap();
-    let topic = "analytics";
-    if produce_message(&analytics_job, &analytics_job, &topic)
-        .await
-        .is_err()
-    {
-        log::warn!("Failed to forward object_id={} to Kafka", object_id);
-    }
-
     let dataset_doc = Dataset::new(object_id.clone(), dataset.id, predict.id);
     let document = to_document(&dataset_doc)?;
     let _id = datasets.insert_one(document, None).await?.inserted_id;
@@ -611,6 +602,16 @@ pub async fn upload_and_split(
         )
         .await?
         .unwrap();
+
+    // Inform the analysis server of the new job
+    let analytics_job = serde_json::to_string(&object_id).unwrap();
+    let topic = "analytics";
+    if produce_message(&analytics_job, &analytics_job, &topic)
+        .await
+        .is_err()
+    {
+        log::warn!("Failed to forward object_id={} to Kafka", object_id);
+    }
 
     let (analysis_doc, details_doc) = get_all_project_info(&object_id, &state.database).await?;
     let mut response = doc! {"project": project_doc};
