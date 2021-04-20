@@ -174,11 +174,6 @@ export default {
     },
   },
   methods: {
-    sleep(ms) {
-      return new Promise((resolve) => {
-        setTimeout(resolve, ms);
-      });
-    },
     async onSubmit() {
       this.submitted = true;
 
@@ -195,12 +190,11 @@ export default {
           sameSite: true,
         });
         this.uploadAvatar();
-        this.$router.push("dashboard");
+        this.$router.push({ name: 'AddProject' });
       } catch (err) {
         this.failed = true;
       }
 
-      await this.sleep(1000);
       this.submitted = false;
     },
     onUpload(avatarSrc) {

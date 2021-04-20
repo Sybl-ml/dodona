@@ -284,7 +284,7 @@ export default {
           console.log("Processing single file");
           let payload = {
             project_id: this.projectId,
-            multipart: false,
+            multifile: false,
             files: this.file.file,
           };
           this.$store.dispatch("sendFile", payload);
@@ -297,7 +297,7 @@ export default {
         try {
           let payload = {
             project_id: this.projectId,
-            multipart: true,
+            multifile: true,
             files: {
               train: this.file.train,
               predict: this.file.predict,

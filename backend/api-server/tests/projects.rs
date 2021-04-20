@@ -311,7 +311,7 @@ async fn only_one_dataset_can_be_added_to_a_project() -> Result<()> {
     assert_eq!(actix_web::http::StatusCode::OK, status);
     assert_eq!(
         std::str::from_utf8(&body).unwrap(),
-        "age,sex,location\r\n24,M,Leamington Spa\r"
+        "age,sex,location\n24,M,Leamington Spa"
     );
 
     Ok(())

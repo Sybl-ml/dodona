@@ -316,17 +316,23 @@ export default new Vuex.Store({
         tags: tags,
       });
     },
-    async sendFile(context, { project_id, multipart, files }) {
+    async sendFile(context, { project_id, multifile, files }) {
       let formData = new FormData();
       let config = { headers: { "Content-Type": "multipart/form-data" } };
 
+      context.commit("updateProject", {
+        project_id: project_id,
+        field: "status",
+        new_data: "Uploading",
+      });
+      
       let route = "";
-      if (!multipart) {
+      if (!multifile) {
         formData.append("dataset", files);
         route = "upload_and_split";
       } else {
-        formData.append(files.train);
-        formData.append(files.predict);
+        formData.append("train", files.train);
+        formData.append("predict", files.predict);
         route = "upload_train_and_predict";
       }
       try {
