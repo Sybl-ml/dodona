@@ -13,7 +13,6 @@
                 block
               />
             </b-col>
-            
           </b-row>
           <b-row class="text-left">
             <b-col>
@@ -111,7 +110,6 @@
 </style>
 
 <script>
-
 export default {
   name: "Dashboard",
   data() {
@@ -122,13 +120,27 @@ export default {
   async created() {
     await this.$store.dispatch("getProjects");
   },
+  mounted() {
+    this.unwatch = this.$store.watch(
+      (state) => state.socket.isConnected,
+      (newValue, oldValue) => {
+        if (newValue === true) {
+          let token = this.$cookies.get("token");
+          let auth = {
+            authentication: { token: token },
+          };
+          console.log("sending auth msg");
+          this.$store.dispatch("sendMsg", auth);
+        }
+      }
+    );
+  },
+  beforeDestroy() {
+    this.unwatch();
+  },
   methods: {
-    async addProject(id) {
-
-    },
-    cardStyle(id){
-      if (id == this.$router.currentRoute.path.split("/")[2])
-        return "mx-2";
+    cardStyle(id) {
+      if (id == this.$router.currentRoute.path.split("/")[2]) return "mx-2";
       return "ml-2";
     },
   },

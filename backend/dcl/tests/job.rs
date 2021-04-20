@@ -10,11 +10,23 @@ use mongodb::bson::{doc, oid::ObjectId};
 
 use dcl::job_end::ml::{evaluate_model, model_performance, penalise, weight_predictions};
 use dcl::job_end::{ClusterInfo, ModelID, WriteBackMemory};
-use models::jobs::{JobConfiguration, PredictionType};
+use models::jobs::{Job, JobConfiguration, PredictionType};
 use models::users::User;
 use utils::finance::reimburse;
 
 mod common;
+
+#[tokio::test]
+async fn test_write_back_time() {
+    let wb: WriteBackMemory = WriteBackMemory::new();
+    wb.write_time(1);
+    wb.write_time(2);
+    wb.write_time(3);
+    wb.write_time(4);
+    wb.write_time(5);
+    wb.write_time(6);
+    assert_eq!(3, wb.get_average_job_time());
+}
 
 #[tokio::test]
 async fn test_write_back_predictions() {
@@ -91,21 +103,23 @@ fn test_evaluate_model() {
     let prediction_rids: HashMap<(ModelID, String), usize> = HashMap::from_iter(rids.into_iter());
     let test_predictions: HashMap<usize, String> = HashMap::from_iter(test.into_iter());
 
+    let config = JobConfiguration {
+        project_id: ObjectId::new(),
+        node_computation_time: 0,
+        cluster_size: 3,
+        column_types: vec![],
+        feature_dim: 0,
+        train_size: 0,
+        predict_size: 0,
+        prediction_column: "".to_string(),
+        prediction_type: PredictionType::Classification,
+        cost: 0,
+    };
+
     let info = ClusterInfo {
         project_id: ObjectId::with_string(common::USER_ID).unwrap(),
         columns: HashMap::new(),
-        config: JobConfiguration {
-            dataset_id: ObjectId::new(),
-            node_computation_time: 0,
-            cluster_size: 3,
-            column_types: vec![],
-            feature_dim: 0,
-            train_size: 0,
-            predict_size: 0,
-            prediction_column: "".to_string(),
-            prediction_type: PredictionType::Classification,
-            cost: 0,
-        },
+        job: Job::new(config),
         validation_ans,
         prediction_rids,
         node_computation_time: Duration::from_secs(6000),
@@ -174,22 +188,23 @@ fn test_weight_predictions() {
     ];
 
     // Tests for classification-based problems
+    let config = JobConfiguration {
+        project_id: ObjectId::new(),
+        node_computation_time: 0,
+        cluster_size: 3,
+        column_types: vec![],
+        feature_dim: 0,
+        train_size: 0,
+        predict_size: 0,
+        prediction_column: "".to_string(),
+        prediction_type: PredictionType::Classification,
+        cost: 0,
+    };
 
     let info = ClusterInfo {
         project_id: ObjectId::with_string(common::USER_ID).unwrap(),
         columns: HashMap::new(),
-        config: JobConfiguration {
-            dataset_id: ObjectId::new(),
-            node_computation_time: 0,
-            cluster_size: 3,
-            column_types: vec![],
-            feature_dim: 0,
-            train_size: 0,
-            predict_size: 0,
-            prediction_column: "".to_string(),
-            prediction_type: PredictionType::Classification,
-            cost: 0,
-        },
+        job: Job::new(config),
         validation_ans: validation_ans.clone(),
         prediction_rids: prediction_rids.clone(),
         node_computation_time: Duration::from_secs(6000),
@@ -213,22 +228,23 @@ fn test_weight_predictions() {
     assert_eq!(final_predictions.join("\n"), "predicted\n5\n6\n7\n8");
 
     // Tests for regression-based problems
+    let config = JobConfiguration {
+        project_id: ObjectId::new(),
+        node_computation_time: 0,
+        cluster_size: 3,
+        column_types: vec![],
+        feature_dim: 0,
+        train_size: 0,
+        predict_size: 0,
+        prediction_column: "".to_string(),
+        prediction_type: PredictionType::Regression,
+        cost: 0,
+    };
 
     let info = ClusterInfo {
         project_id: ObjectId::with_string(common::USER_ID).unwrap(),
         columns: HashMap::new(),
-        config: JobConfiguration {
-            dataset_id: ObjectId::new(),
-            node_computation_time: 0,
-            cluster_size: 3,
-            column_types: vec![],
-            feature_dim: 0,
-            train_size: 0,
-            predict_size: 0,
-            prediction_column: "".to_string(),
-            prediction_type: PredictionType::Regression,
-            cost: 0,
-        },
+        job: Job::new(config),
         validation_ans,
         prediction_rids,
         node_computation_time: Duration::from_secs(6000),

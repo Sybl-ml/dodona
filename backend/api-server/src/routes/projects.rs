@@ -1,8 +1,5 @@
 //! Defines the routes specific to project operations.
 
-use std::env;
-use std::net::{Ipv4Addr, SocketAddrV4};
-use std::str::FromStr;
 use std::task::Poll;
 
 use actix_multipart::Multipart;
@@ -18,12 +15,9 @@ use mongodb::{
     bson::{de::from_document, doc, document::Document, oid::ObjectId, ser::to_document},
     options, Collection,
 };
-use rdkafka::config::ClientConfig;
-use rdkafka::error::KafkaResult;
-use rdkafka::producer::{FutureProducer, FutureRecord};
-use rdkafka::util::Timeout;
 use tokio_stream::StreamExt;
 
+use messages::kafka_message::produce_message;
 use models::dataset_details::DatasetDetails;
 use models::datasets::Dataset;
 use models::gridfs;
@@ -42,8 +36,6 @@ use crate::{
     State,
 };
 
-static JOB_TOPIC: &str = "jobs";
-static ANALYTICS_TOPIC: &str = "analytics";
 static CHUNK_SIZE: usize = 10_000;
 
 /// Enum to decide type of dataset to return
@@ -79,7 +71,6 @@ pub struct DataCollection {
     /// Lower chunk id
     pub lower_chunk: usize,
 }
-
 /// Finds a project in the database given an identifier.
 ///
 /// Given a project identifier, finds the project in the database and returns it as a JSON object.
@@ -375,7 +366,14 @@ pub async fn upload_train_and_predict(
         data.delete(&state.database).await?;
     }
     // Communicate with Analytics Server
-    produce_analytics_message(&object_id).await;
+    let analytics_job = serde_json::to_string(&object_id).unwrap();
+    let topic = "analytics";
+    if produce_message(&analytics_job, &analytics_job, &topic)
+        .await
+        .is_err()
+    {
+        log::warn!("Failed to forward object_id={} to Kafka", object_id);
+    }
 
     // Update the project status
     let option = options::FindOneAndUpdateOptions::builder()
@@ -588,7 +586,14 @@ pub async fn upload_and_split(
     }
 
     // Communicate with Analytics Server
-    produce_analytics_message(&object_id).await;
+    let analytics_job = serde_json::to_string(&object_id).unwrap();
+    let topic = "analytics";
+    if produce_message(&analytics_job, &analytics_job, &topic)
+        .await
+        .is_err()
+    {
+        log::warn!("Failed to forward object_id={} to Kafka", object_id);
+    }
 
     let dataset_doc = Dataset::new(object_id.clone(), dataset.id, predict.id);
     let document = to_document(&dataset_doc)?;
@@ -614,10 +619,18 @@ pub async fn upload_and_split(
         // Insert the details as well
         response.insert("details", details_doc);
     }
-
     if let Some(analysis_doc) = analysis_doc {
         // Insert the details as well
         response.insert("analysis", analysis_doc);
+    }
+    // Communicate with Analytics Server
+    let analytics_job = serde_json::to_string(&object_id).unwrap();
+    let topic = "analytics";
+    if produce_message(&analytics_job, &analytics_job, &topic)
+        .await
+        .is_err()
+    {
+        log::warn!("Failed to forward object_id={} to Kafka", object_id);
     }
 
     response_from_json(response)
@@ -1154,15 +1167,12 @@ pub async fn begin_processing(
 
     let object_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
-    // Find the dataset in the database
+    // Ensure a dataset exists for this project
     let filter = doc! { "project_id": &object_id };
-    let document = datasets
+    datasets
         .find_one(filter, None)
         .await?
         .ok_or(ServerError::NotFound)?;
-
-    // Parse the dataset itself
-    let dataset: Dataset = from_document(document)?;
 
     let filter = doc! { "project_id": &object_id };
     let document = dataset_details
@@ -1208,7 +1218,7 @@ pub async fn begin_processing(
 
     // Send a request to the interface layer
     let config = JobConfiguration {
-        dataset_id: dataset.id.clone(),
+        project_id: object_id.clone(),
         node_computation_time: payload.node_computation_time as i32,
         cluster_size: payload.cluster_size as i32,
         column_types,
@@ -1229,7 +1239,14 @@ pub async fn begin_processing(
     // Insert to MongoDB first, so the interface can immediately mark as processed if needed
     insert_to_queue(&job, state.database.collection("jobs")).await?;
 
-    if produce_message(&job).await.is_err() {
+    let job_message = serde_json::to_string(&job).unwrap();
+    let job_key = &job.id.to_string();
+    let topic = "jobs";
+
+    if produce_message(&job_message, job_key, &topic)
+        .await
+        .is_err()
+    {
         log::warn!("Failed to forward job_id={} to Kafka", job.id);
     }
 
@@ -1245,66 +1262,71 @@ pub async fn begin_processing(
 
     // Mark the project as processing
     let filter = doc! { "_id": &object_id};
-    let update = doc! { "$set": doc!{ "status": Status::Processing } };
+    let update =
+        doc! { "$set": doc!{ "status": Status::Processing { model_success: 0, model_err: 0 } } };
     projects.update_one(filter, update, None).await?;
 
-    response_from_json(doc! {"success": true})
+    response_from_json(job)
 }
 
-async fn produce_message(job: &Job) -> KafkaResult<()> {
-    // Get the environment variable for the kafka broker
-    // if not set use 9092
-    let var = env::var("BROKER_PORT").unwrap_or_else(|_| "9092".to_string());
-    let port = u16::from_str(&var).expect("BROKER_PORT must be a u16");
+/// Queries the currently running job for a given project, if one exists.
+pub async fn currently_running_job(
+    claims: auth::Claims,
+    state: web::Data<State>,
+    project_id: web::Path<String>,
+) -> ServerResponse {
+    let projects = state.database.collection("projects");
+    let jobs = state.database.collection("jobs");
+    let project_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
-    // Build the address to send to
-    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port).to_string();
-    let producer: FutureProducer = ClientConfig::new()
-        .set("bootstrap.servers", &addr)
-        .set("message.timeout.ms", "5000")
-        .create()
-        .expect("Producer creation error");
+    // Query the jobs for this project, sorting by date
+    let filter = doc! { "config.project_id": &project_id };
+    let sort = doc! { "date_created": -1 };
+    let options = options::FindOneOptions::builder().sort(sort).build();
 
-    let job_message = serde_json::to_string(&job.config).unwrap();
+    let last_job = jobs
+        .find_one(filter, options)
+        .await?
+        .ok_or(ServerError::NotFound)?;
 
-    let delivery_status = producer
-        .send(
-            FutureRecord::to(JOB_TOPIC)
-                .payload(&job_message)
-                .key(&job.id.to_string()),
-            Timeout::Never,
-        )
-        .await;
+    let mut document = Document::new();
 
-    log::debug!("Message sent result: {:?}", delivery_status);
+    document.insert("job", last_job);
 
-    Ok(())
+    response_from_json(document)
 }
 
-async fn produce_analytics_message(project_id: &ObjectId) {
-    let var = env::var("BROKER_PORT").unwrap_or_else(|_| "9092".to_string());
-    let port = u16::from_str(&var).expect("BROKER_PORT must be a u16");
+/// Queries the currently running job for a given project, if one exists. Gets the job statistics
+pub async fn get_job_statistics(
+    claims: auth::Claims,
+    state: web::Data<State>,
+    project_id: web::Path<String>,
+) -> ServerResponse {
+    let projects = state.database.collection("projects");
+    let jobs = state.database.collection("jobs");
+    let job_statistics = state.database.collection("job_statistics");
+    let project_id = check_user_owns_project(&claims.id, &project_id, &projects).await?;
 
-    // Build the address to send to
-    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port).to_string();
-    let producer: FutureProducer = ClientConfig::new()
-        .set("bootstrap.servers", &addr)
-        .set("message.timeout.ms", "5000")
-        .create()
-        .expect("Producer creation error");
+    // Query the jobs for this project, sorting by date
+    let filter = doc! { "config.project_id": &project_id };
+    let sort = doc! { "date_created": -1 };
+    let options = options::FindOneOptions::builder().sort(sort).build();
 
-    let analytics_job = serde_json::to_string(&project_id).unwrap();
+    let job = jobs
+        .find_one(filter, options)
+        .await?
+        .ok_or(ServerError::NotFound)?;
 
-    let delivery_status = producer
-        .send(
-            FutureRecord::to(ANALYTICS_TOPIC)
-                .payload(&analytics_job)
-                .key(&analytics_job),
-            Timeout::Never,
-        )
-        .await;
+    let job: Job = from_document(job)?;
 
-    log::debug!("Message sent result: {:?}", delivery_status);
+    let filter = doc! {"job_id": &job.id};
+
+    let job_statistic = job_statistics
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
+
+    response_from_json(job_statistic)
 }
 
 /// Inserts a [`JobConfiguration`] into MongoDB.

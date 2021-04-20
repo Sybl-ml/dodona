@@ -1,7 +1,9 @@
 //! Contains the expected payloads for each endpoint.
+use actix::prelude::Message;
 
-use mongodb::bson::{Array, Document};
+use mongodb::bson::{oid::ObjectId, Array, Document};
 
+use messages::kafka_message::ClientCompleteMessage;
 use models::jobs::PredictionType;
 
 /// Stores the options for filtering all users.
@@ -144,4 +146,43 @@ pub struct UnlockModelOptions {
 pub struct AuthenticateModelOptions {
     /// The user's access token
     pub token: String,
+}
+
+/// Payloads sent to and from the websocket
+#[derive(Debug, Clone, Serialize, Deserialize, Message)]
+#[serde(rename_all = "camelCase")]
+#[rtype(result = "()")]
+pub enum WebsocketMessage {
+    /// Authentication message sent on websocket open
+    Authentication {
+        /// User token to authenticate
+        token: String,
+    },
+    /// Message sent from server when a model completes
+    ModelComplete {
+        /// project id which node completed
+        project_id: String,
+        /// the cluster size for the project
+        cluster_size: usize,
+        /// The number of models completed for this project
+        model_complete_count: usize,
+        /// If the model was successfull
+        success: bool,
+    },
+    /// Message sent from server when the user authenticates
+    Hello {
+        /// ID of the user
+        id: ObjectId,
+    },
+}
+
+impl From<&ClientCompleteMessage<'_>> for WebsocketMessage {
+    fn from(msg: &ClientCompleteMessage<'_>) -> Self {
+        WebsocketMessage::ModelComplete {
+            project_id: msg.project_id.to_string(),
+            cluster_size: msg.cluster_size,
+            model_complete_count: msg.model_complete_count,
+            success: msg.success,
+        }
+    }
 }

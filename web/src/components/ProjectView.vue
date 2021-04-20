@@ -1,5 +1,5 @@
 <template>
-  <b-container fluid>
+  <b-container fluid v-if="!loadedProject">
     <b-card
       class="view"
       style="height: 7rem; border: none; box-shadow: none; background: none"
@@ -20,10 +20,7 @@
     <b-card no-body class="shadow">
       <b-tabs pills card>
         <b-tab title="Overview" active lazy ref="overviewTab">
-          <project-overview
-            v-if="project"
-            v-bind="overviewProps"
-          />
+          <project-overview v-if="project" v-bind="overviewProps" />
         </b-tab>
         <b-tab title="Analysis" lazy ref="analysisTab" :disabled="projectUnfinished">
           <project-analysis :id="projectId" v-bind="analysisProps" />
@@ -132,7 +129,7 @@ export default {
       return this.project.status != "Complete";
     },
     loadedProject() {
-      return this.project;
+      return this.project === undefined;
     },
     getProjectDate() {
       if (!this.project.name) {
@@ -149,7 +146,6 @@ export default {
     },
     overviewProps() {
       let p = this.project;
-
       return {
         projectId: this.projectId,
         description: p.description,
@@ -158,8 +154,11 @@ export default {
         dataset_head: p.details.dataset_head,
         dataset_date: p.details.dataset_date,
         dataset_types: p.details.column_types,
-        dataset_train_size: Math.round((p.details.train_size+99)/100)*100,
-        dataset_predict_size: Math.round((p.details.predict_size+99)/100)*100,
+        dataset_train_size: Math.round((p.details.train_size + 99) / 100) * 100,
+        dataset_predict_size:
+          Math.round((p.details.predict_size + 99) / 100) * 100,
+        current_job: p.current_job,
+        job_stats: p.job_stats,
       };
     },
     analysisProps() {

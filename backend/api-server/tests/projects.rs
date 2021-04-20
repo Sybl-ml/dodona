@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Duration};
 
 use api_server::routes::projects;
-use models::dataset_analysis::DatasetAnalysis;
 use models::dataset_details::DatasetDetails;
 use models::projects::Project;
+use models::{dataset_analysis::DatasetAnalysis, jobs::Job};
 
 #[macro_use]
 mod common;
@@ -48,7 +48,7 @@ async fn projects_can_be_fetched_for_a_user() -> Result<()> {
 
     let projects: Vec<ProjectResponse> = test::read_body_json(res).await;
 
-    assert_eq!(projects.len(), 3);
+    assert_eq!(projects.len(), 4);
 
     let found = &projects[0];
 
@@ -636,6 +636,56 @@ async fn users_cannot_submit_jobs_with_insufficient_funds() -> Result<()> {
     let res = test::call_service(&mut app, req).await;
 
     assert_eq!(actix_web::http::StatusCode::PAYMENT_REQUIRED, res.status());
+
+    Ok(())
+}
+
+#[actix_rt::test]
+async fn recent_jobs_can_be_found() -> Result<()> {
+    let mut app = api_with! {
+        get: "/api/projects/{project_id}/job" => projects::currently_running_job,
+    };
+
+    let url = format!("/api/projects/{}/job", common::MAIN_PROJECT_ID);
+
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::GET)
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
+        .uri(&url)
+        .to_request();
+
+    let res = test::call_service(&mut app, req).await;
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
+
+    Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecentJobResponse {
+    job: Option<Job>,
+}
+
+#[actix_rt::test]
+async fn most_recent_job_is_returned() -> Result<()> {
+    let mut app = api_with! {
+        get: "/api/projects/{project_id}/job" => projects::currently_running_job,
+    };
+
+    let url = format!("/api/projects/{}/job", common::MAIN_PROJECT_ID);
+
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::GET)
+        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
+        .uri(&url)
+        .to_request();
+
+    let res = test::call_service(&mut app, req).await;
+    assert_eq!(actix_web::http::StatusCode::OK, res.status());
+
+    // Verify the response was correct
+    let body: RecentJobResponse = test::read_body_json(res).await;
+    assert!(body.job.is_some());
 
     Ok(())
 }
