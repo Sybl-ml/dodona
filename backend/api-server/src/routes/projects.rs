@@ -271,7 +271,7 @@ pub async fn upload_train_and_predict(
             if name == "train" {
                 if initial {
                     let data_head = std::str::from_utf8(&chunk).unwrap();
-                    let data_head = data_head.split("\n").take(6).collect::<Vec<_>>().join("\n");
+                    let data_head = data_head.lines().take(6).collect::<Vec<_>>().join("\n");
 
                     initial = false;
 
@@ -296,7 +296,7 @@ pub async fn upload_train_and_predict(
 
             let gen_buf_chunk = general_buffer.clone();
 
-            let data_string = std::str::from_utf8(&gen_buf_chunk).unwrap().split("\n");
+            let data_string = std::str::from_utf8(&gen_buf_chunk).unwrap().lines();
             // Split data into rows
             for row in data_string {
                 let cols = row.split(",").collect::<Vec<_>>();
@@ -465,9 +465,9 @@ pub async fn upload_and_split(
     while let Some(Ok(chunk)) = field.next().await {
         if initial {
             let data_head = std::str::from_utf8(&chunk).unwrap();
-            let data_head = data_head.split("\n").take(6).collect::<Vec<_>>().join("\n");
+            let data_head = data_head.lines().take(6).collect::<Vec<_>>().join("\n");
             log::info!("First 5 lines: {:?}", &data_head);
-            let header = data_head.split("\n").next().unwrap();
+            let header = data_head.lines().next().unwrap();
             predict_buffer.push(String::from(header));
 
             initial = false;
@@ -493,14 +493,20 @@ pub async fn upload_and_split(
 
         let gen_buf_chunk = general_buffer.clone();
 
-        let data_string = std::str::from_utf8(&gen_buf_chunk).unwrap().split("\n");
+        let data_string = std::str::from_utf8(&gen_buf_chunk).unwrap().lines();
         // Split data into rows
         for row in data_string {
             // Determine if it is a dataset row or predict row
             // Add to the correct buffer
             let cols = row.split(",").collect::<Vec<_>>();
+            // Tests to see if there is a predition column in row
             if cols.len() == col_num {
-                if row.split(',').last().unwrap().is_empty() {
+                if cols
+                    .iter()
+                    .filter(|x| x.trim().is_empty())
+                    .fold(0, |cnt, _| cnt + 1)
+                    == 1
+                {
                     predict_buffer.push(String::from(row));
                     predict_size += 1;
                 } else {
@@ -746,7 +752,7 @@ pub async fn get_dataset(
                             let decomp_predict = decompress_data(&chunk_bytes).unwrap();
                             // Convert both to utf 8
                             let utf_predict = String::from_utf8(decomp_predict).unwrap();
-                            let predict_rows = utf_predict.split("\n");
+                            let predict_rows = utf_predict.lines();
 
                             let chunk: gridfs::Chunk =
                                 from_document(prediction_chunk.unwrap()).unwrap();
@@ -754,7 +760,7 @@ pub async fn get_dataset(
                             let decomp_prediction = decompress_data(&chunk_bytes).unwrap();
                             // Convert both to utf 8
                             let utf_prediction = String::from_utf8(decomp_prediction).unwrap();
-                            let prediction_rows = utf_prediction.split("\n");
+                            let prediction_rows = utf_prediction.lines();
 
                             let mut chunk_vec: Vec<String> = Vec::new();
 
