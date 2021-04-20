@@ -96,13 +96,6 @@ const mutations = {
     let project = state.projects.find((p) => p._id == project_id);
     Vue.set(project, field, new_data);
   },
-  updateProjectProgress(state, { project_id, success }) {
-    let p = state.projects.find((project) => project._id == id);
-
-    if (success)
-      Vue.set(p.progress, "model_success", p.progress.model_success + 1);
-    else Vue.set(p.progress, "model_err", p.progress.model_err + 1);
-  },
   startJob(state, { project_id, job }) {
     let project = state.projects.find((p) => p._id == project_id);
 
@@ -133,6 +126,28 @@ const mutations = {
       new_route = "";
     }
     router.replace(`/dashboard${new_route}`);
+  },
+  SOCKET_ONMESSAGE(state, message) {
+    switch (Object.keys(message)[0]) {
+      case "hello":
+        break;
+      case "modelComplete":
+        let {
+          project_id,
+          cluster_size,
+          model_complete_count,
+          success,
+        } = message.modelComplete;
+
+        let p = state.projects.find((project) => project._id == project_id);
+
+        if (success)
+          Vue.set(p.progress, "model_success", p.progress.model_success + 1);
+        else Vue.set(p.progress, "model_err", p.progress.model_err + 1);
+        break;
+      default:
+        console.err("Unknown Message");
+    }
   },
 };
 
