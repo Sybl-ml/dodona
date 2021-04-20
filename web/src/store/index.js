@@ -5,22 +5,22 @@ import $http from "../services/axios-instance";
 import _ from "lodash";
 import Papa from "papaparse";
 import router from "../router";
-import VueRouter from "vue-router";
 
 import projects from "./modules/projects";
+import models from "./modules/models";
 Vue.use(Vuex);
 
 export default new Vuex.Store({
   // plugins: [createPersistedState()],
   modules: {
     projects,
-    // models,
+    models,
     // user_data,
     // socket,
   },
   state: {
     // projects: [],
-    models: [],
+    // models: [],
     user_data: {},
     socket: {
       isConnected: false,
@@ -32,11 +32,6 @@ export default new Vuex.Store({
   getters: {
     isAuthenticated: (state) => {
       return !_.isEmpty(state.user_data);
-    },
-    getModelPerformance: (state) => (id) => {
-      let model = state.models.find((m) => m._id.$oid == id);
-      let performance = model.performance;
-      return performance;
     },
   },
   mutations: {
@@ -80,14 +75,6 @@ export default new Vuex.Store({
           console.err("Unknown Message");
       }
     },
-
-    setModels(state, models) {
-      state.models = models;
-    },
-    setModelPerformance(state, { performance, id }) {
-      let model = state.models.find((m) => m._id.$oid == id);
-      Vue.set(model, "performance", performance);
-    },
     setUser(state, user) {
       Vue.set(state, "user_data", user);
     },
@@ -97,34 +84,10 @@ export default new Vuex.Store({
     setAvatar(state, avatar) {
       Vue.set(state.user_data, "avatar", avatar);
     },
-    unlockModel(state, model_id) {
-      let index = state.models.findIndex((m) => m._id.$oid == model_id);
-      Vue.set(state.models[index], "locked", false);
-    },
   },
   actions: {
     sendMsg(context, msg) {
       Vue.prototype.$socket.sendObj(msg);
-    },
-    async getModels({ commit }) {
-      try {
-        let data = await $http.get(`api/clients/models`);
-
-        commit("setModels", data.data);
-      } catch (err) {
-        console.log(err);
-      }
-    },
-    async getModelPerformance(context, id) {
-      try {
-        let data = await $http.get(`api/clients/models/${id}/performance`);
-        context.commit("setModelPerformance", {
-          performance: data.data,
-          id: id,
-        });
-      } catch (err) {
-        console.log(err);
-      }
     },
     async getUserData(context) {
       if (context.user_data) {
@@ -171,7 +134,6 @@ export default new Vuex.Store({
         dob: dob,
       });
     },
-
     async generatePrivateKey({ commit }) {
       console.log("Generating new private key");
       return $http.post("api/clients/generatePrivateKey");
@@ -189,20 +151,6 @@ export default new Vuex.Store({
       return $http.post("api/users/avatar", {
         avatar,
       });
-    },
-    async unlockModel(context, { model_id, password }) {
-      try {
-        let response = await $http.post(
-          `api/clients/models/${model_id}/unlock`,
-          {
-            password: password,
-          }
-        );
-        console.log(`Unlocking Model ${model_id}`);
-        context.commit("unlockModel", model_id);
-      } catch (err) {
-        console.log(err);
-      }
     },
   },
 });
