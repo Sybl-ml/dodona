@@ -24,7 +24,10 @@ pub async fn get(claims: auth::Claims, state: web::Data<State>) -> ServerRespons
     let users = state.database.collection("users");
 
     let filter: Document = doc! { "_id": claims.id };
-    let document = users.find_one(filter, None).await?;
+    let document = users
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
 
     response_from_json(document)
 }

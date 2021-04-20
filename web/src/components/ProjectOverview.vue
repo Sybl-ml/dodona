@@ -1,15 +1,21 @@
 <template>
   <b-container fluid>
     <b-row>
-      <b-col  v-if="checkStatus('Processing')" class="mb-3">
+      <b-col v-if="checkStatus('Processing')" class="mb-3">
         <h4>Project Is Running ...</h4>
-        <b-progress
-          :value="value"
-          :variant="progressColor"
-          height="2rem"
-          show-progress
-          animated
-        ></b-progress>
+        <b-progress :max="progress.max" height="2rem" show-progress animated>
+          <b-progress-bar :value="progress.model_success" variant="primary" />
+          <b-progress-bar :value="progress.model_err" variant="danger" />
+        </b-progress>
+      </b-col>
+      <b-col v-else-if="checkStatus('Complete')" class="mb-3">
+        <h4>Job Details</h4>
+        <br/>
+        <p><b>Job Cost:</b> {{this.current_job.config.cost}} Credits</p>
+        <p><b>Cluster Size:</b> {{this.current_job.config.cluster_size}}</p>
+        <p><b>Prediction Column:</b> {{this.current_job.config.prediction_column}}</p>
+        <p><b>Date Run:</b> {{(new Date(this.current_job.date_created["$date"])).toUTCString()}}</p>
+        <p><b>Average Model Computation Time:</b> {{this.job_stats.average_job_computation_secs}}s</p>
       </b-col>
       <b-col lg="8" sm="12" v-else-if="checkStatus('Ready')" class="mb-3">
         <h4>Description:</h4>
@@ -48,8 +54,8 @@
         </b-modal>
 
         <h4>Job Configuration:</h4>
-        
-        <p><b>Job Cost:</b> {{this.jobCost}} credits</p>
+
+        <p><b>Job Cost:</b> {{ this.jobCost }} credits</p>
 
         <b-form-group label="Problem Type" label-for="dropdown-form-type">
           <b-form-select
@@ -57,7 +63,14 @@
             size="sm"
             :options="problemTypeOptions"
             v-model="problemType"
-          />
+          /><b-tooltip
+                target="dropdown-form-type"
+                triggers="hover"
+                variant="primary"
+                placement="right"
+                delay=500
+                >Regression refers to the prediction of decimal numbers. Classification refers to the prediction of different labels. See our guide Introduction to Machine Learning for more details
+              </b-tooltip>
         </b-form-group>
         <b-form-group label="Prediction Column" label-for="dropdown-pred-col">
           <b-form-select
@@ -65,7 +78,14 @@
             size="sm"
             :options="getColumnNames"
             v-model="predColumn"
-          />
+          /><b-tooltip
+                target="dropdown-pred-col"
+                triggers="hover"
+                variant="primary"
+                placement="right"
+                delay=500
+                >The column that you want models to predict on
+              </b-tooltip>
         </b-form-group>
         <b-button
           v-b-toggle.job-config
@@ -88,6 +108,14 @@
               min="1"
               v-model="nodeComputationTime"
             ></b-form-input>
+            <b-tooltip
+                target="dropdown-form-timeout"
+                triggers="hover"
+                variant="primary"
+                placement="right"
+                delay=500
+                >The amount of time models should be given to run on your data
+              </b-tooltip>
           </b-form-group>
           <b-form-group
             label="Cluster Size"
@@ -100,6 +128,14 @@
               min="1"
               v-model="cluster_size"
             ></b-form-input>
+            <b-tooltip
+                target="dropdown-form-cluster-size"
+                triggers="hover"
+                variant="primary"
+                placement="right"
+                delay=500
+                >The number of models who should be asked to make predictions on your data
+              </b-tooltip>
           </b-form-group>
         </b-collapse>
         <h4>To start computation click the button below</h4>
@@ -187,7 +223,9 @@ export default {
     dataset_date: Date,
     dataset_types: Object,
     dataset_train_size: Number,
-    dataset_predict_size: Number
+    dataset_predict_size: Number,
+    current_job: Object,
+    job_stats: Object
   },
   computed: {
     getDatasetDate() {
@@ -197,16 +235,8 @@ export default {
         timeStyle: "short",
       })}`;
     },
-    progressColor() {
-      if (this.value === 100) {
-        return "completed";
-      } else if (this.value < 25) {
-        return "warning";
-      } else if (this.value < 50) {
-        return "primary";
-      } else if (this.value < 75) {
-        return "ready";
-      }
+    progress() {
+      return this.$store.getters.getProjectProgress(this.projectId);
     },
     getColumnNames() {
       let keys = Object.keys(this.dataset_types);
@@ -218,14 +248,22 @@ export default {
       ];
       keys.forEach((key) => options.push({ value: key, text: key }));
       return options;
-      
     },
     startDisabled() {
-      return this.predColumn == null || this.problemType == null || this.jobCost > this.$store.state.user_data.credits;
+      return (
+        this.predColumn == null ||
+        this.problemType == null ||
+        this.jobCost > this.$store.state.user_data.credits
+      );
     },
     jobCost() {
-      return (this.dataset_train_size + this.dataset_predict_size) * this.cluster_size * Object.keys(this.dataset_types).length;
-    }
+      let size = this.dataset_train_size + this.dataset_predict_size;
+      return (
+        Math.max(Math.floor(size / 1000), 1) *
+        this.cluster_size *
+        Object.keys(this.dataset_types).length
+      );
+    },
   },
   methods: {
     async start() {
@@ -240,7 +278,7 @@ export default {
       this.$store.dispatch("startProcessing", payload);
     },
     async deleteDataset() {
-      console.log(this.projectId)
+      console.log(this.projectId);
       this.$store.dispatch("deleteData", this.projectId);
       this.$refs["deleteDataCheck"].hide();
     },
@@ -251,7 +289,7 @@ export default {
           console.log("Processing single file");
           let payload = {
             project_id: this.projectId,
-            multipart: false,
+            multifile: false,
             files: this.file.file,
           };
           this.$store.dispatch("sendFile", payload);
@@ -264,7 +302,7 @@ export default {
         try {
           let payload = {
             project_id: this.projectId,
-            multipart: true,
+            multifile: true,
             files: {
               train: this.file.train,
               predict: this.file.predict,

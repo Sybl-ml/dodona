@@ -1,76 +1,89 @@
 <template>
   <b-container fluid>
-    <b-card no-body style="border:none;box-shadow:none;">
+    <b-card no-body style="border: none; box-shadow: none">
       <h2>Create a New Project</h2>
     </b-card>
-    <b-card no-body>
-      <navigatable-tab
-        :tabs="[
-          { key: '1', title: '1. Details' },
-          { key: '2', title: '2. Data' },
-          { key: '3', title: '3. Finish' },
-        ]"
-      >
-        <template v-slot:1>
-          <b-form-input
-            ref="title"
-            placeholder="Name Your Project"
-            class="mb-3 add-project"
-            v-model="name"
-          />
-          <b-form-textarea
-            placeholder="Write a short description of your project"
-            v-model="description"
-            class="mb-3"
-          />
-          <b-form-tags
-            class="mb-3"
-            tag-variant="success"
-            tag-pills
-            remove-on-delete
-            v-model="tags"
-          ></b-form-tags>
-        </template>
-        <template v-slot:2>
-          <b-card-text>
-            Please upload a dataset...
-          </b-card-text>
-          <file-upload v-model="file" />
-          <b-alert show variant="primary" dismissible>
-            <strong>TIP:</strong> You can upload a dataset later
-          </b-alert></template
+    <b-overlay :show="upload_in_progress" rounded="sm">
+      <template #overlay>
+        <b-row class="justify-content-center">
+          <h2>Creating Project</h2>
+        </b-row>
+        <b-row class="justify-content-center">
+          <h2>Please Do Not Refresh!</h2>
+        </b-row>
+        <b-row class="justify-content-center">
+          <b-spinner variant="primary" style="width: 3rem; height: 3rem" />
+        </b-row>
+      </template>
+      <b-card no-body>
+        <navigatable-tab
+          :tabs="[
+            { key: '1', title: '1. Details' },
+            { key: '2', title: '2. Data' },
+            { key: '3', title: '3. Finish' },
+          ]"
         >
-        <template v-slot:3>
-          <b-card-text>Confirm the Details Below Before Creation</b-card-text>
-          <b-table striped hover :items="reviewItems"></b-table>
-          <h5>
-            Selected Tags:
-            <b-badge
-              pill
-              variant="success"
-              class="mx-1"
-              v-for="tag in tags"
-              v-bind:key="tag.id"
-              >{{ tag }}</b-badge
-            >
-          </h5>
-          <h5 v-if="file && file.file">File Uploaded: {{ file.file.name }}</h5>
-          <b-button
-            :disabled="!name"
-            size="sm"
-            @click="onSubmit"
-            variant="ready"
-            class="float-right"
+          <template v-slot:1>
+            <b-form-input
+              ref="title"
+              placeholder="Name Your Project"
+              class="mb-3 add-project"
+              v-model="name"
+            />
+            <b-form-textarea
+              placeholder="Write a short description of your project"
+              v-model="description"
+              class="mb-3"
+            />
+            <b-form-tags
+              class="mb-3"
+              tag-variant="success"
+              tag-pills
+              remove-on-delete
+              v-model="tags"
+            ></b-form-tags>
+          </template>
+          <template v-slot:2>
+            <b-card-text> Please upload a dataset... </b-card-text>
+            <file-upload v-model="file" />
+            <b-alert show variant="primary" dismissible>
+              <strong>TIP:</strong> You can upload a dataset later
+            </b-alert></template
           >
-            Create
-            <b-spinner v-show="submitted" small></b-spinner>
-            <b-icon-check-all
-              v-show="!submitted && complete"
-            ></b-icon-check-all>
-          </b-button>
-        </template>
-      </navigatable-tab>
-    </b-card>
+          <template v-slot:3>
+            <b-card-text>Confirm the Details Below Before Creation</b-card-text>
+            <b-table striped hover :items="reviewItems"></b-table>
+            <h5>
+              Selected Tags:
+              <b-badge
+                pill
+                variant="success"
+                class="mx-1"
+                v-for="tag in tags"
+                v-bind:key="tag.id"
+                >{{ tag }}</b-badge
+              >
+            </h5>
+            <h5 v-if="file && file.file">
+              File Uploaded: {{ file.file.name }}
+            </h5>
+            <b-button
+              :disabled="!name"
+              size="sm"
+              @click="onSubmit"
+              variant="ready"
+              class="float-right"
+            >
+              Create
+              <b-spinner v-show="submitted" small></b-spinner>
+              <b-icon-check-all
+                v-show="!submitted && complete"
+              ></b-icon-check-all>
+            </b-button>
+          </template>
+        </navigatable-tab>
+      </b-card>
+    </b-overlay>
   </b-container>
 </template>
 
@@ -106,6 +119,10 @@ const readUploadedFileAsText = (inputFile) => {
   });
 };
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+};
+
 export default {
   name: "AddProject",
   data() {
@@ -131,15 +148,9 @@ export default {
     },
   },
   methods: {
-    sleep(ms) {
-      return new Promise((resolve) => {
-        setTimeout(resolve, ms);
-      });
-    },
     async onSubmit() {
       this.submitted = true;
       this.upload_in_progress = true;
-
       try {
         let project_response = await this.$store.dispatch("postNewProject", {
           name: this.name,
@@ -148,8 +159,9 @@ export default {
         });
 
         this.project_id = project_response.data.project_id.$oid;
-
         this.$store.dispatch("addProject", this.project_id);
+        await sleep(500);
+
         if (this.file) {
           await this.processFile();
         }

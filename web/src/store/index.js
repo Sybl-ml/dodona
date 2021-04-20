@@ -5,6 +5,7 @@ import $http from "../services/axios-instance";
 import _ from "lodash";
 import Papa from "papaparse";
 import router from "../router";
+import VueRouter from "vue-router";
 
 Vue.use(Vuex);
 
@@ -32,6 +33,9 @@ function unpackProjectResponse(response) {
   project = _.assign(project, {
     _id: project._id.$oid,
     date_created: new Date(project.date_created.$date),
+    status: typeof project.status === "object" ? "Processing" : project.status,
+    progress:
+      typeof project.status === "object" ? project.status.Processing : {},
   });
   project.details = details;
   project.analysis = analysis;
@@ -40,11 +44,17 @@ function unpackProjectResponse(response) {
 }
 
 export default new Vuex.Store({
-  plugins: [createPersistedState()],
+  // plugins: [createPersistedState()],
   state: {
     projects: [],
     models: [],
     user_data: {},
+    socket: {
+      isConnected: false,
+      authenticated: false,
+      message: "",
+      reconnectError: false,
+    },
   },
   getters: {
     filteredProjects: (state) => (search) => {
@@ -59,19 +69,75 @@ export default new Vuex.Store({
       });
     },
     getProject: (state) => (id) => {
-      let p = state.projects.filter((project) => project._id == id);
-      return p[0];
+      let p = state.projects.find((project) => project._id == id);
+      return p;
+    },
+    getProjectStatus: (state) => (id) => {
+      let p = state.projects.find((project) => project._id == id);
+
+      if (typeof p.status === "object") return "Processing";
+      else return p.status;
+    },
+    getProjectProgress: (state) => (id) => {
+      let p = state.projects.find((project) => project._id == id);
+      if ("current_job" in p && !_.isEmpty(p.current_job)) {
+        return {
+          ...p.progress,
+          max: p.current_job.config.cluster_size,
+        };
+      }
     },
     isAuthenticated: (state) => {
       return !_.isEmpty(state.user_data);
     },
     getModelPerformance: (state) => (id) => {
-      let index = state.models.findIndex((m) => m._id.$oid == id);
-      let performance = state.models[index].performance;
+      let model = state.models.find((m) => m._id.$oid == id);
+      let performance = model.performance;
       return performance;
     },
   },
   mutations: {
+    SOCKET_ONOPEN(state, event) {
+      Vue.prototype.$socket = event.currentTarget;
+      state.socket.isConnected = true;
+
+      let token = Vue.prototype.$cookies.get("token");
+      let auth = {
+        authentication: { token: token },
+      };
+      console.log("sending auth msg");
+      Vue.prototype.$socket.sendObj(auth);
+    },
+    SOCKET_ONCLOSE(state, event) {
+      state.socket.isConnected = false;
+      state.socket.authenticated = false;
+    },
+    SOCKET_ONMESSAGE(state, message) {
+      state.socket.message = message;
+
+      console.log(message);
+      switch (Object.keys(message)[0]) {
+        case "hello":
+          break;
+        case "modelComplete":
+          let {
+            project_id,
+            cluster_size,
+            model_complete_count,
+            success,
+          } = message.modelComplete;
+          let p = state.projects.find((project) => project._id == project_id);
+
+          if (success) {
+            Vue.set(p.progress, "model_success", p.progress.model_success + 1);
+          } else {
+            Vue.set(p.progress, "model_success", p.progress.model_success + 1);
+          }
+          break;
+        default:
+          console.err("Unknown Message");
+      }
+    },
     setProjects(state, projects) {
       state.projects = projects;
     },
@@ -79,11 +145,14 @@ export default new Vuex.Store({
       state.models = models;
     },
     setModelPerformance(state, { performance, id }) {
-      let index = state.models.findIndex((m) => m._id.$oid == id);
-      Vue.set(state.models[index], "performance", performance);
+      let model = state.models.find((m) => m._id.$oid == id);
+      Vue.set(model, "performance", performance);
     },
     setUser(state, user) {
       Vue.set(state, "user_data", user);
+    },
+    updateClientStatus(state) {
+      Vue.set(state.user_data, "client", true);
     },
     setAvatar(state, avatar) {
       Vue.set(state.user_data, "avatar", avatar);
@@ -103,6 +172,23 @@ export default new Vuex.Store({
     updateProject(state, { project_id, field, new_data }) {
       let project = state.projects.find((p) => p._id == project_id);
       Vue.set(project, field, new_data);
+    },
+    startJob(state, { project_id, job }) {
+      let project = state.projects.find((p) => p._id == project_id);
+
+      Vue.set(project, "status", "Processing");
+      Vue.set(project, "current_job", job);
+      Vue.set(project, "progress", { model_success: 0, model_err: 0 });
+    },
+    addJobToProject(state, { project_id, job }) {
+      let project = state.projects.find((p) => p._id == project_id);
+
+      Vue.set(project, "current_job", job.job);
+    },
+    addJobStatsToProject(state, { project_id, job_stats }) {
+      let project = state.projects.find((p) => p._id == project_id);
+
+      Vue.set(project, "job_stats", job_stats);
     },
     deleteProject(state, id) {
       let index = state.projects.findIndex((p) => p._id == id);
@@ -124,15 +210,16 @@ export default new Vuex.Store({
     },
   },
   actions: {
-    async getProjects({ commit }) {
+    sendMsg(context, msg) {
+      Vue.prototype.$socket.sendObj(msg);
+    },
+    async getProjects({ dispatch, commit }) {
       let response = await $http.get(`api/projects`);
 
       let project_response = response.data.map((x) => {
         let p = unpackProjectResponse(x);
         return p;
       });
-
-      commit("setProjects", project_response);
 
       if (project_response.length > 0) {
         if (!("projectId" in router.currentRoute.params)) {
@@ -144,14 +231,42 @@ export default new Vuex.Store({
           });
         }
       }
+      commit("setProjects", project_response);
+
+      for (let project of project_response) {
+        if (project.status === "Processing") {
+          await dispatch("getRecentJob", project._id);
+        }
+        else if (project.status === "Complete") {
+          await dispatch("getRecentJob", project._id);
+          await dispatch("getJobStatistics", project._id);
+
+        }
+      }
       console.log("Fetched projects");
+    },
+    async getRecentJob({ commit }, id) {
+      let job = await $http.get(`api/projects/${id}/job`);
+
+      commit("addJobToProject", {
+        project_id: id,
+        job: job.data,
+      });
+    },
+    async getJobStatistics({commit}, project_id) {
+      let job_stats = await $http.get(`api/projects/${project_id}/job_statistics`);
+
+      commit("addJobStatsToProject", {
+        project_id: project_id,
+        job_stats: job_stats.data,
+      });
+
     },
     async getModels({ commit }) {
       try {
         let data = await $http.get(`api/clients/models`);
 
         commit("setModels", data.data);
-
       } catch (err) {
         console.log(err);
       }
@@ -201,7 +316,7 @@ export default new Vuex.Store({
         tags: tags,
       });
     },
-    async sendFile(context, { project_id, multipart, files }) {
+    async sendFile(context, { project_id, multifile, files }) {
       let formData = new FormData();
       let config = { headers: { "Content-Type": "multipart/form-data" } };
 
@@ -212,12 +327,12 @@ export default new Vuex.Store({
       });
       
       let route = "";
-      if (!multipart) {
+      if (!multifile) {
         formData.append("dataset", files);
         route = "upload_and_split";
       } else {
-        formData.append(files.train);
-        formData.append(files.predict);
+        formData.append("train", files.train);
+        formData.append("predict", files.predict);
         route = "upload_train_and_predict";
       }
       try {
@@ -254,16 +369,18 @@ export default new Vuex.Store({
       };
 
       try {
-        await $http.post(`api/projects/${projectId}/process`, payload);
+        let response = await $http.post(
+          `api/projects/${projectId}/process`,
+          payload
+        );
+
+        context.commit("startJob", {
+          project_id: projectId,
+          job: response.data,
+        });
       } catch (err) {
         console.log(err);
       }
-
-      context.commit("updateProject", {
-        project_id: projectId,
-        field: "status",
-        new_data: "Processing",
-      });
     },
     async updateProject(context, { field, new_data, project_id }) {
       let payload = {
@@ -318,6 +435,23 @@ export default new Vuex.Store({
         currency: currency,
         dob: dob,
       });
+    },
+
+    async generatePrivateKey({ commit }) {
+      console.log("Generating new private key");
+      return $http.post("api/clients/generatePrivateKey");
+    },
+    async client_register ({commit}, {id, email, password}) {
+      let response = await $http.post(
+        "api/clients/register",
+        {
+          id: id,
+          email: email,
+          password: password,
+        }
+      );
+      commit("updateClientStatus");
+      return response;
     },
     async uploadAvatar(context, avatar) {
       return $http.post("api/users/avatar", {

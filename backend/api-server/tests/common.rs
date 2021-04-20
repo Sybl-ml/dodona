@@ -6,9 +6,9 @@ use mongodb::bson::{self, document::Document, oid::ObjectId, ser::to_document};
 
 use api_server::{auth, State};
 use config::Environment;
-use models::job_performance::JobPerformance;
-use models::projects::Project;
 use models::users::{Client, User};
+use models::{job_performance::JobPerformance, jobs::JobConfiguration};
+use models::{jobs::Job, projects::Project};
 
 #[allow(unused_macros)]
 macro_rules! api_with {
@@ -39,8 +39,11 @@ pub static DELETE_UID: &str = "5fbe3239ea6cfda08a459622";
 pub static CREATES_PROJECT_UID: &str = "5f8d7b4f0017036400d60cab";
 pub static NON_EXISTENT_USER_ID: &str = "5f8de85300eb281e00306b0b";
 pub static DELETES_PROJECT_UID: &str = "5fb2b3fa9d524e99ac7f1c40";
+pub static PROCESSED_JOBS_PROJECT_ID: &str = "5fb2b3fa9d524e99ac7f1c41";
+pub static REQUESTS_PRIVATE_KEY_USER_ID: &str = "5fb2b3fa9d524e99ac7f1c41";
 
 pub static MAIN_CLIENT_ID: &str = "602bfa774f986d0e58618187";
+pub static PRIVATE_KEY_CLIENT_USER_ID: &str = "602bfa774f986d0e58618188";
 
 pub static MAIN_PROJECT_ID: &str = "5f8ca1a80065f27c0089e8b5";
 pub static USERLESS_PROJECT_ID: &str = "5f8ca1a80065f27b0089e8b6";
@@ -96,6 +99,7 @@ pub async fn initialise() -> State {
         insert_test_users(&database).await;
         insert_test_clients(&database).await;
         insert_test_projects(&database).await;
+        insert_test_jobs(&database).await;
         insert_test_job_performances(&database).await;
 
         // Update the lock
@@ -209,27 +213,48 @@ async fn insert_test_users(database: &mongodb::Database) {
 
     let lone = create_user_with_id(ALONE_USER_ID, "lone@email.com", &hash, "Lone", "User");
 
+    let requests_private_key = create_user_with_id(
+        REQUESTS_PRIVATE_KEY_USER_ID,
+        "requests@pkey.com",
+        &hash,
+        "",
+        "",
+    );
+
     let users = database.collection("users");
     users.insert_one(matthew, None).await.unwrap();
     users.insert_one(lone, None).await.unwrap();
     users.insert_one(delete, None).await.unwrap();
     users.insert_one(creates_project, None).await.unwrap();
     users.insert_one(deletes_project, None).await.unwrap();
+    users.insert_one(requests_private_key, None).await.unwrap();
 }
 
 async fn insert_test_clients(database: &mongodb::Database) {
+    let users = database.collection("users");
+    let clients = database.collection("clients");
+
     let peppered = format!("password{}", std::env::var("PEPPER").unwrap());
     let pbkdf2_iterations = u32::from_str(&std::env::var("PBKDF2_ITERATIONS").unwrap()).unwrap();
     let hash = crypto::hash_password(&peppered, pbkdf2_iterations).unwrap();
 
-    let (user, client) =
-        create_client_with_id(MAIN_CLIENT_ID, "client@sybl.com", &hash, "client", "user");
+    let information = vec![
+        (MAIN_CLIENT_ID, "client@sybl.com", &hash, "client", "user"),
+        (
+            PRIVATE_KEY_CLIENT_USER_ID,
+            "p@key.com",
+            &hash,
+            "client",
+            "user",
+        ),
+    ];
 
-    let users = database.collection("users");
-    users.insert_one(user, None).await.unwrap();
+    for (id, email, hash, first_name, last_name) in information {
+        let (user, client) = create_client_with_id(id, email, hash, first_name, last_name);
 
-    let clients = database.collection("clients");
-    clients.insert_one(client, None).await.unwrap();
+        users.insert_one(user, None).await.unwrap();
+        clients.insert_one(client, None).await.unwrap();
+    }
 }
 
 async fn insert_test_projects(database: &mongodb::Database) {
@@ -268,6 +293,8 @@ async fn insert_test_projects(database: &mongodb::Database) {
     let editable =
         create_project_with_id(EDITABLE_PROJECT_ID, "Edit Project", "edit me", MAIN_USER_ID);
 
+    let complete = create_project_with_id(PROCESSED_JOBS_PROJECT_ID, "", "", MAIN_USER_ID);
+
     let projects = database.collection("projects");
     projects.insert_one(project, None).await.unwrap();
     projects.insert_one(userless, None).await.unwrap();
@@ -275,6 +302,39 @@ async fn insert_test_projects(database: &mongodb::Database) {
     projects.insert_one(deletable, None).await.unwrap();
     projects.insert_one(editable, None).await.unwrap();
     projects.insert_one(dd_info, None).await.unwrap();
+    projects.insert_one(complete, None).await.unwrap();
+}
+
+async fn insert_job(jobs: &mongodb::Collection, job: &Job) {
+    let document = to_document(job).unwrap();
+    jobs.insert_one(document, None).await.unwrap();
+}
+
+async fn insert_test_jobs(database: &mongodb::Database) {
+    let jobs = database.collection("jobs");
+
+    let base_config = JobConfiguration {
+        project_id: ObjectId::with_string(MAIN_PROJECT_ID).unwrap(),
+        node_computation_time: 10,
+        cluster_size: 2,
+        column_types: Vec::new(),
+        feature_dim: 2,
+        train_size: 100,
+        predict_size: 100,
+        prediction_column: String::new(),
+        prediction_type: models::jobs::PredictionType::Regression,
+        cost: 100,
+    };
+
+    // Initial one to ensure they can be retrieved
+    let mut job = Job::new(base_config.clone());
+    insert_job(&jobs, &job).await;
+
+    // Insert another that has already processed
+    job.id = ObjectId::new();
+    job.config.project_id = ObjectId::with_string(PROCESSED_JOBS_PROJECT_ID).unwrap();
+    job.processed = true;
+    insert_job(&jobs, &job).await;
 }
 
 async fn insert_test_job_performances(database: &mongodb::Database) {

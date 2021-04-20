@@ -1,7 +1,7 @@
 //! Defines the structure of jobs in the `MongoDB` instance.
 
 use chrono::Utc;
-use mongodb::bson::{self, oid::ObjectId};
+use mongodb::bson::{self, doc, oid::ObjectId};
 
 use utils::Columns;
 
@@ -15,11 +15,17 @@ pub enum PredictionType {
     Regression,
 }
 
+impl Default for PredictionType {
+    fn default() -> Self {
+        Self::Classification
+    }
+}
+
 /// Parameters required for configuring a job.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct JobConfiguration {
-    /// The identifier of the dataset to be processed
-    pub dataset_id: ObjectId,
+    /// The identifier of the project to be processed
+    pub project_id: ObjectId,
     /// The amount of time each node is allowed to compute for
     pub node_computation_time: i32,
     /// The cluster size for a job
@@ -61,7 +67,7 @@ impl JobConfiguration {
 }
 
 /// Defines the information that should be stored with a job in the database.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Job {
     /// The unique identifier for the job
     #[serde(rename = "_id")]
@@ -84,6 +90,45 @@ impl Job {
             config,
             processed: false,
             date_created: bson::DateTime(Utc::now()),
+        }
+    }
+
+    /// Marks the job as processed in the database.
+    pub async fn mark_as_processed(&self, database: &mongodb::Database) -> anyhow::Result<()> {
+        let jobs = database.collection("jobs");
+
+        let filter = doc! { "_id": &self.id };
+        let update = doc! { "$set": { "processed": true } };
+        let result = jobs.update_one(filter, update, None).await?;
+
+        assert!(
+            result.modified_count == 1,
+            "Failed to mark a job as processed"
+        );
+
+        Ok(())
+    }
+}
+
+/// Defines the information that should be stored to analyse statistics from a job
+#[derive(Debug, Serialize, Deserialize)]
+pub struct JobStatistics {
+    /// The unique identifier for the dataset
+    #[serde(rename = "_id")]
+    pub id: ObjectId,
+    /// Unique identifier for the associated job
+    pub job_id: ObjectId,
+    // Column based analysis
+    pub average_job_computation_secs: i64,
+}
+
+impl JobStatistics {
+    /// Creates a new [`Job`] with a given [`JobConfiguration`].
+    pub fn new(job_id: ObjectId, average_job_computation_secs: i64) -> Self {
+        Self {
+            id: ObjectId::new(),
+            job_id,
+            average_job_computation_secs,
         }
     }
 }
