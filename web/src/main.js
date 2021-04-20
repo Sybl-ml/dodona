@@ -14,7 +14,8 @@ Vue.use(VueCookies);
 
 Vue.use(
   VueNativeSock,
-  process.env.VUE_APP_AXIOS_BASE || "ws://localhost:3001" + "/project_updates",
+  process.env.VUE_APP_WEBSOCKET_BASE ||
+    "ws://localhost:3001" + "/project_updates",
   {
     reconnection: true,
     reconnectionAttempts: 5,
