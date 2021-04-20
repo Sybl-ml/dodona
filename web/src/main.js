@@ -12,18 +12,20 @@ Vue.use(BootstrapVue);
 Vue.use(BootstrapVueIcons);
 Vue.use(VueCookies);
 
-Vue.use(
-  VueNativeSock,
-  process.env.VUE_APP_WEBSOCKET_BASE ||
-    "ws://localhost:3001" + "/project_updates",
-  {
-    reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 3000,
-    format: "json",
-    store: store,
-  }
-);
+let ws_route = "";
+if (window.location.protocol.startsWith("https")) ws_route += "wss://";
+else ws_route += "ws://";
+
+if (window.location.hostname === "localhost") ws_route += "localhost:3001";
+else ws_route += window.location.hostname;
+
+Vue.use(VueNativeSock, ws_route + "/project_updates", {
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 3000,
+  format: "json",
+  store: store,
+});
 
 import "@/assets/css/custom.scss";
 

@@ -13,7 +13,11 @@
     <b-collapse is-nav id="landingCollapse" v-else-if="atLanding">
       <b-navbar-nav>
         <b-nav-item to="/pricing">Pricing</b-nav-item>
-        <b-nav-item href="https://www.notion.so/Guides-f5df7a1b451242cd9874a04495f0dfd3" target="_blank">Guides</b-nav-item>
+        <b-nav-item
+          href="https://www.notion.so/Guides-f5df7a1b451242cd9874a04495f0dfd3"
+          target="_blank"
+          >Guides</b-nav-item
+        >
       </b-navbar-nav>
     </b-collapse>
     <b-collapse is-nav id="landingCollapse" v-if="loggedIn">
@@ -37,7 +41,11 @@
           </b-dropdown-item>
           <b-dropdown-divider />
           <b-dropdown-item to="/settings">My Profile</b-dropdown-item>
-          <b-dropdown-item href="https://www.notion.so/Guides-f5df7a1b451242cd9874a04495f0dfd3" target="_blank">Guides</b-dropdown-item>
+          <b-dropdown-item
+            href="https://www.notion.so/Guides-f5df7a1b451242cd9874a04495f0dfd3"
+            target="_blank"
+            >Guides</b-dropdown-item
+          >
           <b-dropdown-divider />
           <b-dropdown-item @click="signout">Sign Out</b-dropdown-item>
         </b-nav-item-dropdown>
@@ -97,7 +105,7 @@ export default {
       return this.$store.getters.isAuthenticated;
     },
     avatar() {
-        return this.$store.state.user_data.avatar;
+      return this.$store.state.user_data.avatar;
     },
   },
   methods: {
@@ -132,7 +140,7 @@ export default {
   },
 
   watch: {
-    $route: function () {
+    $route: function() {
       this.updateHeader();
     },
   },
