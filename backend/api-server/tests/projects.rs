@@ -689,27 +689,3 @@ async fn most_recent_job_is_returned() -> Result<()> {
 
     Ok(())
 }
-
-#[actix_rt::test]
-async fn no_jobs_are_returned_if_all_are_processed() -> Result<()> {
-    let mut app = api_with! {
-        get: "/api/projects/{project_id}/job" => projects::currently_running_job,
-    };
-
-    let url = format!("/api/projects/{}/job", common::PROCESSED_JOBS_PROJECT_ID);
-
-    let req = test::TestRequest::default()
-        .method(actix_web::http::Method::GET)
-        .insert_header(("Authorization", get_bearer_token(common::MAIN_USER_ID)))
-        .uri(&url)
-        .to_request();
-
-    let res = test::call_service(&mut app, req).await;
-    assert_eq!(actix_web::http::StatusCode::OK, res.status());
-
-    // Verify the response was correct
-    let body: RecentJobResponse = test::read_body_json(res).await;
-    assert!(body.job.is_none());
-
-    Ok(())
-}
