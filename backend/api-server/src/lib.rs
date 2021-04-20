@@ -11,10 +11,12 @@ extern crate serde;
 #[macro_use]
 extern crate serde_json;
 
+use std::collections::HashMap;
 use std::env;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
+use actix::prelude::Addr;
 use actix_cors::Cors;
 use actix_web::{middleware, web, App, HttpServer, Result};
 use mongodb::{options::ClientOptions, Client, Database};
@@ -32,6 +34,13 @@ pub struct State {
     pub pepper: Arc<String>,
     /// The number of iterations to use for hashing
     pub pbkdf2_iterations: u32,
+}
+
+/// State to pass to websockets and the kafka consumer
+#[derive(Clone, Debug, Default)]
+pub struct WebsocketState {
+    /// Map of userids to open sockets
+    pub map: Arc<RwLock<HashMap<String, Addr<routes::websockets::ProjectUpdateWs>>>>,
 }
 
 /// Builds the default logging middleware for request logging.
@@ -68,6 +77,16 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
     let client = Client::with_options(client_options).unwrap();
     let database = Arc::new(client.database(&database_name));
 
+    let map = HashMap::new();
+    let shared_state = Arc::new(RwLock::new(map));
+    let consumer_state = Arc::clone(&shared_state);
+
+    let websocket_state_data = web::Data::new(WebsocketState { map: shared_state });
+
+    tokio::spawn(async move {
+        routes::websockets::consume_updates(9092, consumer_state).await;
+    });
+
     let server = HttpServer::new(move || {
         // cors
         let cors_middleware = Cors::default()
@@ -87,6 +106,7 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
                 pbkdf2_iterations: u32::from_str(&pbkdf2_iterations)
                     .expect("PBKDF2_ITERATIONS must be parseable as an integer"),
             })
+            .app_data(websocket_state_data.clone())
             .route(
                 "/api/projects/{project_id}",
                 web::get().to(routes::projects::get_project),
@@ -131,6 +151,14 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
             .route(
                 "/api/projects/{project_id}/process",
                 web::post().to(routes::projects::begin_processing),
+            )
+            .route(
+                "/api/projects/{project_id}/job",
+                web::get().to(routes::projects::currently_running_job),
+            )
+            .route(
+                "/api/projects/{project_id}/job_statistics",
+                web::get().to(routes::projects::get_job_statistics),
             )
             // Clients
             .route(
@@ -180,6 +208,9 @@ pub async fn build_server() -> Result<actix_web::dev::Server> {
             .route("/api/users/edit", web::post().to(routes::users::edit))
             .route("/api/users/login", web::post().to(routes::users::login))
             .route("/api/users/delete", web::post().to(routes::users::delete))
+            .service(
+                web::resource("/project_updates").route(web::get().to(routes::websockets::index)),
+            )
     })
     .bind("0.0.0.0:3001")?
     .run();

@@ -18,7 +18,7 @@ use tokio_stream::StreamExt;
 
 use models::datasets::Dataset;
 use models::gridfs;
-use models::jobs::JobConfiguration;
+use models::jobs::{Job, JobConfiguration};
 
 use crate::{DatasetPair, JobControl};
 
@@ -98,26 +98,24 @@ async fn download_dataset(database: &Database, identifier: &ObjectId) -> Result<
     Ok(file.download_dataset(&database).await?)
 }
 
-async fn process_job(
-    db_conn: Arc<Database>,
-    job_control: JobControl,
-    job_config: JobConfiguration,
-) -> Result<()> {
+async fn process_job(db_conn: Arc<Database>, job_control: JobControl, job: Job) -> Result<()> {
     let JobConfiguration {
-        dataset_id,
+        project_id,
         node_computation_time,
         ..
-    } = job_config.clone();
+    } = &job.config;
 
     log::debug!(
-        "Received a job to process: dataset_id={}, node_computation_time={}",
-        dataset_id,
+        "Received a job to process: job_id={}, project_id={}, node_computation_time={}",
+        job.id,
+        project_id,
         node_computation_time,
     );
 
     let datasets = db_conn.collection("datasets");
 
-    let filter = doc! { "_id": dataset_id };
+    // Query the dataset currently associated with the project
+    let filter = doc! { "project_id": &project_id };
 
     let doc = datasets
         .find_one(filter, None)
@@ -136,11 +134,9 @@ async fn process_job(
     let train = String::from_utf8(compressed_train)?;
     let predict = String::from_utf8(compressed_predict)?;
 
-    job_control.job_queue.push((
-        dataset.project_id,
-        DatasetPair { train, predict },
-        job_config,
-    ));
+    job_control
+        .job_queue
+        .push((dataset.project_id, DatasetPair { train, predict }, job));
 
     job_control.notify.notify_waiters();
 

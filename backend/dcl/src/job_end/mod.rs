@@ -25,10 +25,12 @@ use tokio::time::{timeout, Instant};
 
 use crate::node_end::NodePool;
 use crate::JobControl;
-use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
+use messages::{
+    kafka_message, ClientCompleteMessage, ClientMessage, ReadLengthPrefix, WriteLengthPrefix,
+};
 use models::gridfs;
-use models::jobs::JobConfiguration;
 use models::jobs::PredictionType;
+use models::jobs::{Job, JobStatistics};
 use models::predictions::Prediction;
 use models::projects::{Project, Status};
 use models::users::User;
@@ -50,8 +52,8 @@ pub struct ClusterInfo {
     pub project_id: ObjectId,
     /// Columns in dataset
     pub columns: Columns,
-    /// Config
-    pub config: JobConfiguration,
+    /// The job that is currently running
+    pub job: Job,
     /// Validation results
     pub validation_ans: HashMap<(ModelID, String), String>,
     /// Test record IDs
@@ -77,6 +79,8 @@ pub struct WriteBackMemory {
     pub predictions: Arc<Mutex<ModelPredictions>>,
     /// HashMap of Errors
     pub errors: Arc<Mutex<ModelErrors>>,
+    /// Vector of computation times for each model
+    pub computation_time: Arc<Mutex<Vec<i64>>>,
 }
 
 impl WriteBackMemory {
@@ -100,6 +104,12 @@ impl WriteBackMemory {
         errors.insert(id, error);
     }
 
+    /// Function to write back computation time (secs)
+    pub fn write_time(&self, time: i64) {
+        let mut computation_time = self.computation_time.lock().unwrap();
+        computation_time.push(time);
+    }
+
     /// Gets cloned version of predictions
     pub fn get_predictions(&self) -> ModelPredictions {
         let predictions = self.predictions.lock().unwrap();
@@ -110,6 +120,12 @@ impl WriteBackMemory {
     pub fn get_errors(&self) -> ModelErrors {
         let errors = self.errors.lock().unwrap();
         errors.clone()
+    }
+
+    /// Gets cloned version of errors
+    pub fn get_average_job_time(&self) -> i64 {
+        let computation_time = self.computation_time.lock().unwrap();
+        computation_time.iter().sum::<i64>() as i64 / computation_time.len() as i64
     }
 }
 
@@ -132,12 +148,13 @@ impl ClusterControl {
     }
 
     /// Decrements the cluster counter
-    pub async fn decrement(&self) {
+    pub async fn decrement(&self) -> usize {
         let mut write_cc = self.counter.write().await;
         *write_cc -= 1;
         if *write_cc == 0 {
             self.notify.notify_one();
         }
+        *write_cc
     }
 }
 
@@ -192,7 +209,8 @@ pub async fn run(
         }
 
         for index in jq_filter {
-            let (project_id, msg, config) = job_control.job_queue.remove(index);
+            let (project_id, msg, job) = job_control.job_queue.remove(index);
+            let config = &job.config;
 
             let data = msg
                 .train
@@ -223,9 +241,7 @@ pub async fn run(
                         config
                     );
 
-                    job_control
-                        .job_queue
-                        .insert(index, (project_id, msg, config));
+                    job_control.job_queue.insert(index, (project_id, msg, job));
 
                     continue;
                 }
@@ -261,7 +277,7 @@ pub async fn run(
             let info = ClusterInfo {
                 project_id: project_id.clone(),
                 columns: columns.clone(),
-                config: config.clone(),
+                job: job.clone(),
                 validation_ans: validation_ans.clone(),
                 prediction_rids: prediction_rids.clone(),
                 node_computation_time: Duration::from_secs(
@@ -475,7 +491,7 @@ async fn run_cluster(
         reimburse(
             database_clone,
             &ObjectId::with_string(model_id).unwrap(),
-            info.config.cost,
+            info.job.config.cost,
             *weight,
         )
         .await?;
@@ -510,7 +526,18 @@ async fn run_cluster(
             log::error!("Failed to write predirections to the database: {}", error)
         });
 
+    // Write job statistics to database
+    let job_statistic = JobStatistics::new(info.job.id.clone(), wbm.get_average_job_time());
+    let document = mongodb::bson::ser::to_document(&job_statistic)?;
+    database
+        .collection("job_statistics")
+        .insert_one(document, None)
+        .await?;
+
     change_status(&database, &project_id, Status::Complete).await?;
+
+    // Mark the job as processed
+    info.job.mark_as_processed(&database).await?;
 
     // Status has been updated to complete, so email the user
     if let Err(e) = email_user_on_project_finish(&database, &project_id).await {
@@ -586,6 +613,7 @@ pub async fn dcl_protocol(
     };
 
     // Evaluate the model
+    let mut model_success = true;
     let model_evaluation = anonymised_predictions.map(|preds| {
         deanonymise_dataset(preds.trim(), &info.columns)
             .and_then(|predictions| ml::evaluate_model(model_id, &predictions, &info))
@@ -601,16 +629,50 @@ pub async fn dcl_protocol(
 
         write_back.write_error(model_id.to_owned(), Some(model_error));
         write_back.write_predictions(model_id.to_owned(), model_predictions);
+        write_back.write_time(processing_time_secs as i64);
     } else {
         log::warn!("Node with id={} failed to respond correctly", model_id);
+        model_success = false;
         write_back.write_error(model_id.to_owned(), None);
     }
 
-    update_model_statistics(database, &model_id, processing_time_secs).await?;
-
+    update_model_statistics(&database, &model_id, processing_time_secs).await?;
     nodepool.end(&model_id).await?;
 
-    cluster_control.decrement().await;
+    let remaining_nodes = cluster_control.decrement().await;
+    let cluster_size = info.job.config.cluster_size as usize;
+    // Produce message
+    let message = ClientCompleteMessage {
+        project_id: &info.project_id.to_string(),
+        cluster_size,
+        model_complete_count: cluster_size - remaining_nodes,
+        success: model_success,
+    };
+
+    let message = serde_json::to_string(&message).unwrap();
+    let projects = database.collection("projects");
+    let filter = doc! {"_id": info.project_id};
+    let update = if model_success {
+        doc! {"$inc": {"status.Processing.model_success": 1}}
+    } else {
+        doc! {"$inc": {"status.Processing.model_err": 1}}
+    };
+
+    let doc = projects
+        .find_one_and_update(filter, update, None)
+        .await?
+        .expect("Failed to find project in db");
+
+    let project: Project = from_document(doc)?;
+    let message_key = project.user_id.to_string();
+    let topic = "project_updates";
+
+    if kafka_message::produce_message(&message, &message_key, &topic)
+        .await
+        .is_err()
+    {
+        log::warn!("Failed to forward model_id={} to Kafka", &model_id);
+    }
 
     Ok(())
 }
@@ -649,7 +711,7 @@ pub async fn write_predictions(
 /// This increments the number of times it has been run and adds the amount of time it spent
 /// processing the last job.
 pub async fn update_model_statistics(
-    database: Arc<Database>,
+    database: &Arc<Database>,
     model_id: &str,
     processing_time_secs: u64,
 ) -> Result<()> {
