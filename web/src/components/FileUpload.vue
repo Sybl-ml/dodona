@@ -8,15 +8,8 @@
           placeholder="Choose a file or drop it here..."
           drop-placeholder="Drop file here..."
           @input="handleFile"
+          v-b-tooltip.hover.top="'Mixed dataset with complete and incomplete rows'"
         />
-          <b-tooltip
-              target="combined_upload"
-              triggers="hover"
-              variant="primary"
-              placement="top"
-              delay="500"
-              >Mixed dataset with complete and incomplete rows
-            </b-tooltip>
       </b-collapse>
 
       <b-collapse id="collapse-2">
@@ -28,15 +21,8 @@
               placeholder="Training ..."
               drop-placeholder="Drop file here..."
               @input="handleTrain"
+              v-b-tooltip.hover.top="'Data used to train prediction models'"
             />
-            <b-tooltip
-                target="train_upload"
-                triggers="hover"
-                variant="primary"
-                placement="top"
-                delay="500"
-                >Data used to train prediction models
-              </b-tooltip>
           </b-col>
           <b-col sm="6">
             <b-form-file
@@ -45,15 +31,8 @@
               placeholder="Prediction ..."
               drop-placeholder="Drop file here..."
               @input="handlePredict"
+              v-b-tooltip.hover.top="'Data to be used to predict results for'"
             />
-            <b-tooltip
-                target="predict_upload"
-                triggers="hover"
-                variant="primary"
-                placement="top"
-                delay="500"
-                >Data to be used to predict results for
-              </b-tooltip>
           </b-col>
         </b-row>
       </b-collapse>
