@@ -33,12 +33,25 @@
           <b-tab title="Overview" active lazy ref="overviewTab">
             <project-overview v-if="project" v-bind="overviewProps" />
           </b-tab>
-          <b-tab title="Analysis" lazy ref="analysisTab" :disabled="projectUnfinished">
+          <b-tab
+            title="Analysis"
+            lazy
+            ref="analysisTab"
+            :disabled="projectUnfinished"
+          >
             <project-analysis :id="projectId" v-bind="analysisProps" />
           </b-tab>
-          <b-tab title="Input" lazy ref="inputTab" :disabled="projectUnfinished">
-            <project-input :projectId="projectId" :key="projectId" 
-              v-on:input-tab="viewInput"/>
+          <b-tab
+            title="Input"
+            lazy
+            ref="inputTab"
+            :disabled="projectUnfinished"
+          >
+            <project-input
+              :projectId="projectId"
+              :key="projectId"
+              v-on:input-tab="viewInput"
+            />
           </b-tab>
           <b-tab title="Output" lazy :disabled="projectComplete">
             <project-output
@@ -184,11 +197,7 @@ export default {
       let p = this.project;
       return {
         projectId: this.projectId,
-        dataset_head: p.details.dataset_head,
-        training_data: this.training_data,
-        predict_data: this.predict_data,
-        dataset_name: p.details.dataset_name,
-        loading: this.loading,
+        datasetName: p.details.dataset_name,
       };
     },
     outputProps() {
