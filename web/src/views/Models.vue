@@ -146,7 +146,7 @@ export default {
       return !this.error;
     },
     model_data() {
-      return this.$store.state.models;
+      return this.$store.state.models.models;
     },
   },
 };

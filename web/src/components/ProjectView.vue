@@ -160,7 +160,7 @@ export default {
       let p = this.project;
       return {
         projectId: this.projectId,
-        datasetname: p.details.dataset_name,
+        datasetName: p.details.dataset_name,
       };
     },
     outputProps() {

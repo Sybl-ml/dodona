@@ -1,4 +1,5 @@
 import $http from "../../services/axios-instance";
+import Vue from "vue";
 
 const state = () => ({
   models: [],
