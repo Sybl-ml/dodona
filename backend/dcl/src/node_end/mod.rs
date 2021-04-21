@@ -11,6 +11,8 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
+use std::time::Duration;
+use tokio::time::timeout;
 
 use anyhow::Result;
 use mongodb::{
@@ -358,8 +360,13 @@ impl NodePool {
         let mut buffer = [0_u8; 1024];
         let message = ClientMessage::from(config);
         dcn_stream.write(&message.as_bytes()).await?;
+        let wait = Duration::from_millis(100);
 
-        let config_response = ClientMessage::from_stream(&mut *dcn_stream, &mut buffer).await?;
+        let config_response = timeout(
+            wait,
+            ClientMessage::from_stream(&mut *dcn_stream, &mut buffer),
+        )
+        .await??;
 
         let accept = match config_response {
             ClientMessage::ConfigResponse { accept } => accept,
