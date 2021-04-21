@@ -125,7 +125,11 @@ impl WriteBackMemory {
     /// Gets cloned version of errors
     pub fn get_average_job_time(&self) -> i64 {
         let computation_time = self.computation_time.lock().unwrap();
-        computation_time.iter().sum::<i64>() as i64 / computation_time.len() as i64
+        if computation_time.len() > 0 {
+            computation_time.iter().sum::<i64>() as i64 / computation_time.len() as i64
+        } else {
+            0
+        }
     }
 }
 
