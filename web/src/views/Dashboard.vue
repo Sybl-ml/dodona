@@ -129,24 +129,6 @@ export default {
   async created() {
     await this.$store.dispatch("getProjects");
   },
-  mounted() {
-    this.unwatch = this.$store.watch(
-      (state) => state.socket.isConnected,
-      (newValue, oldValue) => {
-        if (newValue === true) {
-          let token = this.$cookies.get("token");
-          let auth = {
-            authentication: { token: token },
-          };
-          console.log("sending auth msg");
-          this.$store.dispatch("sendMsg", auth);
-        }
-      }
-    );
-  },
-  beforeDestroy() {
-    this.unwatch();
-  },
   methods: {
     cardStyle(id) {
       if (id == this.$router.currentRoute.path.split("/")[2]) return "mx-2";
@@ -158,7 +140,7 @@ export default {
       return this.$store.getters.filteredProjects(this.search);
     },
     projects() {
-      return this.$store.state.projects;
+      return this.$store.state.projects.projects;
     },
   },
 };

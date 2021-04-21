@@ -10,6 +10,9 @@ const getters = {
   isAuthenticated: (state) => {
     return !_.isEmpty(state.user_data);
   },
+  name(state) {
+    return state.user_data.name;
+  },
 };
 
 const mutations = {

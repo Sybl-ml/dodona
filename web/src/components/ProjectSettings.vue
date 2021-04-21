@@ -131,7 +131,9 @@ export default {
       this.$store.dispatch("updateProject", payload);
     },
     async deleteProject() {
-      this.$store.dispatch("deleteProject", { projectId: this.projectId });
+      this.$store.dispatch("deleteProject", {
+        projectId: this.projectId,
+      });
 
       this.$refs["deleteCheck"].hide();
     },

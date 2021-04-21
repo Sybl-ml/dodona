@@ -20,13 +20,16 @@
     </b-row>
     <b-row class="justify-content-center">
       <b-avatar v-if="imageSrc" :src="imageSrc" size="6rem" />
-      <b-avatar v-else-if="original" :src="'data:image/png;base64,' + original" size="6rem" />
+      <b-avatar
+        v-else-if="original"
+        :src="'data:image/png;base64,' + original"
+        size="6rem"
+      />
     </b-row>
   </b-container>
 </template>
 
 <script>
-
 const base64Encode = (data) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -46,9 +49,9 @@ export default {
     hasImage() {
       return !!this.image;
     },
-    original(){
-      return this.$store.state.user_data.avatar;
-    }
+    original() {
+      return this.$store.state.user_data.user_data.avatar;
+    },
   },
   methods: {
     handleImage(e) {
@@ -74,9 +77,8 @@ export default {
     clearImage() {
       this.image = null;
       this.imageSrc = "";
-      this.$emit("upload", null); 
+      this.$emit("upload", null);
     },
-
   },
 };
 </script>

@@ -22,20 +22,22 @@
     </b-collapse>
     <b-collapse is-nav id="landingCollapse" v-if="loggedIn">
       <b-navbar-nav class="ml-auto" v-if="loggedIn">
-        <b-nav-item disabled>{{ credits }} Credits</b-nav-item>
+        <b-nav-item disabled>{{ user_data.credits }} Credits</b-nav-item>
         <b-nav-item-dropdown right>
           <template #button-content>
             <b-avatar
-              v-if="avatar"
+              v-if="user_data.avatar"
               size="1.75em"
-              :src="'data:image/png;base64,' + avatar"
+              :src="'data:image/png;base64,' + user_data.avatar"
             ></b-avatar>
-            {{ name }}
+            {{ user_data.name }}
           </template>
-          <b-dropdown-item disabled>{{ email }}</b-dropdown-item>
+          <b-dropdown-item disabled>{{ user_data.email }}</b-dropdown-item>
           <b-dropdown-divider />
           <b-dropdown-item to="/dashboard">Dashboard</b-dropdown-item>
-          <b-dropdown-item v-if="client" to="/models">Models</b-dropdown-item>
+          <b-dropdown-item v-if="user_data.client" to="/models"
+            >Models</b-dropdown-item
+          >
           <b-dropdown-item v-else to="/client/confirm">
             Register as Client
           </b-dropdown-item>
@@ -89,23 +91,11 @@ export default {
     };
   },
   computed: {
-    name() {
-      return this.$store.state.user_data.name;
-    },
-    email() {
-      return this.$store.state.user_data.email;
-    },
-    credits() {
-      return this.$store.state.user_data.credits;
-    },
-    client() {
-      return this.$store.state.user_data.client;
+    user_data() {
+      return this.$store.state.user_data.user_data;
     },
     loggedIn() {
       return this.$store.getters.isAuthenticated;
-    },
-    avatar() {
-      return this.$store.state.user_data.avatar;
     },
   },
   methods: {
