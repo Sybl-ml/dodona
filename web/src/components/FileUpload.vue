@@ -7,7 +7,7 @@
           placeholder="Choose a file or drop it here..."
           drop-placeholder="Drop file here..."
           @input="handleFile"
-          v-b-tooltip.hover.top="'Mixed dataset with complete and incomplete rows'"
+          v-b-tooltip.hover.top="'Upload a single dataset with complete rows (for training) and incomplete rows (for predictions)'"
         />
       </b-collapse>
 
@@ -19,7 +19,7 @@
               placeholder="Training ..."
               drop-placeholder="Drop file here..."
               @input="handleTrain"
-              v-b-tooltip.hover.top="'Data used to train prediction models'"
+              v-b-tooltip.hover.top="'Data (with labels) used to train machine learning models'"
             />
           </b-col>
           <b-col sm="6">
@@ -28,7 +28,7 @@
               placeholder="Prediction ..."
               drop-placeholder="Drop file here..."
               @input="handlePredict"
-              v-b-tooltip.hover.top="'Data to be used to predict results for'"
+              v-b-tooltip.hover.top="'Data (without labels) which predictions are made on'"
             />
           </b-col>
         </b-row>
