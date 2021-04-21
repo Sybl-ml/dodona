@@ -1,8 +1,8 @@
 <template>
   <b-container fluid>
-    <!-- <b-row>
+    <b-row>
       <h4>{{ this.datasetName }}</h4>
-    </b-row> -->
+    </b-row>
     <b-row>
       <b-col>
         <b-tabs class="mb-3" pills>
