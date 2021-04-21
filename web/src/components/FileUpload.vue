@@ -3,7 +3,6 @@
     <b-col sm="9">
       <b-collapse visible id="collapse-1">
         <b-form-file
-          id="combined_upload"
           class="mb-3"
           placeholder="Choose a file or drop it here..."
           drop-placeholder="Drop file here..."
@@ -16,7 +15,6 @@
         <b-row>
           <b-col sm="6">
             <b-form-file
-              id="train_upload"
               class="mb-3"
               placeholder="Training ..."
               drop-placeholder="Drop file here..."
@@ -26,7 +24,6 @@
           </b-col>
           <b-col sm="6">
             <b-form-file
-              id="predict_upload"
               class="mb-3"
               placeholder="Prediction ..."
               drop-placeholder="Drop file here..."
