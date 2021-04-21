@@ -41,6 +41,7 @@ Vue.prototype.$http.interceptors.request.use(function(config) {
   return config;
 });
 
+Vue.config.devtools = true;
 new Vue({
   router,
   store,
