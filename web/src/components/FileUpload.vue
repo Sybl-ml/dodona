@@ -1,5 +1,63 @@
 <template>
   <b-row>
+    <b-col sm="9">
+      <b-collapse visible id="collapse-1">
+        <b-form-file
+          id="combined_upload"
+          class="mb-3"
+          placeholder="Choose a file or drop it here..."
+          drop-placeholder="Drop file here..."
+          @input="handleFile"
+        />
+          <b-tooltip
+              target="combined_upload"
+              triggers="hover"
+              variant="primary"
+              placement="top"
+              delay="500"
+              >Mixed dataset with complete and incomplete rows
+            </b-tooltip>
+      </b-collapse>
+
+      <b-collapse id="collapse-2">
+        <b-row>
+          <b-col sm="6">
+            <b-form-file
+              id="train_upload"
+              class="mb-3"
+              placeholder="Training ..."
+              drop-placeholder="Drop file here..."
+              @input="handleTrain"
+            />
+            <b-tooltip
+                target="train_upload"
+                triggers="hover"
+                variant="primary"
+                placement="top"
+                delay="500"
+                >Data used to train prediction models
+              </b-tooltip>
+          </b-col>
+          <b-col sm="6">
+            <b-form-file
+              id="predict_upload"
+              class="mb-3"
+              placeholder="Prediction ..."
+              drop-placeholder="Drop file here..."
+              @input="handlePredict"
+            />
+            <b-tooltip
+                target="predict_upload"
+                triggers="hover"
+                variant="primary"
+                placement="top"
+                delay="500"
+                >Data to be used to predict results for
+              </b-tooltip>
+          </b-col>
+        </b-row>
+      </b-collapse>
+    </b-col>
     <b-col sm="3">
       <b-button
         v-b-toggle.collapse-1.collapse-2
@@ -9,37 +67,6 @@
         @click="changeState"
         >{{ advanced ? "Advanced" : "Simple" }}</b-button
       >
-    </b-col>
-    <b-col sm="9">
-      <b-collapse visible id="collapse-1">
-        <b-form-file
-          class="mb-3"
-          placeholder="Choose a file or drop it here..."
-          drop-placeholder="Drop file here..."
-          @input="handleFile"
-        />
-      </b-collapse>
-
-      <b-collapse id="collapse-2">
-        <b-row>
-          <b-col sm="6">
-            <b-form-file
-              class="mb-3"
-              placeholder="Training ..."
-              drop-placeholder="Drop file here..."
-              @input="handleTrain"
-            />
-          </b-col>
-          <b-col sm="6">
-            <b-form-file
-              class="mb-3"
-              placeholder="Prediction ..."
-              drop-placeholder="Drop file here..."
-              @input="handlePredict"
-            />
-          </b-col>
-        </b-row>
-      </b-collapse>
     </b-col>
   </b-row>
 </template>
