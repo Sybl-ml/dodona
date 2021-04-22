@@ -25,10 +25,12 @@
           MAX -
           {{ this.analysis.columns[this.analysis_selected].Numerical.max }}
         </p>
+        <br/>
         <p>
           MIN -
           {{ this.analysis.columns[this.analysis_selected].Numerical.min }}
         </p>
+        <br/>
         <p>
           AVG -
           {{ this.analysis.columns[this.analysis_selected].Numerical.avg }}
