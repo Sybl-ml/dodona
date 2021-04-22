@@ -252,7 +252,7 @@ async fn get_response_text<S: Debug + Serialize>(endpoint: &str, body: S) -> Han
     let status = response.status().clone();
     let text = response.text().await?;
 
-    log::info!("Response: {:?}", text);
+    log::debug!("Response body: {:?}", text);
 
     // Check the status code of the response
     if !status.is_success() {
@@ -262,10 +262,6 @@ async fn get_response_text<S: Debug + Serialize>(endpoint: &str, body: S) -> Han
             text: text,
         });
     }
-
-    // let text = response.text().await?;
-
-    log::debug!("Response body: {:?}", text);
 
     Ok(text)
 }
