@@ -5,16 +5,22 @@ use std::net::{Ipv4Addr, SocketAddrV4};
 use std::str::FromStr;
 
 use rdkafka::config::ClientConfig;
-use rdkafka::error::KafkaResult;
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use rdkafka::util::Timeout;
 
 /// Produces a message for Kafka accepting a message, the key and the topic to produce into
-pub async fn produce_message(msg: &str, key: &str, topic: &str) -> KafkaResult<()> {
+pub async fn produce_message(msg: &str, key: &str, topic: &str) {
     // Get the environment variable for the kafka broker
     // if not set use 9092
     let var = env::var("BROKER_PORT").unwrap_or_else(|_| "9092".to_string());
     let port = u16::from_str(&var).expect("BROKER_PORT must be a u16");
+
+    log::debug!(
+        "Sending msg={} to Kafka with key={} and topic={}",
+        msg,
+        key,
+        topic
+    );
 
     // Build the address to send to
     let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port).to_string();
@@ -24,16 +30,15 @@ pub async fn produce_message(msg: &str, key: &str, topic: &str) -> KafkaResult<(
         .create()
         .expect("Producer creation error");
 
-    let delivery_status = producer
+    if let Err(e) = producer
         .send(
             FutureRecord::to(topic).payload(msg).key(key),
             Timeout::Never,
         )
-        .await;
-
-    log::debug!("Message sent result: {:?}", delivery_status);
-
-    Ok(())
+        .await
+    {
+        log::warn!("Failed to send the message to Kafka: {:?}", e);
+    }
 }
 
 /// Message produced when a Model completes

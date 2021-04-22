@@ -392,12 +392,7 @@ pub async fn upload_train_and_predict(
     // Inform the analysis server of the new job
     let analytics_job = serde_json::to_string(&object_id).unwrap();
     let topic = "analytics";
-    if produce_message(&analytics_job, &analytics_job, &topic)
-        .await
-        .is_err()
-    {
-        log::warn!("Failed to forward object_id={} to Kafka", object_id);
-    }
+    produce_message(&analytics_job, &analytics_job, &topic).await;
 
     let (analysis_doc, details_doc) = get_all_project_info(&object_id, &state.database).await?;
     let mut response = doc! {"project": project_doc};
@@ -609,12 +604,7 @@ pub async fn upload_and_split(
     // Inform the analysis server of the new job
     let analytics_job = serde_json::to_string(&object_id).unwrap();
     let topic = "analytics";
-    if produce_message(&analytics_job, &analytics_job, &topic)
-        .await
-        .is_err()
-    {
-        log::warn!("Failed to forward object_id={} to Kafka", object_id);
-    }
+    produce_message(&analytics_job, &analytics_job, &topic).await;
 
     let (analysis_doc, details_doc) = get_all_project_info(&object_id, &state.database).await?;
     let mut response = doc! {"project": project_doc};
@@ -630,12 +620,7 @@ pub async fn upload_and_split(
     // Communicate with Analytics Server
     let analytics_job = serde_json::to_string(&object_id).unwrap();
     let topic = "analytics";
-    if produce_message(&analytics_job, &analytics_job, &topic)
-        .await
-        .is_err()
-    {
-        log::warn!("Failed to forward object_id={} to Kafka", object_id);
-    }
+    produce_message(&analytics_job, &analytics_job, &topic).await;
 
     response_from_json(response)
 }
@@ -1247,12 +1232,7 @@ pub async fn begin_processing(
     let job_key = &job.id.to_string();
     let topic = "jobs";
 
-    if produce_message(&job_message, job_key, &topic)
-        .await
-        .is_err()
-    {
-        log::warn!("Failed to forward job_id={} to Kafka", job.id);
-    }
+    produce_message(&job_message, job_key, &topic).await;
 
     // Delete previous predictions for project
     let filter = doc! {"project_id": &object_id};

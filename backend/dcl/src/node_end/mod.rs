@@ -95,6 +95,8 @@ pub struct NodeInfo {
 impl NodeInfo {
     /// creates new [`NodeInfo`] instance
     pub fn new(performance: f64) -> Self {
+        log::trace!("Creating a new `NodeInfo` with performance={}", performance);
+
         Self {
             alive: true,
             using: false,
@@ -351,8 +353,10 @@ impl NodePool {
     pub async fn job_accepted(
         stream: &Arc<RwLock<TcpStream>>,
         config: &JobConfiguration,
-        key: &str,
+        model_id: &str,
     ) -> Result<bool> {
+        log::trace!("Sending config={:?} to model_id={}", config, model_id);
+
         let mut dcn_stream = stream.write().await;
 
         let mut buffer = [0_u8; 1024];
@@ -361,14 +365,20 @@ impl NodePool {
 
         let config_response = ClientMessage::from_stream(&mut *dcn_stream, &mut buffer).await?;
 
+        log::trace!(
+            "model_id={} responded with config_response={:?}",
+            model_id,
+            config_response
+        );
+
         let accept = match config_response {
             ClientMessage::ConfigResponse { accept } => accept,
             _ => unreachable!(),
         };
 
         log::debug!(
-            "Node with id={} responsed with '{}' to the job config",
-            key,
+            "Node with model_id={} responsed with '{}' to the job config",
+            model_id,
             accept
         );
 

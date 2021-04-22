@@ -10,10 +10,13 @@ use mongodb::{
     bson::{doc, oid::ObjectId},
     Database,
 };
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::RwLock;
 use tokio::time::timeout;
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    time::Instant,
+};
 
 use anyhow::Result;
 
@@ -49,7 +52,7 @@ pub async fn check_health(database: Arc<Database>, nodepool: Arc<NodePool>) -> R
 
     for (id, node) in nodes.iter() {
         if !nodepool.is_using(&id).await {
-            let alive = heartbeat(node.get_tcp()).await;
+            let alive = heartbeat(&id, node.get_tcp()).await;
 
             if !alive {
                 log::trace!("Node with id={} failed to respond", node.get_model_id());
@@ -88,7 +91,7 @@ pub async fn check_health(database: Arc<Database>, nodepool: Arc<NodePool>) -> R
 /// Checks to see if a node is still alive by sending it a
 /// small bit of JSON and it waits for its response. If it fails
 /// then it is treated as dead. If not then it is treated as alive.
-pub async fn heartbeat(stream_lock: Arc<RwLock<TcpStream>>) -> bool {
+pub async fn heartbeat(model_id: &str, stream_lock: Arc<RwLock<TcpStream>>) -> bool {
     let mut stream = stream_lock.write().await;
 
     let timestamp = SystemTime::now()
@@ -106,7 +109,18 @@ pub async fn heartbeat(stream_lock: Arc<RwLock<TcpStream>>) -> bool {
     let mut buffer = [0_u8; 64];
     let future = stream.read(&mut buffer);
 
-    timeout(wait, future).await.is_ok()
+    let start = Instant::now();
+    let response = timeout(wait, future).await;
+    let response_time = Instant::now() - start;
+
+    log::trace!(
+        "model_id={} took {:?} to respond, given {:?}",
+        model_id,
+        response_time,
+        wait
+    );
+
+    response.is_ok()
 }
 
 ///
