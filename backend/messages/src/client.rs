@@ -66,6 +66,8 @@ pub enum ClientMessage {
     },
     /// Prediction data from a node after computation
     Predictions(String),
+    /// Client Model is locked
+    Locked,
 }
 
 impl ClientMessage {
