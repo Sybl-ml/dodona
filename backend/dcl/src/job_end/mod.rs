@@ -488,7 +488,7 @@ async fn run_cluster(
         ml::weight_predictions(&wbm.get_predictions(), &wbm.get_errors(), &info);
 
     // TODO: reimburse clients based on weights
-    log::info!("Model weights: {:?}", weights);
+    log::debug!("Model weights: {:?}", weights);
 
     for (model_id, weight) in &weights {
         let database_clone = Arc::clone(&database);
