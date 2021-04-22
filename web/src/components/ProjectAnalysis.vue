@@ -21,18 +21,20 @@
           color="rgb(255, 99, 132)"
           ref="analysis_chart"
         />
-        <p>
-          MAX -
-          {{ this.analysis.columns[this.analysis_selected].Numerical.max }}
-        </p>
-        <p>
-          MIN -
-          {{ this.analysis.columns[this.analysis_selected].Numerical.min }}
-        </p>
-        <p>
-          AVG -
-          {{ this.analysis.columns[this.analysis_selected].Numerical.avg }}
-        </p>
+        <ul>
+          <li>
+            MAX -
+            {{ this.analysis.columns[this.analysis_selected].Numerical.max }}
+          </li>
+          <li>
+            MIN -
+            {{ this.analysis.columns[this.analysis_selected].Numerical.min }}
+          </li>
+          <li>
+            AVG -
+            {{ this.analysis.columns[this.analysis_selected].Numerical.avg }}
+          </li>
+        </ul>
       </b-row>
       <b-row v-else>
         <b-col lg="8">
