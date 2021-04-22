@@ -7,7 +7,6 @@ use mongodb::bson::ser::to_document;
 use mongodb::bson::{self, doc, document::Document, oid::ObjectId, Binary};
 use tokio_stream::StreamExt;
 
-use messages::ClientMessage;
 use models::job_performance::JobPerformance;
 use models::models::{AccessToken, ClientModel};
 use models::users::{Client, User};
@@ -326,11 +325,7 @@ pub async fn authenticate_model(
     let mut model: ClientModel = from_document(model_doc)?;
 
     if model.locked {
-        let response_message = ClientMessage::Locked;
-        return response_from_json_with_code(
-            serde_json::to_string(&response_message).unwrap(),
-            StatusCode::OK,
-        );
+        return response_from_json_with_code(doc! {"message": "Locked"}, StatusCode::OK);
     }
 
     let token = base64::decode(&payload.token)?;
