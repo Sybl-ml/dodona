@@ -23,7 +23,7 @@ async fn test_heartbeat() -> Result<(), Box<dyn Error>> {
     tokio::time::sleep(Duration::from_millis(1)).await;
 
     let stream = TcpStream::connect(addr).await.unwrap();
-    let verdict = heartbeat(Arc::new(RwLock::new(stream))).await;
+    let verdict = heartbeat("", Arc::new(RwLock::new(stream))).await;
 
     assert_eq!(verdict, true);
 
@@ -50,7 +50,7 @@ async fn test_heartbeat_fail() -> Result<(), Box<dyn Error>> {
     let stream = TcpStream::connect(addr).await.unwrap();
 
     tokio::time::sleep(Duration::from_millis(3)).await;
-    let verdict = heartbeat(Arc::new(RwLock::new(stream))).await;
+    let verdict = heartbeat("", Arc::new(RwLock::new(stream))).await;
 
     assert_eq!(verdict, false);
 

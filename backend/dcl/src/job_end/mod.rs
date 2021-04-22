@@ -609,6 +609,13 @@ pub async fn dcl_protocol(
 
     // Stop the timer and record how long was spent processing
     let processing_time_secs = (Instant::now() - start).as_secs();
+    log::trace!(
+        "model_id={} spent {:?} processing {} training bytes and {} predictions bytes",
+        model_id,
+        processing_time_secs,
+        train.len(),
+        predict.len()
+    );
 
     // Ensure it is the right message and decode + decompress it
     let anonymised_predictions = match prediction_message {
@@ -671,12 +678,7 @@ pub async fn dcl_protocol(
     let message_key = project.user_id.to_string();
     let topic = "project_updates";
 
-    if kafka_message::produce_message(&message, &message_key, &topic)
-        .await
-        .is_err()
-    {
-        log::warn!("Failed to forward model_id={} to Kafka", &model_id);
-    }
+    kafka_message::produce_message(&message, &message_key, &topic).await;
 
     Ok(())
 }
