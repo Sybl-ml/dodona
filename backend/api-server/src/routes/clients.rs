@@ -325,7 +325,7 @@ pub async fn authenticate_model(
     let mut model: ClientModel = from_document(model_doc)?;
 
     if model.locked {
-        return response_from_json_with_code(doc! {"message": "Locked"}, StatusCode::OK);
+        return response_from_json_with_code(doc! {"message": "Locked"}, StatusCode::UNAUTHORIZED);
     }
 
     let token = base64::decode(&payload.token)?;

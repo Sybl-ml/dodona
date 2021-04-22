@@ -26,6 +26,8 @@ pub enum HandlerError {
     Server {
         /// The response status code.
         code: u16,
+        /// Body of the response
+        text: String,
     },
 }
 
@@ -47,7 +49,9 @@ impl fmt::Display for HandlerError {
         match self {
             Self::Stream => write!(f, "stream error"),
             Self::Reqwest { error } => write!(f, "{}", error),
-            Self::Server { code } => write!(f, "API server returned status={}", code),
+            Self::Server { code, text } => {
+                write!(f, "API server returned status={}, body={}", code, text)
+            }
         }
     }
 }
@@ -245,17 +249,21 @@ async fn get_response_text<S: Debug + Serialize>(endpoint: &str, body: S) -> Han
 
     let request = reqwest::Client::new().post(&url).json(&body);
     let response = request.send().await?;
-    let status = response.status();
+    let status = response.status().clone();
+    let text = response.text().await?;
+
+    log::info!("Response: {:?}", text);
 
     // Check the status code of the response
     if !status.is_success() {
         // let error = format!("Request to {} failed: {}", url, status);
         return Err(HandlerError::Server {
             code: status.into(),
+            text: text,
         });
     }
 
-    let text = response.text().await?;
+    // let text = response.text().await?;
 
     log::debug!("Response body: {:?}", text);
 
