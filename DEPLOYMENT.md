@@ -63,6 +63,36 @@ So, to restart the `api-server` after rebuilding it, all you need to do is run
 `supervisorctl restart api-server` and it will handle stopping the existing
 instance and using your new binary instead.
 
+## `systemd`
+
+`systemd` is an initialisation system for Linux and is installed by default
+unlike `supervisord`. It manages the `mongod`, `kafka` and `zookeeper`
+instances on the server. Like `supervisorctl`, it uses the `systemctl` command
+line program to interact with the daemon.
+
+Just as before, processes can be restarted by running `systemctl restart
+<process_name>`. `systemd` also gives nicer output than `supervisord` through
+the `status` command, which will show you more information about the running
+process.
+
+### Local Database Instance
+
+As stated in the `systemd` section, the server uses a local version of MongoDB
+as a database. This is due to space limits within MongoDB Atlas and also
+provides better performance for a single server.
+
+Accessing the database is a little more difficult than Atlas, and uses the
+`mongo` program to launch a shell. You'll then need to run `use sybl-tech` to
+get into the live database. Searching for documents can be done as follows:
+
+```javascript
+// find all projects
+db.projects.find()
+
+// find all users with a certain identifier
+db.users.find({"_id": ObjectId("...")})
+```
+
 ## Updating Production
 
 Usually this is done by `fisherman` automatically on changes to `develop`, but
@@ -105,3 +135,10 @@ especially has some statements at the `trace` level, which are even more
 fine-grained. These can be enabled by editing `backend/dcl/src/main.rs` and
 changing the value for the `dcl` to `LogLevel::Trace`. You can then rebuild and
 restart it to get the `trace` level logs.
+
+## Persistent Models
+
+The server also runs some persistent models for testing purposes, named `Minos`
+and `Belus`. These are defined in the
+`/etc/supervisor/conf.d/persistent_models.conf` file and will automatically
+reconnect to the DCL if it restarts (provided the models are started).
