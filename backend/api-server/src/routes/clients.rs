@@ -324,6 +324,10 @@ pub async fn authenticate_model(
         .ok_or(ServerError::Unauthorized)?;
     let mut model: ClientModel = from_document(model_doc)?;
 
+    if model.locked {
+        return response_from_json_with_code(doc! {"message": "Locked"}, StatusCode::UNAUTHORIZED);
+    }
+
     let token = base64::decode(&payload.token)?;
 
     if !model.is_authenticated(&token) {
