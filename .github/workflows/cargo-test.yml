@@ -25,6 +25,11 @@ jobs:
         profile: minimal
         default: true
 
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v1.2.0
+      with:
+        working-directory: "backend"
+
     - name: cargo test
       uses: actions-rs/cargo@v1
       with:
