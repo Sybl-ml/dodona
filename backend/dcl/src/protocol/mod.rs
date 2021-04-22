@@ -256,7 +256,6 @@ async fn get_response_text<S: Debug + Serialize>(endpoint: &str, body: S) -> Han
 
     // Check the status code of the response
     if !status.is_success() {
-        // let error = format!("Request to {} failed: {}", url, status);
         return Err(HandlerError::Server {
             code: status.into(),
             text: text,
