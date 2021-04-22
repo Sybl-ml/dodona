@@ -1225,15 +1225,6 @@ pub async fn begin_processing(
     pay(state.database.clone(), &claims.id, -cost).await?;
     log::debug!("Charged user {} {} credits", &claims.id, cost);
 
-    // Insert to MongoDB first, so the interface can immediately mark as processed if needed
-    insert_to_queue(&job, state.database.collection("jobs")).await?;
-
-    let job_message = serde_json::to_string(&job).unwrap();
-    let job_key = &job.id.to_string();
-    let topic = "jobs";
-
-    produce_message(&job_message, job_key, &topic).await;
-
     // Delete previous predictions for project
     let filter = doc! {"project_id": &object_id};
 
@@ -1249,6 +1240,15 @@ pub async fn begin_processing(
     let update =
         doc! { "$set": doc!{ "status": Status::Processing { model_success: 0, model_err: 0 } } };
     projects.update_one(filter, update, None).await?;
+
+    // Insert to MongoDB first, so the interface can immediately mark as processed if needed
+    insert_to_queue(&job, state.database.collection("jobs")).await?;
+
+    let job_message = serde_json::to_string(&job).unwrap();
+    let job_key = &job.id.to_string();
+    let topic = "jobs";
+
+    produce_message(&job_message, job_key, &topic).await;
 
     response_from_json(job)
 }
