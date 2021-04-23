@@ -126,7 +126,7 @@
               placement="right"
               delay="500"
               >The amount of time models should be given to run on your data. 
-              The bigger your dataset, the more time you will want to give 
+              The bigger your dataset, the more time you might want to give 
               models to run.
             </b-tooltip>
           </b-form-group>
