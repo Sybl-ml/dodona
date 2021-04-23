@@ -138,6 +138,7 @@ async fn process_job(db_conn: Arc<Database>, job_control: JobControl, job: Job) 
         .job_queue
         .push((dataset.project_id, DatasetPair { train, predict }, job));
 
+    log::trace!("Notifying waiters of an incoming job");
     job_control.notify.notify_waiters();
 
     Ok(())
