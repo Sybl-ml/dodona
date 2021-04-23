@@ -93,7 +93,8 @@ pub async fn new(
     // Create a sample project for the user
     let project = Project::new(
         "Tutorial",
-        "Example Project to show Sybl functionality",
+        "Example Project to show Sybl functionality. 
+        Upload a dataset to see the power of Sybl!",
         vec![
             bson::Bson::String(String::from("Tutorial")),
             bson::Bson::String(String::from("New User")),
