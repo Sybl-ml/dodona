@@ -12,7 +12,7 @@
         >
           <b-row no-gutter>
             <b-col>
-              <b-card-body v-if="model.locked == false">
+              <b-card-body v-if="!model.locked">
                 <b-card-title>
                   {{ model.name }}
                 </b-card-title>
@@ -39,11 +39,11 @@
                   ></b-icon-exclamation-triangle-fill>
                   Error
                 </b-card-text>
-                <b-card-text v-if="model.locked == false">
+                <b-card-text>
                   <b-icon-clock-fill></b-icon-clock-fill>
                   {{ model.processing_time_secs }}s total processing
                 </b-card-text>
-                <b-card-text v-if="model.locked == false">
+                <b-card-text>
                   <b-icon-cash-stack></b-icon-cash-stack>
                   {{ model.credits_earned }} credit(s) earned
                 </b-card-text>
