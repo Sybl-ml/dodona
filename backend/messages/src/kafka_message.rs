@@ -75,7 +75,7 @@ impl KafkaWsMessage<'_> {
     /// if a client message increment the success status and get user key
     /// if job complete get user key
     pub async fn produce(&self, database: &Database) -> Result<()> {
-        match self {
+        let (doc, message) = match self {
             Self::ClientCompleteMessage {
                 project_id,
                 success,
@@ -97,11 +97,7 @@ impl KafkaWsMessage<'_> {
                     .await?
                     .expect("Failed to find project in db");
 
-                let project: Project = from_document(doc)?;
-                let message_key = project.user_id.to_string();
-                let topic = "project_updates";
-
-                produce_message(&message_str, &message_key, &topic).await;
+                (doc, message_str)
             }
             Self::JobCompleteMessage { project_id } => {
                 let projects = database.collection("projects");
@@ -114,13 +110,15 @@ impl KafkaWsMessage<'_> {
                     .await?
                     .expect("Failed to find project in db");
 
-                let project: Project = from_document(doc)?;
-                let message_key = project.user_id.to_string();
-                let topic = "project_updates";
-
-                produce_message(&message_str, &message_key, &topic).await;
+                (doc, message_str)
             }
-        }
+        };
+
+        let project: Project = from_document(doc)?;
+        let message_key = project.user_id.to_string();
+        let topic = "project_updates";
+
+        produce_message(&message, &message_key, &topic).await;
         Ok(())
     }
 }
