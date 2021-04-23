@@ -545,7 +545,6 @@ async fn run_cluster(
         project_id: &project_id.to_string(),
     };
     message.produce(&database).await?;
-    // produce_job_complete_message(message, &database).await?;
 
     // Status has been updated to complete, so email the user
     if let Err(e) = email_user_on_project_finish(&database, &project_id).await {
@@ -665,8 +664,6 @@ pub async fn dcl_protocol(
     };
     message.produce(&database).await?;
 
-    // produce_model_update_message(message, &database).await?;
-
     Ok(())
 }
 
@@ -698,53 +695,6 @@ pub async fn write_predictions(
 
     Ok(())
 }
-
-///
-// pub async fn produce_model_update_message(message: KafkaWsMessage, database: &Arc<Database>) -> Result<()>{
-//     let projects = database.collection("projects");
-
-//     let message_str = serde_json::to_string(&message).unwrap();
-//     let filter = doc! {"_id": message.project_id};
-
-//     let update = if message.success {
-//         doc! {"$inc": {"status.Processing.model_success": 1}}
-//     } else {
-//         doc! {"$inc": {"status.Processing.model_err": 1}}
-//     };
-
-//     let doc = projects
-//         .find_one_and_update(filter, update, None)
-//         .await?
-//         .expect("Failed to find project in db");
-
-//     let project: Project = from_document(doc)?;
-//     let message_key = project.user_id.to_string();
-//     let topic = "project_updates";
-
-//     kafka_message::produce_message(&message_str, &message_key, &topic).await;
-
-//     Ok(())
-// }
-
-// pub async fn produce_job_complete_message(message: KafkaWsMessage, database: &Arc<Database>) -> Result<()> {
-//     let projects = database.collection("projects");
-
-//     let message_str = serde_json::to_string(&message).unwrap();
-//     let filter = doc! {"_id": message.project_id};
-
-//     let doc = projects
-//         .find_one(filter, None)
-//         .await?
-//         .expect("Failed to find project in db");
-
-//     let project: Project = from_document(doc)?;
-//     let message_key = project.user_id.to_string();
-//     let topic = "project_updates";
-
-//     kafka_message::produce_message(&message_str, &message_key, &topic).await;
-
-//     Ok(())
-// }
 
 /// Updates the non-performance related statistics for the given model.
 ///
