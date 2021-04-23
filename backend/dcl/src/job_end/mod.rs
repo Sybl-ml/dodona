@@ -208,7 +208,9 @@ pub async fn run(
         let jq_filter = job_control.job_queue.filter(&nodepool.active);
 
         if jq_filter.is_empty() {
+            log::trace!("No jobs can be completed, waiting on changes");
             job_control.notify.notified().await;
+            log::trace!("Some change has occurred, attempting to complete some jobs");
             continue;
         }
 

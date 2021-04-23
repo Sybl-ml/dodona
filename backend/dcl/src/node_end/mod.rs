@@ -264,14 +264,24 @@ impl NodePool {
             }
         }
 
+        // We don't need the lock past here, so drop it to prevent deadlocks
+        drop(info_write);
+
         // Checks if number of nodes that accepted the job is less than
         // the size of the cluster required.
         if cluster_size > accepted_job.len() {
             log::warn!(
-                "Only {} nodes accepted the job, required at least {}",
+                "Only {} node(s) accepted the job, required at least {}",
                 accepted_job.len(),
                 cluster_size
             );
+
+            // Reset all the nodes that accepted to not in use
+            for model_id in accepted_job.iter().map(|x| &x.0) {
+                self.end(&model_id)
+                    .await
+                    .expect("Failed to update the node status");
+            }
 
             return None;
         }
@@ -309,10 +319,6 @@ impl NodePool {
         );
 
         self.active.fetch_sub(cluster.len(), Ordering::SeqCst);
-
-        for (model_id, _) in &accepted_job {
-            info_write.get_mut(model_id).unwrap().using = false;
-        }
 
         // output cluster
         match cluster.len() {
