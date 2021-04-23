@@ -87,7 +87,7 @@
           class="mb-4 nodeExpansion"
           @shown="renderChart(i)"
         >
-          <b-card class="shadow" v-if="model.locked == true">
+          <b-card class="shadow" v-if="model.locked">
             <b-row class="justify-content-center text-center">
               <b-col md="8" sm="10" xs="12">
                 <br />
@@ -170,7 +170,7 @@ export default {
   },
   computed: {
     status_variant() {
-      if (this.model.locked === true) {
+      if (this.model.locked) {
         return "dark";
       } else if (this.model.status === "NotStarted") {
         return "primary";
