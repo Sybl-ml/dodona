@@ -70,7 +70,6 @@
 </template>
 
 <script>
-import Papa from "papaparse";
 import ProjectOverview from "@/components/ProjectOverview";
 import ProjectAnalysis from "@/components/ProjectAnalysis";
 import ProjectInput from "@/components/ProjectInput";
