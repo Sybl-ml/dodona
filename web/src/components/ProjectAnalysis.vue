@@ -2,6 +2,8 @@
   <b-container fluid>
     <h4 class="mb-0">Analysis</h4>
 
+    <h6>Insights into your uploaded dataset</h6>
+
     <b-form-group label="Select a Column:" label-for="dropdown-analysis-select">
       <b-form-select
         id="dropdown-analysis-select"
