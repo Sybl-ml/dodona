@@ -1,14 +1,15 @@
 <template>
   <b-container fluid>
-    <b-row>
-      <b-col v-if="processing" class="mb-3">
+    <b-row v-if="loading">loading...</b-row>
+    <b-row v-else>
+      <b-col v-if="this.status === 'Processing'" class="mb-3">
         <h4>Project Is Running ...</h4>
         <b-progress :max="progress.max" height="2rem" show-progress animated>
           <b-progress-bar :value="progress.model_success" variant="primary" />
           <b-progress-bar :value="progress.model_err" variant="danger" />
         </b-progress>
       </b-col>
-      <b-col v-else-if="complete" class="mb-3">
+      <b-col v-else-if="this.status === 'Complete'" class="mb-3">
         <h4>Job Details</h4>
         <br />
         <p><b>Job Cost:</b> {{ this.current_job.config.cost }} Credits</p>
@@ -26,7 +27,7 @@
           {{ this.job_stats.average_job_computation_secs }}s
         </p>
       </b-col>
-      <b-col lg="8" sm="12" v-else-if="ready" class="mb-3">
+      <b-col lg="8" sm="12" v-else-if="this.status === 'Ready'" class="mb-3">
         <h4>Description:</h4>
         <div class="scrollable_description mb-3">
           {{ description }}
@@ -190,6 +191,7 @@
 
 <script>
 import FileUpload from "@/components/FileUpload";
+import _ from "lodash";
 
 export default {
   name: "ProjectOverview",
@@ -235,14 +237,16 @@ export default {
     job_stats: Object,
   },
   computed: {
-    complete() {
-      return this.status === "Complete"
-    },
-    processing() {
-      return this.status === "Processing"
-    },
-    ready() {
-      return this.status === "Ready"
+    loading() {
+      if (this.status === "Processing" && _.isEmpty(this.current_job)) {
+        return true;
+      } else if (
+        this.status === "Complete" &&
+        (_.isEmpty(this.current_job) || _.isEmpty(this.job_stats))
+      ) {
+        return true;
+      }
+      return false;
     },
     getDatasetDate() {
       return `${this.dataset_date.toLocaleString("en-GB", {
