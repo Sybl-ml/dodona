@@ -1,14 +1,14 @@
 <template>
   <b-container fluid>
     <b-row>
-      <b-col v-if="checkStatus('Processing')" class="mb-3">
+      <b-col v-if="processing" class="mb-3">
         <h4>Project Is Running ...</h4>
         <b-progress :max="progress.max" height="2rem" show-progress animated>
           <b-progress-bar :value="progress.model_success" variant="primary" />
           <b-progress-bar :value="progress.model_err" variant="danger" />
         </b-progress>
       </b-col>
-      <b-col v-else-if="checkStatus('Complete')" class="mb-3">
+      <b-col v-else-if="complete" class="mb-3">
         <h4>Job Details</h4>
         <br />
         <p><b>Job Cost:</b> {{ this.current_job.config.cost }} Credits</p>
@@ -26,7 +26,7 @@
           {{ this.job_stats.average_job_computation_secs }}s
         </p>
       </b-col>
-      <b-col lg="8" sm="12" v-else-if="checkStatus('Ready')" class="mb-3">
+      <b-col lg="8" sm="12" v-else-if="ready" class="mb-3">
         <h4>Description:</h4>
         <div class="scrollable_description mb-3">
           {{ description }}
@@ -235,6 +235,15 @@ export default {
     job_stats: Object,
   },
   computed: {
+    complete() {
+      return this.status === "Complete"
+    },
+    processing() {
+      return this.status === "Processing"
+    },
+    ready() {
+      return this.status === "Ready"
+    },
     getDatasetDate() {
       return `${this.dataset_date.toLocaleString("en-GB", {
         dateStyle: "short",

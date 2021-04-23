@@ -25,6 +25,12 @@ Vue.use(VueNativeSock, ws_route + "/project_updates", {
   reconnectionDelay: 3000,
   format: "json",
   store: store,
+  passToStoreHandler: function (eventName, event, next) {
+    if (eventName === "SOCKET_onmessage") {
+      store.dispatch("SOCKET_ONMESSAGE", JSON.parse(event.data))
+    }
+    next(eventName, event)
+  }
 });
 
 import "@/assets/css/custom.scss";

@@ -3,7 +3,7 @@ use actix::prelude::Message;
 
 use mongodb::bson::{oid::ObjectId, Array, Document};
 
-use messages::kafka_message::ClientCompleteMessage;
+use messages::kafka_message::KafkaWsMessage;
 use models::jobs::PredictionType;
 
 /// Stores the options for filtering all users.
@@ -169,6 +169,9 @@ pub enum WebsocketMessage {
         /// If the model was successfull
         success: bool,
     },
+    ProjectComplete {
+        project_id: String
+    },
     /// Message sent from server when the user authenticates
     Hello {
         /// ID of the user
@@ -176,13 +179,29 @@ pub enum WebsocketMessage {
     },
 }
 
-impl From<&ClientCompleteMessage<'_>> for WebsocketMessage {
-    fn from(msg: &ClientCompleteMessage<'_>) -> Self {
-        WebsocketMessage::ModelComplete {
-            project_id: msg.project_id.to_string(),
-            cluster_size: msg.cluster_size,
-            model_complete_count: msg.model_complete_count,
-            success: msg.success,
+impl From<&KafkaWsMessage<'_>> for WebsocketMessage {
+    fn from(msg: &KafkaWsMessage<'_>) -> Self {
+
+        match msg {
+            KafkaWsMessage::ClientCompleteMessage {
+                project_id,
+                cluster_size,
+                model_complete_count,
+                success
+            } => {
+                WebsocketMessage::ModelComplete {
+                    project_id: project_id.to_string(),
+                    cluster_size: *cluster_size,
+                    model_complete_count: *model_complete_count,
+                    success: *success,
+                }
+            }
+            KafkaWsMessage::JobCompleteMessage {
+                project_id
+            } => WebsocketMessage::ProjectComplete {
+                project_id: project_id.to_string()
+            }
         }
+
     }
 }

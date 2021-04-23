@@ -26,7 +26,7 @@ use tokio::time::{timeout, Instant};
 use crate::node_end::NodePool;
 use crate::JobControl;
 use messages::{
-    kafka_message, ClientCompleteMessage, ClientMessage, ReadLengthPrefix, WriteLengthPrefix,
+    kafka_message, KafkaWsMessage, ClientMessage, ReadLengthPrefix, WriteLengthPrefix,
 };
 use models::gridfs;
 use models::jobs::PredictionType;
@@ -543,6 +543,12 @@ async fn run_cluster(
     // Mark the job as processed
     info.job.mark_as_processed(&database).await?;
 
+    let message = KafkaWsMessage::JobCompleteMessage {
+        project_id: &project_id.to_string()
+    };
+    message.produce(&database).await?;
+    // produce_job_complete_message(message, &database).await?;
+
     // Status has been updated to complete, so email the user
     if let Err(e) = email_user_on_project_finish(&database, &project_id).await {
         log::warn!(
@@ -653,32 +659,15 @@ pub async fn dcl_protocol(
     let remaining_nodes = cluster_control.decrement().await;
     let cluster_size = info.job.config.cluster_size as usize;
     // Produce message
-    let message = ClientCompleteMessage {
+    let message = KafkaWsMessage::ClientCompleteMessage {
         project_id: &info.project_id.to_string(),
         cluster_size,
         model_complete_count: cluster_size - remaining_nodes,
         success: model_success,
     };
+    message.produce(&database).await?;
 
-    let message = serde_json::to_string(&message).unwrap();
-    let projects = database.collection("projects");
-    let filter = doc! {"_id": info.project_id};
-    let update = if model_success {
-        doc! {"$inc": {"status.Processing.model_success": 1}}
-    } else {
-        doc! {"$inc": {"status.Processing.model_err": 1}}
-    };
-
-    let doc = projects
-        .find_one_and_update(filter, update, None)
-        .await?
-        .expect("Failed to find project in db");
-
-    let project: Project = from_document(doc)?;
-    let message_key = project.user_id.to_string();
-    let topic = "project_updates";
-
-    kafka_message::produce_message(&message, &message_key, &topic).await;
+    // produce_model_update_message(message, &database).await?;
 
     Ok(())
 }
@@ -711,6 +700,53 @@ pub async fn write_predictions(
 
     Ok(())
 }
+
+///
+// pub async fn produce_model_update_message(message: KafkaWsMessage, database: &Arc<Database>) -> Result<()>{
+//     let projects = database.collection("projects");
+
+//     let message_str = serde_json::to_string(&message).unwrap();
+//     let filter = doc! {"_id": message.project_id};
+
+//     let update = if message.success {
+//         doc! {"$inc": {"status.Processing.model_success": 1}}
+//     } else {
+//         doc! {"$inc": {"status.Processing.model_err": 1}}
+//     };
+
+//     let doc = projects
+//         .find_one_and_update(filter, update, None)
+//         .await?
+//         .expect("Failed to find project in db");
+
+//     let project: Project = from_document(doc)?;
+//     let message_key = project.user_id.to_string();
+//     let topic = "project_updates";
+
+//     kafka_message::produce_message(&message_str, &message_key, &topic).await;
+
+//     Ok(())
+// }
+
+// pub async fn produce_job_complete_message(message: KafkaWsMessage, database: &Arc<Database>) -> Result<()> {
+//     let projects = database.collection("projects");
+
+//     let message_str = serde_json::to_string(&message).unwrap();
+//     let filter = doc! {"_id": message.project_id};
+
+//     let doc = projects
+//         .find_one(filter, None)
+//         .await?
+//         .expect("Failed to find project in db");
+
+//     let project: Project = from_document(doc)?;
+//     let message_key = project.user_id.to_string();
+//     let topic = "project_updates";
+
+//     kafka_message::produce_message(&message_str, &message_key, &topic).await;
+
+//     Ok(())
+// }
 
 /// Updates the non-performance related statistics for the given model.
 ///

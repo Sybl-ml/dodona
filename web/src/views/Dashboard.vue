@@ -66,7 +66,7 @@
                             style="color: #ffc12f"
                           />
                           <b-icon-check2-circle
-                            v-else-if="p.status == 'Completed'"
+                            v-else-if="p.status == 'Complete'"
                             style="color: #00bf26"
                           />
                           {{ p.status }}
@@ -113,7 +113,7 @@
 .processing {
   background-color: #ffc12f !important;
 }
-.completed {
+.complete {
   background-color: #00bf26 !important;
 }
 </style>

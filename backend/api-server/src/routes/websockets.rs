@@ -17,7 +17,7 @@ use mongodb::bson::oid::ObjectId;
 use std::time::{Duration, Instant};
 
 use crate::{auth, routes::payloads::WebsocketMessage, WebsocketState};
-use messages::ClientCompleteMessage;
+use messages::KafkaWsMessage;
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -176,7 +176,7 @@ pub async fn consume_updates(port: u16, map: Arc<RwLock<HashMap<String, Addr<Pro
             message.timestamp()
         );
 
-        let project_update: ClientCompleteMessage<'_> = serde_json::from_slice(&payload).unwrap();
+        let project_update: KafkaWsMessage<'_> = serde_json::from_slice(&payload).unwrap();
         let ws_msg = WebsocketMessage::from(&project_update);
 
         let user_id = std::str::from_utf8(&message.key().unwrap()).unwrap();
