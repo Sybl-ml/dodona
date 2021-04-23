@@ -48,10 +48,12 @@
                 <b-col >
                   <b-card class="shadow">
                     <b-row>
-                      <b-col lg="13">
+                      <b-col xl="11">
+                        <code>{{ cli_deps }}</code>
+                        <br />
                         <code>{{ cli_code }}</code>
                       </b-col>
-                      <b-col style="text-align: right" lg="2">
+                      <b-col style="text-align: right" lg="1">
                         <b-button
                           no-body
                           variant="dark"
@@ -80,10 +82,10 @@
                 <b-col >
                   <b-card class="shadow">
                     <b-row>
-                      <b-col lg="13">
+                      <b-col xl="11">
                         <code>{{ cli_setup }}</code>
                       </b-col>
-                      <b-col style="text-align: right" lg="2">
+                      <b-col style="text-align: right" lg="1">
                         <b-button
                           no-body
                           variant="dark"
@@ -127,6 +129,7 @@ export default {
     return {
       auth_token: "",
       error: false,
+      cli_deps: "pip install pandas pyOpenSSL python-dotenv xdg numpy zenlog",
       cli_code: "pip install -i https://test.pypi.org/simple/ syblmallus",
       cli_setup: "python3 -m sybl authenticate",
     };
