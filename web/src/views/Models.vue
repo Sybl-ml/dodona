@@ -56,17 +56,12 @@
                       <b-col style="text-align: right" lg="1">
                         <b-button
                           no-body
+                          size="sm"
                           variant="dark"
-                          style="
-                            background: none;
-                            border: none;
-                            margin: 0;
-                            padding: 0;
-                          "
                           onfocus="this.blur();"
                         >
                           <b-icon-clipboard-plus
-                            @click="copy(cli_code)"
+                            @click="copy(clone_code)"
                           ></b-icon-clipboard-plus>
                         </b-button>
                       </b-col>
@@ -88,17 +83,12 @@
                       <b-col style="text-align: right" lg="1">
                         <b-button
                           no-body
+                          size="sm"
                           variant="dark"
-                          style="
-                            background: none;
-                            border: none;
-                            margin: 0;
-                            padding: 0;
-                          "
                           onfocus="this.blur();"
                         >
                           <b-icon-clipboard-plus
-                            @click="copy(cli_setup)"
+                            @click="copy(req_code)"
                           ></b-icon-clipboard-plus>
                         </b-button>
                       </b-col>
@@ -115,13 +105,14 @@
         </b-collapse>
       </b-col>
     </b-row>
+    <speedometer />
   </b-container>
 </template>
 
-<style></style>
-
 <script>
 import ModelCard from "@/components/ModelCard";
+import VueMarkdown from 'vue-markdown';
+import Speedometer from "@/components/charts/Speedometer";
 
 
 export default {
@@ -137,6 +128,8 @@ export default {
   },
   components: {
     ModelCard,
+    VueMarkdown,
+    Speedometer,
   },
   async created() {
     this.$store.dispatch("getModels");
