@@ -31,7 +31,7 @@
       </b-col>
     </b-row>
     <b-row class="justify-content-center">
-      <b-col xs="12" lg="7">
+      <b-col lg="7">
         <b-collapse id="collapse-new" class="mb-4 nodeExpansion">
           <b-card
             class="mb-4 shadow"
@@ -45,13 +45,13 @@
                 Download our Python Module from PyPI
               </p>
               <b-row class="justify-content-center">
-                <b-col xs="12" lg="10">
+                <b-col >
                   <b-card class="shadow">
                     <b-row>
-                      <b-col md="10">
+                      <b-col lg="13">
                         <code>{{ cli_code }}</code>
                       </b-col>
-                      <b-col style="text-align: right" md="2">
+                      <b-col style="text-align: right" lg="2">
                         <b-button
                           no-body
                           variant="dark"
@@ -77,10 +77,10 @@
                 Run the following command to add a new Model
               </p>
               <b-row class="justify-content-center">
-                <b-col xs="12" lg="10">
+                <b-col >
                   <b-card class="shadow">
                     <b-row>
-                      <b-col lg="10">
+                      <b-col lg="13">
                         <code>{{ cli_setup }}</code>
                       </b-col>
                       <b-col style="text-align: right" lg="2">
