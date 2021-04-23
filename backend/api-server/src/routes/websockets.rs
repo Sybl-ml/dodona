@@ -171,8 +171,9 @@ pub async fn consume_updates(port: u16, map: Arc<RwLock<HashMap<String, Addr<Pro
         };
 
         log::debug!(
-            "Message key: {:?}, timestamp: {:?}",
+            "Message key: {:?}, Payload: {:?}, timestamp: {:?}",
             message.key(),
+            &payload,
             message.timestamp()
         );
 

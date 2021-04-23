@@ -25,9 +25,7 @@ use tokio::time::{timeout, Instant};
 
 use crate::node_end::NodePool;
 use crate::JobControl;
-use messages::{
-    kafka_message, KafkaWsMessage, ClientMessage, ReadLengthPrefix, WriteLengthPrefix,
-};
+use messages::{ClientMessage, KafkaWsMessage, ReadLengthPrefix, WriteLengthPrefix};
 use models::gridfs;
 use models::jobs::PredictionType;
 use models::jobs::{Job, JobStatistics};
@@ -544,7 +542,7 @@ async fn run_cluster(
     info.job.mark_as_processed(&database).await?;
 
     let message = KafkaWsMessage::JobCompleteMessage {
-        project_id: &project_id.to_string()
+        project_id: &project_id.to_string(),
     };
     message.produce(&database).await?;
     // produce_job_complete_message(message, &database).await?;

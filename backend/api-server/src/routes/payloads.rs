@@ -169,8 +169,10 @@ pub enum WebsocketMessage {
         /// If the model was successfull
         success: bool,
     },
+    /// Message sent when all models complete
     ProjectComplete {
-        project_id: String
+        /// ID of the completed project
+        project_id: String,
     },
     /// Message sent from server when the user authenticates
     Hello {
@@ -181,27 +183,23 @@ pub enum WebsocketMessage {
 
 impl From<&KafkaWsMessage<'_>> for WebsocketMessage {
     fn from(msg: &KafkaWsMessage<'_>) -> Self {
-
         match msg {
             KafkaWsMessage::ClientCompleteMessage {
                 project_id,
                 cluster_size,
                 model_complete_count,
-                success
-            } => {
-                WebsocketMessage::ModelComplete {
+                success,
+            } => WebsocketMessage::ModelComplete {
+                project_id: project_id.to_string(),
+                cluster_size: *cluster_size,
+                model_complete_count: *model_complete_count,
+                success: *success,
+            },
+            KafkaWsMessage::JobCompleteMessage { project_id } => {
+                WebsocketMessage::ProjectComplete {
                     project_id: project_id.to_string(),
-                    cluster_size: *cluster_size,
-                    model_complete_count: *model_complete_count,
-                    success: *success,
                 }
             }
-            KafkaWsMessage::JobCompleteMessage {
-                project_id
-            } => WebsocketMessage::ProjectComplete {
-                project_id: project_id.to_string()
-            }
         }
-
     }
 }

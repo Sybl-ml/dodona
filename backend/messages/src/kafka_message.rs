@@ -6,11 +6,11 @@ use std::str::FromStr;
 
 use anyhow::Result;
 
+use models::projects::Project;
 use mongodb::{
     bson::{doc, from_document, oid::ObjectId},
     Database,
 };
-use models::projects::Project;
 
 use rdkafka::config::ClientConfig;
 use rdkafka::producer::{FutureProducer, FutureRecord};
@@ -49,30 +49,38 @@ pub async fn produce_message(msg: &str, key: &str, topic: &str) {
     }
 }
 
+/// Enum defining all messages sent through Kafka to update a websocket
 #[derive(Debug, Serialize, Deserialize)]
 pub enum KafkaWsMessage<'a> {
-
+    /// Message produced when a Model completes
     ClientCompleteMessage {
-        /// Model id which node completed
+        /// project id which the client completed
         project_id: &'a str,
-        /// the number of time the model as been run
+        /// the cluster size
         cluster_size: usize,
         /// The number of models completed for this project
         model_complete_count: usize,
         /// If the model was successfull
         success: bool,
     },
+    /// Message sent when a project is completed
     JobCompleteMessage {
         /// Project id which job completed
         project_id: &'a str,
-    }
+    },
 }
 
 impl KafkaWsMessage<'_> {
+    /// Produce a message for Kafka
+    /// if a client message increment the success status and get user key
+    /// if job complete get user key
     pub async fn produce(&self, database: &Database) -> Result<()> {
-        
         match self {
-            Self::ClientCompleteMessage { project_id, success, .. } => {
+            Self::ClientCompleteMessage {
+                project_id,
+                success,
+                ..
+            } => {
                 let projects = database.collection("projects");
 
                 let message_str = serde_json::to_string(&self).unwrap();
@@ -101,7 +109,6 @@ impl KafkaWsMessage<'_> {
                 let message_str = serde_json::to_string(&self).unwrap();
                 let filter = doc! {"_id": ObjectId::with_string(project_id).unwrap()};
 
-
                 let doc = projects
                     .find_one(filter, None)
                     .await?
@@ -117,21 +124,3 @@ impl KafkaWsMessage<'_> {
         Ok(())
     }
 }
-// /// Message produced when a Model completes
-// pub struct ClientCompleteMessage<'a> {
-//     /// Model id which node completed
-//     pub project_id: &'a str,
-//     /// the number of time the model as been run
-//     pub cluster_size: usize,
-//     /// The number of models completed for this project
-//     pub model_complete_count: usize,
-//     /// If the model was successfull
-//     pub success: bool,
-// }
-
-// /// Message produced when a job is completed
-// #[derive(Debug, Serialize, Deserialize)]
-// pub struct JobCompleteMessage<'a> {
-//     /// Project id which job completed
-//     pub project_id: &'a str,
-// }
