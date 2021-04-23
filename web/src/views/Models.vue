@@ -61,8 +61,10 @@
                           onfocus="this.blur();"
                         >
                           <b-icon-clipboard-plus
+                            id="clipboard_btn1"
                             @click="copy(clone_code)"
                           ></b-icon-clipboard-plus>
+                          <b-tooltip target="clipboard_btn1" variant="primary" placement="right" triggers="click">Copied!</b-tooltip>
                         </b-button>
                       </b-col>
                     </b-row>
@@ -88,8 +90,10 @@
                           onfocus="this.blur();"
                         >
                           <b-icon-clipboard-plus
+                            id="clipboard_btn2"
                             @click="copy(req_code)"
                           ></b-icon-clipboard-plus>
+                          <b-tooltip target="clipboard_btn2" variant="primary" placement="right" triggers="click">Copied!</b-tooltip>
                         </b-button>
                       </b-col>
                     </b-row>
