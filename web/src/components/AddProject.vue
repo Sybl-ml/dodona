@@ -49,9 +49,7 @@
               variant="primary"
               placement="bottom"
               delay="500"
-              >Tags enable more effective searching. Add keywords 
-              about your project to make searching for projects 
-              faster!
+              >Add tags to organise and search through your project
             </b-tooltip>
           </template>
           <template v-slot:2>
