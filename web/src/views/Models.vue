@@ -106,7 +106,7 @@
               </b-row>
               <br />
               <p>
-                For more information, visit the <b><a href="https://www.notion.so/Guides-f5df7a1b451242cd9874a04495f0dfd3" target="_blank">guide</a></b>
+                For more information, visit the <b><a href="https://www.notion.so/Register-a-Model-f67a613d1cbe4075b2fd72cb3005410e" target="_blank">guide</a></b>
               </p>
             </b-card-body>
           </b-card>
