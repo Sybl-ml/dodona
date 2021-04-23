@@ -36,12 +36,21 @@
               class="mb-3"
             />
             <b-form-tags
+              id="add-tags"
               class="mb-3"
               tag-variant="success"
               tag-pills
               remove-on-delete
               v-model="tags"
             ></b-form-tags>
+            <b-tooltip
+              target="add-tags"
+              triggers="hover"
+              variant="primary"
+              placement="bottom"
+              delay="500"
+              >Add tags to organise and search through your project
+            </b-tooltip>
           </template>
           <template v-slot:2>
             <b-card-text> Please upload a dataset... </b-card-text>

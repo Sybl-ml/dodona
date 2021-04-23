@@ -46,12 +46,12 @@ export default {
   methods: {
     renderNewData(data) {
       let render_data = {
-        labels: Object.keys(data),
+        labels: Object.keys(data).slice(0, 30),
         datasets: [
           {
             label: this.name,
             backgroundColor: this.color,
-            data: Object.values(data),
+            data: Object.values(data).slice(0, 30),
           },
         ],
       };

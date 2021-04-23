@@ -26,12 +26,12 @@
           onfocus="this.blur();"
         >
           <b-icon-plus-circle-fill></b-icon-plus-circle-fill>
-          Add New Node
+          Add New Model
         </b-button>
       </b-col>
     </b-row>
     <b-row class="justify-content-center">
-      <b-col xs="12" lg="7">
+      <b-col lg="7">
         <b-collapse id="collapse-new" class="mb-4 nodeExpansion">
           <b-card
             class="mb-4 shadow"
@@ -40,19 +40,20 @@
             onfocus="this.blur();"
           >
             <b-card-body title-tag="h5">
-              <b-card-title>Connect a New Node</b-card-title>
+              <b-card-title>Connect a New Model</b-card-title>
               <p>
-                Execute the below script on your host compute node to get the
-                Sybl-CLI
+                Download our Python Module from PyPI
               </p>
               <b-row class="justify-content-center">
-                <b-col xs="12" lg="10">
+                <b-col >
                   <b-card class="shadow">
                     <b-row>
-                      <b-col md="10">
+                      <b-col xl="11">
+                        <code>{{ cli_deps }}</code>
+                        <br />
                         <code>{{ cli_code }}</code>
                       </b-col>
-                      <b-col style="text-align: right" md="2">
+                      <b-col style="text-align: right" lg="1">
                         <b-button
                           no-body
                           variant="dark"
@@ -75,17 +76,16 @@
               </b-row>
               <br />
               <p>
-                Then run the following commands to connect your compute node the
-                Sybl servers
+                Run the following command to add a new Model
               </p>
               <b-row class="justify-content-center">
-                <b-col xs="12" lg="10">
+                <b-col >
                   <b-card class="shadow">
                     <b-row>
-                      <b-col md="10">
+                      <b-col xl="11">
                         <code>{{ cli_setup }}</code>
                       </b-col>
-                      <b-col style="text-align: right" md="2">
+                      <b-col style="text-align: right" lg="1">
                         <b-button
                           no-body
                           variant="dark"
@@ -107,6 +107,9 @@
                 </b-col>
               </b-row>
               <br />
+              <p>
+                For more information, visit the <b><a href="https://www.notion.so/Register-a-Model-f67a613d1cbe4075b2fd72cb3005410e" target="_blank">guide</a></b>
+              </p>
             </b-card-body>
           </b-card>
         </b-collapse>
@@ -121,13 +124,14 @@
 import ModelCard from "@/components/ModelCard";
 
 export default {
-  name: "Nodes",
+  name: "Models",
   data() {
     return {
       auth_token: "",
       error: false,
-      cli_code: "git clone www.sybl.com/cli",
-      cli_setup: "sybl-cli new",
+      cli_deps: "pip install pandas pyOpenSSL python-dotenv xdg numpy zenlog",
+      cli_code: "pip install -i https://test.pypi.org/simple/ syblmallus",
+      cli_setup: "python3 -m sybl authenticate",
     };
   },
   components: {
