@@ -30,7 +30,7 @@
                   Stopped
                 </b-card-text>
                 <b-card-text v-else-if="model.locked == true">
-                  <b-icon-lock-fill style="color: #fbb000"></b-icon-lock-fill>
+                  <b-icon-lock-fill style="color: #000000"></b-icon-lock-fill>
                   Locked
                 </b-card-text>
                 <b-card-text v-else-if="model.status == 'NotStarted'">
@@ -164,7 +164,9 @@ export default {
   },
   computed: {
     status_variant() {
-      if (this.model.status === "NotStarted") {
+      if (this.model.locked === true) {
+        return "dark";
+      } else if (this.model.status === "NotStarted") {
         return "primary";
       } else if (this.model.status === "Running") {
         return "completed";
