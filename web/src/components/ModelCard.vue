@@ -12,7 +12,7 @@
         >
           <b-row no-gutter>
             <b-col>
-              <b-card-body>
+              <b-card-body v-if="model.locked == false">
                 <b-card-title>
                   {{ model.name }}
                 </b-card-title>
@@ -28,10 +28,6 @@
                     style="color: #ff643d"
                   ></b-icon-x-octagon-fill>
                   Stopped
-                </b-card-text>
-                <b-card-text v-else-if="model.locked == true">
-                  <b-icon-lock-fill style="color: #000000"></b-icon-lock-fill>
-                  Locked
                 </b-card-text>
                 <b-card-text v-else-if="model.status == 'NotStarted'">
                   <b-icon-pause-fill style="color: #fbb000"></b-icon-pause-fill>
@@ -52,6 +48,16 @@
                   {{ model.credits_earned }} credit(s) earned
                 </b-card-text>
               </b-card-body>
+              <b-card-body v-else style="color: #7c7c7c">
+                <b-card-title >
+                  {{ model.name }}
+                </b-card-title >
+                  <b-card-text>
+                    <b-icon-lock-fill style="color: #000000"></b-icon-lock-fill>
+                    Locked
+                  </b-card-text>
+            </b-card-body>
+
             </b-col>
             <b-col>
               <b-card-body v-if="(model.status == 'Running' || model.status == 'Stopped') && this.loaded">
