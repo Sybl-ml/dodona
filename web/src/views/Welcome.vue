@@ -19,7 +19,7 @@
               Get access to Machine Learning with a no-code solution.
             </h3>
             <br />
-            <b-button class="mr-3" variant="primary" size="lg" to="/register">
+            <b-button class="mr-3" variant="primary" size="lg" target="_blank" href="https://www.notion.so/Get-Started-e6cb53c780b446d8a54cb6eef56f6451">
               I Have Data 💾
             </b-button>
             <b-button class="ml-3" size="lg" variant="primary" target="_blank" href="https://www.notion.so/Become-a-Client-581ccdc92e2946159ad94e3dec44f72e">
