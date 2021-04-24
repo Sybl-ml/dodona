@@ -90,7 +90,7 @@ impl Column {
                 ColumnType::Categorical(mapping) => Some(mapping.get(&value)?.to_string()),
                 // if this `Column` holds numerical data, normalise `value` to the standard range
                 ColumnType::Numerical(min, max) => {
-                    Some(Column::normalise(f64::from_str(&value).ok()?, *min, *max).to_string())
+                    Some(Column::normalise(f64::from_str(&value.trim()).ok()?, *min, *max).to_string())
                 }
             }
         }
@@ -115,7 +115,7 @@ impl Column {
                 }
                 // if this `Column` holds numerical data, denormalise `value` to its true range
                 ColumnType::Numerical(min, max) => {
-                    Some(Column::denormalise(f64::from_str(&value).ok()?, *min, *max).to_string())
+                    Some(Column::denormalise(f64::from_str(&value.trim()).ok()?, *min, *max).to_string())
                 }
             }
         }
@@ -159,7 +159,7 @@ impl From<ColumnValues> for Column {
         if let Ok(numerical) = values
             .iter()
             .filter(|v| !v.is_empty())
-            .map(|v| f64::from_str(v))
+            .map(|v| f64::from_str(v.trim()))
             .collect::<Result<Vec<_>, _>>()
         {
             let column_type = ColumnType::Numerical(
