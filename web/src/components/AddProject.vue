@@ -6,7 +6,8 @@
     <b-overlay :show="upload_in_progress" rounded="sm">
       <template #overlay>
         <b-row class="justify-content-center">
-          <h2>Creating Project</h2>
+          <h2 v-if="!fileUploadLoading">Creating Project</h2>
+          <h2 v-else>Creating Project and Uploading Data</h2>
         </b-row>
         <b-row class="justify-content-center">
           <h2>Please Do Not Refresh!</h2>
@@ -112,22 +113,6 @@
 import NavigatableTab from "./NavigatableTab.vue";
 import FileUpload from "@/components/FileUpload";
 
-const readUploadedFileAsText = (inputFile) => {
-  const temporaryFileReader = new FileReader();
-
-  return new Promise((resolve, reject) => {
-    temporaryFileReader.onerror = () => {
-      temporaryFileReader.abort();
-      reject(new DOMException("Problem parsing input file."));
-    };
-
-    temporaryFileReader.onload = () => {
-      resolve(temporaryFileReader.result);
-    };
-    temporaryFileReader.readAsText(inputFile);
-  });
-};
-
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -140,6 +125,7 @@ export default {
       description: "",
       file: null,
       upload_in_progress: false,
+      fileUploadLoading: false,
       project_id: "",
       complete: true,
       submitted: false,
@@ -160,20 +146,27 @@ export default {
     async onSubmit() {
       this.submitted = true;
       this.upload_in_progress = true;
+      this.fileUploadLoading = this.file !== null;
       try {
         let project_response = await this.$store.dispatch("postNewProject", {
           name: this.name,
           description: this.description,
           tags: this.tags,
         });
-
         this.project_id = project_response.data.project_id.$oid;
-        this.$store.dispatch("addProject", this.project_id);
-        await sleep(500);
 
         if (this.file) {
+          this.$store.commit("addTempProject", {
+            id: this.project_id,
+            name: this.name,
+            status: "Uploading",
+          });
           await this.processFile();
         }
+
+        this.$store.dispatch("addProject", this.project_id);
+        this.fileUploadLoading = true;
+
         this.$router.replace(`/dashboard/${this.project_id}`);
       } catch (error) {
         console.error(error);
@@ -189,7 +182,7 @@ export default {
             multipart: false,
             files: this.file.file,
           };
-          this.$store.dispatch("sendFile", payload);
+          await this.$store.dispatch("sendFile", payload);
         } catch (e) {
           console.warn(e.message);
         }
@@ -205,7 +198,7 @@ export default {
               predict: this.file.predict,
             },
           };
-          this.$store.dispatch("sendFile", payload);
+          await this.$store.dispatch("sendFile", payload);
         } catch (e) {
           console.warn(e.message);
         }

@@ -97,6 +97,14 @@ const mutations = {
       state.projects.push(new_project);
     }
   },
+  addTempProject(state, { id, name, status }) {
+    let temp_project = {
+      _id: id,
+      name: name,
+      status: status,
+    };
+    state.projects.push(temp_project);
+  },
   updateProject(state, { project_id, field, new_data }) {
     let project = state.projects.find((p) => p._id == project_id);
     Vue.set(project, field, new_data);

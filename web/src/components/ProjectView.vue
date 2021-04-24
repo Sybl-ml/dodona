@@ -15,8 +15,9 @@
           v-bind:key="tag.id"
           >{{ tag }}</b-badge
         >
-      </p> </b-card
-    ><b-overlay :show="project.status == 'Uploading'" rounded="sm">
+      </p>
+    </b-card>
+    <b-overlay :show="project.status == 'Uploading'" rounded="sm">
       <template #overlay>
         <b-row class="justify-content-center">
           <h2>Data Uploading</h2>

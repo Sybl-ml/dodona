@@ -336,9 +336,6 @@ export default {
         }
       }
     },
-    checkStatus(status_check) {
-      return this.status == status_check;
-    },
   },
 };
 </script>
