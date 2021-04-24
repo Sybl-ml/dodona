@@ -25,9 +25,7 @@ use tokio::time::{timeout, Instant};
 
 use crate::node_end::NodePool;
 use crate::JobControl;
-use messages::{
-    kafka_message, ClientCompleteMessage, ClientMessage, ReadLengthPrefix, WriteLengthPrefix,
-};
+use messages::{ClientMessage, KafkaWsMessage, ReadLengthPrefix, WriteLengthPrefix};
 use models::gridfs;
 use models::jobs::PredictionType;
 use models::jobs::{Job, JobStatistics};
@@ -545,6 +543,11 @@ async fn run_cluster(
     // Mark the job as processed
     info.job.mark_as_processed(&database).await?;
 
+    let message = KafkaWsMessage::JobCompleteMessage {
+        project_id: &project_id.to_string(),
+    };
+    message.produce(&database).await?;
+
     // Status has been updated to complete, so email the user
     if let Err(e) = email_user_on_project_finish(&database, &project_id).await {
         log::warn!(
@@ -655,32 +658,13 @@ pub async fn dcl_protocol(
     let remaining_nodes = cluster_control.decrement().await;
     let cluster_size = info.job.config.cluster_size as usize;
     // Produce message
-    let message = ClientCompleteMessage {
+    let message = KafkaWsMessage::ClientCompleteMessage {
         project_id: &info.project_id.to_string(),
         cluster_size,
         model_complete_count: cluster_size - remaining_nodes,
         success: model_success,
     };
-
-    let message = serde_json::to_string(&message).unwrap();
-    let projects = database.collection("projects");
-    let filter = doc! {"_id": info.project_id};
-    let update = if model_success {
-        doc! {"$inc": {"status.Processing.model_success": 1}}
-    } else {
-        doc! {"$inc": {"status.Processing.model_err": 1}}
-    };
-
-    let doc = projects
-        .find_one_and_update(filter, update, None)
-        .await?
-        .expect("Failed to find project in db");
-
-    let project: Project = from_document(doc)?;
-    let message_key = project.user_id.to_string();
-    let topic = "project_updates";
-
-    kafka_message::produce_message(&message, &message_key, &topic).await;
+    message.produce(&database).await?;
 
     Ok(())
 }

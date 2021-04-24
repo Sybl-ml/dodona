@@ -35,6 +35,9 @@ const actions = {
   sendMsg(context, msg) {
     Vue.prototype.$socket.sendObj(msg);
   },
+  SOCKET_ONMESSAGE({commit}, message) {
+    commit("SOCKET_ONMESSAGE", message)
+  }
 };
 
 export default {

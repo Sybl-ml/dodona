@@ -15,6 +15,8 @@ function unpackProjectResponse(response) {
       predict_size: 0,
     },
     analysis = {},
+    job_stats = {},
+    current_job = {},
   } = response;
 
   if ("head" in details) {
@@ -33,6 +35,8 @@ function unpackProjectResponse(response) {
   });
   project.details = details;
   project.analysis = analysis;
+  project.job_stats = job_stats;
+  project.current_job = current_job;
 
   return project;
 }
@@ -128,7 +132,12 @@ const mutations = {
     }
     router.replace(`/dashboard${new_route}`);
   },
-  SOCKET_ONMESSAGE(state, message) {
+};
+
+// actions
+const actions = {
+  async SOCKET_ONMESSAGE({ state, commit, dispatch }, message) {
+    console.log(message);
     switch (Object.keys(message)[0]) {
       case "hello":
         break;
@@ -146,14 +155,17 @@ const mutations = {
           Vue.set(p.progress, "model_success", p.progress.model_success + 1);
         else Vue.set(p.progress, "model_err", p.progress.model_err + 1);
         break;
+      case "projectComplete":
+        console.log("proj complet");
+        let projectComplete = message.projectComplete;
+        await dispatch("addProject", projectComplete.project_id);
+        await dispatch("getRecentJob", projectComplete.project_id);
+        await dispatch("getJobStatistics", projectComplete.project_id);
+        break;
       default:
-        console.err("Unknown Message");
+        console.error("Unknown Message");
     }
   },
-};
-
-// actions
-const actions = {
   async getProjects({ dispatch, commit }) {
     let response = await $http.get(`api/projects`);
 
