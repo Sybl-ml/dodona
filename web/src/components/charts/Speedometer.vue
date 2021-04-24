@@ -34,7 +34,7 @@ export default {
         return 0
       }
       else {
-        return (this.performance.reduce(function (total, num){return total + num}))/this.performance.length;
+        return Math.round(((this.performance.reduce(function (total, num){return total + num}))/this.performance.length) * 100) / 100;
       }
 
     }
