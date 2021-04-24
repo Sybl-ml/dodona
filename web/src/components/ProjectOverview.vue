@@ -67,14 +67,16 @@
 
         <p><b>Job Cost:</b> {{ this.jobCost }} credits</p>
 
-        <b-form-group label="Problem Type" label-for="dropdown-form-type">
+        <b-form-group>
+          <label>
+            Problem Type <b-icon-question-circle id="prob-type" />
+          </label>
           <b-form-select
-            id="dropdown-form-type"
             size="sm"
             :options="problemTypeOptions"
             v-model="problemType"
           /><b-tooltip
-            target="dropdown-form-type"
+            target="prob-type"
             triggers="hover"
             variant="primary"
             placement="right"
@@ -84,14 +86,16 @@
             guide Introduction to Machine Learning for more details
           </b-tooltip>
         </b-form-group>
-        <b-form-group label="Prediction Column" label-for="dropdown-pred-col">
+        <b-form-group>
+          <label>
+            Prediction Column <b-icon-question-circle id="pred-col" />
+          </label>
           <b-form-select
-            id="dropdown-pred-col"
             size="sm"
             :options="getColumnNames"
             v-model="predColumn"
           /><b-tooltip
-            target="dropdown-pred-col"
+            target="pred-col"
             triggers="hover"
             variant="primary"
             placement="right"
@@ -109,41 +113,40 @@
           >{{ expandJob ? "Advanced" : "Minimize" }}</b-button
         >
         <b-collapse id="job-config">
-          <b-form-group
-            label="Model Computation Time (mins)"
-            label-for="dropdown-form-timeout"
-          >
+          <b-form-group>
+            <label>
+              Model Computation Time (mins)
+              <b-icon-question-circle id="timeout" />
+            </label>
             <b-form-input
-              id="dropdown-form-timeout"
               size="sm"
               type="number"
               min="1"
               v-model="nodeComputationTime"
             ></b-form-input>
             <b-tooltip
-              target="dropdown-form-timeout"
+              target="timeout"
               triggers="hover"
               variant="primary"
               placement="right"
               delay="500"
-              >The amount of time models should be given to run on your data. 
-              The bigger your dataset, the more time you might want to give 
+              >The amount of time models should be given to run on your data.
+              The bigger your dataset, the more time you might want to give
               models to run.
             </b-tooltip>
           </b-form-group>
-          <b-form-group
-            label="Cluster Size"
-            label-for="dropdown-form-cluster-size"
-          >
+          <b-form-group>
+            <label>
+              Cluster Size <b-icon-question-circle id="cluster-size" />
+            </label>
             <b-form-input
-              id="dropdown-form-cluster-size"
               size="sm"
               type="number"
               min="1"
               v-model="cluster_size"
             ></b-form-input>
             <b-tooltip
-              target="dropdown-form-cluster-size"
+              target="cluster-size"
               triggers="hover"
               variant="primary"
               placement="right"
