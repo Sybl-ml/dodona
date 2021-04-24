@@ -89,9 +89,9 @@ impl Column {
                 // if this `Column` holds categorical data, find the pseudonym for `value`
                 ColumnType::Categorical(mapping) => Some(mapping.get(&value)?.to_string()),
                 // if this `Column` holds numerical data, normalise `value` to the standard range
-                ColumnType::Numerical(min, max) => {
-                    Some(Column::normalise(f64::from_str(&value.trim()).ok()?, *min, *max).to_string())
-                }
+                ColumnType::Numerical(min, max) => Some(
+                    Column::normalise(f64::from_str(&value.trim()).ok()?, *min, *max).to_string(),
+                ),
             }
         }
     }
@@ -114,9 +114,9 @@ impl Column {
                     Some(mapping.iter().find(|(_, v)| **v == value)?.0.to_string())
                 }
                 // if this `Column` holds numerical data, denormalise `value` to its true range
-                ColumnType::Numerical(min, max) => {
-                    Some(Column::denormalise(f64::from_str(&value.trim()).ok()?, *min, *max).to_string())
-                }
+                ColumnType::Numerical(min, max) => Some(
+                    Column::denormalise(f64::from_str(&value.trim()).ok()?, *min, *max).to_string(),
+                ),
             }
         }
     }
