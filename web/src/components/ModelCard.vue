@@ -12,18 +12,10 @@
         >
           <b-row no-gutter>
             <b-col>
-              <b-card-body>
+              <b-card-body v-if="!model.locked">
                 <b-card-title>
                   {{ model.name }}
                 </b-card-title>
-                <b-card-text v-if="model.locked == false">
-                  <b-icon-clock-fill></b-icon-clock-fill>
-                  {{ model.processing_time_secs }}s total processing
-                </b-card-text>
-              </b-card-body>
-            </b-col>
-            <b-col>
-              <b-card-body style="text-align: right">
                 <b-card-text v-if="model.status == 'Running'">
                   <b-icon-check-circle-fill
                     small
@@ -37,10 +29,6 @@
                   ></b-icon-x-octagon-fill>
                   Stopped
                 </b-card-text>
-                <b-card-text v-else-if="model.locked == true">
-                  <b-icon-lock-fill style="color: #fbb000"></b-icon-lock-fill>
-                  Locked
-                </b-card-text>
                 <b-card-text v-else-if="model.status == 'NotStarted'">
                   <b-icon-pause-fill style="color: #fbb000"></b-icon-pause-fill>
                   Not Started
@@ -51,10 +39,36 @@
                   ></b-icon-exclamation-triangle-fill>
                   Error
                 </b-card-text>
-                <b-card-text v-if="model.locked == false">
+                <b-card-text>
+                  <b-icon-clock-fill></b-icon-clock-fill>
+                  {{ model.processing_time_secs }}s total processing
+                </b-card-text>
+                <b-card-text>
                   <b-icon-cash-stack></b-icon-cash-stack>
                   {{ model.credits_earned }} credit(s) earned
                 </b-card-text>
+              </b-card-body>
+              <b-card-body v-else style="color: #7c7c7c">
+                <b-card-title >
+                  {{ model.name }}
+                </b-card-title >
+                  <b-card-text>
+                    <b-icon-lock-fill style="color: #000000"></b-icon-lock-fill>
+                    Locked
+                  </b-card-text>
+            </b-card-body>
+
+            </b-col>
+            <b-col>
+              <b-card-body v-if="(model.status == 'Running' || model.status == 'Stopped') && this.loaded">
+                <speedometer
+                  :id="`spedometer-${i}`"
+                  :performance="performance"
+                />
+                <b-tooltip :target="`spedometer-${i}`" variant="primary" placement="right" triggers="hover">
+                  How well this model performed against other models 
+                  over the last 5 jobs
+                </b-tooltip>
               </b-card-body>
             </b-col>
           </b-row>
@@ -73,7 +87,7 @@
           class="mb-4 nodeExpansion"
           @shown="renderChart(i)"
         >
-          <b-card class="shadow" v-if="model.locked == true">
+          <b-card class="shadow" v-if="model.locked">
             <b-row class="justify-content-center text-center">
               <b-col md="8" sm="10" xs="12">
                 <br />
@@ -112,6 +126,7 @@
               :data="performance"
               :ref="`model-performance-${i}`"
             />
+
             <b-card-text>Total Runs: {{ model.times_run }}</b-card-text>
           </b-card>
         </b-collapse>
@@ -128,6 +143,7 @@
 
 <script>
 import ModelPerformance from "@/components/ModelPerformance";
+import Speedometer from "@/components/charts/Speedometer";
 
 export default {
   name: "ModelCard",
@@ -138,17 +154,25 @@ export default {
   data() {
     return {
       password: "",
+      loaded: false
     };
   },
   components: {
     ModelPerformance,
+    Speedometer,
   },
   async created() {
-    this.$store.dispatch("getModelPerformance", this.model._id.$oid);
+    this.$store.dispatch("getModelPerformance", this.model._id.$oid).then(
+      (result) => {
+        this.loaded = true;
+    });
+
   },
   computed: {
     status_variant() {
-      if (this.model.status === "NotStarted") {
+      if (this.model.locked) {
+        return "dark";
+      } else if (this.model.status === "NotStarted") {
         return "primary";
       } else if (this.model.status === "Running") {
         return "completed";

@@ -56,18 +56,15 @@
                       <b-col style="text-align: right" lg="1">
                         <b-button
                           no-body
+                          size="sm"
                           variant="dark"
-                          style="
-                            background: none;
-                            border: none;
-                            margin: 0;
-                            padding: 0;
-                          "
                           onfocus="this.blur();"
                         >
                           <b-icon-clipboard-plus
-                            @click="copy(cli_code)"
+                            id="clipboard_btn1"
+                            @click="copy(clone_code)"
                           ></b-icon-clipboard-plus>
+                          <b-tooltip target="clipboard_btn1" variant="primary" placement="right" triggers="click">Copied!</b-tooltip>
                         </b-button>
                       </b-col>
                     </b-row>
@@ -88,18 +85,15 @@
                       <b-col style="text-align: right" lg="1">
                         <b-button
                           no-body
+                          size="sm"
                           variant="dark"
-                          style="
-                            background: none;
-                            border: none;
-                            margin: 0;
-                            padding: 0;
-                          "
                           onfocus="this.blur();"
                         >
                           <b-icon-clipboard-plus
-                            @click="copy(cli_setup)"
+                            id="clipboard_btn2"
+                            @click="copy(req_code)"
                           ></b-icon-clipboard-plus>
+                          <b-tooltip target="clipboard_btn2" variant="primary" placement="right" triggers="click">Copied!</b-tooltip>
                         </b-button>
                       </b-col>
                     </b-row>
@@ -115,13 +109,15 @@
         </b-collapse>
       </b-col>
     </b-row>
+    <speedometer />
   </b-container>
 </template>
 
-<style></style>
-
 <script>
 import ModelCard from "@/components/ModelCard";
+import VueMarkdown from 'vue-markdown';
+import Speedometer from "@/components/charts/Speedometer";
+
 
 export default {
   name: "Models",
@@ -136,6 +132,8 @@ export default {
   },
   components: {
     ModelCard,
+    VueMarkdown,
+    Speedometer,
   },
   async created() {
     this.$store.dispatch("getModels");

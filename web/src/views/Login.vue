@@ -61,11 +61,13 @@
         Incorrect Username or Password
       </b-alert>
     </b-row>
+    <particles-bg  color="#fbb000" num=200 type="cobweb" :bg="true"/>
   </b-container>
 </template>
 
 <script>
 import IconLogo from "@/components/icons/IconLogo";
+import { ParticlesBg } from "particles-bg-vue";
 
 export default {
   data() {
@@ -80,6 +82,7 @@ export default {
   },
   components: {
     IconLogo,
+    ParticlesBg,
   },
   computed: {
     passwordType() {
