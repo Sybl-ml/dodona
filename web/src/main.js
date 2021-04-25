@@ -20,17 +20,18 @@ if (window.location.hostname === "localhost") ws_route += "localhost:3001";
 else ws_route += window.location.hostname;
 
 Vue.use(VueNativeSock, ws_route + "/project_updates", {
+  connectManually: true,
   reconnection: true,
   reconnectionAttempts: 5,
   reconnectionDelay: 3000,
   format: "json",
   store: store,
-  passToStoreHandler: function (eventName, event, next) {
+  passToStoreHandler: function(eventName, event, next) {
     if (eventName === "SOCKET_onmessage") {
-      store.dispatch("SOCKET_ONMESSAGE", JSON.parse(event.data))
+      store.dispatch("SOCKET_ONMESSAGE", JSON.parse(event.data));
     }
-    next(eventName, event)
-  }
+    next(eventName, event);
+  },
 });
 
 import "@/assets/css/custom.scss";
