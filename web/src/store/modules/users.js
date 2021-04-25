@@ -55,10 +55,11 @@ const actions = {
       password: password,
     });
   },
-  async logout({ commit }) {
+  async logout({ commit, dispatch }) {
     Vue.prototype.$cookies.remove("token");
     commit("setUser", {});
     router.push("/login");
+    dispatch("disconnect_sock");
   },
   async register(
     { commit },

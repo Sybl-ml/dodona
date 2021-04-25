@@ -128,6 +128,7 @@ export default {
   },
   async created() {
     await this.$store.dispatch("getProjects");
+    await this.$store.dispatch("connect_sock");
   },
   methods: {
     cardStyle(id) {

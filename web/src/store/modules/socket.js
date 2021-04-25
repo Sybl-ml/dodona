@@ -30,14 +30,28 @@ const mutations = {
   SOCKET_ONMESSAGE(state, message) {
     state.socket.message = message;
   },
+  SOCKET_RECONNECT(state) {},
+  SOCKET_RECONNECT_ERROR(state) {
+    console.error(state);
+  },
+  SOCKET_ONERROR(state, event) {
+    console.error(state, event);
+  },
 };
 const actions = {
   sendMsg(context, msg) {
     Vue.prototype.$socket.sendObj(msg);
   },
-  SOCKET_ONMESSAGE({commit}, message) {
-    commit("SOCKET_ONMESSAGE", message)
-  }
+  SOCKET_ONMESSAGE({ commit }, message) {
+    commit("SOCKET_ONMESSAGE", message);
+  },
+  connect_sock(context) {
+    console.log("connecting");
+    Vue.prototype.$connect();
+  },
+  disconnect_sock(context) {
+    Vue.prototype.$disconnect();
+  },
 };
 
 export default {
