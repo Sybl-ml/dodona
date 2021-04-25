@@ -1,6 +1,7 @@
 <template>
   <div>
     <vue-speedometer
+      v-if="performance"
       :value="value()"
       :needleTransitionDuration="4000"
       needleTransition="easeElastic"
@@ -29,15 +30,21 @@ export default {
     performance: Array,
   },
   methods: {
-    value () {
+    value() {
       if (this.performance.length == 0) {
-        return 0
+        return 0;
+      } else {
+        return (
+          Math.round(
+            (this.performance.reduce(function(total, num) {
+              return total + num;
+            }) /
+              this.performance.length) *
+              100
+          ) / 100
+        );
       }
-      else {
-        return Math.round(((this.performance.reduce(function (total, num){return total + num}))/this.performance.length) * 100) / 100;
-      }
-
-    }
-  }
+    },
+  },
 };
 </script>
