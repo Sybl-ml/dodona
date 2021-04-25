@@ -115,7 +115,6 @@
 
 <script>
 import ModelCard from "@/components/ModelCard";
-import VueMarkdown from 'vue-markdown';
 import Speedometer from "@/components/charts/Speedometer";
 
 
@@ -132,7 +131,6 @@ export default {
   },
   components: {
     ModelCard,
-    VueMarkdown,
     Speedometer,
   },
   async created() {

@@ -21,7 +21,6 @@
     "vue": "^2.6.11",
     "vue-chartjs": "^3.5.1",
     "vue-cookies": "^1.7.4",
-    "vue-markdown": "^2.2.4",
     "vue-native-websocket": "^2.0.14",
     "vue-router": "^3.2.0",
     "vue-simple-icons": "^3.10.0",

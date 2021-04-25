@@ -198,7 +198,6 @@
         </b-button>
       </b-row>
     </div>
-    <particles-bg  color="#cccccc" num=150 type="cobweb" :bg="true"/>
   </div>
 </template>
 
@@ -255,7 +254,6 @@ body {
 import IconLogo from "@/components/icons/IconLogo";
 import LandingImage from "@/components/icons/LandingImage";
 import Waves from "@/components/icons/waves";
-import { ParticlesBg } from "particles-bg-vue";
 
 export default {
   name: "Welcome",
@@ -263,7 +261,6 @@ export default {
     landing: LandingImage,
     Waves,
     IconLogo,
-    ParticlesBg,
   },
 };
 </script>
