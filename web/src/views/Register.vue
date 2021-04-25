@@ -122,7 +122,7 @@
     </b-row>
     <b-row class="justify-content-center text-center">
       <b-alert v-model="failed" variant="danger" dismissible>
-        Something is wrong with your infomation
+        Something is wrong with your information
       </b-alert> </b-row
     >
   </b-container>

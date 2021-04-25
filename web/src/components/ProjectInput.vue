@@ -6,7 +6,7 @@
     <b-row>
       <b-col>
         <b-tabs class="mb-3" pills>
-          <b-tab title="Select Datset:" disabled></b-tab>
+          <b-tab title="Select Dataset:" disabled></b-tab>
           <b-tab title="Training" active lazy>
             <br />
             <pagination-table :projectId="projectId" :dataset_type="'train'" />

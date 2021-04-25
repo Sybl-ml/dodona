@@ -52,7 +52,7 @@
             <h3>Technical Resources</h3>
             <b-card-text>
               Sybl runs in the cloud using secure, private and anonymised data
-              pipelines to safley get insights from your data.
+              pipelines to safely get insights from your data.
             </b-card-text>
           </b-card>
         </b-col>
@@ -99,7 +99,7 @@
             <h3>Use Case</h3>
             <b-card-text>
               Whatever data you collect, Sybl uses cutting edge Machine Learning
-              to ensure that you always get the best psosible predictions.
+              to ensure that you always get the best possible predictions.
             </b-card-text>
           </b-card>
         </b-col>
@@ -130,7 +130,7 @@
                   >If you have data that you want predictions on, upload it to
                   Sybl. It can be anything - financial forecasts, customer
                   insights, even sports results! All data you upload is
-                  anonymused and made private before being used for Machine
+                  anonymised and made private before being used for Machine
                   Leaning.
                 </b-card-text>
               </b-card>

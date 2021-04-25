@@ -62,10 +62,10 @@
             <b-col>
               <b-card-body v-if="(model.status == 'Running' || model.status == 'Stopped') && this.loaded">
                 <speedometer
-                  :id="`spedometer-${i}`"
+                  :id="`speedometer-${i}`"
                   :performance="performance"
                 />
-                <b-tooltip :target="`spedometer-${i}`" variant="primary" placement="right" triggers="hover">
+                <b-tooltip :target="`speedometer-${i}`" variant="primary" placement="right" triggers="hover">
                   How well this model performed against other models 
                   over the last 5 jobs
                 </b-tooltip>
