@@ -9,11 +9,13 @@
 extern crate serde;
 
 pub mod client;
+pub mod control;
 pub mod kafka_message;
 pub mod length_prefix;
 pub mod raw_message;
 
 pub use client::ClientMessage;
+pub use control::ControlMessage;
 pub use kafka_message::KafkaWsMessage;
 pub use length_prefix::{ReadLengthPrefix, WriteLengthPrefix};
 pub use raw_message::RawMessage;

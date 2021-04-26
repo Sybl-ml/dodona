@@ -3,6 +3,7 @@
 //! This will go through and will check each node to make sure each is alive and working. It will
 //! update its status in the [`NodeInfo`] object for the node.
 
+use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
@@ -21,14 +22,53 @@ use tokio::{
 use anyhow::Result;
 
 use crate::node_end::NodePool;
-use messages::{ClientMessage, WriteLengthPrefix};
+use messages::{ClientMessage, ControlMessage, ReadLengthPrefix, WriteLengthPrefix};
 use models::models::Status;
 
-/// Runner for health checking
+/// Runs the health checking with the control node, assuming this is an edge node.
+///
+/// Connects to the control node and sends it some information about its location, before expecting
+/// heartbeat messages and echoing them back when it receives them.
+async fn health_check_with_control_node(node_port: u16, control_port: u16) -> Result<()> {
+    // Connect to the control node
+    let socket = SocketAddrV4::new(Ipv4Addr::LOCALHOST, control_port);
+    let mut stream = TcpStream::connect(socket).await?;
+
+    // Send a message identifying where we can be found
+    let message = ControlMessage::ChildNodeRequest { port: node_port };
+    stream.write(&message.as_bytes()).await?;
+
+    // Begin heartbeating
+    let mut buffer = [0_u8; 1024];
+
+    loop {
+        // Read a message from the control node
+        let message = ControlMessage::from_stream(&mut stream, &mut buffer).await?;
+
+        // Send it back
+        stream.write(&message.as_bytes()).await?;
+    }
+}
+
+/// Entry point for various health checking protocols.
 ///
 /// Runs the health checking framework to go through each node that is not currently being used and
-/// makes sure it is still alive. This will be run every <delay> seconds.
-pub async fn health_runner(database: Arc<Database>, nodepool: Arc<NodePool>, delay: u64) {
+/// makes sure it is still alive. This will be run every <delay> seconds. Additionally runs the
+/// health checking between the current edge node and the control node itself.
+pub async fn health_runner(
+    database: Arc<Database>,
+    nodepool: Arc<NodePool>,
+    node_port: u16,
+    control_port: u16,
+    delay: u64,
+) {
+    // Spawn a task to health check with the control node
+    tokio::spawn(async move {
+        if let Err(e) = health_check_with_control_node(node_port, control_port).await {
+            log::error!("Error when health checking with the control node: {}", e);
+        }
+    });
+
     let duration = Duration::from_secs(delay);
     log::info!("Running health checking with a delay of {:?}", duration);
 

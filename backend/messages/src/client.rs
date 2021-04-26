@@ -5,7 +5,7 @@ use chrono::{Duration, Utc};
 use models::jobs::{JobConfiguration, PredictionType};
 
 /// Different messages to be passed between DCL and DCN
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ClientMessage {
     /// Hearbeat alive message
     Alive {

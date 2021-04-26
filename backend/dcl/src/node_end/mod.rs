@@ -5,7 +5,6 @@
 //! that [`Node`]. This allows the Job End to ask for a [`TcpStream`] and receive one for a DCN.
 
 use std::collections::HashMap;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -474,18 +473,15 @@ impl NodePool {
 /// Starts up node end which allows DCNs to register their connection. This will create a Node
 /// object if given a correct API Key. This allows the job end to connect and communicate with the
 /// DCNs.
-pub async fn run(nodepool: Arc<NodePool>, database: Arc<Database>, port: u16) -> Result<()> {
-    // Bind to the external socket in production mode
-    #[cfg(not(debug_assertions))]
-    let ip = Ipv4Addr::UNSPECIFIED;
-
-    #[cfg(debug_assertions)]
-    let ip = Ipv4Addr::LOCALHOST;
-
-    let socket = SocketAddr::V4(SocketAddrV4::new(ip, port));
-    let listener = TcpListener::bind(&socket).await?;
-
-    log::info!("Listening for client connections on: {}", socket);
+pub async fn run(
+    nodepool: Arc<NodePool>,
+    database: Arc<Database>,
+    listener: TcpListener,
+) -> Result<()> {
+    log::info!(
+        "Listening for client connections on: {}",
+        listener.local_addr()?
+    );
 
     while let Ok((inbound, _)) = listener.accept().await {
         let sp_clone = Arc::clone(&nodepool);

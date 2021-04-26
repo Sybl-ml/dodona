@@ -9,26 +9,31 @@
 #[macro_use]
 extern crate serde;
 
-use anyhow::Result;
-use mongodb::bson::oid::ObjectId;
-use mongodb::options::ClientOptions;
-use mongodb::Client;
 use std::collections::VecDeque;
 use std::env;
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str::FromStr;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Mutex,
 };
-use tokio::sync::Notify;
+
+use anyhow::Result;
+use mongodb::bson::oid::ObjectId;
+use mongodb::options::ClientOptions;
+use mongodb::Client;
+use tokio::{net::TcpListener, sync::Notify};
 
 use models::jobs::Job;
 
+pub mod control;
 pub mod health;
 pub mod interface_end;
 pub mod job_end;
 pub mod node_end;
 pub mod protocol;
+
+pub use crate::control::run_as_controller;
 
 /// Struct to hold Job Queue for DCL
 #[derive(Debug, Default, Clone)]
@@ -123,18 +128,30 @@ impl JobControl {
 /// tokio runtime and sets up its connection with the MongoDB database.
 /// It will then spawn threads for the different parts of the DCL to
 /// offer the full functionality of the product.
-#[tokio::main]
 pub async fn run() -> Result<()> {
     let conn_str = env::var("CONN_STR").expect("CONN_STR must be set");
     let app_name = env::var("APP_NAME").expect("APP_NAME must be set");
     let broker_socket =
         u16::from_str(&env::var("BROKER_PORT").unwrap_or_else(|_| "9092".to_string()))
             .expect("BROKER_PORT must be a u16");
-    let node_socket =
+    let control_port =
         u16::from_str(&env::var("NODE_SOCKET").expect("NODE_SOCKET must be set")).unwrap();
 
     let health = u64::from_str(&env::var("HEALTH").expect("HEALTH must be set")).unwrap();
     let database_name = env::var("DATABASE_NAME").unwrap_or_else(|_| String::from("sybl"));
+
+    // Bind to the external socket in production mode
+    #[cfg(not(debug_assertions))]
+    let ip = Ipv4Addr::UNSPECIFIED;
+
+    #[cfg(debug_assertions)]
+    let ip = Ipv4Addr::LOCALHOST;
+
+    let socket = SocketAddr::V4(SocketAddrV4::new(ip, 0));
+    let listener = TcpListener::bind(&socket).await?;
+
+    // Get the port that we bound to, we will need to send this to the control node
+    let bound_port = listener.local_addr()?.port();
 
     let mut client_options = ClientOptions::parse(&conn_str).await.unwrap();
     client_options.app_name = Some(app_name);
@@ -159,7 +176,7 @@ pub async fn run() -> Result<()> {
     let nodepool_clone = Arc::clone(&nodepool);
     let node_client = Arc::clone(&client);
     tokio::spawn(async move {
-        node_end::run(nodepool_clone, node_client, node_socket)
+        node_end::run(nodepool_clone, node_client, listener)
             .await
             .unwrap();
     });
@@ -176,7 +193,14 @@ pub async fn run() -> Result<()> {
     let health_client = Arc::clone(&client);
     let nodepool_clone = Arc::clone(&nodepool);
     tokio::spawn(async move {
-        health::health_runner(health_client, nodepool_clone, health).await;
+        health::health_runner(
+            health_client,
+            nodepool_clone,
+            bound_port,
+            control_port,
+            health,
+        )
+        .await;
     })
     .await?;
 
