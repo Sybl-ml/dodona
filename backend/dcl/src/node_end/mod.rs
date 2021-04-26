@@ -160,18 +160,25 @@ impl NodePool {
     pub async fn add(&self, node: Node, database: Arc<Database>) {
         let id = node.get_model_id().to_string();
 
-        let mut node_vec = self.nodes.write().await;
-        let mut info_vec = self.info.write().await;
+        let mut node_map = self.nodes.write().await;
+        let mut info_map = self.info.write().await;
 
         log::info!("Adding node to the pool with id={}", id);
 
-        node_vec.insert(id.clone(), node);
-        info_vec.insert(
+        if let Some(node_info) = info_map.get(&id) {
+            if !node_info.alive {
+                self.active.fetch_add(1, Ordering::SeqCst);
+            }
+        } else {
+            self.active.fetch_add(1, Ordering::SeqCst);
+        };
+
+        node_map.insert(id.clone(), node);
+        info_map.insert(
             id.clone(),
             NodeInfo::from_database(database, &id).await.unwrap(),
         );
 
-        self.active.fetch_add(1, Ordering::SeqCst);
         self.job_notify.notify_waiters();
     }
 
