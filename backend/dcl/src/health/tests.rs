@@ -41,7 +41,7 @@ async fn test_heartbeat_fail() -> Result<(), Box<dyn Error>> {
         while let Ok((mut inbound, _)) = listener.accept().await {
             let mut buffer = [0_u8; 24];
             inbound.read(&mut buffer).await.unwrap();
-            tokio::time::sleep(Duration::from_millis(200)).await;
+            tokio::time::sleep(Duration::from_millis(2003)).await;
             inbound.shutdown().await.unwrap();
         }
     });
