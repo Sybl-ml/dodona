@@ -92,7 +92,8 @@ impl ClientMessage {
     }
 
     /// Reads from the socket until given predicate is true or until
-    /// the timeout has been reached.
+    /// the timeout has been reached. This will return the client message
+    /// if the predicate is passed, or it will propate an error back up.
     pub async fn read_until(
         stream: &mut TcpStream,
         buffer: &mut [u8],
