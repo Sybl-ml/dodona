@@ -384,6 +384,11 @@ impl NodePool {
         )
         .await??;
 
+        let config_response = ClientMessage::read_until(&mut *dcn_stream, &mut buffer, |m| {
+            matches!(m, ClientMessage::ConfigResponse { .. })
+        })
+        .await;
+
         log::trace!(
             "model_id={} responded with config_response={:?}",
             model_id,
@@ -391,8 +396,8 @@ impl NodePool {
         );
 
         let accept = match config_response {
-            ClientMessage::ConfigResponse { accept } => accept,
-            _ => unreachable!(),
+            Ok(ClientMessage::ConfigResponse { accept }) => accept,
+            _ => false,
         };
 
         log::debug!(

@@ -1,7 +1,11 @@
 //! Contains the builder functions used to generate message for DCL-DCN protcol
 
+use anyhow::{Error, Result};
 use chrono::{Duration, Utc};
+use std::time::Instant;
+use tokio::net::TcpStream;
 
+use crate::ReadLengthPrefix;
 use models::jobs::{JobConfiguration, PredictionType};
 
 /// Different messages to be passed between DCL and DCN
@@ -85,6 +89,26 @@ impl ClientMessage {
             train: encoded_training,
             predict: encoded_prediction,
         }
+    }
+
+    /// Reads from the socket until given predicate is true or until
+    /// the timeout has been reached.
+    pub async fn read_until(
+        stream: &mut TcpStream,
+        buffer: &mut [u8],
+        predicate: fn(&ClientMessage) -> bool,
+    ) -> Result<Self> {
+        let wait = std::time::Duration::from_millis(2000);
+        let now = Instant::now();
+
+        while now.elapsed() >= wait {
+            let config_response: ClientMessage =
+                ClientMessage::from_stream(&mut *stream, buffer).await?;
+            if predicate(&config_response) {
+                return Ok(config_response);
+            }
+        }
+        Err(Error::msg("Predicate not satisfied within timeout"))
     }
 }
 
