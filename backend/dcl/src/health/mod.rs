@@ -105,7 +105,7 @@ pub async fn heartbeat(model_id: &str, stream_lock: Arc<RwLock<TcpStream>>) -> b
         return false;
     }
 
-    let wait = Duration::from_millis(100);
+    let wait = Duration::from_millis(2000);
     let mut buffer = [0_u8; 64];
     let future = stream.read(&mut buffer);
 

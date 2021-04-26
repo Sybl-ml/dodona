@@ -376,7 +376,7 @@ impl NodePool {
         let mut buffer = [0_u8; 1024];
         let message = ClientMessage::from(config);
         dcn_stream.write(&message.as_bytes()).await?;
-        let wait = Duration::from_millis(100);
+        let wait = Duration::from_millis(2000);
 
         let config_response = timeout(
             wait,
