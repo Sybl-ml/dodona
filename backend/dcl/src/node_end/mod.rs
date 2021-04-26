@@ -256,6 +256,7 @@ impl NodePool {
                         if info.performance > 0.5 {
                             better_nodes.push((id.clone(), info.performance));
                         }
+                        self.active.fetch_sub(1, Ordering::SeqCst);
 
                         continue;
                     }
@@ -324,8 +325,6 @@ impl NodePool {
             cluster_size,
             cluster_performance
         );
-
-        self.active.fetch_sub(cluster.len(), Ordering::SeqCst);
 
         // output cluster
         match cluster.len() {
@@ -438,7 +437,7 @@ impl NodePool {
         if !node_info.alive && status {
             self.active.fetch_add(1, Ordering::SeqCst);
             self.job_notify.notify_waiters();
-        } else if node_info.alive && !status {
+        } else if node_info.alive && !status && !node_info.using {
             self.active.fetch_sub(1, Ordering::SeqCst);
         }
 
