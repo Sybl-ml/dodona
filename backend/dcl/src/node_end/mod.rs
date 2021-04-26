@@ -11,8 +11,6 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
-use std::time::Duration;
-use tokio::time::timeout;
 
 use anyhow::Result;
 use mongodb::{
@@ -24,7 +22,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Notify, RwLock};
 
-use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
+use messages::{ClientMessage, WriteLengthPrefix};
 use models::models::Status;
 use models::{job_performance::JobPerformance, jobs::JobConfiguration};
 
@@ -376,13 +374,6 @@ impl NodePool {
         let mut buffer = [0_u8; 1024];
         let message = ClientMessage::from(config);
         dcn_stream.write(&message.as_bytes()).await?;
-        let wait = Duration::from_millis(2000);
-
-        let config_response = timeout(
-            wait,
-            ClientMessage::from_stream(&mut *dcn_stream, &mut buffer),
-        )
-        .await??;
 
         let config_response = ClientMessage::read_until(&mut *dcn_stream, &mut buffer, |m| {
             matches!(m, ClientMessage::ConfigResponse { .. })
