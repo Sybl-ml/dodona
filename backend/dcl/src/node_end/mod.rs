@@ -424,8 +424,6 @@ impl NodePool {
         self.active.fetch_add(1, Ordering::SeqCst);
         self.job_notify.notify_waiters();
 
-        log::info!("Active Nodes: {:?}", self.active);
-
         Ok(())
     }
 
