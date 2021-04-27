@@ -113,16 +113,9 @@ pub async fn heartbeat(model_id: &str, stream_lock: Arc<RwLock<TcpStream>>) -> b
     .await;
     let response_time = Instant::now() - start;
 
-    let alive = match health_response {
-        Ok(ClientMessage::Alive { timestamp }) => {
-            (timestamp <= start_timestamp + 2) && (timestamp >= start_timestamp)
-        }
-        _ => false,
-    };
-
     log::trace!("model_id={} took {:?} to respond", model_id, response_time);
 
-    alive
+    matches!(health_response, Ok(ClientMessage::Alive { timestamp }) if timestamp == start_timestamp)
 }
 
 ///
