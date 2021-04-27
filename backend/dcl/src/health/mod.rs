@@ -12,11 +12,7 @@ use mongodb::{
 };
 use tokio::net::TcpStream;
 use tokio::sync::RwLock;
-use tokio::time::timeout;
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    time::Instant,
-};
+use tokio::{io::AsyncWriteExt, time::Instant};
 
 use anyhow::Result;
 
@@ -94,33 +90,39 @@ pub async fn check_health(database: Arc<Database>, nodepool: Arc<NodePool>) -> R
 pub async fn heartbeat(model_id: &str, stream_lock: Arc<RwLock<TcpStream>>) -> bool {
     let mut stream = stream_lock.write().await;
 
-    let timestamp = SystemTime::now()
+    let start_timestamp = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap()
         .as_secs();
 
-    let message = ClientMessage::Alive { timestamp }.as_bytes();
+    let message = ClientMessage::Alive {
+        timestamp: start_timestamp,
+    }
+    .as_bytes();
 
     if stream.write(&message).await.is_err() {
         return false;
     }
 
-    let wait = Duration::from_millis(2000);
     let mut buffer = [0_u8; 64];
-    let future = stream.read(&mut buffer);
 
     let start = Instant::now();
-    let response = timeout(wait, future).await;
+    let health_response = ClientMessage::read_until(&mut *stream, &mut buffer, |m| {
+        matches!(m, ClientMessage::Alive { .. })
+    })
+    .await;
     let response_time = Instant::now() - start;
 
-    log::trace!(
-        "model_id={} took {:?} to respond, given {:?}",
-        model_id,
-        response_time,
-        wait
-    );
+    let alive = match health_response {
+        Ok(ClientMessage::Alive { timestamp }) => {
+            (timestamp <= start_timestamp + 2) && (timestamp >= start_timestamp)
+        }
+        _ => false,
+    };
 
-    response.is_ok()
+    log::trace!("model_id={} took {:?} to respond", model_id, response_time);
+
+    alive
 }
 
 ///

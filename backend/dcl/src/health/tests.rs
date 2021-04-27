@@ -3,6 +3,7 @@ use super::*;
 use std::error::Error;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::time::Duration;
+use tokio::io::AsyncReadExt;
 
 use tokio::net::{TcpListener, TcpStream};
 

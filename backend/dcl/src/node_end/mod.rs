@@ -389,7 +389,7 @@ impl NodePool {
         let accept = match config_response {
             Ok(ClientMessage::ConfigResponse { accept }) => accept,
             Err(e) => {
-                log::warn!("{}. ConfigResponse not found.", e);
+                log::warn!("Failed to read a `ConfigResponse` from the stream: {}", e);
                 false
             }
             _ => unreachable!(),
