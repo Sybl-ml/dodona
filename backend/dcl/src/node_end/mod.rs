@@ -318,6 +318,13 @@ impl NodePool {
             }
         }
 
+        // Reset all the nodes that accepted to not in use
+        for model_id in accepted_job.iter().map(|x| &x.0) {
+            self.end(&model_id)
+                .await
+                .expect("Failed to update the node status");
+        }
+
         log::info!(
             "Successfully built a cluster with size={}, cluster_performance={}",
             cluster_size,
@@ -416,6 +423,8 @@ impl NodePool {
 
         self.active.fetch_add(1, Ordering::SeqCst);
         self.job_notify.notify_waiters();
+
+        log::info!("Active Nodes: {:?}", self.active);
 
         Ok(())
     }

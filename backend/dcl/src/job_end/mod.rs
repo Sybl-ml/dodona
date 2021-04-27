@@ -653,6 +653,7 @@ pub async fn dcl_protocol(
     }
 
     update_model_statistics(&database, &model_id, processing_time_secs).await?;
+    log::info!("Ending Node {} Connection", model_id);
     nodepool.end(&model_id).await?;
 
     let remaining_nodes = cluster_control.decrement().await;
