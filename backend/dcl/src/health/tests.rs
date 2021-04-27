@@ -16,8 +16,21 @@ async fn test_heartbeat() -> Result<(), Box<dyn Error>> {
 
     tokio::spawn(async move {
         while let Ok((mut inbound, _)) = listener.accept().await {
-            let mut buffer = [0_u8; 24];
-            inbound.read(&mut buffer).await.unwrap();
+            let mut buffer = [0_u8; 64];
+            let initial_hb = ClientMessage::read_until(&mut inbound, &mut buffer, |m| {
+                matches!(m, ClientMessage::Alive { .. })
+            })
+            .await;
+
+            match initial_hb {
+                Ok(ClientMessage::Alive { timestamp }) => {
+                    let message = ClientMessage::Alive { timestamp }.as_bytes();
+                    if inbound.write(&message).await.is_err() {
+                        assert!(false);
+                    }
+                }
+                _ => assert!(false),
+            };
         }
     });
 
