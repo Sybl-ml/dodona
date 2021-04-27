@@ -102,7 +102,7 @@ impl ClientMessage {
         let wait = std::time::Duration::from_millis(2000);
         let now = Instant::now();
 
-        while now.elapsed() >= wait {
+        while wait >= now.elapsed() {
             let config_response: ClientMessage =
                 ClientMessage::from_stream(&mut *stream, buffer).await?;
             if predicate(&config_response) {
