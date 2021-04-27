@@ -469,13 +469,14 @@ async fn run_cluster(
                 &model_id,
                 dcn_stream,
                 info_clone,
-                cc_clone,
+                cc_clone.clone(),
                 train_predict,
                 wbm_clone,
             );
 
             if timeout(wait, future).await.is_err() {
                 log::warn!("Model with id={} failed to respond in time", model_id);
+                cc_clone.decrement().await;
             }
         });
     }
