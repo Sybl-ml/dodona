@@ -62,7 +62,7 @@
                         >
                           <b-icon-clipboard-plus
                             id="clipboard_btn1"
-                            @click="copy(clone_code)"
+                            @click="copy(cli_deps, cli_code)"
                           ></b-icon-clipboard-plus>
                           <b-tooltip target="clipboard_btn1" variant="primary" placement="right" triggers="click">Copied!</b-tooltip>
                         </b-button>
@@ -91,7 +91,7 @@
                         >
                           <b-icon-clipboard-plus
                             id="clipboard_btn2"
-                            @click="copy(req_code)"
+                            @click="copy(cli_setup)"
                           ></b-icon-clipboard-plus>
                           <b-tooltip target="clipboard_btn2" variant="primary" placement="right" triggers="click">Copied!</b-tooltip>
                         </b-button>
@@ -137,8 +137,13 @@ export default {
     this.$store.dispatch("getModels");
   },
   methods: {
-    async copy(s) {
-      await navigator.clipboard.writeText(s);
+    async copy(...lines) {
+      // Concatenate all the arguments
+      let text = lines.reduce((previous, current) => {
+        return previous + "\n" + current;
+      });
+
+      await navigator.clipboard.writeText(text);
     },
   },
   computed: {
