@@ -43,7 +43,7 @@
             <project-analysis :id="projectId" v-bind="analysisProps" />
           </b-tab>
           <b-tab
-            title="Input"
+            title="Input Data"
             lazy
             ref="inputTab"
             :disabled="projectUnfinished"
@@ -54,7 +54,7 @@
               v-on:input-tab="viewInput"
             />
           </b-tab>
-          <b-tab title="Output" lazy :disabled="projectComplete">
+          <b-tab title="Output Predictions" lazy :disabled="projectComplete">
             <project-output
               :disabled="!results"
               :projectId="projectId"
