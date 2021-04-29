@@ -58,3 +58,97 @@ pub trait WriteLengthPrefix: Serialize {
         message
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+
+    use super::*;
+
+    // Create a basic type for testing
+    #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+    struct Basic {
+        id: u32,
+        value: u64,
+    }
+
+    // Create a larger type for testing
+    #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+    struct Large {
+        content: String,
+    }
+
+    #[test]
+    fn length_prefixed_messages_can_be_created() {
+        let message = Basic { id: 10, value: 24 };
+        let prefixed = message.as_bytes();
+
+        // Includes the length prefix itself
+        let expected = b"\x00\x00\x00\x14{\"id\":10,\"value\":24}";
+
+        assert_eq!(prefixed, expected);
+    }
+
+    #[test]
+    fn larger_length_prefixed_messages_can_be_created() {
+        let message = Large {
+            content: String::from("some longer string of characters"),
+        };
+
+        let prefixed = message.as_bytes();
+
+        // Includes the length prefix itself
+        let expected = b"\x00\x00\x00\x2e{\"content\":\"some longer string of characters\"}";
+
+        assert_eq!(prefixed, expected);
+    }
+
+    #[tokio::test]
+    async fn length_prefixed_messages_can_be_read() -> Result<()> {
+        // Includes the length prefix itself
+        let mut cursor = Cursor::new(b"\x00\x00\x00\x14{\"id\":10,\"value\":24}");
+        let mut buffer = [0_u8; 64];
+        let message = Basic::from_stream(&mut cursor, &mut buffer).await?;
+
+        let expected = Basic { id: 10, value: 24 };
+
+        assert_eq!(message, expected);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn length_prefixed_messages_can_be_read_with_smaller_buffers() -> Result<()> {
+        // Includes the length prefix itself
+        let mut cursor = Cursor::new(b"\x00\x00\x00\x14{\"id\":10,\"value\":24}");
+
+        // Use a buffer smaller than the message size
+        let mut buffer = [0_u8; 5];
+        let message = Basic::from_stream(&mut cursor, &mut buffer).await?;
+
+        let expected = Basic { id: 10, value: 24 };
+
+        assert_eq!(message, expected);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn larger_length_prefixed_messages_can_be_read_with_smaller_buffers() -> Result<()> {
+        // Includes the length prefix itself
+        let mut cursor =
+            Cursor::new(b"\x00\x00\x00\x2e{\"content\":\"some longer string of characters\"}");
+
+        // Use a buffer smaller than the message size
+        let mut buffer = [0_u8; 7];
+        let message = Large::from_stream(&mut cursor, &mut buffer).await?;
+
+        let expected = Large {
+            content: String::from("some longer string of characters"),
+        };
+
+        assert_eq!(message, expected);
+
+        Ok(())
+    }
+}

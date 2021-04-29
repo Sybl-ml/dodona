@@ -6,7 +6,7 @@ use mongodb::bson::{self, doc, oid::ObjectId};
 use utils::Columns;
 
 /// Different types of problem Sybl can accept
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PredictionType {
     /// Predicting a class of data
@@ -22,7 +22,7 @@ impl Default for PredictionType {
 }
 
 /// Parameters required for configuring a job.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct JobConfiguration {
     /// The identifier of the project to be processed
     pub project_id: ObjectId,
@@ -67,7 +67,7 @@ impl JobConfiguration {
 }
 
 /// Defines the information that should be stored with a job in the database.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Job {
     /// The unique identifier for the job
     #[serde(rename = "_id")]

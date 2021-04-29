@@ -40,6 +40,7 @@ use utils::generate_ids;
 use utils::{Column, Columns};
 
 pub mod ml;
+pub mod queue;
 
 const PREDICTION_CHUNK_SIZE: usize = 10_000;
 
