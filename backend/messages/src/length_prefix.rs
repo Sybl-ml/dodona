@@ -1,7 +1,5 @@
 //! Contains a trait to allow any object to become length prefixed bytes.
 
-use std::convert::TryInto;
-
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
@@ -30,20 +28,14 @@ pub trait ReadLengthPrefix: DeserializeOwned {
         let mut bytes = Vec::new();
         let mut remaining_size = message_size;
 
-        while buffer.len() < remaining_size.try_into().unwrap() {
-            stream.read(&mut buffer).await?;
-            bytes.extend_from_slice(buffer);
-            remaining_size -= buffer.len() as u32;
+        // Enforce only reading the given size
+        let mut truncated = stream.take(u64::from(remaining_size));
+
+        while remaining_size != 0 {
+            let size = truncated.read(&mut buffer).await?;
+            bytes.extend_from_slice(&buffer[..size]);
+            remaining_size -= size as u32;
         }
-
-        // Calculate the remaining number of bytes
-        let remaining = (remaining_size as usize) % buffer.len();
-
-        // Enforce reading only `remaining` bytes
-        let mut truncated = stream.take(remaining as u64);
-        truncated.read(&mut buffer).await?;
-
-        bytes.extend_from_slice(&buffer[..remaining]);
 
         Ok(serde_json::from_slice(&bytes)?)
     }
