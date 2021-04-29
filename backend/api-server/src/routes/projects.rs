@@ -268,29 +268,28 @@ pub async fn upload_train_and_predict(
         let mut dataset = gridfs::File::new(String::from(filename));
 
         while let Some(Ok(chunk)) = field.next().await {
-            if name == "train" {
-                if initial {
-                    let data_head = std::str::from_utf8(&chunk).unwrap();
-                    let data_head = data_head.lines().take(6).collect::<Vec<_>>().join("\n");
+            if initial && name == "train" {
+                let data_head = std::str::from_utf8(&chunk).unwrap();
+                let data_head = data_head.lines().take(6).collect::<Vec<_>>().join("\n");
 
-                    initial = false;
+                initial = false;
 
-                    let analysis = utils::analysis::analyse(&data_head);
+                let analysis = utils::analysis::analyse(&data_head);
 
-                    let column_types = analysis.types;
-                    col_num = column_types.len();
+                let column_types = analysis.types;
+                col_num = column_types.len();
 
-                    let details = DatasetDetails::new(
-                        String::from(filename),
-                        object_id.clone(),
-                        data_head,
-                        column_types,
-                    );
+                let details = DatasetDetails::new(
+                    String::from(filename),
+                    object_id.clone(),
+                    data_head,
+                    column_types,
+                );
 
-                    let document = to_document(&details)?;
-                    dataset_details.insert_one(document, None).await?;
-                }
+                let document = to_document(&details)?;
+                dataset_details.insert_one(document, None).await?;
             }
+
             // Fill file
             general_buffer.extend_from_slice(&chunk);
 
