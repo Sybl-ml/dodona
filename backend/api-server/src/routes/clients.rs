@@ -83,6 +83,43 @@ pub async fn register(
     }
 }
 
+/// Generates a new private key for the user.
+///
+/// This is used if they misplace or forget their old one and will delete the existing matching
+/// public key from the database.
+pub async fn generate_private_key(claims: auth::Claims, state: web::Data<State>) -> ServerResponse {
+    let clients = state.database.collection("clients");
+
+    // Generate a new public and private key
+    let (private_key, public_key) = crypto::encoded_key_pair();
+
+    // Build filter and update documents
+    let filter = doc! { "user_id": &claims.id };
+    let update = doc! { "$set": { "public_key": public_key } };
+
+    // Update the database with the new public key, asserting we changed something
+    let update_result = clients.update_one(filter, update, None).await?;
+
+    // If nothing happened, return a 403 Forbidden as the user is not a client
+    if update_result.modified_count != 1 {
+        log::warn!(
+            "Updated {} clients matching user_id={} with a new private key",
+            update_result.modified_count,
+            &claims.id
+        );
+
+        return Err(ServerError::Forbidden);
+    }
+
+    log::info!(
+        "Updated the public/private key pair for user_id={}",
+        claims.id
+    );
+
+    // Send the key back to the frontend to display
+    response_from_json(doc! {"privKey": private_key})
+}
+
 /// Registers a new model for a given user.
 ///
 /// Checks whether the given user is a client and that they do not already have a model with the
@@ -182,7 +219,13 @@ pub async fn verify_challenge(
     let challenge_response = base64::decode(&payload.challenge_response)?;
 
     if !crypto::verify_challenge(&challenge, &challenge_response, &public_key) {
-        log::warn!("Provided challenge did not match expected");
+        log::warn!(
+            "Provided challenge did not match expected, deleting model_id={}",
+            model.id
+        );
+
+        models.delete_one(filter, None).await?;
+
         return Err(ServerError::Unauthorized);
     }
 
@@ -280,6 +323,10 @@ pub async fn authenticate_model(
         .await?
         .ok_or(ServerError::Unauthorized)?;
     let mut model: ClientModel = from_document(model_doc)?;
+
+    if model.locked {
+        return response_from_json_with_code(doc! {"message": "Locked"}, StatusCode::UNAUTHORIZED);
+    }
 
     let token = base64::decode(&payload.token)?;
 

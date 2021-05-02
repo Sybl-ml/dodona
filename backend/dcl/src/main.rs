@@ -4,7 +4,9 @@ fn main() {
     let filters = vec![
         ("dcl", log::LevelFilter::Debug),
         ("config", log::LevelFilter::Debug),
+        ("messages", log::LevelFilter::Debug),
         ("models", log::LevelFilter::Debug),
+        ("utils", log::LevelFilter::Debug),
     ];
 
     utils::setup_logger_with_filters(filters);

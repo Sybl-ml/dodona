@@ -1,5 +1,7 @@
 # Dodona
 
+[![codecov](https://codecov.io/gh/FreddieBrown/dodona/branch/develop/graph/badge.svg?token=2LEVZ215BB)](https://codecov.io/gh/FreddieBrown/dodona)
+
 Dodona encapsulates the frontend and API server for the business website. The
 frontend is written in Vue.js and the server is written in Rust, using MongoDB
 as a persistant store.

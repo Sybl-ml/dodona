@@ -6,6 +6,7 @@ export default {
   props: {
     chartData: Object,
     name: String,
+    color: String,
   },
   data() {
     return {
@@ -30,6 +31,7 @@ export default {
                 labelString: "Count",
               },
               ticks: {
+                beginAtZero: true,
                 stepSize: 1,
               },
             },
@@ -44,17 +46,22 @@ export default {
   methods: {
     renderNewData(data) {
       let render_data = {
-        labels: Object.keys(data),
+        labels: Object.keys(data).slice(0, 30),
         datasets: [
           {
             label: this.name,
-            backgroundColor: "rgb(255, 99, 132)",
-            data: Object.values(data),
+            backgroundColor: this.color,
+            data: Object.values(data).slice(0, 30),
           },
         ],
       };
       this.renderChart(render_data, this.options);
     },
   },
+  watch: {
+    chartData: function() {
+      this.renderNewData(this.chartData);
+    }
+  }
 };
 </script>

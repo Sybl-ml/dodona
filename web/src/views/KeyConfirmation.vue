@@ -2,11 +2,18 @@
   <b-container>
     <b-row>
       <b-col>
-        <p>
-          This is your private key please save this somewhere secure. This key
-          will not be saved but you can request a new one anytime through the
-          settings.
-        </p>
+        <h1>Models</h1>
+      </b-col>
+    </b-row>
+
+    <hr />
+    <b-row class="justify-content-center mb-2">
+      <b-col xs="12" lg="10">
+        <h5>This is your private key please save this somewhere secure.</h5>
+        <h5>
+          This key will not be saved but you can request a new one anytime
+          through the settings.
+        </h5>
       </b-col>
     </b-row>
     <b-row class="justify-content-center mb-5">
@@ -19,8 +26,10 @@
             <b-col style="text-align: right" md="2">
               <b-button variant="body">
                 <b-icon-clipboard-plus
+                  id="clipboard_btn"
                   @click="copy(private_key)"
                 ></b-icon-clipboard-plus>
+                <b-tooltip target="clipboard_btn" variant="primary" placement="right" triggers="click">Copied!</b-tooltip>
               </b-button>
             </b-col>
           </b-row>
@@ -36,10 +45,10 @@
 </template>
 
 <style scoped>
-  .rsaDisplay{
-    user-select: none; 
-    white-space:pre-wrap;
-  }
+.rsaDisplay {
+  user-select: none;
+  white-space: pre-wrap;
+}
 </style>
 
 <script>
@@ -53,7 +62,7 @@ export default {
       await navigator.clipboard.writeText(s);
     },
     nodes() {
-      this.$router.push({ name: "Nodes" });
+      this.$router.push({ name: "Models" });
     },
   },
 };

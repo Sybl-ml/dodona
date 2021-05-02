@@ -3,9 +3,9 @@
     <b-row>
       <b-col>
         <h1>Settings</h1>
-        <hr>
+        <hr />
         <h5>Change Avatar Icon:</h5>
-        <avatar-upload @upload="onUpload"/>
+        <avatar-upload @upload="onUpload" />
         <b-button
           size="sm"
           variant="ready"
@@ -16,14 +16,30 @@
           :disabled="!avatarSrc"
         >
           Update
-        </b-button> 
+        </b-button>
+
+        <br />
+        <br />
+
+        <div v-show="client">
+          <h5>Regenerate Private Key:</h5>
+          <b-button
+            size="sm"
+            variant="ready"
+            type="submit"
+            style="width:10rem"
+            v-b-tooltip.hover
+            @click="generatePrivateKey"
+          >
+            Generate
+          </b-button>
+        </div>
       </b-col>
     </b-row>
   </b-container>
 </template>
 
-<style>
-</style>
+<style></style>
 <script>
 import AvatarUpload from "@/components/AvatarUpload.vue";
 
@@ -31,35 +47,36 @@ export default {
   name: "Settings",
   data() {
     return {
-      user_data: {},
       avatarSrc: "",
-    }
+    };
   },
   components: {
     AvatarUpload,
   },
-  async mounted() {
-    let user_id = $cookies.get("token");
-    try {
-      let data = await this.$http.get(
-        `api/users`
-      );
-      this.user_data = data.data
-    } catch (err) {
-      console.log(err);
-    }
-  },
   methods: {
-    onUpload(avatarSrc){
+    onUpload(avatarSrc) {
       this.avatarSrc = avatarSrc;
     },
-    uploadAvatar(){
+    uploadAvatar() {
       if (this.avatarSrc) {
-        this.$http.post("api/users/avatar", {
-          avatar: this.avatarSrc.split(",")[1],
-        });
+        this.$store.dispatch("postNewAvatar", this.avatarSrc.split(",")[1]);
       }
-      window.location.reload()
+    },
+    async generatePrivateKey() {
+      let response = await this.$store.dispatch("generatePrivateKey");
+
+      this.$router.push({
+        name: "PrivateKey",
+        params: { private_key: response.data.privKey },
+      });
+    },
+  },
+  computed: {
+    user_data() {
+      return this.$store.state.user_data.user_data;
+    },
+    client() {
+      return this.user_data.client;
     },
   },
 };

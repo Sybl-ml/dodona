@@ -12,8 +12,7 @@
         </b-row>
         <b-row class="justify-content-center">
           <b-col md="12" lg="8">
-            <h1 class="title">Data Science.</h1>
-            <h1 class="title">Simplified.</h1>
+            <h1 class="title">Data Science. Simplified.</h1>
             <br />
             <h3 class="subtitle">
               Get access to Machine Learning with a no-code solution.
@@ -22,7 +21,7 @@
             <b-button class="mr-3" variant="primary" size="lg" to="/register">
               I Have Data 💾
             </b-button>
-            <b-button class="ml-3" size="lg" variant="primary">
+            <b-button class="ml-3" size="lg" variant="primary" target="_blank" href="https://www.notion.so/Become-a-Client-581ccdc92e2946159ad94e3dec44f72e">
               I Have Models 📙
             </b-button>
           </b-col>
@@ -53,7 +52,7 @@
             <h3>Technical Resources</h3>
             <b-card-text>
               Sybl runs in the cloud using secure, private and anonymised data
-              pipelines to safley get insights from your data.
+              pipelines to safely get insights from your data.
             </b-card-text>
           </b-card>
         </b-col>
@@ -100,7 +99,7 @@
             <h3>Use Case</h3>
             <b-card-text>
               Whatever data you collect, Sybl uses cutting edge Machine Learning
-              to ensure that you always get the best psosible predictions.
+              to ensure that you always get the best possible predictions.
             </b-card-text>
           </b-card>
         </b-col>
@@ -131,7 +130,7 @@
                   >If you have data that you want predictions on, upload it to
                   Sybl. It can be anything - financial forecasts, customer
                   insights, even sports results! All data you upload is
-                  anonymused and made private before being used for Machine
+                  anonymised and made private before being used for Machine
                   Leaning.
                 </b-card-text>
               </b-card>
@@ -177,7 +176,6 @@
             </b-col>
             <b-col sm="12" lg="6">
               <b-row class="justify-content-center">
-                <!-- <drop /> -->
                 <b-icon icon="folder-symlink-fill" font-scale="10" />
               </b-row>
             </b-col>
@@ -195,12 +193,11 @@
         <b-button class="mr-3" variant="ready" size="lg" to="/register">
           I Have Data 💾
         </b-button>
-        <b-button class="ml-3" variant="ready" size="lg">
+        <b-button class="ml-3" variant="ready" size="lg" target="_blank" href="https://www.notion.so/Become-a-Client-581ccdc92e2946159ad94e3dec44f72e">
           I Have Models 📙
         </b-button>
       </b-row>
     </div>
-    <particles-bg  color="#cccccc" num=150 type="cobweb" :bg="true"/>
   </div>
 </template>
 
@@ -257,14 +254,12 @@ body {
 import IconLogo from "@/components/icons/IconLogo";
 import LandingImage from "@/components/icons/LandingImage";
 import Waves from "@/components/icons/waves";
-import { ParticlesBg } from "particles-bg-vue";
 
 export default {
   name: "Welcome",
   components: {
     landing: LandingImage,
     Waves,
-    ParticlesBg,
     IconLogo,
   },
 };

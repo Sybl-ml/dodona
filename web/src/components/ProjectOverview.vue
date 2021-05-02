@@ -1,17 +1,33 @@
 <template>
   <b-container fluid>
-    <b-row>
-      <b-col lg="8" sm="12" v-if="checkStatus('Processing')">
+    <b-row v-if="loading">loading...</b-row>
+    <b-row v-else>
+      <b-col v-if="this.status === 'Processing'" class="mb-3">
         <h4>Project Is Running ...</h4>
-        <b-progress
-          :value="value"
-          :variant="progressColor"
-          height="2rem"
-          show-progress
-          animated
-        ></b-progress>
+        <b-progress :max="progress.max" height="2rem" show-progress animated>
+          <b-progress-bar :value="progress.model_success" variant="primary" />
+          <b-progress-bar :value="progress.model_err" variant="danger" />
+        </b-progress>
       </b-col>
-      <b-col lg="8" sm="12" v-else-if="checkStatus('Ready')">
+      <b-col v-else-if="this.status === 'Complete'" class="mb-3">
+        <h4>Job Details</h4>
+        <br />
+        <p><b>Job Cost:</b> {{ this.current_job.config.cost }} Credits</p>
+        <p><b>Cluster Size:</b> {{ this.current_job.config.cluster_size }}</p>
+        <p>
+          <b>Prediction Column:</b>
+          {{ this.current_job.config.prediction_column }}
+        </p>
+        <p>
+          <b>Date Run:</b>
+          {{ new Date(this.current_job.date_created["$date"]).toUTCString() }}
+        </p>
+        <p>
+          <b>Average Model Computation Time:</b>
+          {{ this.job_stats.average_job_computation_secs }}s
+        </p>
+      </b-col>
+      <b-col lg="8" sm="12" v-else-if="this.status === 'Ready'" class="mb-3">
         <h4>Description:</h4>
         <div class="scrollable_description mb-3">
           {{ description }}
@@ -19,7 +35,7 @@
         <h4>Linked Dataset:</h4>
         <b-button-group size="sm" class="mb-3">
           <b-button variant="secondary" @click="$emit('input-tab')">{{
-            datasetName
+            dataset_name
           }}</b-button>
           <b-button variant="outline-secondary" v-b-modal.deleteDataCheck
             >X</b-button
@@ -32,7 +48,7 @@
           title="Are your sure?"
           hide-footer
         >
-          <p>You are removing {{ datasetName }} from this project</p>
+          <p>You are removing {{ dataset_name }} from this project</p>
           <p>Please confirm you are happy to continue</p>
           <b-row class="justify-content-center text-center">
             <b-button class="m-2" variant="success" @click="deleteDataset"
@@ -48,6 +64,45 @@
         </b-modal>
 
         <h4>Job Configuration:</h4>
+
+        <p><b>Job Cost:</b> {{ this.jobCost }} credits</p>
+
+        <b-form-group>
+          <label>
+            Problem Type <b-icon-question-circle id="prob-type" />
+          </label>
+          <b-form-select
+            size="sm"
+            :options="problemTypeOptions"
+            v-model="problemType"
+          /><b-tooltip
+            target="prob-type"
+            triggers="hover"
+            variant="primary"
+            placement="right"
+            delay="500"
+            >Regression refers to the prediction of decimal numbers.
+            Classification refers to the prediction of different labels. See our
+            guide Introduction to Machine Learning for more details
+          </b-tooltip>
+        </b-form-group>
+        <b-form-group>
+          <label>
+            Prediction Column <b-icon-question-circle id="pred-col" />
+          </label>
+          <b-form-select
+            size="sm"
+            :options="getColumnNames"
+            v-model="predColumn"
+          /><b-tooltip
+            target="pred-col"
+            triggers="hover"
+            variant="primary"
+            placement="right"
+            delay="500"
+            >The column that you want models to predict on
+          </b-tooltip>
+        </b-form-group>
         <b-button
           v-b-toggle.job-config
           pill
@@ -55,46 +110,50 @@
           size="sm"
           class="mb-3"
           @click="expandJob = !expandJob"
-          >{{ expandJob ? "Show" : "Hide" }}</b-button
+          >{{ expandJob ? "Advanced" : "Minimize" }}</b-button
         >
         <b-collapse id="job-config">
-          <b-form-group
-            label="Node Computation Time (mins)"
-            label-for="dropdown-form-timeout"
-          >
+          <b-form-group>
+            <label>
+              Model Computation Time (mins)
+              <b-icon-question-circle id="timeout" />
+            </label>
             <b-form-input
-              id="dropdown-form-timeout"
               size="sm"
               type="number"
+              min="1"
               v-model="nodeComputationTime"
             ></b-form-input>
+            <b-tooltip
+              target="timeout"
+              triggers="hover"
+              variant="primary"
+              placement="right"
+              delay="500"
+              >The amount of time models should be given to run on your data.
+              The bigger your dataset, the more time you might want to give
+              models to run.
+            </b-tooltip>
           </b-form-group>
-          <b-form-group
-            label="Cluster Size"
-            label-for="dropdown-form-cluster-size"
-          >
+          <b-form-group>
+            <label>
+              Cluster Size <b-icon-question-circle id="cluster-size" />
+            </label>
             <b-form-input
-              id="dropdown-form-cluster-size"
               size="sm"
               type="number"
+              min="1"
               v-model="cluster_size"
             ></b-form-input>
-          </b-form-group>
-          <b-form-group label="Problem Type" label-for="dropdown-form-type">
-            <b-form-select
-              id="dropdown-form-type"
-              size="sm"
-              :options="problemTypeOptions"
-              v-model="problemType"
-            />
-          </b-form-group>
-          <b-form-group label="Prediction Column" label-for="dropdown-pred-col">
-            <b-form-select
-              id="dropdown-pred-col"
-              size="sm"
-              :options="getColumnNames"
-              v-model="predColumn"
-            />
+            <b-tooltip
+              target="cluster-size"
+              triggers="hover"
+              variant="primary"
+              placement="right"
+              delay="500"
+              >The number of models who should be asked to make predictions on
+              your data
+            </b-tooltip>
           </b-form-group>
         </b-collapse>
         <h4>To start computation click the button below</h4>
@@ -120,71 +179,6 @@
           >Upload</b-button
         >
       </b-col>
-      <b-col lg="4" sm="12" >
-        <b-card class="h-100 shadow" v-if="!checkStatus('Unfinished') & analysis_loaded">
-          <template #header>
-            <h4 class="mb-0">Analysis</h4>
-          </template>
-
-          <b-form-group
-            label="Select a Column:"
-            label-for="dropdown-analysis-select"
-          >
-            <b-form-select
-              id="dropdown-analysis-select"
-              size="sm"
-              :options="getAnalysisOptions"
-              v-model="analysis_selected"
-              v-on:change="update_analysis"
-            />
-          </b-form-group>
-          <b-row
-            v-if="!analysis_loaded"
-            class="justify-content-center text-center"
-          >
-            <b-spinner />
-          </b-row>
-          <div v-else>
-            <div v-if="this.analysis.columns[this.analysis_selected].Numerical">
-              <numerical-data-analytics-bar
-                :chart-data="
-                  this.analysis.columns[this.analysis_selected].Numerical.values
-                "
-                :name="this.analysis_selected"
-                ref="analysis_chart"
-              />
-              <p>
-                MAX -
-                {{
-                  this.analysis.columns[this.analysis_selected].Numerical.max
-                }}
-              </p>
-              <p>
-                MIN -
-                {{
-                  this.analysis.columns[this.analysis_selected].Numerical.min
-                }}
-              </p>
-              <p>
-                AVG -
-                {{
-                  this.analysis.columns[this.analysis_selected].Numerical.avg
-                }}
-              </p>
-            </div>
-            <div v-else>
-              <data-analytics-bar
-                :chart-data="
-                  this.analysis.columns[this.analysis_selected].Categorical
-                    .values
-                "
-                :name="this.analysis_selected"
-                ref="analysis_chart"
-              />
-            </div>
-          </div>
-        </b-card>
-      </b-col>
     </b-row>
   </b-container>
 </template>
@@ -201,31 +195,13 @@
 </style>
 
 <script>
-import DataAnalyticsBar from "@/components/charts/DataAnalyticsBar";
-import NumericalDataAnalyticsBar from "@/components/charts/NumericalDataAnalyticsBar";
 import FileUpload from "@/components/FileUpload";
-
-const readUploadedFileAsText = (inputFile) => {
-  const temporaryFileReader = new FileReader();
-  return new Promise((resolve, reject) => {
-    temporaryFileReader.onerror = () => {
-      temporaryFileReader.abort();
-      reject(new DOMException("Problem parsing input file."));
-    };
-
-    temporaryFileReader.onload = () => {
-      resolve(temporaryFileReader.result);
-    };
-    temporaryFileReader.readAsText(inputFile);
-  });
-};
+import _ from "lodash";
 
 export default {
   name: "ProjectOverview",
   components: {
     FileUpload,
-    DataAnalyticsBar,
-    NumericalDataAnalyticsBar,
   },
   data() {
     return {
@@ -235,9 +211,7 @@ export default {
       file: null,
       problemType: null,
       predColumn: null,
-      analysis_selected: null,
       expandJob: true,
-
       problemTypeOptions: [
         {
           value: null,
@@ -257,35 +231,40 @@ export default {
   props: {
     projectId: String,
     description: String,
-    datasetName: String,
-    dataDate: Date,
-    dataHead: Object,
-    dataTypes: Object,
     status: String,
-    analysis: Object,
-    analysis_loaded: Boolean,
+    dataset_name: String,
+    dataset_head: Object,
+    dataset_date: Date,
+    dataset_types: Object,
+    dataset_train_size: Number,
+    dataset_predict_size: Number,
+    current_job: Object,
+    job_stats: Object,
   },
   computed: {
+    loading() {
+      if (this.status === "Processing" && _.isEmpty(this.current_job)) {
+        return true;
+      } else if (
+        this.status === "Complete" &&
+        (_.isEmpty(this.current_job) || _.isEmpty(this.job_stats))
+      ) {
+        return true;
+      }
+      return false;
+    },
     getDatasetDate() {
-      return `${this.dataDate.toLocaleString("en-GB", {
+      return `${this.dataset_date.toLocaleString("en-GB", {
         dateStyle: "short",
-      })} - ${this.dataDate.toLocaleString("en-GB", {
+      })} - ${this.dataset_date.toLocaleString("en-GB", {
         timeStyle: "short",
       })}`;
     },
-    progressColor() {
-      if (this.value === 100) {
-        return "completed";
-      } else if (this.value < 25) {
-        return "warning";
-      } else if (this.value < 50) {
-        return "primary";
-      } else if (this.value < 75) {
-        return "ready";
-      }
+    progress() {
+      return this.$store.getters.getProjectProgress(this.projectId);
     },
     getColumnNames() {
-      let keys = Object.keys(this.dataTypes);
+      let keys = Object.keys(this.dataset_types);
       let options = [
         {
           value: null,
@@ -296,96 +275,49 @@ export default {
       return options;
     },
     startDisabled() {
-      return this.predColumn == null || this.problemType == null;
+      return (
+        this.predColumn == null ||
+        this.problemType == null ||
+        this.jobCost > this.$store.state.user_data.credits
+      );
     },
-    getAnalysisOptions() {
-      if (this.analysis_loaded) {
-        let keys = Object.keys(this.analysis.columns);
-        this.analysis_selected = keys[0];
-        return keys;
-      }
-      return [];
+    jobCost() {
+      let size = this.dataset_train_size + this.dataset_predict_size;
+      return (
+        Math.max(Math.floor(size / 1000), 1) *
+        this.cluster_size *
+        Object.keys(this.dataset_types).length
+      );
     },
   },
   methods: {
     async start() {
-      this.nodeComputationTime = parseInt(this.nodeComputationTime);
-      this.cluster_size = parseInt(this.cluster_size);
-      if (this.nodeComputationTime <= 0) {
-        this.nodeComputationTime = 1;
-      }
-      if (this.cluster_size <= 0) {
-        this.cluster_size = 1;
-      }
-      try {
-        await this.$http.post(`api/projects/${this.projectId}/process`, {
-          nodeComputationTime: this.nodeComputationTime,
-          clusterSize: this.cluster_size,
-          predictionType: this.problemType,
-          predictionColumn: this.predColumn,
-        });
-      } catch (err) {
-        console.log(err);
-      }
+      let payload = {
+        projectId: this.projectId,
+        node_computation_time: this.nodeComputationTime,
+        cluster_size: this.cluster_size,
+        prediction_type: this.problemType,
+        prediction_column: this.predColumn,
+      };
 
-      // this.$router.replace("/dashboard/"+this.projectId);
-      this.$emit("update:project", this.projectId);
+      this.$store.dispatch("startProcessing", payload);
     },
     async deleteDataset() {
-      try {
-        let project_response = await this.$http.delete(
-          `api/projects/${this.projectId}/data`
-        );
-      } catch (err) {
-        console.log(err);
-      }
+      console.log(this.projectId);
+      this.$store.dispatch("deleteData", this.projectId);
       this.$refs["deleteDataCheck"].hide();
-
-      window.location.reload();
     },
-    async sendFile(file) {
-
-      let formData = new FormData();
-
-      formData.append("dataset", file);
-
-      let config = { headers: { 'Content-Type': 'multipart/form-data' } };
-
-      let project_response = await this.$http.put(
-        `api/projects/${this.projectId}/upload_and_split`, formData, config
-      );
-
-      console.log(project_response)
-      
-      // On Success should update dashboard using emitters
-      window.location.reload();
-    },
-
-    async sendMultiFile(train, predict) {
-
-      let formData = new FormData();
-
-      formData.append("train", train);
-      formData.append("predict", predict);
-
-      let config = { headers: { 'Content-Type': 'multipart/form-data' } };
-
-      let project_response = await this.$http.put(
-        `api/projects/${this.projectId}/upload_train_and_predict`, formData, config
-      );
-
-      console.log(project_response)
-      
-      // On Success should update dashboard using emitters
-      window.location.reload();
-    },
-    
     async processFile() {
       console.log("Processing uploaded data");
       if (this.file.file) {
         try {
           console.log("Processing single file");
-          this.sendFile(this.file.file);
+          let payload = {
+            project_id: this.projectId,
+            multifile: false,
+            files: this.file.file,
+          };
+          this.$store.dispatch("sendFile", payload);
         } catch (e) {
           console.warn(e.message);
         }
@@ -393,20 +325,19 @@ export default {
         // Use train endpoint and predict endpoint
         console.log("Processing 2 files");
         try {
-          this.sendMultiFile(this.file.train, this.file.predict);
+          let payload = {
+            project_id: this.projectId,
+            multifile: true,
+            files: {
+              train: this.file.train,
+              predict: this.file.predict,
+            },
+          };
+          this.$store.dispatch("sendFile", payload);
         } catch (e) {
           console.warn(e.message);
         }
       }
-    },
-    update_analysis() {
-      if (this.analysis.columns[this.analysis_selected].Categorical)
-        this.$refs.analysis_chart.renderNewData(
-          this.analysis.columns[this.analysis_selected].Categorical.values
-        );
-    },
-    checkStatus(status_check) {
-      return this.status == status_check;
     },
   },
 };

@@ -20,7 +20,7 @@
       />
     </b-col>
     <b-col lg="4">
-      <b-form-group class="perPageContainer" label-cols="8" label-cols-lg="8" label="Per Page:" laebl-for="perPageSelect">
+      <b-form-group class="perPageContainer" label-cols="8" label-cols-lg="8" label="Per Page:" label-for="perPageSelect">
         <b-form-select id="perPageSelect" size="sm" v-model="perPage" :options="options"></b-form-select>
       </b-form-group>
     </b-col>
@@ -72,7 +72,6 @@ export default {
         `api/projects/${this.projectId}/pagination/${this.dataset_type}?page=${pagination.current_page}&per_page=${this.perPage}`
       );
 
-      console.log(page_data);
       // Set fields
       let total = page_data.data.total;
       let local = page_data.data.data;

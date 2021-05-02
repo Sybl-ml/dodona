@@ -5,9 +5,7 @@ extern crate serde;
 
 use anyhow::Result;
 use csv::{Reader, StringRecord, Writer};
-use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 
 use crypto::generate_string;
@@ -67,7 +65,7 @@ impl Column {
                 values
                     .iter()
                     .filter(|v| !v.is_empty())
-                    .zip(values.iter().map(|v| Column::obfuscate(v)))
+                    .zip(values.iter().map(|_| generate_string(8)))
                     .map(|(v, o)| (v.to_string(), o))
                     .collect(),
             ),
@@ -91,9 +89,9 @@ impl Column {
                 // if this `Column` holds categorical data, find the pseudonym for `value`
                 ColumnType::Categorical(mapping) => Some(mapping.get(&value)?.to_string()),
                 // if this `Column` holds numerical data, normalise `value` to the standard range
-                ColumnType::Numerical(min, max) => {
-                    Some(Column::normalise(f64::from_str(&value).ok()?, *min, *max).to_string())
-                }
+                ColumnType::Numerical(min, max) => Some(
+                    Column::normalise(f64::from_str(&value.trim()).ok()?, *min, *max).to_string(),
+                ),
             }
         }
     }
@@ -116,9 +114,9 @@ impl Column {
                     Some(mapping.iter().find(|(_, v)| **v == value)?.0.to_string())
                 }
                 // if this `Column` holds numerical data, denormalise `value` to its true range
-                ColumnType::Numerical(min, max) => {
-                    Some(Column::denormalise(f64::from_str(&value).ok()?, *min, *max).to_string())
-                }
+                ColumnType::Numerical(min, max) => Some(
+                    Column::denormalise(f64::from_str(&value.trim()).ok()?, *min, *max).to_string(),
+                ),
             }
         }
     }
@@ -143,14 +141,6 @@ impl Column {
         }
     }
 
-    // Given a `value`, create a random pseudonym for this value
-    pub fn obfuscate(value: &str) -> String {
-        let mut hasher = DefaultHasher::new();
-        value.hash(&mut hasher);
-        generate_string(64).hash(&mut hasher);
-        hasher.finish().to_string()
-    }
-
     // Returns true if and only if this `Column` represents categorical data
     pub fn is_categorical(&self) -> bool {
         matches!(self.column_type, ColumnType::Categorical(_))
@@ -169,7 +159,7 @@ impl From<ColumnValues> for Column {
         if let Ok(numerical) = values
             .iter()
             .filter(|v| !v.is_empty())
-            .map(|v| f64::from_str(v))
+            .map(|v| f64::from_str(v.trim()))
             .collect::<Result<Vec<_>, _>>()
         {
             let column_type = ColumnType::Numerical(
@@ -196,7 +186,7 @@ impl From<ColumnValues> for Column {
                     .iter()
                     .filter(|v| !v.is_empty())
                     // obfuscate each value in the column with a random pseudonym
-                    .zip(values.iter().map(|v| Column::obfuscate(v)))
+                    .zip(values.iter().map(|_| generate_string(8)))
                     .map(|(v, o)| (v.to_string(), o))
                     // when collected into a `HashMap`, conflicting pseudonyms for
                     // the same unique value are automatically resolved

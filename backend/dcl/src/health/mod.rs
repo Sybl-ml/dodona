@@ -10,10 +10,9 @@ use mongodb::{
     bson::{doc, oid::ObjectId},
     Database,
 };
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::RwLock;
-use tokio::time::timeout;
+use tokio::{io::AsyncWriteExt, time::Instant};
 
 use anyhow::Result;
 
@@ -49,7 +48,7 @@ pub async fn check_health(database: Arc<Database>, nodepool: Arc<NodePool>) -> R
 
     for (id, node) in nodes.iter() {
         if !nodepool.is_using(&id).await {
-            let alive = heartbeat(node.get_tcp()).await;
+            let alive = heartbeat(&id, node.get_tcp()).await;
 
             if !alive {
                 log::trace!("Node with id={} failed to respond", node.get_model_id());
@@ -88,25 +87,35 @@ pub async fn check_health(database: Arc<Database>, nodepool: Arc<NodePool>) -> R
 /// Checks to see if a node is still alive by sending it a
 /// small bit of JSON and it waits for its response. If it fails
 /// then it is treated as dead. If not then it is treated as alive.
-pub async fn heartbeat(stream_lock: Arc<RwLock<TcpStream>>) -> bool {
+pub async fn heartbeat(model_id: &str, stream_lock: Arc<RwLock<TcpStream>>) -> bool {
     let mut stream = stream_lock.write().await;
 
-    let timestamp = SystemTime::now()
+    let start_timestamp = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap()
         .as_secs();
 
-    let message = ClientMessage::Alive { timestamp }.as_bytes();
+    let message = ClientMessage::Alive {
+        timestamp: start_timestamp,
+    }
+    .as_bytes();
 
     if stream.write(&message).await.is_err() {
         return false;
     }
 
-    let wait = Duration::from_millis(100);
     let mut buffer = [0_u8; 64];
-    let future = stream.read(&mut buffer);
 
-    timeout(wait, future).await.is_ok()
+    let start = Instant::now();
+    let health_response = ClientMessage::read_until(&mut *stream, &mut buffer, |m| {
+        matches!(m, ClientMessage::Alive { .. })
+    })
+    .await;
+    let response_time = Instant::now() - start;
+
+    log::trace!("model_id={} took {:?} to respond", model_id, response_time);
+
+    matches!(health_response, Ok(ClientMessage::Alive { timestamp }) if timestamp == start_timestamp)
 }
 
 ///

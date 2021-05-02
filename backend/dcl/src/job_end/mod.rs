@@ -21,14 +21,14 @@ use rand::{thread_rng, Rng};
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio::sync::{Notify, RwLock};
-use tokio::time::timeout;
+use tokio::time::{timeout, Instant};
 
 use crate::node_end::NodePool;
 use crate::JobControl;
-use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
+use messages::{ClientMessage, KafkaWsMessage, ReadLengthPrefix, WriteLengthPrefix};
 use models::gridfs;
-use models::jobs::JobConfiguration;
 use models::jobs::PredictionType;
+use models::jobs::{Job, JobStatistics};
 use models::predictions::Prediction;
 use models::projects::{Project, Status};
 use models::users::User;
@@ -40,6 +40,7 @@ use utils::generate_ids;
 use utils::{Column, Columns};
 
 pub mod ml;
+pub mod queue;
 
 const PREDICTION_CHUNK_SIZE: usize = 10_000;
 
@@ -50,8 +51,8 @@ pub struct ClusterInfo {
     pub project_id: ObjectId,
     /// Columns in dataset
     pub columns: Columns,
-    /// Config
-    pub config: JobConfiguration,
+    /// The job that is currently running
+    pub job: Job,
     /// Validation results
     pub validation_ans: HashMap<(ModelID, String), String>,
     /// Test record IDs
@@ -77,6 +78,8 @@ pub struct WriteBackMemory {
     pub predictions: Arc<Mutex<ModelPredictions>>,
     /// HashMap of Errors
     pub errors: Arc<Mutex<ModelErrors>>,
+    /// Vector of computation times for each model
+    pub computation_time: Arc<Mutex<Vec<i64>>>,
 }
 
 impl WriteBackMemory {
@@ -100,6 +103,12 @@ impl WriteBackMemory {
         errors.insert(id, error);
     }
 
+    /// Function to write back computation time (secs)
+    pub fn write_time(&self, time: i64) {
+        let mut computation_time = self.computation_time.lock().unwrap();
+        computation_time.push(time);
+    }
+
     /// Gets cloned version of predictions
     pub fn get_predictions(&self) -> ModelPredictions {
         let predictions = self.predictions.lock().unwrap();
@@ -110,6 +119,16 @@ impl WriteBackMemory {
     pub fn get_errors(&self) -> ModelErrors {
         let errors = self.errors.lock().unwrap();
         errors.clone()
+    }
+
+    /// Gets cloned version of errors
+    pub fn get_average_job_time(&self) -> i64 {
+        let computation_time = self.computation_time.lock().unwrap();
+        if computation_time.len() > 0 {
+            computation_time.iter().sum::<i64>() as i64 / computation_time.len() as i64
+        } else {
+            0
+        }
     }
 }
 
@@ -132,12 +151,13 @@ impl ClusterControl {
     }
 
     /// Decrements the cluster counter
-    pub async fn decrement(&self) {
+    pub async fn decrement(&self) -> usize {
         let mut write_cc = self.counter.write().await;
         *write_cc -= 1;
         if *write_cc == 0 {
             self.notify.notify_one();
         }
+        *write_cc
     }
 }
 
@@ -187,12 +207,15 @@ pub async fn run(
         let jq_filter = job_control.job_queue.filter(&nodepool.active);
 
         if jq_filter.is_empty() {
+            log::trace!("No jobs can be completed, waiting on changes");
             job_control.notify.notified().await;
+            log::trace!("Some change has occurred, attempting to complete some jobs");
             continue;
         }
 
         for index in jq_filter {
-            let (project_id, msg, config) = job_control.job_queue.remove(index);
+            let (project_id, msg, job) = job_control.job_queue.remove(index);
+            let config = &job.config;
 
             let data = msg
                 .train
@@ -223,9 +246,7 @@ pub async fn run(
                         config
                     );
 
-                    job_control
-                        .job_queue
-                        .insert(index, (project_id, msg, config));
+                    job_control.job_queue.insert(index, (project_id, msg, job));
 
                     continue;
                 }
@@ -261,7 +282,7 @@ pub async fn run(
             let info = ClusterInfo {
                 project_id: project_id.clone(),
                 columns: columns.clone(),
-                config: config.clone(),
+                job: job.clone(),
                 validation_ans: validation_ans.clone(),
                 prediction_rids: prediction_rids.clone(),
                 node_computation_time: Duration::from_secs(
@@ -446,15 +467,18 @@ async fn run_cluster(
             let future = dcl_protocol(
                 np_clone,
                 database_clone,
-                model_id,
+                &model_id,
                 dcn_stream,
                 info_clone,
-                cc_clone,
+                cc_clone.clone(),
                 train_predict,
                 wbm_clone,
             );
 
-            timeout(wait, future).await.unwrap()
+            if timeout(wait, future).await.is_err() {
+                log::warn!("Model with id={} failed to respond in time", model_id);
+                cc_clone.decrement().await;
+            }
         });
     }
 
@@ -466,14 +490,14 @@ async fn run_cluster(
         ml::weight_predictions(&wbm.get_predictions(), &wbm.get_errors(), &info);
 
     // TODO: reimburse clients based on weights
-    log::info!("Model weights: {:?}", weights);
+    log::debug!("Model weights: {:?}", weights);
 
     for (model_id, weight) in &weights {
         let database_clone = Arc::clone(&database);
         reimburse(
             database_clone,
             &ObjectId::with_string(model_id).unwrap(),
-            info.config.cost,
+            info.job.config.cost,
             *weight,
         )
         .await?;
@@ -508,7 +532,23 @@ async fn run_cluster(
             log::error!("Failed to write predirections to the database: {}", error)
         });
 
+    // Write job statistics to database
+    let job_statistic = JobStatistics::new(info.job.id.clone(), wbm.get_average_job_time());
+    let document = mongodb::bson::ser::to_document(&job_statistic)?;
+    database
+        .collection("job_statistics")
+        .insert_one(document, None)
+        .await?;
+
     change_status(&database, &project_id, Status::Complete).await?;
+
+    // Mark the job as processed
+    info.job.mark_as_processed(&database).await?;
+
+    let message = KafkaWsMessage::JobCompleteMessage {
+        project_id: &project_id.to_string(),
+    };
+    message.produce(&database).await?;
 
     // Status has been updated to complete, so email the user
     if let Err(e) = email_user_on_project_finish(&database, &project_id).await {
@@ -522,15 +562,25 @@ async fn run_cluster(
     Ok(())
 }
 
+/// Decodes the incoming data and decompresses it.
+///
+/// Incoming data is expected to be compressed and then encoded with Base64, so this will simply
+/// reverse the process.
+fn decode_and_decompress(data: &str) -> Result<String> {
+    let decoded = base64::decode(data)?;
+    let decompressed = utils::compress::decompress_data(&decoded)?;
+    Ok(String::from_utf8(decompressed)?)
+}
+
 /// Function to execute DCL protocol
 pub async fn dcl_protocol(
     nodepool: Arc<NodePool>,
     database: Arc<Database>,
-    model_id: String,
+    model_id: &str,
     stream: Arc<RwLock<TcpStream>>,
     info: ClusterInfo,
     cluster_control: ClusterControl,
-    train_predict: (String, String),
+    (train, predict): (String, String),
     write_back: WriteBackMemory,
 ) -> Result<()> {
     log::debug!("Sending a job to node with id={}", model_id);
@@ -538,10 +588,12 @@ pub async fn dcl_protocol(
     let mut dcn_stream = stream.write().await;
 
     let mut buffer = [0_u8; 1024];
-    let (train, predict) = train_predict;
 
-    let dataset_message = ClientMessage::Dataset { train, predict };
+    // Compress the data beforehand
+    let dataset_message = ClientMessage::from_train_and_predict(&train, &predict);
 
+    // Start a timer to track execution time and send the data across
+    let start = Instant::now();
     dcn_stream.write(&dataset_message.as_bytes()).await.unwrap();
 
     // TODO: Propagate this error forward to the frontend so that it can say a node has failed
@@ -562,33 +614,59 @@ pub async fn dcl_protocol(
             }
         };
 
-    let raw_anonymised_predictions = match prediction_message {
-        ClientMessage::Predictions(s) => s,
+    // Stop the timer and record how long was spent processing
+    let processing_time_secs = (Instant::now() - start).as_secs();
+    log::trace!(
+        "model_id={} spent {:?} processing {} training bytes and {} predictions bytes",
+        model_id,
+        processing_time_secs,
+        train.len(),
+        predict.len()
+    );
+
+    // Ensure it is the right message and decode + decompress it
+    let anonymised_predictions = match prediction_message {
+        ClientMessage::Predictions(s) => decode_and_decompress(&s),
         _ => unreachable!(),
     };
-    let anonymised_predictions = raw_anonymised_predictions.trim();
 
-    if let Some((model_predictions, model_error)) =
-        deanonymise_dataset(&anonymised_predictions, &info.columns)
-            .and_then(|predictions| ml::evaluate_model(&model_id, &predictions, &info))
-    {
+    // Evaluate the model
+    let mut model_success = true;
+    let model_evaluation = anonymised_predictions.map(|preds| {
+        deanonymise_dataset(preds.trim(), &info.columns)
+            .and_then(|predictions| ml::evaluate_model(model_id, &predictions, &info))
+    });
+
+    // Check that we got valid predictions and they evaluated correctly
+    if let Ok(Some((model_predictions, model_error))) = model_evaluation {
         log::info!(
-            "Node with id={} produced {} bytes of predictions",
+            "Node with id={} produced {} rows of predictions",
             model_id,
-            anonymised_predictions.len()
+            model_predictions.len()
         );
-        write_back.write_error(model_id.clone(), Some(model_error));
-        write_back.write_predictions(model_id.clone(), model_predictions);
+
+        write_back.write_error(model_id.to_owned(), Some(model_error));
+        write_back.write_predictions(model_id.to_owned(), model_predictions);
+        write_back.write_time(processing_time_secs as i64);
     } else {
         log::warn!("Node with id={} failed to respond correctly", model_id);
-        write_back.write_error(model_id.clone(), None);
+        model_success = false;
+        write_back.write_error(model_id.to_owned(), None);
     }
 
-    increment_run_count(database, &model_id).await?;
-
+    update_model_statistics(&database, &model_id, processing_time_secs).await?;
     nodepool.end(&model_id).await?;
 
-    cluster_control.decrement().await;
+    let remaining_nodes = cluster_control.decrement().await;
+    let cluster_size = info.job.config.cluster_size as usize;
+    // Produce message
+    let message = KafkaWsMessage::ClientCompleteMessage {
+        project_id: &info.project_id.to_string(),
+        cluster_size,
+        model_complete_count: cluster_size - remaining_nodes,
+        success: model_success,
+    };
+    message.produce(&database).await?;
 
     Ok(())
 }
@@ -622,15 +700,32 @@ pub async fn write_predictions(
     Ok(())
 }
 
-/// Increments the run count for the given model in the database.
-pub async fn increment_run_count(database: Arc<Database>, model_id: &str) -> Result<()> {
+/// Updates the non-performance related statistics for the given model.
+///
+/// This increments the number of times it has been run and adds the amount of time it spent
+/// processing the last job.
+pub async fn update_model_statistics(
+    database: &Arc<Database>,
+    model_id: &str,
+    processing_time_secs: u64,
+) -> Result<()> {
     let models = database.collection("models");
     let object_id = ObjectId::with_string(model_id)?;
 
-    log::debug!("Incrementing the run count for model with id={}", model_id);
+    log::debug!(
+        "Incrementing run count for model with id={}, adding {} seconds of processing time",
+        model_id,
+        processing_time_secs
+    );
 
     let query = doc! {"_id": &object_id};
-    let update = doc! { "$inc": { "times_run": 1 } };
+    let update = doc! {
+        "$inc": {
+            "times_run": 1,
+            "processing_time_secs": processing_time_secs as i64
+        }
+    };
+
     models.update_one(query, update, None).await?;
 
     Ok(())

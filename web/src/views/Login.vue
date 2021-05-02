@@ -55,20 +55,17 @@
           </b-form>
         </b-card>
       </b-col>
-      
     </b-row>
     <b-row class="justify-content-center text-center">
       <b-alert v-model="failed" variant="danger" dismissible>
         Incorrect Username or Password
       </b-alert>
     </b-row>
-    <particles-bg  color="#cccccc" num=150 type="cobweb" :bg="true"/>
   </b-container>
 </template>
 
 <script>
 import IconLogo from "@/components/icons/IconLogo";
-import { ParticlesBg } from "particles-bg-vue";
 
 export default {
   data() {
@@ -83,7 +80,6 @@ export default {
   },
   components: {
     IconLogo,
-    ParticlesBg,
   },
   computed: {
     passwordType() {
@@ -99,30 +95,26 @@ export default {
         setTimeout(resolve, ms);
       });
     },
-    async onSubmit(e) {
+    async onSubmit() {
       this.submitted = true;
-      let response = await this.$http
-        .post("api/users/login", {
+
+      try {
+        let response = await this.$store.dispatch("login", {
           email: this.email,
           password: this.password,
-        })
-        .catch((error) => {
-          console.log(error.response.data.error);
         });
 
-      if (response) {
-        response = response.data;
-        if (response.token === "null") {
-          this.failed = true;
-        } else {
-          this.failed = false;
-          $cookies.set("token", response.token, { path: "/", sameSite: true });
-          this.$router.push("dashboard");
-        }
+        $cookies.set("token", response.data.token, {
+          path: "/",
+          sameSite: true,
+        });
+
+        this.$router.push("dashboard");
+      } catch (error) {
+        console.debug("Invalid details when logging in a user");
+        this.failed = true;
+        this.submitted = false;
       }
-      await this.sleep(1000);
-      this.failed = true;
-      this.submitted = false;
     },
   },
 };

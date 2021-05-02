@@ -14,20 +14,14 @@ use crate::predictions::Prediction;
 pub enum Status {
     Unfinished,
     Ready,
-    Processing,
+    Processing { model_success: i32, model_err: i32 },
     Complete,
     Read,
 }
 
 impl From<Status> for Bson {
     fn from(status: Status) -> Self {
-        Self::from(match status {
-            Status::Unfinished => "Unfinished",
-            Status::Ready => "Ready",
-            Status::Processing => "Processing",
-            Status::Complete => "Complete",
-            Status::Read => "Read",
-        })
+        bson::to_bson(&status).expect("Failed to convert the status to BSON")
     }
 }
 

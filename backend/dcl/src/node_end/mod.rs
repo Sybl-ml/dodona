@@ -22,7 +22,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Notify, RwLock};
 
-use messages::{ClientMessage, ReadLengthPrefix, WriteLengthPrefix};
+use messages::{ClientMessage, WriteLengthPrefix};
 use models::models::Status;
 use models::{job_performance::JobPerformance, jobs::JobConfiguration};
 
@@ -95,6 +95,8 @@ pub struct NodeInfo {
 impl NodeInfo {
     /// creates new [`NodeInfo`] instance
     pub fn new(performance: f64) -> Self {
+        log::trace!("Creating a new `NodeInfo` with performance={}", performance);
+
         Self {
             alive: true,
             using: false,
@@ -156,18 +158,25 @@ impl NodePool {
     pub async fn add(&self, node: Node, database: Arc<Database>) {
         let id = node.get_model_id().to_string();
 
-        let mut node_vec = self.nodes.write().await;
-        let mut info_vec = self.info.write().await;
+        let mut node_map = self.nodes.write().await;
+        let mut info_map = self.info.write().await;
 
         log::info!("Adding node to the pool with id={}", id);
 
-        node_vec.insert(id.clone(), node);
-        info_vec.insert(
+        if let Some(node_info) = info_map.get(&id) {
+            if !node_info.alive {
+                self.active.fetch_add(1, Ordering::SeqCst);
+            }
+        } else {
+            self.active.fetch_add(1, Ordering::SeqCst);
+        };
+
+        node_map.insert(id.clone(), node);
+        info_map.insert(
             id.clone(),
             NodeInfo::from_database(database, &id).await.unwrap(),
         );
 
-        self.active.fetch_add(1, Ordering::SeqCst);
         self.job_notify.notify_waiters();
     }
 
@@ -245,6 +254,7 @@ impl NodePool {
                         if info.performance > 0.5 {
                             better_nodes.push((id.clone(), info.performance));
                         }
+                        self.active.fetch_sub(1, Ordering::SeqCst);
 
                         continue;
                     }
@@ -260,14 +270,24 @@ impl NodePool {
             }
         }
 
+        // We don't need the lock past here, so drop it to prevent deadlocks
+        drop(info_write);
+
         // Checks if number of nodes that accepted the job is less than
         // the size of the cluster required.
         if cluster_size > accepted_job.len() {
             log::warn!(
-                "Only {} nodes accepted the job, required at least {}",
+                "Only {} node(s) accepted the job, required at least {}",
                 accepted_job.len(),
                 cluster_size
             );
+
+            // Reset all the nodes that accepted to not in use
+            for model_id in accepted_job.iter().map(|x| &x.0) {
+                self.end(&model_id)
+                    .await
+                    .expect("Failed to update the node status");
+            }
 
             return None;
         }
@@ -298,17 +318,18 @@ impl NodePool {
             }
         }
 
+        // Reset all the nodes that accepted to not in use
+        for model_id in accepted_job.iter().map(|x| &x.0) {
+            self.end(&model_id)
+                .await
+                .expect("Failed to update the node status");
+        }
+
         log::info!(
             "Successfully built a cluster with size={}, cluster_performance={}",
             cluster_size,
             cluster_performance
         );
-
-        self.active.fetch_sub(cluster.len(), Ordering::SeqCst);
-
-        for (model_id, _) in &accepted_job {
-            info_write.get_mut(model_id).unwrap().using = false;
-        }
 
         // output cluster
         match cluster.len() {
@@ -351,24 +372,39 @@ impl NodePool {
     pub async fn job_accepted(
         stream: &Arc<RwLock<TcpStream>>,
         config: &JobConfiguration,
-        key: &str,
+        model_id: &str,
     ) -> Result<bool> {
+        log::trace!("Sending config={:?} to model_id={}", config, model_id);
+
         let mut dcn_stream = stream.write().await;
 
         let mut buffer = [0_u8; 1024];
         let message = ClientMessage::from(config);
         dcn_stream.write(&message.as_bytes()).await?;
 
-        let config_response = ClientMessage::from_stream(&mut *dcn_stream, &mut buffer).await?;
+        let config_response = ClientMessage::read_until(&mut *dcn_stream, &mut buffer, |m| {
+            matches!(m, ClientMessage::ConfigResponse { .. })
+        })
+        .await;
+
+        log::trace!(
+            "model_id={} responded with config_response={:?}",
+            model_id,
+            config_response
+        );
 
         let accept = match config_response {
-            ClientMessage::ConfigResponse { accept } => accept,
+            Ok(ClientMessage::ConfigResponse { accept }) => accept,
+            Err(e) => {
+                log::warn!("Failed to read a `ConfigResponse` from the stream: {}", e);
+                false
+            }
             _ => unreachable!(),
         };
 
         log::debug!(
-            "Node with id={} responsed with '{}' to the job config",
-            key,
+            "Node with model_id={} responsed with '{}' to the job config",
+            model_id,
             accept
         );
 
@@ -408,7 +444,7 @@ impl NodePool {
         if !node_info.alive && status {
             self.active.fetch_add(1, Ordering::SeqCst);
             self.job_notify.notify_waiters();
-        } else if node_info.alive && !status {
+        } else if node_info.alive && !status && !node_info.using {
             self.active.fetch_sub(1, Ordering::SeqCst);
         }
 
@@ -470,11 +506,11 @@ pub async fn run(nodepool: Arc<NodePool>, database: Arc<Database>, port: u16) ->
 
         log::info!("Received a node connection from: {}", inbound.peer_addr()?);
 
-        tokio::spawn(async move {
-            process_connection(inbound, db_clone, sp_clone)
-                .await
-                .unwrap();
-        });
+        let fut = process_connection(inbound, db_clone, sp_clone);
+
+        if let Err(e) = tokio::spawn(async move { fut.await }).await? {
+            log::error!("Error processing connection: {:?}", e);
+        }
     }
 
     Ok(())

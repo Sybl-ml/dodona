@@ -14,17 +14,14 @@ impl RawMessage {
 
     /// Converts the inner content to bytes.
     pub fn as_bytes(&self) -> Vec<u8> {
-        log::info!("Writing a message");
-
         // Convert the message to bytes
         let bytes = self.content.as_bytes().to_vec();
 
         // Prepend with the length
         let length = bytes.len() as u32;
-        log::debug!("Sending message length prefix: {}", length);
+        log::trace!("Creating bytes for a message with length={}", length);
 
         let mut message = length.to_be_bytes().to_vec();
-        log::debug!("Message prefix: {:?}", message);
         message.extend(bytes);
 
         message

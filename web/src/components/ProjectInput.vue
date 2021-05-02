@@ -1,21 +1,18 @@
 <template>
   <b-container fluid>
-    <!-- <b-row>
+    <b-row>
       <h4>{{ this.datasetName }}</h4>
-    </b-row> -->
+    </b-row>
     <b-row>
       <b-col>
         <b-tabs class="mb-3" pills>
-          <b-tab title="Select Datset:" disabled></b-tab>
+          <b-tab title="Select Dataset:" disabled></b-tab>
           <b-tab title="Training" active lazy>
-            <br>
-            <pagination-table
-              :projectId="projectId"
-              :dataset_type="'train'"
-            />
+            <br />
+            <pagination-table :projectId="projectId" :dataset_type="'train'" />
           </b-tab>
-          <b-tab title="Prediction" active lazy>
-            <br>
+          <b-tab title="Prediction" lazy>
+            <br />
             <pagination-table
               :projectId="projectId"
               :dataset_type="'predict'"
@@ -27,15 +24,13 @@
   </b-container>
 </template>
 
-
 <script>
-import VuetableFieldHandle from "vuetable-2/src/components/VuetableFieldHandle.vue";
 import PaginationTable from "./PaginationTable.vue";
 
 export default {
   name: "ProjectInput",
   components: {
-    PaginationTable
+    PaginationTable,
   },
   props: {
     projectId: String,

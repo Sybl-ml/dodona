@@ -1,7 +1,11 @@
 //! Contains the builder functions used to generate message for DCL-DCN protcol
 
+use anyhow::{Error, Result};
 use chrono::{Duration, Utc};
+use std::time::Instant;
+use tokio::net::TcpStream;
 
+use crate::ReadLengthPrefix;
 use models::jobs::{JobConfiguration, PredictionType};
 
 /// Different messages to be passed between DCL and DCN
@@ -66,6 +70,47 @@ pub enum ClientMessage {
     },
     /// Prediction data from a node after computation
     Predictions(String),
+}
+
+impl ClientMessage {
+    /// Compresses the data and uses Base64 encoding to form a [`ClientMessage`].
+    pub fn from_train_and_predict(train: &str, predict: &str) -> Self {
+        // Compress the data
+        let training_bytes = utils::compress::compress_bytes(train.as_bytes())
+            .expect("Failed to compress the training data");
+        let prediction_bytes = utils::compress::compress_bytes(predict.as_bytes())
+            .expect("Failed to compress the prediction data");
+
+        // Perform Base64 encoding
+        let encoded_training = base64::encode(&training_bytes);
+        let encoded_prediction = base64::encode(&prediction_bytes);
+
+        Self::Dataset {
+            train: encoded_training,
+            predict: encoded_prediction,
+        }
+    }
+
+    /// Reads from the socket until given predicate is true or until
+    /// the timeout has been reached. This will return the client message
+    /// if the predicate is passed, or it will propate an error back up.
+    pub async fn read_until(
+        stream: &mut TcpStream,
+        buffer: &mut [u8],
+        predicate: fn(&ClientMessage) -> bool,
+    ) -> Result<Self> {
+        let wait = std::time::Duration::from_millis(2000);
+        let now = Instant::now();
+
+        while wait >= now.elapsed() {
+            let config_response: ClientMessage =
+                ClientMessage::from_stream(&mut *stream, buffer).await?;
+            if predicate(&config_response) {
+                return Ok(config_response);
+            }
+        }
+        Err(Error::msg("Predicate not satisfied within timeout"))
+    }
 }
 
 impl From<&JobConfiguration> for ClientMessage {

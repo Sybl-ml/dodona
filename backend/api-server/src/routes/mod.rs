@@ -14,6 +14,7 @@ pub mod clients;
 pub mod payloads;
 pub mod projects;
 pub mod users;
+pub mod websockets;
 
 /// Builds a [`Response`] with a 200 OK and JSON payload.
 ///
@@ -63,6 +64,6 @@ pub async fn check_user_owns_project(
     if project.user_id == *user_id {
         Ok(object_id)
     } else {
-        Err(ServerError::Unauthorized)
+        Err(ServerError::Forbidden)
     }
 }

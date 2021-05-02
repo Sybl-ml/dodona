@@ -5,44 +5,53 @@
     </b-navbar-brand>
     <b-navbar-toggle target="landingCollapse"> </b-navbar-toggle>
     <b-collapse is-nav id="landingCollapse" v-if="atDashboard">
-    <b-navbar-nav>
-      <b-nav-item disabled> {{ time }} </b-nav-item>
-    </b-navbar-nav>
+      <b-navbar-nav>
+        <b-nav-item disabled> {{ time }} </b-nav-item>
+      </b-navbar-nav>
     </b-collapse>
 
     <b-collapse is-nav id="landingCollapse" v-else-if="atLanding">
       <b-navbar-nav>
-        <b-nav-item>Product</b-nav-item>
-        <b-nav-item>Meet the Team</b-nav-item>
-        <b-nav-item>Pricing</b-nav-item>
-        <b-nav-item>Guides</b-nav-item>
+        <b-nav-item to="/pricing">Pricing</b-nav-item>
+        <b-nav-item
+          href="https://www.notion.so/Guides-f5df7a1b451242cd9874a04495f0dfd3"
+          target="_blank"
+          >Guides</b-nav-item
+        >
       </b-navbar-nav>
     </b-collapse>
     <b-collapse is-nav id="landingCollapse" v-if="loggedIn">
-    <b-navbar-nav class="ml-auto" v-if="loggedIn">
-      <b-nav-item disabled>{{ credits }} Credits</b-nav-item>
-      <b-nav-item-dropdown right>
-        <template #button-content>
-          <b-avatar
-            size="1.75em"
-            :src="'data:image/png;base64,' + avatar"
-          ></b-avatar>
-          {{ name }}
-        </template>
-        <b-dropdown-item disabled>{{ email }}</b-dropdown-item>
-        <b-dropdown-divider />
-        <b-dropdown-item to="/dashboard">Dashboard</b-dropdown-item>
-        <b-dropdown-item v-if="client" to="/nodes">Models</b-dropdown-item>
-        <b-dropdown-item v-else to="/client/confirm">
-          Register as Client
-        </b-dropdown-item>
-        <b-dropdown-divider />
-        <b-dropdown-item to="/settings">My Profile</b-dropdown-item>
-        <b-dropdown-item to="#">Help</b-dropdown-item>
-        <b-dropdown-divider />
-        <b-dropdown-item @click="signout">Sign Out</b-dropdown-item>
-      </b-nav-item-dropdown>
-    </b-navbar-nav>
+      <b-navbar-nav class="ml-auto" v-if="loggedIn">
+        <b-nav-item disabled>{{ user_data.credits }} Credits</b-nav-item>
+        <b-nav-item-dropdown right>
+          <template #button-content>
+            <b-avatar
+              v-if="user_data.avatar"
+              size="1.75em"
+              :src="'data:image/png;base64,' + user_data.avatar"
+            ></b-avatar>
+            {{ user_data.name }}
+          </template>
+          <b-dropdown-item disabled>{{ user_data.email }}</b-dropdown-item>
+          <b-dropdown-divider />
+          <b-dropdown-item to="/dashboard">Dashboard</b-dropdown-item>
+          <b-dropdown-item v-if="user_data.client" to="/models"
+            >Models</b-dropdown-item
+          >
+          <b-dropdown-item v-else to="/client/confirm">
+            Register as Client
+          </b-dropdown-item>
+          <b-dropdown-divider />
+          <b-dropdown-item to="/settings">My Profile</b-dropdown-item>
+          <b-dropdown-item
+            href="https://www.notion.so/Guides-f5df7a1b451242cd9874a04495f0dfd3"
+            target="_blank"
+            >Guides</b-dropdown-item
+          >
+          <b-dropdown-divider />
+          <b-dropdown-item @click="signout">Sign Out</b-dropdown-item>
+        </b-nav-item-dropdown>
+      </b-navbar-nav>
     </b-collapse>
 
     <b-collapse is-nav id="landingCollapse" v-else>
@@ -75,66 +84,42 @@ export default {
   },
   data() {
     return {
-      name: "",
-      email: "",
-      client: false,
       time: "",
-      credits: 0,
-      loggedIn: false,
       logoRoute: "/",
       atDashboard: false,
       atLanding: false,
-      avatar: "",
     };
   },
+  computed: {
+    user_data() {
+      return this.$store.state.user_data.user_data;
+    },
+    loggedIn() {
+      return this.$store.getters.isAuthenticated;
+    },
+  },
   methods: {
-    signout: function () {
-      $cookies.remove("token");
-      this.$router.push("/login");
+    signout() {
+      this.$store.dispatch("logout");
     },
-    getUserData: async function () {
-      let user_id = $cookies.get("token");
-      if (!user_id) {
-        return;
-      }
-      try {
-        let user_data = await this.$http.get(`api/users`);
-        this.name = user_data.data.first_name + " " + user_data.data.last_name;
-        this.email = user_data.data.email;
-        this.client = user_data.data.client;
-        this.credits = user_data.data.credits;
-      } catch (err) {
-        console.log(err);
-      }
-    },
-    updateHeader: function () {
-      let user_id = $cookies.get("token");
 
-      this.getUserData();
+    updateHeader() {
+      let user_id = $cookies.get("token");
 
       let pageName = this.$route.name;
 
-      this.loggedIn = user_id ? true : false;
       this.logoRoute = user_id ? "/dashboard" : "/";
 
-      this.atLanding = pageName == "Welcome" ? true : false;
+      this.atLanding = pageName == "Welcome" || pageName == "Pricing";
+
       this.atDashboard =
         pageName === "Dashboard" ||
         pageName === "Settings" ||
         pageName === "ProjectView" ||
         pageName === "Nodes";
     },
-    async getAvatar() {
-      if (!atLanding) {
-        let response = await this.$http.get(`api/users/avatar`);
-        console.log(response);
-        this.avatar = response.data.img;
-      }
-    },
   },
   async mounted() {
-    this.getUserData();
-    this.getAvatar();
     setInterval(() => {
       this.time = new Date().toLocaleString("en-GB", {
         dateStyle: "long",
@@ -143,13 +128,14 @@ export default {
       this.time = this.time.toString().replace(" at", ",");
     }, 1000);
   },
-  created() {
-    this.updateHeader();
-  },
+
   watch: {
-    $route: function () {
+    $route: function() {
       this.updateHeader();
     },
+  },
+  async created() {
+    this.updateHeader();
   },
 };
 </script>

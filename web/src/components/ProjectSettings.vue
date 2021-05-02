@@ -4,7 +4,7 @@
     <b-form-group label="Project Name" id="name" class="font-weight-bold">
       <b-row no-gutters class="mb-2">
         <b-col lg="3" class="pr-2"
-          ><b-form-input id="name" v-model="newName"></b-form-input
+          ><b-form-input id="name" v-model="new_name"></b-form-input
         ></b-col>
         <b-col
           ><b-button variant="primary" @click="updateName"
@@ -21,7 +21,7 @@
       <b-form-textarea
         id="desc"
         label="Change Project Description"
-        v-model="newDescription"
+        v-model="new_description"
         class="mb-2"
       />
       <b-button variant="primary" @click="updateDescription"
@@ -37,7 +37,7 @@
             tag-variant="success"
             tag-pills
             remove-on-delete
-            v-model="newTags"
+            v-model="new_tags"
           ></b-form-tags
         ></b-col>
         <b-col
@@ -94,9 +94,9 @@ export default {
   name: "ProjectSettings",
   data() {
     return {
-      newName: this.name,
-      newDescription: this.description,
-      newTags: this.tags,
+      new_name: this.name,
+      new_description: this.description,
+      new_tags: this.tags,
     };
   },
   props: {
@@ -107,66 +107,35 @@ export default {
   },
   methods: {
     async updateName() {
-      this.$emit("update:name", this.newName);
-
-      try {
-        let project_response = await this.$http.patch(
-          `api/projects/${this.projectId}`,
-          {
-            changes: {
-              name: this.newName,
-            },
-          }
-        );
-      } catch (err) {
-        console.log(err);
-      }
+      let payload = {
+        field: "name",
+        new_data: this.new_name,
+        project_id: this.projectId,
+      };
+      this.$store.dispatch("updateProject", payload);
     },
     async updateDescription() {
-      this.$emit("update:description", this.newDescription);
-
-      try {
-        let project_response = await this.$http.patch(
-          `api/projects/${this.projectId}`,
-          {
-            changes: {
-              description: this.newDescription,
-            },
-          }
-        );
-      } catch (err) {
-        console.log(err);
-      }
+      let payload = {
+        field: "description",
+        new_data: this.new_description,
+        project_id: this.projectId,
+      };
+      this.$store.dispatch("updateProject", payload);
     },
     async updateTags() {
-      this.$emit("update:tags", this.newTags);
-
-      try {
-        let project_response = await this.$http.patch(
-          `api/projects/${this.projectId}`,
-          {
-            changes: {
-              tags: this.newTags,
-            },
-          }
-        );
-      } catch (err) {
-        console.log(err);
-      }
+      let payload = {
+        field: "tags",
+        new_data: this.new_tags,
+        project_id: this.projectId,
+      };
+      this.$store.dispatch("updateProject", payload);
     },
     async deleteProject() {
-      this.$emit("delete:project", this.projectId);
-
-      try {
-        let project_response = await this.$http.delete(
-          `api/projects/${this.projectId}`
-        );
-      } catch (err) {
-        console.log(err);
-      }
+      this.$store.dispatch("deleteProject", {
+        projectId: this.projectId,
+      });
 
       this.$refs["deleteCheck"].hide();
-      this.$router.replace("/dashboard");
     },
   },
 };

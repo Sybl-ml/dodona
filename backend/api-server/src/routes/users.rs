@@ -2,11 +2,12 @@
 
 use actix_web::web;
 use mongodb::bson::{
-    de::from_document, doc, document::Document, ser::to_document, spec::BinarySubtype, Binary,
+    self, de::from_document, doc, document::Document, ser::to_document, spec::BinarySubtype, Binary,
 };
 use mongodb::options::UpdateOptions;
 use tokio_stream::StreamExt;
 
+use models::projects::Project;
 use models::users::User;
 
 use crate::{
@@ -24,7 +25,10 @@ pub async fn get(claims: auth::Claims, state: web::Data<State>) -> ServerRespons
     let users = state.database.collection("users");
 
     let filter: Document = doc! { "_id": claims.id };
-    let document = users.find_one(filter, None).await?;
+    let document = users
+        .find_one(filter, None)
+        .await?
+        .ok_or(ServerError::NotFound)?;
 
     response_from_json(document)
 }
@@ -56,6 +60,7 @@ pub async fn new(
     payload: web::Json<payloads::RegistrationOptions>,
 ) -> ServerResponse {
     let users = state.database.collection("users");
+    let projects = state.database.collection("projects");
 
     let email = crypto::clean(&payload.email);
     let first_name = crypto::clean(&payload.first_name);
@@ -84,6 +89,21 @@ pub async fn new(
     let user_id = upserted.as_object_id().ok_or(ServerError::Unknown)?;
 
     log::debug!("Created the user with id={}", user_id);
+
+    // Create a sample project for the user
+    let project = Project::new(
+        "Tutorial",
+        "Example Project to show Sybl functionality. 
+        Upload a dataset to see the power of Sybl!",
+        vec![
+            bson::Bson::String(String::from("Tutorial")),
+            bson::Bson::String(String::from("New User")),
+        ],
+        user_id.clone(),
+    );
+
+    let document = to_document(&project)?;
+    projects.insert_one(document, None).await?;
 
     let jwt = auth::Claims::create_token(user_id.clone())?;
 
