@@ -8,7 +8,7 @@ The backend is written in [`Rust`](https://www.rust-lang.org) and thus requires
 a Rust compiler to build. You can download the toolchain from
 [here](https://www.rust-lang.org/tools/install).
 
-Additionally, the backend uses [`MongoDB`](https://www.mongodb.com/) as a
+Additionally, the backend uses [`PostgreSQL`](https://www.postgresql.org/) as a
 persistent datastore and [`Apache Kafka`](https://kafka.apache.org/) for
 messaging, so these must be installed locally as well.
 
