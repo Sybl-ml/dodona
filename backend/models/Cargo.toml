@@ -19,7 +19,7 @@ bytes = "1.0.1"
 log = "0.4.14"
 
 [dev-dependencies]
-tokio = { version = "1.4.0", features = ["sync", "parking_lot" ] }
+tokio = { version = "1.16.1", features = ["sync", "parking_lot" ] }
 
 [dependencies.chrono]
 version = "0.4.19"
